@@ -1,16 +1,16 @@
 import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
 import { sesion } from "../core/sesion.js"
-import { obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { abrirModal, cerrarModal } from "../ui/modal.js"
-import { mostrarNotificacion } from "../ui/notificaciones.js"
+import { cacheCapa } from "../core/cache.js"
+import { obtenerCuentas, obtenerPreferencias, actualizarPreferencias, actualizarCuenta } from "../../firebase/firestore.js"
+import { abrirModal, cerrarModal } from "./modal.js"
+import { mostrarNotificacion } from "./notificaciones.js"
 import { VERSION } from "../../constants/version.js"
 import { TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
-import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, actualizarTipoCambioAuto, guardarDivisaPrincipal, guardarTipoCambio } from "../services/DivisaServicio.js"
+import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, formatearMontoConDivisa, actualizarTipoCambioAuto, guardarDivisaPrincipal, guardarTipoCambio } from "../services/DivisaServicio.js"
 import { aplicarTema, setTemaLocal } from "../core/tema.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
-import { accionExportar } from "../ui/exportar.js"
-import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
+import { accionExportar } from "./exportar.js"
+import { skeletonMarkup, skeletonText } from "./skeletons.js"
 
 let uid = null
 let hayCambios = false
@@ -40,29 +40,45 @@ window.addEventListener("tema-cambiado", (event) => {
 })
 
 // ============================================
-// RENDER
+// SECCIONES
 // ============================================
 
-export function render() {
+const SECCIONES_CONFIGURACION = [
+    { id: "cuenta", label: "Cuenta", icono: "circle-user" },
+    { id: "apariencia", label: "Apariencia", icono: "palette" },
+    { id: "moneda", label: "Moneda", icono: "coins" },
+    { id: "seguridad", label: "Seguridad", icono: "shield" },
+    { id: "accesibilidad", label: "Accesibilidad", icono: "accessibility" },
+    { id: "datos", label: "Datos", icono: "database" }
+]
+
+// ============================================
+// RENDER
+// ============================================
+// La configuración ya no es una página: es una ventana grande (modal-xl)
+// que se abre sobre cualquier ruta. El markup se inyecta en el modal y se
+// conecta por id, igual que antes dentro de #app-content.
+
+function plantillaConfiguracion() {
     return `
-        ${envolverSidebar(`
-            <section id="sidebar">
-            <button class="glass act" data-section="cuenta">${icono("circle-user", 18)}<span>Cuenta</span></button>
-                <button class="glass" data-section="apariencia">${icono("palette", 18)}<span>Apariencia</span></button>
-                <button class="glass" data-section="moneda">${icono("coins", 18)}<span>Moneda</span></button>
-                <button class="glass" data-section="seguridad">${icono("shield", 18)}<span>Seguridad</span></button>
-                <button class="glass" data-section="accesibilidad">${icono("accessibility", 18)}<span>Accesibilidad</span></button>
-                <button class="glass" data-section="datos">${icono("database", 18)}<span>Datos</span></button>
-            </section>
-        `)}
-        <section id="panel" class="glass" aria-busy="true">
+        <div class="config-modal" aria-busy="true">
             <div id="configuracion-cargando">
                 ${skeletonMarkup({ variant: "settings", rows: 6 })}
             </div>
             <div id="configuracion-contenido" class="configuracion-cargando" hidden>
+                <div class="config-layout">
+                <nav class="config-nav" aria-label="Secciones de configuración">
+                    ${SECCIONES_CONFIGURACION.map((seccion, indice) => `
+                        <button class="glass${indice === 0 ? " act" : ""}" type="button" data-section="${seccion.id}">
+                            ${icono(seccion.icono, 18)}<span>${seccion.label}</span>
+                        </button>
+                    `).join("")}
+                </nav>
+                <div class="config-body">
 
             <!-- APARIENCIA -->
             <div class="panel-section hidden-section" id="section-apariencia">
+                <h2>Apariencia</h2>
 
                 <div class="config-group">
                     <span class="config-label">Tema</span>
@@ -193,6 +209,7 @@ export function render() {
 
             <!-- MONEDA -->
             <div class="panel-section hidden-section" id="section-moneda">
+                <h2>Moneda</h2>
 
                 <div class="config-group">
                     <span class="config-label">Divisa principal</span>
@@ -255,6 +272,7 @@ export function render() {
 
             <!-- CUENTA -->
             <div class="panel-section" id="section-cuenta">
+                <h2>Cuenta</h2>
 
                 <div class="config-group">
                     <span class="config-label">Usuario</span>
@@ -282,6 +300,7 @@ export function render() {
 
             <!-- SEGURIDAD -->
             <div class="panel-section hidden-section" id="section-seguridad">
+                <h2>Seguridad</h2>
 
                 <div class="config-group">
                     <span class="config-label">Cerrar sesión por inactividad</span>
@@ -326,6 +345,21 @@ export function render() {
 
             <!-- ACCESIBILIDAD -->
             <div class="panel-section hidden-section" id="section-accesibilidad">
+                <h2>Accesibilidad</h2>
+
+                <div class="config-group">
+                    <span class="config-label">Configuración como</span>
+                    <div class="toggle-group" id="toggle-config-modo">
+                        <span class="toggle-option" data-config-modo="pagina">Página</span>
+                        <span class="toggle-option active" data-config-modo="panel">Panel</span>
+                    </div>
+                    <span class="config-hint">
+                        Panel: se abre como ventana grande sobre la página en la que
+                        estás, sin cambiar de ruta. Página: ocupa la pantalla completa
+                        con su propia ruta <strong>/configuracion</strong> y el botón
+                        Guardar en la barra inferior.
+                    </span>
+                </div>
 
                 <div class="config-group">
                     <span class="config-label">Modales persistentes</span>
@@ -414,6 +448,7 @@ export function render() {
 
             <!-- DATOS -->
             <div class="panel-section hidden-section" id="section-datos">
+                <h2>Datos</h2>
                 <div class="config-group">
                     <span class="config-label">Exportar respaldo</span>
                     <button class="glass-btn" id="export-dvid">Exportar .dvid</button>
@@ -424,41 +459,150 @@ export function render() {
                     <button class="glass-btn" id="import-dvid">Importar .dvid</button>
                     <span class="config-hint">Solo archivos .dvid generados por escinco</span>
                 </div>
+                <div class="config-group">
+                    <span class="config-label">Cuentas archivadas</span>
+                    <button class="glass-btn" id="restore-cuentas">Restaurar cuentas archivadas</button>
+                    <span class="config-hint" id="restore-cuentas-hint">
+                        Ocultas, no borradas. Sus movimientos y saldos se conservan
+                        tal cual y vuelven a aparecer al restaurarlas.
+                    </span>
+                </div>
                 <div class="config-group danger-zone">
                     <span class="config-label danger">Eliminar datos</span>
                     <button class="glass-btn danger" id="delete-data">Eliminar todos los datos</button>
                     <span class="config-hint">Esta acción no se puede deshacer</span>
                 </div>
             </div>
-
-            <!-- FOOTER -->
-            <div class="panel-footer">
-                <span class="footer-brand">${VERSION.nombre}</span>
-                <span class="footer-version">v${VERSION.numero}</span>
-                <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
+                </div>
+                </div>
+                <footer class="panel-footer">
+                    <span class="footer-brand">${VERSION.nombre}</span>
+                    <span class="footer-version">v${VERSION.numero}</span>
+                    <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
+                </footer>
             </div>
-            </div>
-        </section>
+        </div>
     `
+}
+
+// ============================================
+// APERTURA: PANEL (VENTANA) O PÁGINA
+// ============================================
+// Hay dos formas de mostrar exactamente la misma pantalla, elegidas en
+// Accesibilidad › "Configuración como":
+//
+// · Panel  → abrirConfiguracion(): una ventana modal-xl sobre la ruta actual.
+//            El Guardar es el botón de confirmar del modal y el aviso de
+//            cambios sin guardar salta al cerrarlo.
+// · Página → render() + init(): el router la carga en #app-content como una
+//            ruta más. El Guardar vive en la lastbar y el aviso salta al
+//            cambiar de pestaña.
+//
+// Ambas comparten el mismo markup, los mismos ids y el mismo cableado: solo
+// cambia quién pone el Guardar y dónde se avisa de los cambios pendientes.
+
+let modalConfiguracion = null
+let modoActual = "panel"
+
+/**
+ * Abre la configuración en una ventana grande. Es idempotente: si ya está
+ * abierta, no se duplica.
+ */
+export function abrirConfiguracion() {
+    if (document.getElementById("configuracion-contenido")) return null
+    if (!sesion.uid) return null
+
+    uid = sesion.uid
+    hayCambios = false
+    temaPendiente = false
+    lastbarPendiente = false
+    nombrePendiente = null
+    modoActual = "panel"
+    console.log("[INFO] Configuración abierta como panel para UID:", uid)
+
+    modalConfiguracion = abrirModal({
+        titulo: "Configuración",
+        variante: "xl",
+        contenido: plantillaConfiguracion(),
+        confirmText: "Guardar",
+        cancelText: "Cerrar",
+        onConfirm: async () => {
+            if (!hayCambios) return true
+            await guardarPreferencias()
+            return true
+        },
+        onCancel: () => {
+            // El modal se cierra igual, pero si había cambios se ofrece
+            // guardarlos desde la notificación (el DOM ya no existe para
+            // releerlo más tarde). Si ya se descartó una vez, no se repite
+            // hasta que el usuario vuelva a tocar algo.
+            if (!hayCambios || avisoDescartado) return
+            const preferenciasPendientes = construirPreferencias()
+            mostrarNotificacion("warning", "Hay cambios sin guardar en la configuración", 0, [
+                {
+                    texto: "Guardar",
+                    primaria: true,
+                    alClick: () => aplicarPreferencias(preferenciasPendientes)
+                },
+                {
+                    texto: "Descartar",
+                    clase: "cancel",
+                    alClick: () => { avisoDescartado = true }
+                }
+            ], () => { avisoDescartado = true })
+        }
+    })
+
+    iniciarConfiguracion()
+    return modalConfiguracion
+}
+
+// ============================================
+// MODO PÁGINA (lo que espera el router)
+// ============================================
+// El router llama a render() para pintar el HTML y luego a init(). Se apoya
+// en la misma plantilla y el mismo iniciarConfiguracion() que el panel.
+
+export function render() {
+    return `<div class="config-pagina">${plantillaConfiguracion()}</div>`
+}
+
+export async function init() {
+    if (!sesion.uid) return
+    uid = sesion.uid
+    hayCambios = false
+    temaPendiente = false
+    lastbarPendiente = false
+    nombrePendiente = null
+    modoActual = "pagina"
+    await iniciarConfiguracion()
+}
+
+// Botón "Guardar" de la lastbar (solo en modo página).
+export function guardarDesdePagina() {
+    if (hayCambios) guardarPreferencias()
 }
 
 // ============================================
 // INIT
 // ============================================
 
-export async function init() {
-    uid = sesion.uid
-    console.log("[INFO] Configuración iniciado para UID:", uid)
+async function iniciarConfiguracion() {
+    try {
+        await cargarPreferencias()
+    } catch (error) {
+        console.error("Error al iniciar la configuración:", error)
+    }
 
-    await cargarPreferencias()
     document.getElementById("configuracion-cargando")?.remove()
     document.getElementById("configuracion-contenido")?.removeAttribute("hidden")
-    document.getElementById("panel")?.removeAttribute("aria-busy")
+    document.querySelector(".config-modal")?.removeAttribute("aria-busy")
 
     configurarSidebar()
     configurarTema()
     configurarCuenta()
     configurarBotones()
+    configurarModoConfiguracion()
     configurarLastbar()
     configurarDetectorCambios()
     configurarTipoCambio()
@@ -466,6 +610,7 @@ export async function init() {
     configurarLateralidadCuenta()
     configurarPeriodoEvolucion()
     configurarResaltarPatrimonio()
+    refrescarContadorArchivadas()
 }
 
 // ============================================
@@ -473,13 +618,13 @@ export async function init() {
 // ============================================
 
 function configurarSidebar() {
-    const botones = document.querySelectorAll("#sidebar button")
+    const botones = document.querySelectorAll(".config-nav button")
     botones.forEach(btn => {
         btn.addEventListener("click", () => {
             botones.forEach(b => b.classList.remove("act"))
             btn.classList.add("act")
 
-            document.querySelectorAll(".panel-section").forEach(s => {
+            document.querySelectorAll(".config-body .panel-section").forEach(s => {
                 s.classList.add("hidden-section")
             })
 
@@ -777,10 +922,14 @@ async function cargarPreferencias() {
         // Páginas: los guardados del servidor tienen prioridad; si no hay,
         // se usan los valores por defecto de la sesión (cuentas nuevas).
         const paginas = prefs?.paginas || sesion.getPaginasVisibles() || {}
-        document.getElementById("toggle-dashboard").checked = paginas.dashboard !== false
-        document.getElementById("toggle-movimientos").checked = paginas.movimientos !== false
-        document.getElementById("toggle-inversiones").checked = paginas.inversiones !== false
-        document.getElementById("toggle-trading").checked = paginas.trading !== false
+        const marcarPagina = (id, valor) => {
+            const el = document.getElementById(id)
+            if (el) el.checked = valor !== false
+        }
+        marcarPagina("toggle-dashboard", paginas.dashboard)
+        marcarPagina("toggle-movimientos", paginas.movimientos)
+        marcarPagina("toggle-inversiones", paginas.inversiones)
+        marcarPagina("toggle-trading", paginas.trading)
 
         // Seguridad
         const seg = prefs?.seg || sesion.getPreferencias().seg || {}
@@ -795,6 +944,10 @@ async function cargarPreferencias() {
 
         // Accesibilidad
         const acc = prefs?.accesibilidad || {}
+        const modoConfig = acc.configComoPagina === true ? "pagina" : "panel"
+        document.querySelectorAll("#toggle-config-modo .toggle-option").forEach(opcion => {
+            opcion.classList.toggle("active", opcion.dataset.configModo === modoConfig)
+        })
         const modalesPersistentes = document.getElementById("acc-modales-persistentes")
         if (modalesPersistentes) {
             modalesPersistentes.checked = acc.modalesPersistentes === true
@@ -1137,27 +1290,21 @@ async function actualizarTipoCambioAutomatico() {
 }
 
 // ============================================
-// LASTRAR · ACCIONES EXPORTADAS (delegación en lastbar.js)
+// AVISO DE CAMBIOS SIN GUARDAR
 // ============================================
+// El aviso depende de cómo se esté viendo la configuración:
+//
+// · Panel → no hay navegación que abandonar; salta al cerrar la ventana
+//   (onCancel de abrirConfiguracion).
+// · Página → salta al cambiar de pestaña (router → "pagina-cambiando"), con
+//   el snapshot de las preferencias tomado ANTES de que el router desmonte
+//   la página, porque después el DOM ya no existe.
+//
+// La navegación nunca se bloquea. Si el usuario descarta el aviso, no se
+// vuelve a mostrar hasta que vuelva a tocar algún control o guarde.
 
-export function guardarDesdeLastbar() {
-    if (hayCambios) {
-        guardarPreferencias()
-    }
-}
-
-// ============================================
-// AVISO DE CAMBIOS SIN GUARDAR AL NAVEGAR
-// ============================================
-// Al cambiar de pestaña con cambios sin guardar (router → "pagina-cambiando")
-// aparece una notificación persistente con Aceptar (guarda el snapshot) y
-// Cancelar (descarta el aviso sin guardar). Se cierra también con la X o
-// swipe (tampoco guarda). La navegación nunca se bloquea.
-// Si el usuario descarta el aviso (Cancelar/X/swipe), NO se vuelve a mostrar:
-// solo reaparece si vuelve a tocar algún control de la página o guarda.
-
-let avisoCambiosActivo = false
 let avisoDescartado = false
+let avisoCambiosActivo = false
 
 // El usuario volvió a tocar un control → el aviso descartado se rehabilita.
 function marcarCambioNuevo() {
@@ -1165,13 +1312,11 @@ function marcarCambioNuevo() {
 }
 
 document.addEventListener("pagina-cambiando", (event) => {
-    const desde = event.detail?.desde
-    if (desde !== "configuracion") return
+    if (modoActual !== "pagina") return
+    if (event.detail?.desde !== "configuracion") return
     if (!hayCambios || avisoDescartado || avisoCambiosActivo) return
 
-    // Snapshot de las preferencias ANTES de que el router desmonte la página
     const preferenciasPendientes = construirPreferencias()
-
     avisoCambiosActivo = true
 
     mostrarNotificacion("warning", "¿Guardar cambios?", 0, [
@@ -1194,14 +1339,23 @@ document.addEventListener("pagina-cambiando", (event) => {
 // ============================================
 // ESTADO DEL BOTÓN GUARDAR
 // ============================================
-// Solo .desact (sin colores especiales ni clase .activo)
+// El Guardar se atenúa mientras no haya nada que guardar. En modo panel es el
+// botón de confirmar del modal; en modo página, el item de la lastbar.
 
 function actualizarEstadoGuardar() {
     hayCambios = temaPendiente || lastbarPendiente || hayCambiosEnVivo()
 
-    const guardarItem = document.querySelector('.lastbar .item[data-accion="guardar"]')
-    if (guardarItem) {
-        guardarItem.classList.toggle("desact", !hayCambios)
+    if (modoActual === "pagina") {
+        document.querySelector('.lastbar .item[data-accion="guardar"]')
+            ?.classList.toggle("desact", !hayCambios)
+        return
+    }
+
+    const botonGuardar = modalConfiguracion?.querySelector("#modal-confirm")
+    if (botonGuardar) {
+        botonGuardar.classList.toggle("desact", !hayCambios)
+        if (hayCambios) botonGuardar.removeAttribute("disabled")
+        else botonGuardar.setAttribute("disabled", "true")
     }
 }
 
@@ -1233,7 +1387,8 @@ function construirPreferencias() {
         doodles: document.getElementById("acc-doodles")?.checked === true,
         unClickSeleccion: document.getElementById("acc-un-click-seleccion")?.checked === true,
         lateralidadCuentaInfo: getLateralidadCuentaUI(),
-        resaltarIngresoGasto: document.getElementById("acc-resaltar-ingreso-gasto")?.checked !== false
+        resaltarIngresoGasto: document.getElementById("acc-resaltar-ingreso-gasto")?.checked !== false,
+        configComoPagina: document.querySelector("#toggle-config-modo .toggle-option.active")?.dataset.configModo === "pagina"
     }
 
     const tiposMovimiento = {
@@ -1252,11 +1407,11 @@ function construirPreferencias() {
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
         paginas: {
-            dashboard: document.getElementById("toggle-dashboard").checked,
+            dashboard: document.getElementById("toggle-dashboard")?.checked !== false,
             cuentas: true,
-            movimientos: document.getElementById("toggle-movimientos").checked,
-            inversiones: document.getElementById("toggle-inversiones").checked,
-            trading: document.getElementById("toggle-trading").checked,
+            movimientos: document.getElementById("toggle-movimientos")?.checked !== false,
+            inversiones: document.getElementById("toggle-inversiones")?.checked !== false,
+            trading: document.getElementById("toggle-trading")?.checked !== false,
             configuracion: true
         },
         divisaPrincipal,
@@ -1392,6 +1547,37 @@ function configurarBotones() {
     document.getElementById("import-dvid")?.addEventListener("click", importarDVID)
     document.getElementById("delete-data")?.addEventListener("click", eliminarTodosLosDatos)
     document.getElementById("delete-account")?.addEventListener("click", abrirModalEliminarCuenta)
+    document.getElementById("restore-cuentas")?.addEventListener("click", abrirRestaurarCuentasArchivadas)
+}
+
+// ============================================
+// PÁGINA O PANEL
+// ============================================
+// La ventana (panel) es el comportamiento por defecto. Como página, la
+// configuración vuelve a ser una ruta más del router: el engranaje navega,
+// el botón Guardar vive en la lastbar y el aviso de cambios sin guardar
+// salta al cambiar de pestaña.
+
+export function configComoPagina() {
+    return sesion.getPreferencias()?.accesibilidad?.configComoPagina === true
+}
+
+function configurarModoConfiguracion() {
+    const opciones = document.querySelectorAll("#toggle-config-modo .toggle-option")
+    const activo = configComoPagina() ? "pagina" : "panel"
+
+    opciones.forEach(opt => {
+        opt.classList.toggle("active", opt.dataset.configModo === activo)
+        opt.addEventListener("click", () => {
+            if (opt.dataset.configModo === activo) return
+            opciones.forEach(o => o.classList.remove("active"))
+            opt.classList.add("active")
+            marcarCambioNuevo()
+            // No se persiste al instante: la ventana tiene su propio Guardar.
+            // Mientras tanto, el engranaje sigue funcionando con el modo viejo,
+            // que es lo coherente con el resto de cambios de esta pantalla.
+        })
+    })
 }
 
 export function abrirModalLogout() {
@@ -1421,6 +1607,108 @@ export function abrirModalLogout() {
 
 async function exportarDVID() {
     await accionExportar()
+}
+
+// ============================================
+// RESTAURAR CUENTAS ARCHIVADAS
+// ============================================
+// Archivar no borra nada: solo marca la cuenta con estado "archivada" y a
+// partir de ahí desaparece del sidebar, de los selectores de movimientos y
+// del dashboard. Los movimientos no se tocan, así que restaurar la cuenta
+// los devuelve a la vista con su saldo intacto.
+
+async function obtenerCuentasArchivadas() {
+    const todas = await obtenerCuentas(sesion.uid)
+    return todas.filter(cuenta => cuenta.estado === "archivada")
+        .sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0))
+}
+
+async function refrescarContadorArchivadas() {
+    const hint = document.getElementById("restore-cuentas-hint")
+    if (!hint) return
+    try {
+        const archivadas = await obtenerCuentasArchivadas()
+        const boton = document.getElementById("restore-cuentas")
+        if (boton) boton.disabled = archivadas.length === 0
+        hint.textContent = archivadas.length === 0
+            ? "No tienes cuentas archivadas."
+            : `Tienes ${archivadas.length} archivada${archivadas.length === 1 ? "" : "s"}. ` +
+              "Ocultas, no borradas: sus movimientos y saldos se conservan tal cual."
+    } catch (error) {
+        console.warn("No se pudo contar las cuentas archivadas:", error)
+    }
+}
+
+async function abrirRestaurarCuentasArchivadas() {
+    let archivadas
+    try {
+        archivadas = await obtenerCuentasArchivadas()
+    } catch (error) {
+        console.error("Error al leer las cuentas archivadas:", error)
+        mostrarNotificacion("error", "No se pudieron leer las cuentas archivadas")
+        return
+    }
+
+    if (archivadas.length === 0) {
+        mostrarNotificacion("info", "No tienes cuentas archivadas")
+        return
+    }
+
+    const opciones = archivadas.map(cuenta => `
+        <label class="dashboard-card-opcion">
+            <input type="checkbox" value="${cuenta.id}" checked>
+            <span>
+                ${cuenta.nombre || "Cuenta"}
+                <small>${formatearMontoConDivisa(cuenta.saldoInicial || 0, cuenta.moneda)}</small>
+            </span>
+        </label>
+    `).join("")
+
+    const modal = abrirModal({
+        titulo: "Restaurar cuentas archivadas",
+        contenido: `
+            <div class="modal-message">
+                <p class="modal-message-desc">
+                    Elige las cuentas archivadas que quieres volver a activas.
+                </p>
+                <p class="modal-message-hint">
+                    Recuperan su sitio en el sidebar y vuelven a sumar en el patrimonio
+                    y el dashboard. Sus movimientos no se han tocado.
+                </p>
+            </div>
+            <div class="dashboard-editor-grid">${opciones}</div>
+        `,
+        confirmText: "Restaurar",
+        cancelText: "Cancelar",
+        onConfirm: async () => {
+            const elegidas = [...modal.querySelectorAll('input[type="checkbox"]:checked')]
+                .map(input => input.value)
+            if (elegidas.length === 0) {
+                mostrarNotificacion("info", "No seleccionaste ninguna cuenta")
+                return false
+            }
+
+            try {
+                for (const id of elegidas) {
+                    await actualizarCuenta(sesion.uid, id, { estado: "activa" })
+                }
+                cacheCapa.invalidar(sesion.uid, "cuentas")
+                mostrarNotificacion(
+                    "exito",
+                    `${elegidas.length} cuenta${elegidas.length === 1 ? "" : "s"} restaurada${elegidas.length === 1 ? "" : "s"}`
+                )
+                // La página de cuentas mantiene su propia copia en memoria: hay
+                // que avisarla para que repinte al volver.
+                window.dispatchEvent(new CustomEvent("cuentas-actualizadas"))
+                await refrescarContadorArchivadas()
+                return true
+            } catch (error) {
+                console.error("Error restaurando cuentas:", error)
+                mostrarNotificacion("error", `No se pudieron restaurar: ${error.message}`)
+                return false
+            }
+        }
+    })
 }
 
 // ============================================

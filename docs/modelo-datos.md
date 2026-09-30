@@ -51,6 +51,26 @@ usuario en `firebase/firestore.rules`, nivel de validación MEDIA).
 | `divisaPrincipal` | string | `pen` (por defecto) \| `usd` \| `usdt` |
 | `tipoCambio` | object | `{ pen_usd, modo }` — `modo: "manual"`; `actualizacion` ISO al guardar |
 | `paginas` | object | Visibilidad por ruta: `{ dashboard, cuentas, movimientos, inversiones, trading, configuracion }` (boolean) |
+| `dashboard` | object | Layout del dashboard (ver abajo) |
+
+#### `preferencias.dashboard`
+
+| Campo | Tipo | Valores / formato |
+|---|---|---|
+| `cardsVisibles` | string[] | Ids de las cards visibles. Id del catálogo (`"cuentas"`, `"grafico"`, …) o de una instancia: `cuenta:{cuentaId}` / `activo:{activoId}` |
+| `orden` | string[] | Mismos ids, en el orden en que se reparten las columnas |
+| `nuevasCardsV1` | boolean | Marca de migración de las cards añadidas en la v1 |
+| `nuevasCardsV2` | boolean | Marca de migración de las cards añadidas en la v2 |
+| `nuevasCardsV3` | boolean | Marca de migración de las cards añadidas en la v3 |
+
+Las cards nuevas se añaden por tandas. Cada tanda tiene su propia marca: solo
+se aplican las tandas cuya marca sigue sin poner, de modo que si el usuario
+quitó a mano una card de una tanda anterior, esta no le reaparece.
+
+Las cards de cuenta y de activo son **instancias**: el usuario elige una cuenta
+o un activo con posición abierta por card, y cada una se guarda con su id
+compuesto. Si la cuenta se borra o la posición se cierra, la card se descarta
+automáticamente al abrir el dashboard.
 
 ## `cuentas/{autoId}`
 

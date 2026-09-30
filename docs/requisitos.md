@@ -37,11 +37,33 @@ Firestore. No usa framework: JavaScript (ES Modules), HTML y CSS propios.
 - Resumen del patrimonio en la divisa elegida (PEN/USD/USDT).
 - Vencimientos de pendientes con acción de consolidar.
 - Gráfico histórico de patrimonio (Chart.js).
+- Cards elegibles y reordenables (modo edición con arrastrar).
+- **Cards por cuenta y por activo**: el usuario agrega una card por cuenta y
+  otra por activo en el que tenga posición abierta. La de cuenta muestra el
+  saldo; si es tarjeta de crédito, línea de crédito, uso, ciclo de facturación
+  y anualidad. La de activo muestra valor, resultado y desglose de la posición.
+- Cada card instanciada se puede **comprimir**: el botón del encabezado la deja
+  en una fila con solo los números en pequeño, o la vuelve a desplegar a tamaño
+  normal con el resumen. El estado se recuerda en el navegador.
+- **Distribución por tipo de activo**: reparte la cartera entre acción, ETF,
+  cripto y bono, con color por clase.
+- **Patrimonio por divisa**: el mismo patrimonio desglosado en soles, dólares y
+  USDT, cada uno en su moneda y con su peso relativo.
+- **Órdenes**: el badge cuenta solo las pendientes, cada una muestra a qué
+  distancia está el precio actual del precio de disparo (se resalta si está a
+  menos del 2%) y el pie resume cuántas hay ejecutadas y canceladas.
 
 ### Cuentas
 - Tipos: banco, efectivo, broker, exchange, tarjeta de crédito.
 - Saldo por cuenta, archivar/activar, detalle con movimientos.
 - Tarjetas: `deuda`, `limite`, `diaCorte`, `diaPago`, desgravamen.
+- **Archivar no borra.** La cuenta sale del sidebar, de los selectores y del
+  dashboard, pero sigue en Firestore con sus movimientos intactos. Se
+  recupera desde Configuración › Datos, que lista las archivadas y permite
+  restaurar las que elija.
+- **Eliminar la cuenta no arrastra sus movimientos.** El movimiento se
+  conserva y se muestra con la cuenta como "Cuenta eliminada". Archivar es la
+  vía recomendada: el modal de eliminar ofrece archivar en su lugar.
 
 ### Movimientos (11 tipos)
 ingreso, gasto, transferencia, cambioDivisa, compraActivo, ventaActivo,
@@ -50,6 +72,8 @@ p2pCompra, p2pVenta, compraTarjeta, pagoTarjeta, error.
 - Actualización automática de saldos (con comisión en compras y ventas).
 - Edición y eliminación con **reversión** de saldos y posiciones.
 - Filtros: tipo, cuenta, divisa, rango de fechas, texto.
+- Sobreviven a la eliminación de su cuenta: se muestran como "Cuenta
+  eliminada" en lugar de un id suelto.
 
 ### Pendientes
 - Cobrar/pagar con monto, divisa y fecha de vencimiento.
@@ -76,6 +100,7 @@ p2pCompra, p2pVenta, compraTarjeta, pagoTarjeta, error.
 ### Trading
 - Trades long/short con `entrada`, `salida`, `lotaje`, `sl`, `tp`, `nota`.
 - P&L y P&L% calculados al cerrar; P&L flotante con el último precio conocido.
+- La fila lleva **badge de dirección**: Largo (verde) / Corto (rojo).
 
 ### Órdenes (límite/stop)
 - Órdenes de compra (`long`) o venta (`short`), límite o stop, con precio de
@@ -104,6 +129,11 @@ p2pCompra, p2pVenta, compraTarjeta, pagoTarjeta, error.
 - PWA instalable, actualización con banner y respaldo offline.
 - Modal reutilizable (variantes, drag, focus trap), notificaciones, sidebar
   colapsable a riel de íconos, responsive móvil.
+- **Configuración en una ventana grande** (modal-xl) sobre cualquier ruta, con
+  sus secciones en un menú lateral y los ajustes en una sola columna. Se puede
+  cambiar a **página** (Accesibilidad › "Configuración como"): entonces ocupa
+  la pantalla con su propia ruta `/configuracion` y el Guardar pasa a la barra
+  inferior. El nombre y la versión quedan fijos al pie, sin scrolls.
 
 ## Fuera de alcance (pendientes → `roadmap.md`)
 

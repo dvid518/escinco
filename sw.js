@@ -1,6 +1,7 @@
 import { VERSION } from "./constants/version.js"
 
-// v1.0.0-beta.14 · reinicio de precache (módulos JS actualizados)
+// El nombre de las cachés incluye la versión de constants/version.js: al
+// subirla, el SW instalado borra las cachés viejas y vuelve a precachear.
 const VERSION_APP = `escinco-v${VERSION.numero}`
 const CACHE_SHELL = `${VERSION_APP}-shell`
 const CACHE_RUNTIME = `${VERSION_APP}-runtime`
@@ -48,10 +49,11 @@ const SHELL_ASSETS = [
     "/js/pages/movimientos.js",
     "/js/pages/inversiones.js",
     "/js/pages/trading.js",
-    "/js/pages/configuracion.js",
 
     // JS UI
     "/js/ui/modal.js",
+    "/js/ui/configuracion.js",
+    "/js/ui/panelVersion.js",
     "/js/ui/formularioMovimiento.js",
     "/js/ui/pendientes.js",
     "/js/ui/metas.js",

@@ -1,21 +1,187 @@
 
 /* ========================================
-   CONFIGURACIÓN
+   CONFIGURACIÓN · VENTANA GRANDE
    ======================================== */
+/* La configuración es una ventana (modal-xl) con dos zonas: la lista de
+   secciones a la izquierda (fija mientras se recorre el contenido) y el
+   contenido a la derecha. El contenido es siempre de UNA columna: los
+   ajustes se leen en vertical y una rejilla de dos obligaba a saltar la
+   vista de un bloque a otro. Abajo va el pie con la versión, fijo. */
 
-#panel .panel-section {
+.config-modal {
     display: flex;
-    flex-direction: column;
-    gap: 20px;
     width: 100%;
-    padding-bottom: 20px;
+    min-height: 100%;
+    flex-direction: column;
 }
 
-#panel .panel-section h2 {
-    color: var(--border);
-    font-size: 24px;
-    margin: 0 0 4px 0;
+/* El contenido crece para dejar el pie siempre al fondo de la ventana, y el
+   pie además se pega con sticky cuando la sección es más larga que la
+   ventana. */
+.config-modal #configuracion-contenido {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    flex-direction: column;
+}
+
+.config-nav {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* Alineado como los sidebars de las páginas (css/navegacion.css): ancho
+   completo, contenido pegado al inicio. Así los rótulos quedan en columna
+   y los íconos en línea, en vez de verse centrados con el texto flotando. */
+.config-nav button {
+    display: flex;
+    align-items: center;
+    justify-content: start;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 18px;
+    border-radius: 40px;
+    color: var(--textSecondary);
+    font-family: var(--font-primary);
+    font-size: 14px;
+    text-align: start;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.config-nav button:hover {
+    color: var(--text);
+    background: var(--lightHover);
+}
+
+.config-nav button.act {
+    color: var(--text);
+    background: var(--surface);
+}
+
+.config-nav button .lucide {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+}
+
+.config-nav button span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.config-modal .config-layout {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 24px;
+    align-items: start;
+}
+
+.config-body {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.config-body .panel-section {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+}
+
+.config-body .panel-section h2 {
+    margin: 0 0 4px;
+    color: var(--text);
+    font-size: 20px;
     font-weight: 600;
+}
+
+@media (max-width: 860px) {
+    .config-modal .config-layout {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .config-nav {
+        position: static;
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .config-nav button {
+        width: auto;
+        justify-content: center;
+        text-align: center;
+    }
+}
+
+/* ========================================
+   MODO PÁGINA
+   ======================================== */
+/* La misma pantalla, pero ocupando #app-content como una página más del router
+   (Accesibilidad › "Configuración como"). Al no haber .modal-body, el
+   contenedor que scrollea es .config-layout y el pie se queda fijo abajo sin
+   necesitar sticky: se saca de flujo y se apoya en el fondo. */
+
+.config-pagina {
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    min-height: 0;
+    padding: 24px 0;
+    /* `clip` en lugar de `hidden`: hace falta para contener la cadena de
+       alturas, pero no crea contenedor de scroll y con `overflow-clip-margin`
+       el glow de 24px de los botones del menú no se corta en el borde. */
+    overflow: hidden;
+    overflow: clip;
+    overflow-clip-margin: 28px;
+}
+
+.config-pagina .config-modal {
+    height: 100%;
+    min-height: 0;
+}
+
+.config-pagina .config-layout {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    align-content: start;
+    padding-right: 10px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar {
+    width: 6px;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+.config-pagina .config-nav {
+    align-self: start;
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+}
+
+.config-pagina .panel-footer {
+    position: static;
+    margin: 16px 0 0;
+    padding: 12px 0 0;
+    background: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
 }
 
 /* ========================================
@@ -72,18 +238,14 @@
     padding: 3px;
 }
 
-.toggle-lateralidad-cuenta {
-    width: min(280px, 100%);
-}
-
 .toggle-lateralidad-cuenta .toggle-option {
-    flex: 1 1 0;
     text-align: center;
 }
 
 .pages-toggle-group {
     display: flex;
     flex-direction: row;
+    flex-wrap: wrap;
     gap: 15px;
 }
 
@@ -164,7 +326,7 @@
     background: var(--lightHover);
     border-color: var(--text);
     transform: scale(1.02);
-    box-shadow: 0 0 10px var(--shadow);
+    --glow: 0 0 10px var(--shadow);
 }
 
 .glass-btn.danger {
@@ -296,13 +458,22 @@
 /* ========================================
    FOOTER DEL PANEL
    ======================================== */
+/* Nombre y versión están siempre a la vista: el pie se pega al borde
+   inferior del área que scrollea (sticky) en vez de viajar con el
+   contenido, así que sigue visible aunque estés al final de una sección
+   larga. Los márgenes negativos tapan el padding de .modal-body para que
+   llegue de borde a borde. */
 
 .panel-footer {
-    margin-top: auto;
-    padding-top: 24px;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 20px -24px -20px;
+    padding: 12px 24px;
     border-top: 1px solid var(--border);
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 16px;
     flex-wrap: wrap;
     font-size: 13px;
@@ -391,7 +562,7 @@
    SECCIONES OCULTAS
    ======================================== */
 
-#panel .panel-section.hidden-section {
+.config-body .panel-section.hidden-section {
     display: none;
 }
 

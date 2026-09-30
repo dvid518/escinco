@@ -233,8 +233,8 @@ function renderizarTrades() {
                 <div class="card-item-main">
                     <div class="posicion-info">
                         <div class="posicion-nombre">
-                            ${t.activo}
-                            <span class="posicion-simbolo">${t.tipoLabel}</span>
+                            <span class="trade-activo">${t.activo}</span>
+                            <span class="trade-badge ${t.tipo === "long" ? "largo" : "corto"}">${t.tipoLabel}</span>
                         </div>
                         <div class="posicion-detalle">
                             Lotaje: ${t.lotaje} · ${t.estaCerrado ? "Cerrado" : "Abierto"}

@@ -4,6 +4,7 @@ import { initPWA } from "../core/pwa.js"
 import { initDoodles } from "../ui/doodles.js"
 import { icono } from "../core/iconos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
+import { pintarVersionPanel } from "../ui/panelVersion.js"
 
 // ============================================
 // REFERENCIAS DOM
@@ -21,6 +22,28 @@ const botonGoogle = document.getElementById("login-google")
 initTemaLocal()
 initPWA()
 initDoodles({ logoSpin: true })
+pintarVersionPanel()
+
+// ============================================
+// REDIRECCIÓN AL DASHBOARD
+// ============================================
+// login()/loginConGoogle() y observeAuth() corren en paralelo tras un login
+// exitoso: los dos acaban redirigiendo y compiten por la navegación. Un solo
+// guard evita el segundo replace, que cancelaba a mitad el primero.
+
+let redirigiendo = false
+
+function irAlDashboard() {
+    if (redirigiendo) return
+    redirigiendo = true
+    window.location.replace("/")
+}
+
+/** Espera a que el navegador pinte un frame, para que la instantánea de la
+ *  transición no capture el body todavía oculto por .loading. */
+function trasPintar() {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+}
 
 // ============================================
 // LOGIN CON EMAIL + CONTRASEÑA
@@ -41,7 +64,7 @@ async function iniciarSesionConPassword() {
 
     try {
         await login(email, password)
-        window.location.href = "/"
+        irAlDashboard()
     } catch (error) {
         await manejarErrorLogin(error, email, password)
     }
@@ -54,7 +77,7 @@ async function iniciarSesionConPassword() {
 async function iniciarSesionConGoogle() {
     try {
         await loginConGoogle()
-        window.location.href = "/"
+        irAlDashboard()
     } catch (error) {
         console.error("Error Google:", error)
         mostrarNotificacion("error", mensajeDeError(error))
@@ -132,14 +155,12 @@ function resaltarGoogle() {
 // ============================================
 
 observeAuth(async (user) => {
-    if (user) {
-        await bodyVisibility(1, 1)
-        await new Promise(resolve => setTimeout(resolve, 300))
-        window.location.replace("/")
-        return
-    }
-
     await bodyVisibility(1, 1)
+    if (!user) return
+    // Un frame basta para que el body sea visible antes de la instantánea de
+    // la transición. Los 300 ms de espera se sentían como un cuelgue.
+    await trasPintar()
+    irAlDashboard()
 })
 
 async function bodyVisibility(opacity, ms) {

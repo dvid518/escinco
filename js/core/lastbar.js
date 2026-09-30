@@ -92,7 +92,7 @@ const ITEM_CERRAR_SESION = `
 const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}</div>`
 
 // Mapa de lastbars por página.
-// El botón de tema SOLO aparece en dashboard y configuración.
+// El botón de tema SOLO aparece en el dashboard.
 const LASTBARS = {
     dashboard: `
         <div class="lastbar">
@@ -285,6 +285,9 @@ const LASTBARS = {
             ${PENDIENTES_BLOCK}
         </div>
     `,
+
+    // Solo se usa en el modo "página" de la configuración (Accesibilidad).
+    // En modo panel el Guardar es el botón de confirmar del modal.
     configuracion: `
         <div class="lastbar">
             <div class="bar">
@@ -365,7 +368,7 @@ const MAPA_ACCIONES = {
     },
 
     "cerrar-sesion": async () => {
-        const { abrirModalLogout } = await import("../pages/configuracion.js")
+        const { abrirModalLogout } = await import("../ui/configuracion.js")
         abrirModalLogout()
     },
 
@@ -489,10 +492,10 @@ const MAPA_ACCIONES = {
         abrirModalNuevoTrade("short")
     },
 
-    // ── CONFIGURACIÓN ──
+    // ── CONFIGURACIÓN (modo página) ──
     "guardar": async () => {
-        const { guardarDesdeLastbar } = await import("../pages/configuracion.js")
-        guardarDesdeLastbar()
+        const { guardarDesdePagina } = await import("../ui/configuracion.js")
+        guardarDesdePagina()
     }
 }
 

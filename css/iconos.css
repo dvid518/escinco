@@ -32,11 +32,7 @@
 
 body :is(button, a, [role="button"]):hover,
 body select:hover,
-body .tab:hover,
 #app-footer .item:hover,
-#sidebar button:hover,
-#panel:hover,
-.dashboard .card:hover,
 body :is(.card-item, .posicion-item, .estrategia-item, .movimiento-item, .meta-item, .favorito-item, .alerta-item, .totales-btn, .posicion-favorito):hover {
     box-shadow: none;
 }

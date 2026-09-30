@@ -4,6 +4,7 @@ import { initPWA } from "../core/pwa.js"
 import { initDoodles } from "../ui/doodles.js"
 import { icono } from "../core/iconos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
+import { pintarVersionPanel } from "../ui/panelVersion.js"
 
 // ============================================
 // REFERENCIAS DOM
@@ -23,10 +24,29 @@ const botonGoogle = document.getElementById("register-google")
 initTemaLocal()
 initPWA()
 initDoodles({ logoSpin: true })
+pintarVersionPanel()
 
 // ============================================
 // REGISTRO CON EMAIL + CONTRASEÑA
 // ============================================
+
+// ============================================
+// REDIRECCIÓN AL DASHBOARD
+// ============================================
+// Mismo guard que en index.js: el registro exitoso dispara a la vez el
+// handler y observeAuth, y los dos navegaban.
+
+let redirigiendo = false
+
+function irAlDashboard() {
+    if (redirigiendo) return
+    redirigiendo = true
+    window.location.replace("/")
+}
+
+function trasPintar() {
+    return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+}
 
 async function registrarConPassword() {
     const nombre = inputNombre.value.trim()
@@ -42,7 +62,7 @@ async function registrarConPassword() {
 
     try {
         await registrarConEmail(nombre, email, password)
-        window.location.href = "/"
+        irAlDashboard()
     } catch (error) {
         mostrarNotificacion("error", mensajeDeError(error))
         inputClave.value = ""
@@ -58,7 +78,7 @@ async function registrarConPassword() {
 async function registrarConGoogleHandler() {
     try {
         await registrarConGoogle()
-        window.location.href = "/"
+        irAlDashboard()
     } catch (error) {
         console.error("Error Google:", error)
         mostrarNotificacion("error", mensajeDeError(error))
@@ -107,14 +127,10 @@ function mensajeDeError(error) {
 // ============================================
 
 observeAuth(async (user) => {
-    if (user) {
-        await bodyVisibility(1, 1)
-        await new Promise(resolve => setTimeout(resolve, 300))
-        window.location.replace("/")
-        return
-    }
-
     await bodyVisibility(1, 1)
+    if (!user) return
+    await trasPintar()
+    irAlDashboard()
 })
 
 async function bodyVisibility(opacity, ms) {

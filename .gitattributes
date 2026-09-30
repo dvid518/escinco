@@ -1,0 +1,15 @@
+# Normaliza los finales de línea para que el diff no cambie según el editor.
+# El repositorio guarda LF; Windows deja CRLF al tocar los archivos.
+* text=auto eol=lf
+
+# Archivos que Git debe tratar como binarios (no aplicar reglas de texto).
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.dvid binary

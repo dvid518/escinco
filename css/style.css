@@ -123,6 +123,13 @@
 
     --shadow: var(--lightPaleSky);
     --blurBackground: var(--lightOnyx);
+
+    /* Fondo translúcido de las superficies "congeladas": tooltip del lastbar,
+       notificaciones y ventanas. No es .glass —esas ya son opacas— sino lo
+       contrario: van sobre contenido real sin capa que las separe, así que
+       necesitan un velo para que el texto se lea y el difuminado se vea.
+       99 = 153/255 ≈ 60%. */
+    --glass-frosted: #14141499;
 }
 
 /* Tema claro */
@@ -152,6 +159,11 @@
 
     --shadow: var(--lightSlateGrey);
     --blurBackground: var(--lightPaleSky);
+
+    /* Mismo velo que en oscuro, en claro: 99 = 60% de blanco. Sobre el
+       contenido claro hace falta algo más opaco que en oscuro para que el
+       texto oscuro se lea igual. */
+    --glass-frosted: #F3F3F399;
 }
 
 /* ============================================
@@ -487,10 +499,14 @@ option {
     gap: 20px;
 }
 
+/* Anchos alineados con las columnas reales de la vista de cuenta
+   (.cuenta-vista-movimientos 55% / .cuenta-vista-info 45%). Antes el esqueleto
+   usaba 36% sin possibility de encogerse, así que al cargar el contenido las
+   columnas cambiaban de ancho. */
 .skeleton-panel-info {
     display: flex;
-    width: 36%;
-    flex: 0 0 36%;
+    flex: 1 1 45%;
+    min-width: 0;
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
@@ -501,8 +517,22 @@ option {
 }
 
 .skeleton-panel-list {
-    flex: 1;
+    flex: 1 1 55%;
+    min-width: 0;
     padding: 4px;
+}
+
+/* El esqueleto de la página de cuentas replica la lateralidad elegida en
+   Accesibilidad, igual que hace la vista real con `order`. Sin esto el
+   esqueleto salía siempre con la info a la izquierda y el contenido saltaba
+   al otro lado al aparecer. La clase la pone js/pages/cuentas.js con la misma
+   función que usa el detalle (lateralidadInfo()). */
+.skeleton-panel.info-derecha .skeleton-panel-list {
+    order: 0;
+}
+
+.skeleton-panel.info-derecha .skeleton-panel-info {
+    order: 1;
 }
 
 .skeleton-setting {
@@ -625,14 +655,51 @@ option {
     transition: all 0.3s ease;
 }
 
+/* Superficie opaca de los elementos de la interfaz que llevan .glass: cards
+   del dashboard, tabs de la navbar, botones del sidebar, ítems de la lastbar,
+   filas de lista…
+   Usa --surface, el mismo token que ya emplean .card-item, .resumen-card o
+   #panel, para que todas las superficies de la app sean del mismo color en
+   vez de ser dos expresiones distintas del mismo color.
+
+   SIN backdrop-filter, a propósito. Detrás de una card no hay nada que
+   difuminar: es el color plano de body, y difuminar un color plano no
+   cambia ni un píxel. Con ~24 cards en pantalla eso eran ~24 backdrop roots
+   por frame pagando un efecto inexistente. El difuminado se queda solo donde
+   sí hay contenido real detrás: tooltip del lastbar, notificaciones y
+   modales (ver --glass-frosted). */
 .glass {
-    background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow:
-        0 2px 32px rgba(0, 0, 0, 0.025),
-        0 4px 5px rgba(0, 0, 0, 0.025);
+    --glow: 0 2px 16px rgba(0, 0, 0, 0.025), 0 4px 5px rgba(0, 0, 0, 0.025);
+    background-color: var(--surface);
     border: 1px solid var(--lightBorder);
+}
+
+/* El glow vive en un pseudo-elemento, no en el box-shadow del elemento.
+   `backdrop-filter` convierte el elemento en backdrop root y en una capa de
+   composicion recortada a su border-box, asi que el box-shadow propio se
+   dibuja a medias y aparece cortado justo en el borde. Como descendiente,
+   el pseudo-elemento si puede desbordar.
+
+   `isolation: isolate` hace falta porque .glass-btn se usa a veces sin
+   .glass: sin contexto de apilamiento propio, su ::after con z-index: -1 se
+   dibujaria por detras del fondo de #panel. `isolation` no crea backdrop root,
+   asi que no reintroduce el recorte. */
+.glass,
+.glass-btn {
+    position: relative;
+    isolation: isolate;
+}
+
+.glass::after,
+.glass-btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--glow, none);
+    pointer-events: none;
+    transition: box-shadow 0.3s ease;
 }
 
 .error-msg {
@@ -750,10 +817,98 @@ option {
     }
 }
 
+/* ============================================
+   TRANSICIÓN ENTRE DOCUMENTOS (login → dashboard)
+   ============================================
+   style.css lo cargan login.html, register.html y dashboard.html, y los
+   tres optan por @view-transition { navigation: auto }. El logo existe en
+   los dos con el mismo id, así que darle un nombre lo convierte en el
+   elemento compartido: en vez de fundir dos páginas enteras, el logo viaja
+   del centro de la pantalla a la navbar y el resto se funde alrededor. */
+#logo {
+    view-transition-name: logo;
+}
+
+::view-transition-group(logo) {
+    animation-duration: 420ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(root) {
+    animation: root-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+    animation: root-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes root-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes root-in {
+    from {
+        opacity: 0;
+    }
+}
+
 @keyframes page-in {
     from {
         opacity: 0;
         transform: translateY(8px);
+    }
+}
+
+/* ============================================
+   LASTRAR · TRANSICIÓN ENTRE PÁGINAS
+   ============================================
+   Cada página monta una lastbar distinta y router.js la reconstruye con
+   innerHTML. Sin nombre propio, #app-footer cae dentro del snapshot `root`
+   y los botones viejos y nuevos se cruzan en un cross-fade difuso: se ve
+   el doble de íconos durante 220 ms. Nombrándolo, sale del snapshot root,
+   el grupo anima tamaño/posición (la barra se recentra sola) y cada estado
+   se funde por separado. */
+#app-footer {
+    view-transition-name: app-footer;
+}
+
+::view-transition-group(app-footer) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(app-footer),
+::view-transition-new(app-footer) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100%;
+    overflow: clip;
+}
+
+/* Los items vienen colapsados a 12px y se abren a 40px. Encoger la imagen
+   vieja hacia el centro en vez de dejarla al tamaño final evita el escalón
+   visible cuando la página nueva tiene menos botones. */
+::view-transition-old(app-footer) {
+    animation-name: lastbar-out;
+}
+
+::view-transition-new(app-footer) {
+    animation-name: lastbar-in;
+}
+
+@keyframes lastbar-out {
+    to {
+        opacity: 0;
+        transform: scaleX(0.86);
+    }
+}
+
+@keyframes lastbar-in {
+    from {
+        opacity: 0;
+        transform: scaleX(0.86);
     }
 }
 
@@ -770,6 +925,12 @@ option {
 
     ::view-transition-old(app-content),
     ::view-transition-new(app-content) {
+        animation: none;
+    }
+
+    ::view-transition-group(app-footer),
+    ::view-transition-old(app-footer),
+    ::view-transition-new(app-footer) {
         animation: none;
     }
 }
@@ -844,7 +1005,7 @@ option {
    PWA · BANNER DE ACTUALIZACIÓN
    ============================================ */
 
-   .pwa-update-banner {
+.pwa-update-banner {
     position: fixed;
     bottom: 20px;
     left: 50%;
@@ -857,10 +1018,20 @@ option {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 50px;
-    box-shadow: 0 8px 32px var(--shadow);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    --glow: 0 8px 32px var(--shadow);
+    /* Sin difuminado: el banner ya lleva --surface opaco detrás, y un
+       backdrop-filter detrás de un fondo opaco no se ve. */
     animation: slideUpBanner 0.3s ease;
+}
+
+.pwa-update-banner::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--glow, none);
+    pointer-events: none;
 }
 
 .pwa-update-texto {
@@ -971,4 +1142,11 @@ option {
         flex-basis: auto;
     }
 
+    /* En móvil la vista real apila en el orden del DOM (movimientos e info)
+       y la lateralidad deja de aplicar. El esqueleto tiene que hacer lo
+       mismo, si no la info saldría arriba en vez de abajo. */
+    .skeleton-panel.info-derecha .skeleton-panel-list,
+    .skeleton-panel.info-derecha .skeleton-panel-info {
+        order: initial;
+    }
 }

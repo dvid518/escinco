@@ -127,20 +127,25 @@
     color: var(--text);
 }
 
+/* El skeleton del resumen es un <span> (inline), así que su `width` no se
+   aplica y se queda pegado a la izquierda mientras el valor real sí sale
+   centrado por .resumen-card: al cargar, la cifra salta de un lado a otro.
+   Se hace block + márgenes automáticos para centrarlo.
+
+   La regla va sobre .resumen-valor y no sobre ids concretos porque hay dos
+   variantes de skeleton (skeleton-value y skeleton-value-large) y
+   seleccionar solo la pequeña dejaba sin centrar las cifras grandes. */
+.resumen-valor > .skeleton {
+    display: block;
+    margin-inline: auto;
+}
+
 .resumen-valor.positive {
     color: var(--positive);
 }
 
 .resumen-valor.negative {
     color: var(--negative);
-}
-
-#valor-total > .skeleton-value,
-#rendimiento-total > .skeleton-value,
-#total-posiciones > .skeleton-value {
-    display: block;
-    margin-right: auto;
-    margin-left: auto;
 }
 
 /* ============================================

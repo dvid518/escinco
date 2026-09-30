@@ -9,7 +9,7 @@ Se revisaron, sin modificar código de aplicación:
 - `js/pages/dashboard.js`
 - `css/dashboard.css`
 - `dashboard.html`
-- `js/pages/configuracion.js`
+- `js/ui/configuracion.js`
 - `js/core/lastbar.js`, para localizar el montaje y la acción existente de edición
 
 El dashboard actual tiene 8 cards. La mayoría de la lógica de contenido sigue concentrada en `dashboard.js`; el HTML únicamente monta el punto de entrada dinámico.
@@ -148,7 +148,7 @@ La hoja de estilos del dashboard se carga en `dashboard.html:13`.
 
 El patrón usado por Configuración es:
 
-1. `cargarPreferencias()` en `js/pages/configuracion.js` llama a `obtenerPreferencias(uid)`.
+1. `cargarPreferencias()` en `js/ui/configuracion.js` llama a `obtenerPreferencias(uid)`.
 2. Los valores se muestran en los controles de la página.
 3. `construirPreferencias()` construye un objeto completo de preferencias.
 4. `guardarPreferencias()` llama a `aplicarPreferencias()`.

@@ -36,14 +36,30 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--border);
-    backdrop-filter: blur(16px);
-    box-shadow: 0 0 20px var(--shadow);
-    -webkit-backdrop-filter: blur(24px);
+    /* Superficie congelada: sin fondo propio, el difuminado del overlay es lo
+       que da cuerpo a la ventana. Aquí sí hay contenido real detrás (la app),
+       a diferencia de una card. */
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
     animation: slideUp 0.3s ease;
+    --glow: 0 0 20px var(--shadow);
 
     /* Posición dinámica del drag */
     transform: translate(var(--modal-x, 0), var(--modal-y, 0));
     transition: transform 0.05s linear;
+}
+
+/* El glow va en un pseudo-elemento porque `backdrop-filter` recorta el
+   box-shadow propio del modal (ver .glass en style.css). El `transform` de
+   arriba ya hace de .modal un bloque contenedor para el ::after. */
+.modal::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    box-shadow: var(--glow, none);
+    pointer-events: none;
 }
 
 /* Variantes */
@@ -52,6 +68,14 @@
 .modal-form      { max-width: 560px; }
 .modal-wide      { max-width: 760px; }
 .modal-narrow    { max-width: 400px; }
+
+/* Ventana grande: para paneles densos (configuración). Ocupa casi todo el
+   alto disponible y deja el cuerpo como único contenedor de scroll. */
+.modal-xl {
+    max-width: 1120px;
+    height: 88vh;
+    max-height: 88vh;
+}
 
 /* --------------------------------------------
    HEADER

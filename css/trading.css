@@ -1,13 +1,9 @@
 
 /* Estilos específicos de trading */
-#pnl-total > .skeleton-value,
-#total-abiertos > .skeleton-value,
-#total-cerrados > .skeleton-value {
-    display: block;
-    margin-right: auto;
-    margin-left: auto;
-}
 
+/* El centrado del skeleton del resumen lo pone .resumen-valor en
+   inversiones.css (regla compartida, cubre skeleton-value y
+   skeleton-value-large). Aquí solo se define el layout de la página. */
 .trading {
     display: flex;
     flex-direction: column;
@@ -229,7 +225,7 @@
    ÓRDENES (LÍMITE / STOP)
    ============================================ */
 
-   .orden-item .orden-badge {
+.orden-item .orden-badge {
     margin-left: 8px;
     padding: 2px 10px;
     border-radius: 50px;
@@ -254,4 +250,52 @@
 .orden-item .orden-badge.cancelada {
     background: var(--negative);
     color: var(--text);
+}
+
+/* ============================================
+   TRADES · BADGE DE DIRECCIÓN
+   ============================================ */
+/* El tipo (largo/corto) es el dato que más se consulta de un trade, así que
+   va en badge junto al activo y no en el texto gris de la línea de detalle.
+   Antes ocupaba .posicion-simbolo, que en el resto de la app es el ticker. */
+
+.trade-item .posicion-nombre {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.trade-item .trade-activo {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.trade-item .trade-badge {
+    flex-shrink: 0;
+    padding: 2px 10px;
+    border-radius: 50px;
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.trade-item .trade-badge.largo {
+    background: color-mix(in srgb, var(--positive) 22%, var(--border));
+    color: var(--text);
+}
+
+.trade-item .trade-badge.corto {
+    background: color-mix(in srgb, var(--negative) 22%, var(--border));
+    color: var(--text);
+}
+
+#lista-trades .trade-item.seleccionado .trade-badge {
+    background: var(--background);
+    color: var(--border);
 }

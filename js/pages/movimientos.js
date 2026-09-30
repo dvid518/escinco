@@ -159,6 +159,20 @@ export async function init() {
 // CARGA
 // ============================================
 
+// Los movimientos sobreviven a la eliminación de su cuenta (regla de la app:
+// archivar es la vía normal, y borrar la cuenta no arrastra sus movimientos).
+// Cuando el id ya no resuelve, se muestra una etiqueta en vez del id en crudo,
+// para que quede claro que el movimiento sigue ahí y lo que falta es la
+// referencia.
+const ETIQUETA_CUENTA_ELIMINADA = "Cuenta eliminada"
+
+function nombreCuentaDeMovimiento(m) {
+    const id = m.cuenta || m.cuentaOrigen || m.tarjeta
+    if (!id) return ""
+    const cuenta = cuentas.find(c => c.id === id)
+    return cuenta?.nombre || ETIQUETA_CUENTA_ELIMINADA
+}
+
 async function cargarCuentas() {
     try {
         cuentas = await obtenerCuentas(uid)
@@ -238,6 +252,7 @@ function plantillaMovimiento(m) {
     const clase = esPositivo ? "positive" : "negative"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
+    const cuenta = nombreCuentaDeMovimiento(m)
     const seleccionada = seleccionados.has(m.id) ? " seleccionado" : ""
 
     return `
@@ -245,7 +260,7 @@ function plantillaMovimiento(m) {
             <div class="card-item-main">
                 <div class="card-item-info">
                     <span class="card-item-titulo">${m.concepto || m.activo || m.tipo || "Sin concepto"}</span>
-                    <span class="card-item-detalle">${fecha} · ${tipoNombre}</span>
+                    <span class="card-item-detalle">${[fecha, tipoNombre, cuenta].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="card-item-valor-wrap">
                     <span class="card-item-valor ${clase}">
@@ -1333,8 +1348,6 @@ export async function exportarExtractoCSV() {
             return
         }
 
-        const nombrePorId = new Map(cuentas.map(c => [c.id, c.nombre]))
-
         const filas = movimientos
             .slice()
             .sort((a, b) => {
@@ -1346,7 +1359,7 @@ export async function exportarExtractoCSV() {
                 formatearFecha(m.fechaRealizacion),
                 CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido",
                 m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
-                nombrePorId.get(m.cuenta || m.cuentaOrigen || m.tarjeta) || m.cuenta || m.cuentaOrigen || m.tarjeta || "",
+                nombreCuentaDeMovimiento(m),
                 `${esMovimientoPositivo(m) ? "+" : "-"}${Math.abs(montoDeMovimiento(m)).toFixed(2)}`,
                 (m.divisa || "PEN").toUpperCase()
             ])

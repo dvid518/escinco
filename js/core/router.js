@@ -11,6 +11,30 @@ const routes = {
     '/configuracion': 'configuracion'
 }
 
+// La configuración se muestra de dos formas según la preferencia
+// "Configuración como" (Accesibilidad): como ventana grande sobre la ruta
+// actual —lo normal— o como página con su propia ruta. En el segundo caso el
+// router la carga como una página más, y su módulo vive en js/ui/ en vez de
+// js/pages/ porque comparte todo el código con la ventana.
+const RUTA_CONFIGURACION = "/configuracion"
+const PAGINAS_EN_UI = new Set(["configuracion"])
+
+function importarPagina(page) {
+    return PAGINAS_EN_UI.has(page)
+        ? import(`../ui/${page}.js`)
+        : import(`../pages/${page}.js`)
+}
+
+function configuracionComoPagina() {
+    return sesion.getPreferencias()?.accesibilidad?.configComoPagina === true
+}
+
+function abrirConfiguracionComoPanel() {
+    import("../ui/configuracion.js")
+        .then(({ abrirConfiguracion: abrir }) => abrir())
+        .catch(error => console.error("[ERROR] No se pudo abrir la configuración:", error))
+}
+
 let pageModules = {}
 let currentPage = 'dashboard'
 let navId = 0
@@ -113,7 +137,7 @@ function transicionPagina(callback) {
 function precargarPagina(page) {
     if (!page || page === "dashboard" || pageModules[page] || modulosPrecargados.has(page)) return
     modulosPrecargados.add(page)
-    import(`../pages/${page}.js`)
+    importarPagina(page)
         .then(module => { pageModules[page] = module })
         .catch(() => { modulosPrecargados.delete(page) })
 }
@@ -162,7 +186,7 @@ export async function loadPage(page) {
     }
 
     try {
-        const module = await import(`../pages/${page}.js`)
+        const module = await importarPagina(page)
         // Abortar si otra navegación ganó mientras importábamos
         if (id !== navId) {
             console.log(`[INFO] Import ${id} abortado (ganó ${navId})`)
@@ -339,6 +363,12 @@ function avisarCambioDePagina(hacia) {
 export function navigateTo(path) {
     console.log('[INFO] Navegando a:', path)
     const cleanPath = path.replace(/\/+/g, '/')
+    if (cleanPath === RUTA_CONFIGURACION && !configuracionComoPagina()) {
+        // En modo panel, /configuracion es un atajo: se abre la ventana sobre
+        // la página actual y la ruta no cambia.
+        abrirConfiguracionComoPanel()
+        return
+    }
     const page = routes[cleanPath] || 'dashboard'
     console.log('[INFO] Página:', page)
     if (avisarCambioDePagina(page)) return
@@ -352,6 +382,16 @@ export function getPaginaActual() {
 
 function updateActiveNav(page) {
     document.querySelectorAll('.nav-container a, .user-container a').forEach(link => {
+        // El engranaje no lleva data-page: sin este caso, al estar dentro de
+        // .user-container caería en el "dashboard" por defecto y se marcaría
+        // junto al logo.
+        if (link.hasAttribute('data-abrir-configuracion')) {
+            const activo = page === 'configuracion'
+            link.classList.toggle('act', activo)
+            if (activo) link.setAttribute('aria-current', 'page')
+            else link.removeAttribute('aria-current')
+            return
+        }
         const linkPage = link.dataset.page || 'dashboard'
         const activo = linkPage === page
         link.classList.toggle('act', activo)
@@ -363,6 +403,15 @@ function updateActiveNav(page) {
 function setupNavigation() {
     if (navReady) return
     navReady = true
+
+    // El engranaje lleva a la configuración: ventana o página, según la
+    // preferencia. navigateTo() decide cuál de las dos cosas es.
+    document.addEventListener('click', (evento) => {
+        const boton = evento.target.closest?.('[data-abrir-configuracion]')
+        if (!boton) return
+        evento.preventDefault()
+        navigateTo(RUTA_CONFIGURACION)
+    })
 
     document.addEventListener('click', (evento) => {
         const link = evento.target.closest?.('a[data-page]')
@@ -387,6 +436,13 @@ function setupNavigation() {
 
 window.addEventListener('popstate', (event) => {
     const page = event.state?.page || 'dashboard'
+    // La configuración nunca estuvo en el historial como ventana: si vuelve
+    // por popstate es porque estaba en modo página.
+    if (page === 'configuracion' && !configuracionComoPagina()) {
+        window.history.replaceState({ page: currentPage }, '', currentPage === 'dashboard' ? '/' : `/${currentPage}`)
+        abrirConfiguracionComoPanel()
+        return
+    }
     if (avisarCambioDePagina(page)) {
         const path = currentPage === 'dashboard' ? '/' : `/${currentPage}`
         window.history.replaceState({ page: currentPage }, '', path)
@@ -400,6 +456,14 @@ export function initRouter(initialPage = 'dashboard') {
     setupNavigation()
 
     const path = window.location.pathname
+    if (path === RUTA_CONFIGURACION && !configuracionComoPagina()) {
+        // Enlace profundo con la configuración como panel: se pinta la página
+        // inicial y la ventana se abre encima.
+        window.history.replaceState({ page: initialPage }, "", initialPage === 'dashboard' ? '/' : `/${initialPage}`)
+        loadPage(initialPage)
+        abrirConfiguracionComoPanel()
+        return
+    }
     const page = routes[path] || initialPage
     console.log(`[INFO] Router inicializado con: "${path}" → "${page}"`)
     loadPage(page)

@@ -40,6 +40,8 @@ import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
 
 let uid = null
 let cuentas = []
+let posicionesData = []
+let instanciasResueltas = false
 let divisaActual = getDivisaPrincipal()
 let datosGrafico = null
 let inversionesData = null
@@ -58,7 +60,13 @@ let timerRefreshDashboard = null
 let secuenciaGraficoDashboard = 0
 
 const DIAS_VENCIMIENTO = 7
-const NUEVAS_CARDS_DASHBOARD = ["flujo-caja", "deudas", "ahorro", "distribucion", "programados", "alertas"]
+// Las cards nuevas se añaden por tandas, cada una con su propia marca de
+// migración. Una tanda solo se aplica si su marca sigue sin poner: así el
+// usuario que ya quitó a mano una card de una tanda anterior no la ve
+// reaparecer, y las tandas nuevas sí llegan a todo el mundo.
+const NUEVAS_CARDS_V1 = ["flujo-caja", "deudas", "ahorro", "distribucion", "programados", "alertas"]
+const NUEVAS_CARDS_V2 = ["gastos-periodo", "ingresos-periodo", "balance-periodo"]
+const NUEVAS_CARDS_V3 = ["distribucion-activos", "patrimonio-divisa"]
 const DASHBOARD_CARDS = [
     { id: "patrimonio", label: "Patrimonio total" },
     { id: "cuentas", label: "Cuentas" },
@@ -71,18 +79,76 @@ const DASHBOARD_CARDS = [
     { id: "ordenes", label: "Órdenes" },
     { id: "estrategias", label: "Estrategias" },
     { id: "flujo-caja", label: "Flujo de caja" },
+    { id: "gastos-periodo", label: "Gastado" },
+    { id: "ingresos-periodo", label: "Ingresado" },
+    { id: "balance-periodo", label: "Balance" },
     { id: "deudas", label: "Deudas" },
     { id: "ahorro", label: "Ahorro" },
     { id: "distribucion", label: "Distribución patrimonial" },
+    { id: "distribucion-activos", label: "Distribución por tipo de activo" },
+    { id: "patrimonio-divisa", label: "Patrimonio por divisa" },
     { id: "programados", label: "Movimientos programados" },
     { id: "alertas", label: "Alertas" },
     { id: "grafico", label: "Evolución patrimonial" }
+]
+
+// Orden estable de las tandas: las nuevas se añaden al final de la lista.
+const TANDAS_CARDS = [
+    ["nuevasCardsV1", NUEVAS_CARDS_V1],
+    ["nuevasCardsV2", NUEVAS_CARDS_V2],
+    ["nuevasCardsV3", NUEVAS_CARDS_V3]
 ]
 
 const DEFAULT_CARDS_VISIBLES = DASHBOARD_CARDS
     .map(card => card.id)
     .filter(id => id !== "patrimonio")
 const DEFAULT_CARDS_ORDEN = [...DEFAULT_CARDS_VISIBLES]
+
+// ============================================
+// CARDS INSTANCIADAS (cuenta / activo)
+// ============================================
+// A diferencia del catálogo fijo, estas cards no son un id único del catálogo:
+// son una instancia por entidad, con id "cuenta:<cuentaId>" o
+// "activo:<activoId>". El usuario las elige una a una desde el selector
+// ("Añadir/quitar cards") y se guardan en las mismas listas de preferencias
+// que el resto, así que sobreviven a recargas y se reordenan igual.
+
+const PREFIJO_CARD_CUENTA = "cuenta:"
+const PREFIJO_CARD_ACTIVO = "activo:"
+const REGEX_CARD_INSTANCIA = /^(cuenta|activo):[A-Za-z0-9_-]{1,128}$/
+
+const ETIQUETAS_TIPO_CUENTA = {
+    banco: "Banco",
+    efectivo: "Efectivo",
+    broker: "Broker",
+    exchange: "Exchange",
+    debito: "Tarjeta de débito",
+    credito: "Tarjeta de crédito"
+}
+
+const ETIQUETAS_TIPO_ACTIVO = {
+    accion: "Acción",
+    etf: "ETF",
+    crypto: "Cripto",
+    bono: "Bono"
+}
+
+function esCardInstancia(id) {
+    return typeof id === "string" && REGEX_CARD_INSTANCIA.test(id)
+}
+
+function idCardCuenta(cuentaId) {
+    return `${PREFIJO_CARD_CUENTA}${cuentaId}`
+}
+
+function idCardActivo(activoId) {
+    return `${PREFIJO_CARD_ACTIVO}${activoId}`
+}
+
+function entidadDeCardInstancia(id) {
+    const [tipo, entidadId] = String(id).split(":")
+    return { tipo, entidadId }
+}
 
 let cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
 let cardsOrdenDashboard = [...DEFAULT_CARDS_ORDEN]
@@ -95,23 +161,36 @@ let timerLayoutDashboard = null
 function normalizarCardsVisibles(valor) {
     if (!Array.isArray(valor)) return [...DEFAULT_CARDS_VISIBLES]
     const idsConocidos = new Set(DASHBOARD_CARDS.map(card => card.id))
-    return [...new Set(valor.filter(id => id !== "patrimonio" && idsConocidos.has(id)))]
+    return [...new Set(valor.filter(id => id !== "patrimonio" && (idsConocidos.has(id) || esCardInstancia(id))))]
 }
 
 function normalizarCardsOrden(valor) {
     if (!Array.isArray(valor)) return [...DEFAULT_CARDS_ORDEN]
     const idsConocidos = new Set(DEFAULT_CARDS_ORDEN)
-    const validos = [...new Set(valor.filter(id => idsConocidos.has(id)))]
+    const validos = [...new Set(valor.filter(id => idsConocidos.has(id) || esCardInstancia(id)))]
     return [...validos, ...DEFAULT_CARDS_ORDEN.filter(id => !validos.includes(id))]
+}
+
+// Aplica las tandas de cards nuevas que este usuario todavía no ha recibido.
+// Devuelve las listas ya normalizadas y la lista de marcas a guardar.
+function aplicarTandasNuevasCards(dashboard, cardsGuardadas) {
+    const visibles = normalizarCardsVisibles(cardsGuardadas)
+    const marcas = {}
+
+    for (const [marca, cards] of TANDAS_CARDS) {
+        if (!Array.isArray(cardsGuardadas) || dashboard?.[marca] === true) continue
+        const pendientes = cards.filter(id => !visibles.includes(id))
+        if (pendientes.length > 0) visibles.push(...pendientes)
+        marcas[marca] = true
+    }
+
+    return { visibles: normalizarCardsVisibles(visibles), marcas }
 }
 
 function configurarCardsDashboardDesdeSesion() {
     const dashboard = sesion.getPreferencias()?.dashboard
-    const cardsGuardadas = dashboard?.cardsVisibles
-    const migrar = Array.isArray(cardsGuardadas) && dashboard?.nuevasCardsV1 !== true
-    cardsVisiblesDashboard = migrar
-        ? normalizarCardsVisibles([...cardsGuardadas, ...NUEVAS_CARDS_DASHBOARD])
-        : normalizarCardsVisibles(cardsGuardadas)
+    const { visibles } = aplicarTandasNuevasCards(dashboard, dashboard?.cardsVisibles)
+    cardsVisiblesDashboard = visibles
     cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
 }
 
@@ -119,16 +198,14 @@ async function cargarCardsVisiblesDashboard() {
     if (!uid) return
     try {
         const preferencias = sesion.getPreferencias() || await obtenerPreferencias(uid)
-        const cardsGuardadas = preferencias?.dashboard?.cardsVisibles
-        const migrarCards = Array.isArray(cardsGuardadas) && preferencias?.dashboard?.nuevasCardsV1 !== true
-        cardsVisiblesDashboard = migrarCards
-            ? normalizarCardsVisibles([...cardsGuardadas, ...NUEVAS_CARDS_DASHBOARD])
-            : normalizarCardsVisibles(cardsGuardadas)
-        cardsOrdenDashboard = normalizarCardsOrden(preferencias?.dashboard?.orden)
-        if (migrarCards) {
+        const dashboard = preferencias?.dashboard
+        const { visibles, marcas } = aplicarTandasNuevasCards(dashboard, dashboard?.cardsVisibles)
+        cardsVisiblesDashboard = visibles
+        cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
+        if (Object.keys(marcas).length > 0) {
             actualizarPreferencias(uid, {
                 "dashboard.cardsVisibles": cardsVisiblesDashboard,
-                "dashboard.nuevasCardsV1": true
+                ...Object.fromEntries(Object.entries(marcas).map(([marca]) => [`dashboard.${marca}`, true]))
             }).catch(error => console.warn("No se pudo guardar la migración de cards:", error))
         }
     } catch (error) {
@@ -138,6 +215,454 @@ async function cargarCardsVisiblesDashboard() {
     }
 }
 
+// Guarda una parte de las preferencias del dashboard en Firestore (con notación
+// de punto) y la refleja en la sesión. Sin el reflejo en sesión, al volver a
+// entrar al dashboard se leería la copia vieja (cards del catálogo y orden) y
+// las cards agregadas o reordenadas desaparecerían hasta recargar.
+async function guardarPreferenciasDashboard(dashboard) {
+    const cambios = {}
+    if (dashboard.cardsVisibles !== undefined) cambios["dashboard.cardsVisibles"] = dashboard.cardsVisibles
+    if (dashboard.orden !== undefined) cambios["dashboard.orden"] = dashboard.orden
+
+    // Guardar una selección explícita da por recibidas TODAS las tandas: si no,
+    // un usuario que nunca pasó por una migración se volvería a encontrar
+    // dentro de un tiempo con cards que había quitado a mano.
+    const marcasRecibidas = {}
+    for (const [marca] of TANDAS_CARDS) {
+        if (dashboard[marca] !== undefined) {
+            cambios[`dashboard.${marca}`] = dashboard[marca]
+            marcasRecibidas[marca] = dashboard[marca]
+        }
+    }
+    if (dashboard.cardsVisibles !== undefined) {
+        for (const [marca] of TANDAS_CARDS) {
+            cambios[`dashboard.${marca}`] = true
+            marcasRecibidas[marca] = true
+        }
+    }
+
+    await actualizarPreferencias(uid, cambios)
+    const preferencias = sesion.getPreferencias()
+    sesion.setPreferencias({
+        ...preferencias,
+        dashboard: {
+            ...(preferencias.dashboard || {}),
+            ...dashboard,
+            ...marcasRecibidas
+        }
+    })
+}
+
+// ============================================
+// INSTANCIAS: RESOLUCIÓN, MONTAJE Y PODA
+// ============================================
+
+// Devuelve la entidad (cuenta o posición) a la que apunta una card
+// instanciada, o null si ya no existe (cuenta borrada, posición cerrada).
+function entidadDeInstancia(id) {
+    const { tipo, entidadId } = entidadDeCardInstancia(id)
+    if (tipo === "cuenta") {
+        const cuenta = cuentas.find(item => item.id === entidadId)
+        return cuenta ? { tipo, cuenta } : null
+    }
+    const posicion = posicionesData.find(item => item.activoId === entidadId)
+    return posicion ? { tipo, posicion } : null
+}
+
+// Las instancias cuya entidad ya no existe se eliminan de las preferencias
+// (una cuenta borrada no debe dejar una card fantasma en el orden). Solo
+// cuando los datos ya están cargados: si no, la entidad simplemente aún no
+// se conoce y se conservaría por error.
+function podarInstanciasInvalidas() {
+    if (!instanciasResueltas) return
+    const validas = cardsVisiblesDashboard.filter(id => !esCardInstancia(id) || entidadDeInstancia(id))
+    if (validas.length === cardsVisiblesDashboard.length) return
+
+    cardsVisiblesDashboard = validas
+    cardsOrdenDashboard = normalizarCardsOrden(
+        cardsOrdenDashboard.filter(id => !esCardInstancia(id) || validas.includes(id))
+    )
+
+    guardarPreferenciasDashboard({
+        cardsVisibles: cardsVisiblesDashboard,
+        orden: cardsOrdenDashboard
+    }).catch(error => console.warn("No se pudo limpiar una card de cuenta/activo:", error))
+}
+
+// Crea el nodo de las cards instanciadas que falten y retira las que ya no
+// apliquen. Se llama tras cargar los datos y al cambiar la selección; el
+// reparto en columnas lo hace después aplicarLayoutDashboard().
+function montarCardsInstanciadas() {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return
+
+    podarInstanciasInvalidas()
+
+    const requeridas = cardsVisiblesDashboard.filter(esCardInstancia)
+    const montadas = new Map()
+    grid.querySelectorAll("[data-dashboard-card]").forEach(card => {
+        const id = card.dataset.dashboardCard
+        if (esCardInstancia(id)) montadas.set(id, card)
+    })
+
+    requeridas.forEach(id => {
+        if (montadas.has(id)) return
+        const nodo = construirCardInstancia(id)
+        if (!nodo) return
+        grid.appendChild(nodo)
+        enlazarCardInstancia(nodo, id)
+        montadas.set(id, nodo)
+    })
+
+    requeridas.forEach(id => {
+        const card = montadas.get(id)
+        if (card) pintarCardInstancia(id, card)
+    })
+
+    montadas.forEach((card, id) => {
+        if (card && !requeridas.includes(id)) card.remove()
+    })
+}
+
+function construirCardInstancia(id) {
+    const entidad = entidadDeInstancia(id)
+    if (!entidad) return null
+    return entidad.tipo === "cuenta"
+        ? plantillaCardCuenta(entidad.cuenta)
+        : plantillaCardActivo(entidad.posicion)
+}
+
+function cantidadDeActivo(valor) {
+    const numero = Number(valor)
+    if (!Number.isFinite(numero)) return "0"
+    return Math.abs(numero) >= 1000
+        ? numero.toLocaleString("es-PE", { maximumFractionDigits: 2 })
+        : String(Number(numero.toFixed(4)))
+}
+
+function filaDato(etiqueta, valor) {
+    if (!valor) return ""
+    return `
+        <div class="card-dato">
+            <span class="card-dato-label">${etiqueta}</span>
+            <span class="card-dato-valor">${valor}</span>
+        </div>
+    `
+}
+
+// ============================================
+// COMPRIMIR / EXPANDIR UNA CARD
+// ============================================
+// Cada card instanciada (cuenta o activo) se muestra a tamaño normal, que es
+// el estado por defecto: valor grande, subtítulo, barra de uso y el desglose
+// de datos. El botón del encabezado la comprime a una fila con solo los
+// números en pequeño: la cifra y, si la card lo tiene, el badge de estado. Al
+// volver a pulsarlo se despliega otra vez el resumen a tamaño normal.
+//
+// El estado vive en localStorage (no en Firestore) porque es una preferencia
+// de vista, no del perfil: por eso las cards pueden redibujarse por completo
+// (esqueletos, refresco, cambio de divisa) sin perderla.
+
+const STORAGE_CARDS_COMPRIMIDAS = "escinco_cards_comprimidas"
+
+function leerCardsComprimidas() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_CARDS_COMPRIMIDAS) || "[]")
+        return new Set(Array.isArray(raw) ? raw.filter(esCardInstancia) : [])
+    } catch (e) {
+        return new Set()
+    }
+}
+
+let cardsComprimidas = leerCardsComprimidas()
+
+function persistirCardsComprimidas() {
+    try {
+        localStorage.setItem(STORAGE_CARDS_COMPRIMIDAS, JSON.stringify([...cardsComprimidas]))
+    } catch (e) {}
+}
+
+const ETIQUETA_COMPRIMIR = "Comprimir tarjeta"
+const ETIQUETA_EXPANDIR = "Ver detalle de la tarjeta"
+
+function pintarEstadoCompresion(card, comprimida) {
+    card.classList.toggle("card-comprimida", comprimida)
+    const boton = card.querySelector("[data-card-comprimir]")
+    if (!boton) return
+    const etiqueta = comprimida ? ETIQUETA_EXPANDIR : ETIQUETA_COMPRIMIR
+    boton.setAttribute("aria-expanded", comprimida ? "false" : "true")
+    boton.setAttribute("aria-label", etiqueta)
+    boton.title = etiqueta
+}
+
+function alternarCompresionCard(card, id) {
+    if (cardsComprimidas.has(id)) cardsComprimidas.delete(id)
+    else cardsComprimidas.add(id)
+    pintarEstadoCompresion(card, cardsComprimidas.has(id))
+    persistirCardsComprimidas()
+    // El masonry reparte por altura real: sin forzar el repase, la card
+    // seguiría ocupando el hueco que tenía expandida.
+    aplicarLayoutDashboard(true)
+}
+
+// Botón del encabezado. El chevron apunta a la acción: arriba para comprimir,
+// y al girar 180° (CSS) queda abajo para volver a desplegar.
+function botonComprimirCard() {
+    return `
+        <button type="button" class="card-comprimir" data-card-comprimir
+            aria-expanded="true" aria-label="${ETIQUETA_COMPRIMIR}" title="${ETIQUETA_COMPRIMIR}">
+            ${icono("chevron-up", 14)}
+        </button>
+    `
+}
+
+// Card de una cuenta. No lista movimientos ni cantidades de operación: solo
+// el estado del saldo. En tarjetas de crédito cambia por completo (línea de
+// crédito, uso, ciclo de facturación y anualidad).
+function plantillaCardCuenta(cuenta) {
+    const esCredito = cuenta.tipo === "credito"
+    const prefijo = `cuenta-card-${cuenta.id}`
+    const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+
+    return `
+        <div class="glass card card-navegable card-cuenta${esCredito ? " card-cuenta-credito" : ""}"
+            id="card-${prefijo}" data-dashboard-card="${idCardCuenta(cuenta.id)}"
+            role="group" tabindex="0" aria-label="${cuenta.nombre || etiqueta}">
+            <div class="card-header">
+                <span class="card-title">${etiqueta}</span>
+                <div class="card-header-controles">
+                    <span class="card-badge" id="${prefijo}-estado">${skeletonText("skeleton-badge")}</span>
+                    ${botonComprimirCard()}
+                </div>
+            </div>
+            <div class="card-value" id="${prefijo}-valor">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="${prefijo}-detalle">${skeletonText()}</div>
+            ${esCredito ? `
+                <div class="card-uso">
+                    <div class="card-uso-barra"><span id="${prefijo}-barra"></span></div>
+                    <span class="card-uso-pct" id="${prefijo}-porcentaje"></span>
+                </div>
+            ` : ""}
+            <div class="card-datos" id="${prefijo}-datos"></div>
+        </div>
+    `
+}
+
+// Card de un activo con posición abierta: valor, resultado y desglose de la
+// posición (cantidad, precio promedio y último precio).
+function plantillaCardActivo(posicion) {
+    const prefijo = `activo-card-${posicion.activoId}`
+
+    return `
+        <div class="glass card card-navegable card-activo"
+            id="card-${prefijo}" data-dashboard-card="${idCardActivo(posicion.activoId)}"
+            role="group" tabindex="0">
+            <div class="card-header">
+                <span class="card-title" id="${prefijo}-nombre"></span>
+                <div class="card-header-controles">
+                    <span class="card-badge" id="${prefijo}-estado"></span>
+                    ${botonComprimirCard()}
+                </div>
+            </div>
+            <div class="card-value" id="${prefijo}-valor">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="${prefijo}-detalle">${skeletonText()}</div>
+            <div class="card-datos" id="${prefijo}-datos"></div>
+        </div>
+    `
+}
+
+function pintarCardInstancia(id, card) {
+    const entidad = entidadDeInstancia(id)
+    if (!entidad) {
+        card.remove()
+        return
+    }
+    if (entidad.tipo === "cuenta") pintarCardCuenta(entidad.cuenta, card)
+    else pintarCardActivo(entidad.posicion, card)
+}
+
+function pintarCardCuenta(cuenta, card) {
+    const prefijo = `cuenta-card-${cuenta.id}`
+    const valorEl = card.querySelector(`#${prefijo}-valor`)
+    const detalleEl = card.querySelector(`#${prefijo}-detalle`)
+    const estadoEl = card.querySelector(`#${prefijo}-estado`)
+    const datosEl = card.querySelector(`#${prefijo}-datos`)
+    if (!valorEl || !detalleEl) return
+
+    card.setAttribute("title", `Ver ${cuenta.nombre || "cuenta"}`)
+    const moneda = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
+
+    if (cuenta.tipo === "credito") {
+        const uso = nivelUsoDe(cuenta)
+        const ciclo = estadoCicloDe(cuenta, movimientosCompletosData)
+        const anualidad = proximaAnualidad(cuenta)
+        const corte = cuenta.diaCorte ? `Corte día ${cuenta.diaCorte}` : ""
+        const pago = cuenta.diaPago ? `Pago día ${cuenta.diaPago}` : ""
+
+        valorEl.textContent = formatearMontoConDivisa(uso.deuda, moneda)
+        valorEl.classList.remove("positive", "negative")
+        if (uso.deuda > 0) valorEl.classList.add("negative")
+
+        if (detalleEl) {
+            detalleEl.textContent = uso.limite > 0
+                ? `De ${formatearMontoConDivisa(uso.limite, moneda)}`
+                : "Sin línea de crédito definida"
+        }
+
+        if (estadoEl) {
+            estadoEl.classList.remove("aviso", "critico", "positive")
+            if (ciclo.pagadoCompleto) {
+                estadoEl.textContent = "Pagado"
+                estadoEl.classList.add("positive")
+            } else if (ciclo.restante > 0) {
+                estadoEl.textContent = "Pendiente"
+                estadoEl.classList.add(uso.nivel === "critico" ? "critico" : "aviso")
+            } else {
+                estadoEl.textContent = "Al día"
+                estadoEl.classList.add("positive")
+            }
+        }
+
+        const barraEl = card.querySelector(`#${prefijo}-barra`)
+        if (barraEl) {
+            barraEl.style.width = `${Math.min(100, uso.porcentaje).toFixed(1)}%`
+            barraEl.className = uso.nivel
+        }
+        const porcentajeEl = card.querySelector(`#${prefijo}-porcentaje`)
+        if (porcentajeEl) {
+            porcentajeEl.textContent = uso.limite > 0 ? `${uso.porcentaje.toFixed(0)}%` : "—"
+            porcentajeEl.className = `card-uso-pct ${uso.nivel}`
+        }
+
+        if (datosEl) {
+            datosEl.innerHTML = [
+                filaDato("Ciclo", [corte, pago].filter(Boolean).join(" · ") || "Sin fechas definidas"),
+                filaDato("Por pagar", ciclo.pagadoCompleto
+                    ? "Estado de cuenta pagado"
+                    : ciclo.restante > 0
+                        ? formatearMontoConDivisa(ciclo.restante, moneda)
+                        : "Sin saldo pendiente"),
+                filaDato("Anualidad", anualidad
+                    ? `${formatearMontoConDivisa(anualidad.monto, moneda)} · ${formatearFecha(anualidad.fecha)}`
+                    : cuenta.desgravamen
+                        ? `Desgravamen ${cuenta.desgravamen}%`
+                        : "")
+            ].join("")
+        }
+        return
+    }
+
+    const saldo = Number(cuenta.saldoInicial) || 0
+    valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
+    valorEl.classList.remove("positive", "negative")
+    if (saldo > 0) valorEl.classList.add("positive")
+    else if (saldo < 0) valorEl.classList.add("negative")
+
+    if (detalleEl) {
+        const monedaDistinta = moneda !== divisaActual
+        detalleEl.textContent = monedaDistinta
+            ? formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)
+            : "Saldo disponible"
+    }
+
+    if (estadoEl) {
+        // En una cuenta no crédito el badge queda libre: el estado
+        // (activa/archivada) no se muestra. Las archivadas ya ni siquiera
+        // llegan aquí, y "activa" es el estado por defecto: solo añadiría ruido.
+        estadoEl.textContent = ""
+        estadoEl.hidden = true
+    }
+
+    if (datosEl) {
+        datosEl.innerHTML = [
+            filaDato("Divisa", presentarDivisa(moneda)),
+            filaDato("Alta", cuenta.fechaCreacion ? formatearFecha(cuenta.fechaCreacion) : "")
+        ].join("")
+    }
+}
+
+function pintarCardActivo(posicion, card) {
+    const activo = posicion.activo || {}
+    const prefijo = `activo-card-${posicion.activoId}`
+    const nombreEl = card.querySelector(`#${prefijo}-nombre`)
+    const estadoEl = card.querySelector(`#${prefijo}-estado`)
+    const valorEl = card.querySelector(`#${prefijo}-valor`)
+    const detalleEl = card.querySelector(`#${prefijo}-detalle`)
+    const datosEl = card.querySelector(`#${prefijo}-datos`)
+    if (!valorEl || !detalleEl) return
+
+    const cantidad = Number(posicion.cantidad) || 0
+    const precioPromedio = Number(posicion.precioPromedio) || 0
+    const ultimoPrecio = Number(activo.ultimoPrecio) || 0
+    const valorTotal = cantidad * ultimoPrecio
+    const ganancia = (ultimoPrecio - precioPromedio) * cantidad
+    const rendimiento = precioPromedio > 0 ? (ultimoPrecio / precioPromedio - 1) * 100 : 0
+    const divisa = String(posicion.divisa || "usd").toLowerCase()
+    // Sin precio vigente (o sin precio de entrada) no hay nada que valorar:
+    // mostrar un -100% inventado sería peor que no mostrar resultado.
+    const sinPrecio = ultimoPrecio <= 0 || precioPromedio <= 0
+
+    card.setAttribute("title", `Ver ${activo.nombre || activo.simbolo || "activo"}`)
+    if (nombreEl) nombreEl.textContent = activo.nombre || activo.simbolo || "Activo"
+    if (estadoEl) estadoEl.textContent = activo.simbolo || ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"
+
+    valorEl.classList.remove("positive", "negative")
+
+    if (sinPrecio) {
+        valorEl.textContent = formatearMontoConDivisa(0, divisaActual)
+        detalleEl.textContent = "Sin precio para valorar"
+    } else {
+        valorEl.textContent = formatearMontoConDivisa(convertirMonto(valorTotal, divisa, divisaActual), divisaActual)
+        const signo = ganancia >= 0 ? "+" : ""
+        detalleEl.textContent = `${signo}${formatearMontoConDivisa(convertirMonto(ganancia, divisa, divisaActual), divisaActual)} · ${rendimiento >= 0 ? "+" : ""}${rendimiento.toFixed(1)}%`
+        if (ganancia > 0) valorEl.classList.add("positive")
+        else if (ganancia < 0) valorEl.classList.add("negative")
+    }
+
+    if (datosEl) {
+        datosEl.innerHTML = [
+            filaDato("Cantidad", `${cantidadDeActivo(cantidad)} ${activo.simbolo || ""}`.trim()),
+            filaDato("Precio", `${formatearMontoConDivisa(ultimoPrecio, divisa)} · prom. ${formatearMontoConDivisa(precioPromedio, divisa)}`),
+            filaDato("Tipo", ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "")
+        ].join("")
+    }
+}
+
+// Navegación de las cards instanciadas: la de cuenta aterriza en /cuentas con
+// esa cuenta seleccionada; la de activo, en /inversiones.
+function enlazarCardInstancia(card, id) {
+    const ir = async () => {
+        if (modoEdicionDashboard) return
+        const entidad = entidadDeInstancia(id)
+        if (!entidad) return
+        if (entidad.tipo === "cuenta") {
+            const { seleccionarCuentaPorId } = await import("./cuentas.js")
+            seleccionarCuentaPorId(entidad.cuenta.id)
+            navigateTo("/cuentas")
+            return
+        }
+        navigateTo("/inversiones")
+    }
+
+    card.addEventListener("click", ir)
+    card.addEventListener("keydown", evento => {
+        if (evento.key === "Enter" || evento.key === " ") {
+            evento.preventDefault()
+            ir()
+        }
+    })
+
+    // El botón de comprimir vive dentro de una card que navega al hacer clic:
+    // sin cortar la propagación, pulsarlo abriría la cuenta o la posición.
+    card.querySelector("[data-card-comprimir]")?.addEventListener("click", evento => {
+        evento.preventDefault()
+        evento.stopPropagation()
+        alternarCompresionCard(card, id)
+    })
+
+    pintarEstadoCompresion(card, cardsComprimidas.has(id))
+}
+
 function cantidadColumnasDashboard() {
     if (window.matchMedia("(max-width: 599px)").matches) return 1
     if (window.matchMedia("(max-width: 899px)").matches) return 2
@@ -145,13 +670,14 @@ function cantidadColumnasDashboard() {
     return 4
 }
 
-function alturaMasonryCard(card, grid) {
+function alturaMasonryCard(card, gap) {
     const alturaRect = card.getBoundingClientRect().height
     if (alturaRect > 0) return alturaRect
 
-    const estilo = window.getComputedStyle(card)
-    const alturaMinima = Number.parseFloat(estilo.minHeight) || 0
-    const gap = Number.parseFloat(window.getComputedStyle(grid).rowGap) || 0
+    // Una card oculta o aún sin pintar mide 0. Se estima con su min-height en
+    // vez de leer estilos uno a uno: es un fallback, y getComputedStyle en un
+    // bucle es de las cosas que más engordan el coste de un reparto.
+    const alturaMinima = Number.parseFloat(window.getComputedStyle(card).minHeight) || 0
     return Math.max(alturaMinima, 148) + gap
 }
 
@@ -168,12 +694,28 @@ function crearColumnasDashboard(cards, ordenVisible, cantidadColumnas, grid) {
         card.hidden = !visibles.has(card.dataset.dashboardCard)
     })
 
-    ordenVisible.forEach(id => {
-        const card = cards.find(item => item.dataset.dashboardCard === id)
-        if (!card) return
-        const indice = alturas.indexOf(Math.min(...alturas))
-        columnas[indice].appendChild(card)
-        alturas[indice] += alturaMasonryCard(card, grid)
+    // Ordenar en dos fases: primero todas las medidas, después todos los
+    // appendChild. Intercalarlos (medir, mover, medir, mover…) obligaba al
+    // navegador a recalcular la composición sin parar, porque cada append
+    // invalida lo medido justo antes: con ~20 cards eran ~20 reflows
+    // síncronos por cada reparto. Y se dispara en cada refresco de datos,
+    // en cada resize y al comprimir una card.
+    //
+    // El Map evita además el cards.find() dentro del bucle, que era O(n²).
+    const porId = new Map(cards.map(card => [card.dataset.dashboardCard, card]))
+    const aColocar = ordenVisible
+        .map(id => porId.get(id))
+        .filter(Boolean)
+
+    // Única fase de lectura: no se toca el DOM dentro.
+    const gap = Number.parseFloat(window.getComputedStyle(grid).rowGap) || 0
+    const alturasMedidas = aColocar.map(card => alturaMasonryCard(card, gap))
+
+    // Fase de escritura: solo appendChild, sin volver a leer nada.
+    aColocar.forEach((card, indice) => {
+        const columna = alturas.indexOf(Math.min(...alturas))
+        columnas[columna].appendChild(card)
+        alturas[columna] += alturasMedidas[indice]
     })
 
     cards.filter(card => card.hidden).forEach(card => columnas[columnas.length - 1].appendChild(card))
@@ -352,7 +894,7 @@ function salirModoEdicionDashboard(forzar = false) {
 
 async function guardarOrdenDashboard() {
     try {
-        await actualizarPreferencias(uid, { "dashboard.orden": cardsOrdenDashboard })
+        await guardarPreferenciasDashboard({ orden: cardsOrdenDashboard })
         cambiosPendientesDashboard = false
         return true
     } catch (error) {
@@ -399,6 +941,52 @@ function manejarCambioPaginaDashboard(evento) {
     ])
 }
 
+// Bloque de cards instanciadas dentro del selector: una casilla por cuenta y
+// otra por activo con posición abierta.
+function bloqueInstanciasSelector(titulo, descripcion, opciones, vacio) {
+    return `
+        <div class="dashboard-editor-bloque">
+            <span class="dashboard-editor-titulo">${titulo}</span>
+            <p class="dashboard-editor-hint">${descripcion}</p>
+            ${opciones.length > 0
+                ? `<div class="dashboard-editor-grid">${opciones.join("")}</div>`
+                : `<p class="dashboard-editor-hint">${vacio}</p>`}
+        </div>
+    `
+}
+
+function opcionesInstanciasCuentas(activas) {
+    return cuentas.map(cuenta => {
+        const id = idCardCuenta(cuenta.id)
+        const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+        return `
+            <label class="dashboard-card-opcion">
+                <input type="checkbox" value="${id}" ${activas.has(id) ? "checked" : ""}>
+                <span>
+                    ${cuenta.nombre || "Cuenta"}
+                    <small>${etiqueta}</small>
+                </span>
+            </label>
+        `
+    })
+}
+
+function opcionesInstanciasActivos(activas) {
+    return posicionesData.map(posicion => {
+        const id = idCardActivo(posicion.activoId)
+        const activo = posicion.activo || {}
+        return `
+            <label class="dashboard-card-opcion">
+                <input type="checkbox" value="${id}" ${activas.has(id) ? "checked" : ""}>
+                <span>
+                    ${activo.simbolo || activo.nombre || "Activo"}
+                    <small>${ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"}</small>
+                </span>
+            </label>
+        `
+    })
+}
+
 function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
@@ -409,6 +997,19 @@ function abrirSelectorCardsDashboard() {
             <span>${card.label}</span>
         </label>
     `).join("")
+
+    const cuentasBloque = bloqueInstanciasSelector(
+        "Tus cuentas",
+        "Una card por cuenta, con su saldo. Las tarjetas de crédito muestran además línea de crédito, uso y ciclo de facturación.",
+        opcionesInstanciasCuentas(activas),
+        "Todavía no tienes cuentas."
+    )
+    const activosBloque = bloqueInstanciasSelector(
+        "Tus activos",
+        "Una card por activo en el que tengas una posición abierta.",
+        opcionesInstanciasActivos(activas),
+        "No tienes posiciones abiertas todavía."
+    )
 
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     const modal = abrirModal({
@@ -421,18 +1022,30 @@ function abrirSelectorCardsDashboard() {
         contenido: `
             <div class="dashboard-editor">
                 <div class="dashboard-editor-grid">${opciones}</div>
+                ${cuentasBloque}
+                ${activosBloque}
             </div>
         `,
         onConfirm: async () => {
-            const seleccionadas = [...modal.querySelectorAll(".dashboard-editor-grid input:checked")].map(input => input.value)
+            const seleccionadas = [...modal.querySelectorAll(".dashboard-editor input:checked")].map(input => input.value)
+            // El orden se conserva para las cards que siguen activas; las
+            // nuevas entran al final hasta que el usuario las mueva.
+            const ordenPrevio = cardsOrdenDashboard.filter(id => seleccionadas.includes(id))
+            const nuevas = seleccionadas.filter(id => !ordenPrevio.includes(id))
+            const orden = normalizarCardsOrden([...ordenPrevio, ...nuevas])
+            const visibles = normalizarCardsVisibles(seleccionadas)
+
             try {
-                await actualizarPreferencias(uid, {
-                    "dashboard.cardsVisibles": seleccionadas,
-                    "dashboard.orden": cardsOrdenDashboard
+                await guardarPreferenciasDashboard({
+                    cardsVisibles: visibles,
+                    orden
                 })
-                cardsVisiblesDashboard = normalizarCardsVisibles(seleccionadas)
+                cardsVisiblesDashboard = visibles
+                cardsOrdenDashboard = orden
                 cambiosPendientesDashboard = false
-                aplicarLayoutDashboard()
+                montarCardsInstanciadas()
+                if (modoEdicionDashboard) prepararEdicionCardsDashboard()
+                aplicarLayoutDashboard(true)
                 mostrarNotificacion("exito", "Cards del dashboard actualizadas")
                 return true
             } catch (error) {
@@ -445,9 +1058,9 @@ function abrirSelectorCardsDashboard() {
 
     modal.querySelector("[data-dashboard-reset]")?.addEventListener("click", () => {
         cambiosPendientesDashboard = true
-        modal.querySelectorAll(".dashboard-editor-grid input").forEach(input => { input.checked = true })
+        modal.querySelectorAll(".dashboard-editor input").forEach(input => { input.checked = true })
     })
-    modal.querySelectorAll(".dashboard-editor-grid input").forEach(input => {
+    modal.querySelectorAll(".dashboard-editor input").forEach(input => {
         input.addEventListener("change", () => { cambiosPendientesDashboard = true })
     })
 }
@@ -468,6 +1081,19 @@ const PERIODO_POR_DEFECTO = "30d"
 
 let periodoGrafico = PERIODO_POR_DEFECTO
 
+// Ventana deslizante de las cards Gastado / Ingresado / Balance. A diferencia
+// de PERIODOS_GRAFICO no necesita "1A" ni "Todo": son cifras de flujo, y un
+// histórico completo no aporta contexto. El toggle vive en la card "Gastado"
+// y gobierna las tres.
+const PERIODOS_FLUJO = [
+    { id: "7d", etiqueta: "7D", dias: 7, sub: "Últimos 7 días" },
+    { id: "30d", etiqueta: "30D", dias: 30, sub: "Últimos 30 días" },
+    { id: "90d", etiqueta: "90D", dias: 90, sub: "Últimos 90 días" }
+]
+const PERIODO_FLUJO_POR_DEFECTO = "30d"
+
+let periodoFlujo = PERIODO_FLUJO_POR_DEFECTO
+
 function normalizarNivelResalte(valor) {
     const nivel = Number(valor)
     return [0, 1, 2].includes(nivel) ? nivel : 0
@@ -475,6 +1101,10 @@ function normalizarNivelResalte(valor) {
 
 function obtenerPeriodo(id) {
     return PERIODOS_GRAFICO.find(p => p.id === id) || PERIODOS_GRAFICO[1]
+}
+
+function obtenerPeriodoFlujo(id) {
+    return PERIODOS_FLUJO.find(p => p.id === id) || PERIODOS_FLUJO[1]
 }
 
 // ============================================
@@ -566,6 +1196,21 @@ export function render() {
                     <span class="card-badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="ordenes-lista" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+                <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
+            </div>
+
+            <div class="glass card card-navegable distribucion-activos-card" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Ver inversiones">
+                <div class="card-header">
+                    <span class="card-title">Distribución por tipo de activo</span>
+                </div>
+                <div class="distribucion-lista" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            </div>
+
+            <div class="glass card card-navegable patrimonio-divisa-card" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Ver cuentas">
+                <div class="card-header">
+                    <span class="card-title">Patrimonio por divisa</span>
+                </div>
+                <div class="divisa-lista" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
             </div>
 
             <div class="glass card estrategias-card" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
@@ -580,6 +1225,31 @@ export function render() {
                 <div class="card-title">Flujo de caja</div>
                 <div class="card-value" id="flujo-caja-valor">${skeletonText("skeleton-value")}</div>
                 <div class="card-sub" id="flujo-caja-detalle">${skeletonText()}</div>
+            </div>
+
+            <div class="glass card card-navegable metric-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Ver movimientos">
+                <div class="card-header">
+                    <span class="card-title">Gastado</span>
+                </div>
+                <div class="toggle-group grafico-periodos" id="periodo-flujo" role="group" aria-label="Periodo del flujo de caja">
+                    ${PERIODOS_FLUJO.map(p => `
+                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                    `).join('')}
+                </div>
+                <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
+            </div>
+
+            <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ver movimientos">
+                <div class="card-title">Ingresado</div>
+                <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
+            </div>
+
+            <div class="glass card card-navegable metric-card" id="card-balance-periodo" data-dashboard-card="balance-periodo" role="button" tabindex="0" title="Ver movimientos">
+                <div class="card-title">Balance</div>
+                <div class="card-value" id="balance-periodo-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="balance-periodo-detalle">${skeletonText()}</div>
             </div>
 
             <div class="glass card card-navegable metric-card" id="card-deudas" data-dashboard-card="deudas" role="button" tabindex="0" title="Ver cuentas">
@@ -649,31 +1319,57 @@ export function render() {
 // INIT
 // ============================================
 
+// Qué listas del dashboard se vacían al mostrar esqueletos y al fallar la
+// carga, y con cuántas filas. Se declara una sola vez porque las dos rutas
+// (esqueleto y error) tienen que usar exactamente la misma lista: si una se
+// olvidara, esa card se quedaría con los datos del ciclo anterior.
+const LISTAS_DASHBOARD = [
+    { id: "movimientos-lista", filas: 2 },
+    { id: "favoritos-lista", filas: 2 },
+    { id: "metas-lista", filas: 2 },
+    { id: "pendientes-lista", filas: 2 },
+    { id: "ordenes-lista", filas: 2 },
+    { id: "estrategias-lista", filas: 3, clase: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" },
+    { id: "distribucion-lista", filas: 3 },
+    { id: "distribucion-activos-lista", filas: 3 },
+    { id: "patrimonio-divisa-lista", filas: 3 },
+    { id: "programados-lista", filas: 2 },
+    { id: "alertas-lista", filas: 2 }
+]
+
+const VALORES_DASHBOARD = [
+    "patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
+    "flujo-caja-valor", "deudas-valor", "ahorro-valor",
+    "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"
+]
+
+const DETALLES_DASHBOARD = [
+    "patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+    "deudas-detalle", "ahorro-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle",
+    "balance-periodo-detalle", "ordenes-detalle"
+]
+
+const CONTADORES_DASHBOARD = [
+    "favoritos-cantidad", "pendientes-cantidad", "ordenes-cantidad",
+    "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"
+]
+
 function mostrarEsqueletosDashboard() {
     const dashboard = document.querySelector(".dashboard")
     dashboard?.setAttribute("aria-busy", "true")
-    const listas = ["movimientos-lista", "favoritos-lista", "metas-lista", "pendientes-lista", "ordenes-lista", "estrategias-lista", "distribucion-lista", "programados-lista", "alertas-lista"]
-    listas.forEach(id => {
+    LISTAS_DASHBOARD.forEach(({ id, filas, clase }) => {
         const lista = document.getElementById(id)
-        if (!lista) return
-        const filas = id === "distribucion-lista" || id === "estrategias-lista" ? 3 : 2
-        const clase = id === "estrategias-lista"
-            ? "skeleton-dashboard-list skeleton-dashboard-list-estrategias"
-            : "skeleton-dashboard-list"
-        lista.innerHTML = skeletonMarkup({ rows: filas, className: clase })
+        if (lista) lista.innerHTML = skeletonMarkup({ rows: filas, className: clase || "skeleton-dashboard-list" })
     })
-    const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad", "flujo-caja-valor", "deudas-valor", "ahorro-valor"]
-    valores.forEach(id => {
+    VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
         if (valor) valor.innerHTML = skeletonText("skeleton-value")
     })
-    const detalles = ["patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle", "deudas-detalle", "ahorro-detalle"]
-    detalles.forEach(id => {
+    DETALLES_DASHBOARD.forEach(id => {
         const detalle = document.getElementById(id)
         if (detalle) detalle.innerHTML = skeletonText()
     })
-    const contadores = ["favoritos-cantidad", "pendientes-cantidad", "ordenes-cantidad", "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"]
-    contadores.forEach(id => {
+    CONTADORES_DASHBOARD.forEach(id => {
         const contador = document.getElementById(id)
         if (contador) contador.innerHTML = skeletonText("skeleton-badge")
     })
@@ -689,6 +1385,7 @@ export async function init() {
     // Divisiva reactiva: se relee al entrar, no solo al importar el módulo.
     divisaActual = getDivisaPrincipal()
     periodoGrafico = obtenerPeriodo(sesion.getPreferencias()?.periodoEvolucion || PERIODO_POR_DEFECTO).id
+    periodoFlujo = obtenerPeriodoFlujo(sesion.getPreferencias()?.periodoFlujo || PERIODO_FLUJO_POR_DEFECTO).id
     console.log("[INFO] Dashboard iniciado para UID:", uid)
 
     await cargarCardsVisiblesDashboard()
@@ -697,6 +1394,7 @@ export async function init() {
     aplicarLayoutDashboard()
     configurarDivisa()
     configurarPeriodos()
+    configurarPeriodoFlujoDashboard()
     configurarCardsNavegacion()
     configurarMetas()
     configurarEdicionDashboard()
@@ -704,6 +1402,10 @@ export async function init() {
 
     try {
         await cargarTodo()
+        // El reparto del masonry se hizo en aplicarLayoutDashboard() con las
+        // cards aún en esqueleto. Sin este repase, las columnas se calculan
+        // con alturas falsas y quedan muy descompensadas.
+        aplicarLayoutDashboard(true)
         void actualizarGraficoPatrimonio()
     } finally {
         const dashboard = document.querySelector(".dashboard")
@@ -720,10 +1422,26 @@ function configurarRefreshDashboard() {
         if (!document.getElementById("dashboard") && !document.querySelector(".dashboard")) return
         clearTimeout(timerRefreshDashboard)
         timerRefreshDashboard = setTimeout(async () => {
-            mostrarEsqueletosDashboard()
-            cacheCapa.limpiar(uid)
+            // SIN invalidar la caché a propósito.
+            //
+            // Antes esto hacía cacheCapa.limpiar(uid), y era un error: al
+            // escribir, cada repositorio ya invalida su propia clave
+            // (movimientos, cuentas, posiciones, metas, snapshots). El
+            // limpiar global no aportaba nada nuevo, pero sí tiraba las
+            // colecciones que un movimiento NO toca —pendientes, órdenes,
+            // estrategias, activos, trades, historial— obligando a releerlas
+            // de Firestore en cada movimiento registrado, y en cada edición.
+            //
+            // Los datos se repintan sin esqueletos: el refresco ya solo pide
+            // red para `movimientos` y `cuentas`, y vaciar las 24 cards para
+            // enseñar un esqueleto un instante era lo que se notaba, no la
+            // lectura.
+            document.querySelector(".dashboard")?.setAttribute("aria-busy", "true")
             try {
                 await cargarTodo()
+                aplicarLayoutDashboard(true)
+            } catch (error) {
+                console.error("Error refrescando el dashboard:", error)
             } finally {
                 document.querySelector(".dashboard")?.removeAttribute("aria-busy")
             }
@@ -739,6 +1457,11 @@ export async function recargarDatos() {
     activarSpinLogo()
     mostrarEsqueletosDashboard()
     try {
+        // Aquí el limpiar SÍ es correcto, y es la excepción deliberada al
+        // camino de `movimientos-actualizados`: el usuario pidió recargar a
+        // propósito, para traerse cambios hechos en otro dispositivo. Eso no
+        // se puede deducir de ninguna invalidación granular porque aquí no
+        // hubo ninguna escritura.
         cacheCapa.limpiar(uid)
         await Promise.all([
             cargarTodo(),
@@ -747,6 +1470,7 @@ export async function recargarDatos() {
     } catch (error) {
         console.error("Error recargando dashboard:", error)
     } finally {
+        aplicarLayoutDashboard(true)
         document.querySelector(".dashboard")?.removeAttribute("aria-busy")
         desactivarSpinLogo()
     }
@@ -771,8 +1495,12 @@ async function cargarTodo() {
             cargarEstrategias()
         ])
 
-        cuentas = cuentasResp
+        // Las cuentas archivadas no se muestran en el dashboard: ni en las
+        // cards, ni en el selector para añadirlas, ni en los cálculos. Sus
+        // movimientos se conservan y vuelven a aparecer al restaurarlas.
+        cuentas = cuentasResp.filter(cuenta => cuenta.estado !== "archivada")
         inversionesData = inversionesResp
+        posicionesData = inversionesResp.posiciones || []
         vencimientosData = vencimientosResp
         favoritosData = inversionesResp.favoritos || []
         metasData = metasResp
@@ -782,6 +1510,13 @@ async function cargarTodo() {
         ordenesData = ordenesResp
         estrategiasData = estrategiasResp
         analiticaData = construirAnaliticaDashboard(movimientosResp)
+        // Ya hay datos: a partir de aquí se puede saber qué cards de
+        // cuenta/activo siguen apuntando a algo real.
+        instanciasResueltas = true
+        // El patrimonio se invalida aquí para que el próximo ciclo lo vuelva a
+        // calcular: si no, tras un movimiento seguiría mostrando las cifras
+        // de la carga anterior.
+        patrimonioStats = null
 
         await actualizarUI()
     } catch (error) {
@@ -798,6 +1533,8 @@ async function cargarInversiones() {
             valorTotal: data.valorTotal || 0,
             gananciaTotal: data.gananciaTotal || 0,
             cantidad: data.cantidad || 0,
+            // Las posiciones con su activo, para las cards de activo
+            posiciones,
             // La divisa a la que ya fueron convertidos los totales
             divisa: data.divisa || "pen",
             // Posiciones cuyo activo está marcado como favorito
@@ -805,7 +1542,7 @@ async function cargarInversiones() {
         }
     } catch (error) {
         console.error("Error cargando inversiones:", error)
-        return { valorTotal: 0, gananciaTotal: 0, cantidad: 0, divisa: "pen", favoritos: [] }
+        return { valorTotal: 0, gananciaTotal: 0, cantidad: 0, posiciones: [], divisa: "pen", favoritos: [] }
     }
 }
 
@@ -851,6 +1588,49 @@ async function cargarEstrategias() {
     } catch (error) {
         console.error("Error cargando estrategias:", error)
         return []
+    }
+}
+
+/**
+ * Acumula ingresos y gastos de una ventana deslizante de `dias` días.
+ * El corte es a medianoche local y va hasta hoy incluido, así que "30D"
+ * son los 30 días calendario que terminan hoy.
+ */
+function acumularFlujoDeslizante(movimientos, dias) {
+    const limite = new Date()
+    limite.setHours(0, 0, 0, 0)
+    limite.setDate(limite.getDate() - (dias - 1))
+
+    let ingresos = 0
+    let gastos = 0
+    let movimientosIngresos = 0
+    let movimientosGastos = 0
+
+    for (const movimiento of movimientos) {
+        if (movimiento.tipo !== TIPOS_MOVIMIENTO.INGRESO && movimiento.tipo !== TIPOS_MOVIMIENTO.GASTO) continue
+        const fecha = fechaDeMovimiento(movimiento)
+        if (!fecha || Number.isNaN(fecha.getTime()) || fecha < limite) continue
+        const monto = convertirMonto(
+            Math.abs(montoDeMovimiento(movimiento)),
+            divisaDeMovimiento(movimiento),
+            divisaActual
+        )
+        if (movimiento.tipo === TIPOS_MOVIMIENTO.INGRESO) {
+            ingresos += monto
+            movimientosIngresos++
+        } else {
+            gastos += monto
+            movimientosGastos++
+        }
+    }
+
+    return {
+        ingresos,
+        gastos,
+        balance: ingresos - gastos,
+        movimientosIngresos,
+        movimientosGastos,
+        total: movimientosIngresos + movimientosGastos
     }
 }
 
@@ -967,7 +1747,11 @@ function construirAnaliticaDashboard(movimientos) {
         brutoDistribucion,
         distribucion,
         programados,
-        alertas
+        alertas,
+        flujoPorPeriodo: PERIODOS_FLUJO.reduce((acumulado, periodo) => {
+            acumulado[periodo.id] = acumularFlujoDeslizante(movimientos, periodo.dias)
+            return acumulado
+        }, {})
     }
 }
 
@@ -1150,9 +1934,14 @@ function diasHastaDiaDelMes(diaMes) {
 // ============================================
 
 async function actualizarUI() {
+    // Las cards de cuenta/ activo se crean y pintan aquí: dependen de datos
+    // que acaban de cargar, así que no pueden vivir en el render().
+    montarCardsInstanciadas()
     await actualizarCuentas()
     await actualizarPatrimonio()
+    actualizarPatrimonioDivisa()
     actualizarInversiones()
+    actualizarDistribucionActivos()
     actualizarVencimientos()
     actualizarFavoritos()
     actualizarMetas()
@@ -1160,6 +1949,7 @@ async function actualizarUI() {
     actualizarOrdenes()
     actualizarEstrategias()
     actualizarFlujoCaja()
+    actualizarFlujoPeriodo()
     actualizarDeudas()
     actualizarAhorro()
     actualizarDistribucion()
@@ -1169,8 +1959,18 @@ async function actualizarUI() {
     aplicarLayoutDashboard(true)
 }
 
+// calcularPatrimonio() ya devuelve los totales por divisa, y tres cards los
+// necesitan. Antes cada una llamaba por su cuenta y se leían las cuentas tres
+// veces por refresco; se resuelve una vez por ciclo y se invalida al recargar.
+let patrimonioStats = null
+
+async function obtenerPatrimonioStats() {
+    if (!patrimonioStats) patrimonioStats = await calcularPatrimonio(uid)
+    return patrimonioStats
+}
+
 async function actualizarCuentas() {
-    const stats = await calcularPatrimonio(uid)
+    const stats = await obtenerPatrimonioStats()
 
     const totalEl = document.getElementById("total-cuentas")
     if (totalEl) totalEl.textContent = stats.totalCuentas
@@ -1187,7 +1987,7 @@ async function actualizarCuentas() {
 }
 
 async function actualizarPatrimonio() {
-    const stats = await calcularPatrimonio(uid)
+    const stats = await obtenerPatrimonioStats()
     const valorEl = document.getElementById("patrimonio-valor")
 
     if (!valorEl) return
@@ -1265,23 +2065,19 @@ function actualizarVencimientos() {
 function mostrarErrorCarga() {
     const detalleEl = document.getElementById("patrimonio-detalle")
     if (detalleEl) detalleEl.textContent = "Error al cargar datos"
-    const listas = ["movimientos-lista", "favoritos-lista", "metas-lista", "pendientes-lista", "ordenes-lista", "estrategias-lista", "distribucion-lista", "programados-lista", "alertas-lista"]
-    listas.forEach(id => {
+    LISTAS_DASHBOARD.forEach(({ id }) => {
         const lista = document.getElementById(id)
         if (lista) lista.innerHTML = `<p class="card-vacio">No se pudieron cargar estos datos.</p>`
     })
-    const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad", "flujo-caja-valor", "deudas-valor", "ahorro-valor"]
-    valores.forEach(id => {
+    VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
         if (valor) valor.textContent = "—"
     })
-    const detalles = ["patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle", "deudas-detalle", "ahorro-detalle"]
-    detalles.forEach(id => {
+    DETALLES_DASHBOARD.forEach(id => {
         const detalle = document.getElementById(id)
         if (detalle) detalle.textContent = "—"
     })
-    const contadores = ["favoritos-cantidad", "pendientes-cantidad", "ordenes-cantidad", "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"]
-    contadores.forEach(id => {
+    CONTADORES_DASHBOARD.forEach(id => {
         const contador = document.getElementById(id)
         if (contador) contador.textContent = "—"
     })
@@ -1298,7 +2094,7 @@ function actualizarPendientes() {
         return
     }
 
-    lista.innerHTML = pendientesData.slice(0, 3).map(pendiente => {
+    lista.innerHTML = pendientesData.map(pendiente => {
         const clase = pendiente.tipo ? "positive" : "negative"
         const signo = pendiente.tipo ? "+" : "−"
         const detalle = pendiente.fechaVencimiento
@@ -1316,26 +2112,92 @@ function actualizarPendientes() {
     }).join("")
 }
 
+// ============================================
+// ÓRDENES
+// ============================================
+// Antes la card mezclaba las tres estados en la lista y el badge contaba
+// todas, así que no se distinguía lo accionable de lo histórico. Ahora:
+//   · el badge cuenta solo las PENDIENTES (las que vigilan un precio),
+//   · la lista muestra las pendientes con lo lejos que está el precio actual
+//     del precio de disparo —que es lo único accionable de una orden—,
+//   · el pie resume cuántas hay ejecutadas y canceladas.
+// Si no hay pendientes, la lista lo dice y el pie da el resumen.
+
+const ORDENES_MAX_FILAS = 3
+
+// Último precio conocido por símbolo, tomado de las posiciones abiertas. Una
+// orden puede apuntar a un activo del que no se tiene posición, y entonces no
+// hay contra qué medir la distancia.
+function preciosPorSimbolo() {
+    const mapa = new Map()
+    for (const posicion of posicionesData) {
+        const simbolo = String(posicion.activo?.simbolo || posicion.activo?.nombre || "").toUpperCase()
+        if (!simbolo) continue
+        mapa.set(simbolo, Number(posicion.activo.ultimoPrecio) || 0)
+    }
+    return mapa
+}
+
+// Distancia porcentual entre el precio actual y el de disparo, en valor
+// absoluto y con signo que indique hacia dónde se mueve el precio. Un 0
+// significa "en el precio de disparo": la orden debería disparar ya.
+function distanciaAlDisparo(orden, precioActual) {
+    if (!precioActual || precioActual <= 0 || !orden.precioDisparo) return null
+    return ((precioActual - orden.precioDisparo) / orden.precioDisparo) * 100
+}
+
 function actualizarOrdenes() {
     const lista = document.getElementById("ordenes-lista")
     const cantidadEl = document.getElementById("ordenes-cantidad")
+    const detalleEl = document.getElementById("ordenes-detalle")
     if (!lista) return
 
-    if (cantidadEl) cantidadEl.textContent = ordenesData.length
-    if (ordenesData.length === 0) {
+    const pendientes = ordenesData.filter(orden => orden.estaPendiente)
+    const ejecutadas = ordenesData.filter(orden => orden.fueEjecutada).length
+    const canceladas = ordenesData.length - pendientes.length - ejecutadas
+
+    if (cantidadEl) {
+        cantidadEl.textContent = pendientes.length
+        cantidadEl.hidden = pendientes.length === 0
+    }
+
+    const resumen = [ejecutadas > 0 ? `${ejecutadas} ejecutada${ejecutadas === 1 ? "" : "s"}` : "",
+        canceladas > 0 ? `${canceladas} cancelada${canceladas === 1 ? "" : "s"}` : ""]
+        .filter(Boolean)
+        .join(" · ")
+    if (detalleEl) {
+        detalleEl.textContent = resumen
+            || (pendientes.length === 0 ? "Sin órdenes registradas" : "Todas las órdenes están pendientes")
+    }
+
+    if (pendientes.length === 0) {
         lista.innerHTML = `<p class="card-vacio">No tienes órdenes pendientes.</p>`
         return
     }
 
-    lista.innerHTML = ordenesData.slice(0, 3).map(orden => `
+    const precios = preciosPorSimbolo()
+
+    lista.innerHTML = pendientes.slice(0, ORDENES_MAX_FILAS).map(orden => {
+        const precioActual = precios.get(String(orden.activo || "").toUpperCase()) || 0
+        const distancia = distanciaAlDisparo(orden, precioActual)
+        // Por debajo del 2% la orden está a punto de saltar: se resalta.
+        const claseDistancia = distancia === null ? "" : Math.abs(distancia) <= 2 ? "critico" : ""
+        const detalle = distancia === null
+            ? `${orden.tipoLabel} · ${orden.direccionLabel} · sin precio`
+            : `${orden.tipoLabel} · ${orden.direccionLabel} · a ${Math.abs(distancia).toFixed(1)}% del disparo`
+
+        return `
         <div class="dashboard-list-item">
             <div class="dashboard-list-info">
                 <span class="dashboard-list-title">${orden.activo}</span>
-                <span class="dashboard-list-detail">${orden.tipoLabel} · ${orden.direccionLabel}</span>
+                <span class="dashboard-list-detail ${claseDistancia}">${detalle}</span>
             </div>
             <span class="dashboard-list-value">${formatearMontoConDivisa(orden.precioDisparo, orden.divisa)}</span>
         </div>
-    `).join("")
+    `
+    }).join("") + (pendientes.length > ORDENES_MAX_FILAS
+        ? `<p class="card-vacio">y ${pendientes.length - ORDENES_MAX_FILAS} más…</p>`
+        : "")
 }
 
 function actualizarEstrategias() {
@@ -1349,7 +2211,7 @@ function actualizarEstrategias() {
         return
     }
 
-    lista.innerHTML = estrategiasData.slice(0, 3).map(estrategia => {
+    lista.innerHTML = estrategiasData.map(estrategia => {
         const cuenta = cuentas.find(item => item.id === estrategia.cuentaId)
         const controlCuenta = cuenta ? `
             <button type="button" class="estrategia-cuenta" data-dashboard-cuenta-estrategia="${estrategia.cuentaId}">
@@ -1367,6 +2229,40 @@ function actualizarEstrategias() {
             </div>
         `
     }).join("")
+}
+
+function pluralizarMovimientos(cantidad) {
+    return `${cantidad} movimiento${cantidad === 1 ? "" : "s"}`
+}
+
+function actualizarFlujoPeriodo() {
+    const datos = analiticaData?.flujoPorPeriodo?.[periodoFlujo]
+    const periodo = obtenerPeriodoFlujo(periodoFlujo)
+    const gastosEl = document.getElementById("gastos-periodo-valor")
+    const gastosDetalle = document.getElementById("gastos-periodo-detalle")
+    const ingresosEl = document.getElementById("ingresos-periodo-valor")
+    const ingresosDetalle = document.getElementById("ingresos-periodo-detalle")
+    const balanceEl = document.getElementById("balance-periodo-valor")
+    const balanceDetalle = document.getElementById("balance-periodo-detalle")
+    if (!datos || !gastosEl || !ingresosEl || !balanceEl) return
+
+    gastosEl.textContent = formatearMontoConDivisa(datos.gastos, divisaActual)
+    if (gastosDetalle) gastosDetalle.textContent = datos.movimientosGastos > 0
+        ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosGastos)}`
+        : periodo.sub
+
+    ingresosEl.textContent = formatearMontoConDivisa(datos.ingresos, divisaActual)
+    if (ingresosDetalle) ingresosDetalle.textContent = datos.movimientosIngresos > 0
+        ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosIngresos)}`
+        : periodo.sub
+
+    balanceEl.textContent = formatearMontoConDivisa(datos.balance, divisaActual)
+    if (balanceDetalle) balanceDetalle.textContent = datos.total > 0
+        ? `${pluralizarMovimientos(datos.total)} en total`
+        : "Sin movimientos"
+
+    document.getElementById("card-balance-periodo")?.classList.toggle("positive", datos.balance > 0)
+    document.getElementById("card-balance-periodo")?.classList.toggle("negative", datos.balance < 0)
 }
 
 function actualizarFlujoCaja() {
@@ -1435,6 +2331,143 @@ function actualizarDistribucion() {
     `).join("")
 }
 
+// ============================================
+// DISTRIBUCIÓN POR TIPO DE ACTIVO
+// ============================================
+// Complementa a "Distribución patrimonial", que reparte el total entre
+// liquidez / inversiones / deudas. Esta reparte solo la cartera: qué clase de
+// activo se lleva cada parte de lo invertido. Se agrupa por `activo.tipo` de
+// las posiciones abiertas, que es el dato que ya trae la card de cada activo.
+
+const CLASES_TIPO_ACTIVO = {
+    accion: "accion",
+    etf: "etf",
+    crypto: "cripto",
+    bono: "bono"
+}
+
+function actualizarDistribucionActivos() {
+    const lista = document.getElementById("distribucion-activos-lista")
+    if (!lista) return
+
+    if (!posicionesData || posicionesData.length === 0) {
+        lista.innerHTML = `<p class="card-vacio">No tienes posiciones abiertas.</p>`
+        return
+    }
+
+    // Se agrupa por tipo y se convierte todo a la divisa del selector UNA sola
+    // vez, como en las demás cards: convertir y luego volver a convertir
+    // deformaba los porcentajes.
+    const porTipo = new Map()
+    for (const posicion of posicionesData) {
+        const activo = posicion.activo || {}
+        const tipo = String(activo.tipo || "accion").toLowerCase()
+        const cantidad = Number(posicion.cantidad) || 0
+        const ultimoPrecio = Number(activo.ultimoPrecio) || 0
+        if (cantidad <= 0 || ultimoPrecio <= 0) continue
+
+        const valor = convertirMonto(
+            cantidad * ultimoPrecio,
+            posicion.divisa || "usd",
+            divisaActual
+        )
+        porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
+    }
+
+    const items = [...porTipo.entries()]
+        .filter(([, valor]) => valor > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tipo, valor]) => ({
+            label: ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros",
+            valor,
+            clase: CLASES_TIPO_ACTIVO[tipo] || "otros",
+            porcentaje: 0
+        }))
+
+    const total = items.reduce((suma, item) => suma + item.valor, 0)
+    if (items.length === 0 || total <= 0) {
+        lista.innerHTML = `<p class="card-vacio">No hay nada valorable que repartir.</p>`
+        return
+    }
+    for (const item of items) item.porcentaje = (item.valor / total) * 100
+
+    lista.innerHTML = items.map(item => `
+        <div class="distribucion-item">
+            <div class="distribucion-cabecera">
+                <span>${item.label}</span>
+                <strong>${item.porcentaje.toFixed(0)}%</strong>
+            </div>
+            <div class="distribucion-barra">
+                <span class="${item.clase}" style="width: ${Math.max(0, Math.min(100, item.porcentaje))}%"></span>
+            </div>
+            <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, divisaActual)}</span>
+        </div>
+    `).join("")
+}
+
+// ============================================
+// PATRIMONIO POR DIVISA
+// ============================================
+// Desglose del mismo patrimonio que da la card grande, pero en la moneda en la
+// que está cada parte, en vez de convertido a una sola. Es la lectura que
+// importa cuando hay saldo en varias divisas: cuánto tienes de cada una y qué
+// peso tiene cada una. calcularPatrimonio() ya devuelve los tres totales
+// convertidos, así que no hace falta ninguna consulta extra.
+
+const DIVISAS_PATRIMONIO = [
+    { clave: "pen", etiqueta: "Soles" },
+    { clave: "usd", etiqueta: "Dólares" },
+    { clave: "usdt", etiqueta: "USDT" }
+]
+
+function actualizarPatrimonioDivisa() {
+    const lista = document.getElementById("patrimonio-divisa-lista")
+    if (!lista) return
+
+    if (!patrimonioStats) {
+        lista.innerHTML = `<p class="card-vacio">No se pudo calcular el patrimonio.</p>`
+        return
+    }
+
+    // Cada cifra va en su propia moneda (no en la del selector): el objeto de
+    // la card es ver cuánto hay de cada divisa, no cuánto vale en total.
+    const items = DIVISAS_PATRIMONIO.map(({ clave, etiqueta }) => ({
+        etiqueta,
+        clave,
+        valor: Number(patrimonioStats[clave]) || 0
+    }))
+
+    // El peso de cada divisa se mide sobre el total convertido a una moneda
+    // común; si no, no serían comparables.
+    const total = convertirMonto(
+        items.reduce((suma, item) => suma + convertirMonto(item.valor, item.clave, "pen"), 0),
+        "pen",
+        divisaActual
+    )
+
+    if (total <= 0) {
+        lista.innerHTML = `<p class="card-vacio">Sin patrimonio registrado.</p>`
+        return
+    }
+
+    lista.innerHTML = items.map(item => {
+        const equivalente = convertirMonto(item.valor, item.clave, divisaActual)
+        const porcentaje = Math.max(0, Math.min(100, (equivalente / total) * 100))
+        return `
+        <div class="distribucion-item">
+            <div class="distribucion-cabecera">
+                <span>${item.etiqueta}</span>
+                <strong>${porcentaje.toFixed(0)}%</strong>
+            </div>
+            <div class="distribucion-barra">
+                <span class="${item.clave}" style="width: ${porcentaje}%"></span>
+            </div>
+            <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, item.clave)}</span>
+        </div>
+    `
+    }).join("")
+}
+
 function actualizarProgramados() {
     const lista = document.getElementById("programados-lista")
     const cantidadEl = document.getElementById("programados-cantidad")
@@ -1446,7 +2479,7 @@ function actualizarProgramados() {
         return
     }
 
-    lista.innerHTML = analiticaData.programados.slice(0, 3).map(item => `
+    lista.innerHTML = analiticaData.programados.map(item => `
         <div class="dashboard-list-item">
             <div class="dashboard-list-info">
                 <span class="dashboard-list-title">${item.titulo}</span>
@@ -1473,7 +2506,7 @@ function actualizarAlertas() {
         return
     }
 
-    lista.innerHTML = alertas.slice(0, 3).map(alerta => `
+    lista.innerHTML = alertas.map(alerta => `
         <div class="alerta-item ${alerta.nivel}">
             ${icono("triangle-alert", 14)}
             <div>
@@ -1611,9 +2644,14 @@ function configurarCardsNavegacion() {
     bindNavegacion("card-estrategias", "/inversiones")
     bindNavegacion("card-movimientos", "/movimientos")
     bindNavegacion("card-flujo-caja", "/movimientos")
+    bindNavegacion("card-gastos-periodo", "/movimientos")
+    bindNavegacion("card-ingresos-periodo", "/movimientos")
+    bindNavegacion("card-balance-periodo", "/movimientos")
     bindNavegacion("card-deudas", "/cuentas")
     bindNavegacion("card-ahorro", "/movimientos")
     bindNavegacion("card-distribucion", "/cuentas")
+    bindNavegacion("card-distribucion-activos", "/inversiones")
+    bindNavegacion("card-patrimonio-divisa", "/cuentas")
 
     const vencimientos = document.getElementById("card-vencimientos")
     vencimientos?.addEventListener("click", () => {
@@ -2028,6 +3066,7 @@ function instalarSincronizacionMetas() {
     window.addEventListener("metas-actualizadas", async () => {
         metasData = await cargarMetas()
         actualizarMetas()
+        aplicarLayoutDashboard(true)
     })
 }
 
@@ -2100,14 +3139,19 @@ function configurarDivisa() {
         divisaActual = select.value
 
         await actualizarPatrimonio()
+        actualizarPatrimonioDivisa()
         actualizarInversiones()
+        actualizarDistribucionActivos()
+        montarCardsInstanciadas()
         analiticaData = construirAnaliticaDashboard(movimientosCompletosData)
         actualizarFlujoCaja()
+        actualizarFlujoPeriodo()
         actualizarDeudas()
         actualizarAhorro()
         actualizarDistribucion()
         actualizarProgramados()
         actualizarAlertas()
+        aplicarLayoutDashboard(true)
 
         // Redibujar el gráfico manteniendo el periodo actual
         if (datosGrafico?.labels?.length) {
@@ -2144,6 +3188,41 @@ function configurarPeriodos(contenedor = document.getElementById("grafico-period
                 console.warn("No se pudo guardar el periodo del gráfico:", error)
             })
             await alCambiar()
+        })
+    })
+
+    marcarActivo()
+}
+
+// Toggle compartido por las cards Gastado / Ingresado / Balance. Solo
+// redibuja texto: los totales de cada ventana ya vienen calculados en
+// `analiticaData.flujoPorPeriodo`, así que no hace falta releer Firestore.
+function configurarPeriodoFlujoDashboard() {
+    const contenedor = document.getElementById("periodo-flujo")
+    if (!contenedor || contenedor.dataset.eventosListos === "1") return
+    contenedor.dataset.eventosListos = "1"
+
+    const opciones = contenedor.querySelectorAll(".toggle-option")
+
+    const marcarActivo = () => {
+        opciones.forEach(opt => {
+            opt.classList.toggle("active", opt.dataset.periodoFlujo === periodoFlujo)
+        })
+    }
+
+    opciones.forEach(opt => {
+        opt.addEventListener("click", event => {
+            // La card es clicable y navega a /movimientos: sin esto, el
+            // toggle se dispararía y la navegación también.
+            event.stopPropagation()
+            if (opt.dataset.periodoFlujo === periodoFlujo) return
+            periodoFlujo = opt.dataset.periodoFlujo
+            marcarActivo()
+            actualizarFlujoPeriodo()
+            sesion.setPreferencias({ periodoFlujo })
+            actualizarPreferencias(uid, { periodoFlujo }).catch(error => {
+                console.warn("No se pudo guardar el periodo del flujo:", error)
+            })
         })
     })
 

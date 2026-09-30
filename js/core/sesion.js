@@ -20,7 +20,8 @@ class Sesion {
                 doodles: false,
                 unClickSeleccion: false,
                 lateralidadCuentaInfo: "derecha",
-                resaltarIngresoGasto: true
+                resaltarIngresoGasto: true,
+                configComoPagina: false
             },
             tiposMovimiento: {
                 cambioDivisa: true,
@@ -124,6 +125,12 @@ class Sesion {
         }
         if (preferencias?.formatoDivisa) {
             this.preferencias.formatoDivisa = preferencias.formatoDivisa
+        }
+        if (preferencias?.dashboard) {
+            this.preferencias.dashboard = {
+                ...this.preferencias.dashboard,
+                ...preferencias.dashboard
+            }
         }
         try {
             sessionStorage.setItem('escinco_preferencias', JSON.stringify(this.preferencias))

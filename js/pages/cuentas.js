@@ -22,9 +22,28 @@ import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 
 let cuentas = []
+// Las cuentas archivadas no se listan ni se seleccionan, pero no se borran:
+// siguen en Firestore y se pueden recuperar desde Configuración › Datos.
+let cuentasArchivadas = []
 let cuentaSeleccionada = null
 let cuentaSolicitadaId = null
 let uid = null
+
+function estaArchivada(cuenta) {
+    return cuenta?.estado === "archivada"
+}
+
+/**
+ * Lado en el que se dibuja la columna de información de la cuenta.
+ * Única fuente de la lateralidad: la usan tanto el esqueleto de carga como el
+ * detalle real, para que no se separen. Sin esto el esqueleto aparecía siempre
+ * con la info a la izquierda y al cargar el contenido saltaba al otro lado.
+ */
+function lateralidadInfo() {
+    return sesion.getPreferencias()?.accesibilidad?.lateralidadCuentaInfo === "izquierda"
+        ? "info-izquierda"
+        : "info-derecha"
+}
 
 // Interacción con las cards de movimientos de la cuenta seleccionada.
 let movimientosCuentaActivos = []
@@ -73,7 +92,7 @@ export function render() {
             </section>
         `)}
         <section id="panel" class="glass" aria-busy="true">
-            ${skeletonMarkup({ variant: "panel", rows: 3 })}
+            ${skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })}
         </section>
     `
 }
@@ -100,6 +119,13 @@ function configurarRefreshCuentas() {
     window.addEventListener("movimientos-actualizados", () => {
         if (document.getElementById("lista-movimientos-cuenta")) cargarCuentas()
     })
+    // Configuración › Datos restaura cuentas archivadas. Esta página tiene su
+    // propia copia en memoria, así que hay que recargarla para que las cuentas
+    // recuperadas vuelvan al sidebar.
+    window.addEventListener("cuentas-actualizadas", () => {
+        if (!document.getElementById("sidebar")) return
+        cargarCuentas()
+    })
 }
 
 // ============================================
@@ -112,17 +138,24 @@ function mostrarEsqueletosCuentas() {
     sidebar?.setAttribute("aria-busy", "true")
     panel?.setAttribute("aria-busy", "true")
     if (sidebar) sidebar.innerHTML = skeletonMarkup({ variant: "sidebar", rows: 4 })
-    if (panel) panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3 })
+    if (panel) panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
 }
 
 async function cargarCuentas() {
     mostrarEsqueletosCuentas()
     try {
-        cuentas = await obtenerCuentas(uid)
-        await normalizarOrdenCuentas(uid, cuentas)
-        if (cuentas.some(c => !Number.isFinite(Number(c.orden)))) {
-            cuentas = await obtenerCuentas(uid)
+        let todas = await obtenerCuentas(uid)
+        await normalizarOrdenCuentas(uid, todas)
+        if (todas.some(c => !Number.isFinite(Number(c.orden)))) {
+            // normalizarOrdenCuentas acaba de escribir `orden` con
+            // serverTimestamp: hay que releer para tener los valores reales.
+            todas = await obtenerCuentas(uid)
         }
+
+        // Separar antes de ordenar por `orden`: las archivadas conservan el
+        // hueco que tenían, así al restaurarlas vuelven a su sitio.
+        cuentasArchivadas = todas.filter(estaArchivada)
+        cuentas = todas.filter(c => !estaArchivada(c))
         cuentas.sort((a, b) => (Number(a.orden) || 0) - (Number(b.orden) || 0))
 
         await notificarCruces(cuentas, uid)
@@ -145,6 +178,14 @@ async function cargarCuentas() {
         } else {
             await mostrarDetalleCuenta()
         }
+
+        // El router reinyecta el footer en cada navegación y la plantilla
+        // llega con "Editar"/"Archivar" marcados como desact. Hay que
+        // reevaluar el estado SIEMPRE al terminar de cargar: si no, al
+        // reentrar con una cuenta ya seleccionada (rama `else` de arriba,
+        // que no pasa por seleccionarCuenta) los dos botones se quedan
+        // apagados y sin poder pulsarse.
+        actualizarLastbar()
     } catch (error) {
         console.error("Error cargando cuentas:", error)
         const panel = document.getElementById("panel")
@@ -264,7 +305,7 @@ async function mostrarDetalleCuenta() {
 
     panel.setAttribute("aria-busy", "true")
     if (!panel.querySelector(".cuenta-vista")) {
-        panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3 })
+        panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
     }
     const cuenta = cuentaSeleccionada
     let movimientos = []
@@ -283,9 +324,8 @@ async function mostrarDetalleCuenta() {
         ? plantillaInfoTarjeta(cuenta, ciclo)
         : plantillaInfoNormal(cuenta)
 
-    const lateralidad = sesion.getPreferencias()?.accesibilidad?.lateralidadCuentaInfo === "izquierda" ? "info-izquierda" : "info-derecha"
     panel.innerHTML = `
-        <div class="cuenta-vista ${lateralidad}">
+        <div class="cuenta-vista ${lateralidadInfo()}">
             <div class="cuenta-vista-movimientos">
                 <div class="cuenta-mov-head">
                     <div class="totales" id="totales-movimientos-cuenta"></div>
@@ -328,7 +368,6 @@ function plantillaInfoNormal(c) {
             </div>
             <div class="cuenta-perfil-badges">
                 <span class="cuenta-badge">${nombreTipo(c.tipo)}</span>
-                <span class="cuenta-badge estado ${c.estado === "archivada" ? "archivada" : ""}">${c.estado || "activa"}</span>
             </div>
         </div>
 
@@ -344,10 +383,6 @@ function plantillaInfoNormal(c) {
             <div class="field">
                 <span class="label">Moneda</span>
                 <span class="value">${(c.moneda || "PEN").toUpperCase()}</span>
-            </div>
-            <div class="field">
-                <span class="label">Estado</span>
-                <span class="value">${c.estado || "activa"}</span>
             </div>
             ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${c.num} <button type="button" class="btn-copiar" data-copiar="${c.num}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
             ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
@@ -558,7 +593,7 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
             </div>
         ` : `
             <div class="totales-acciones">
-                <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus-circle", 16)}</button>
+                <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus", 16)}</button>
             </div>
         `
 
@@ -1078,26 +1113,9 @@ export function archivarCuentaSeleccionada() {
 
     const cuenta = cuentaSeleccionada
 
-    if (cuenta.estado === "archivada") {
-        abrirModal({
-            titulo: "Desarchivar cuenta",
-            contenido: `
-                <div class="modal-message">
-                    <p class="modal-message-desc">
-                        ¿Volver a activar la cuenta <strong>${cuenta.nombre}</strong>?
-                    </p>
-                </div>
-            `,
-            variante: "confirm",
-            confirmText: "Desarchivar",
-            cancelText: "Cancelar",
-            onConfirm: async () => {
-                await cambiarEstadoCuenta(cuenta.id, "activa")
-                return true
-            }
-        })
-        return
-    }
+    // No hay rama de "desarchivar" aquí: las cuentas archivadas no se listan
+    // ni se pueden seleccionar, así que restaurar pasa por
+    // Configuración › Datos (js/ui/configuracion.js).
 
     const saldo = saldoParaRegla(cuenta)
     if (saldo !== 0) {
@@ -1116,10 +1134,10 @@ export function archivarCuentaSeleccionada() {
                         creando los movimientos de ajuste necesarios.
                     </p>
                     <p class="modal-message-warn">
-                        Puedes <strong>forzar el archivo</strong>, pero NO es recomendable:
-                        movimientos, posiciones, trades, órdenes, pendientes y metas que
-                        usan esta cuenta quedarán afectados y deberás corregirlos creando
-                        movimientos de error.
+                        Puedes <strong>forzar el archivo</strong>. Tus movimientos
+                        <strong>no se borran</strong>, pero la cuenta dejará de aparecer
+                        en los selectores y en el dashboard, y los movimientos que la
+                        usan quedarán sin cuenta asociada.
                     </p>
                 </div>
             `,
@@ -1201,11 +1219,24 @@ export function eliminarCuentaSeleccionada() {
                 <p class="modal-message-desc">
                     ¿Eliminar definitivamente la cuenta <strong>${cuenta.nombre}</strong>?
                 </p>
+                <p class="modal-message-hint">
+                    Tus <strong>movimientos se conservan</strong>: no se borra ninguno.
+                    Lo que desaparece es la cuenta, así que esos movimientos quedarán
+                    sin cuenta asociada y se mostrarán como
+                    <strong>"Cuenta eliminada"</strong>.
+                </p>
+                <p class="modal-message-hint">
+                    Si solo quieres ocultarla sin perder nada, <strong>archívala</strong>:
+                    podrás recuperarla desde Configuración › Datos.
+                </p>
             </div>
         `,
         variante: "confirm",
         confirmText: "Eliminar",
-        cancelText: "Cancelar",
+        cancelText: "Archivar en su lugar",
+        onCancel: () => {
+            archivarCuentaSeleccionada()
+        },
         onConfirm: async () => {
             try {
                 const snapshot = { ...cuenta }
@@ -1229,7 +1260,21 @@ export function eliminarCuentaSeleccionada() {
 function mostrarVacio() {
     const panel = document.getElementById("panel")
     if (!panel) return
-    panel.innerHTML = `
+    // Si lo único que hay son cuentas archivadas, el mensaje tiene que decir
+    // dónde recuperarlas: si no, el usuario ve un vacío sin salida.
+    const hayArchivadas = cuentasArchivadas.length > 0
+    panel.innerHTML = hayArchivadas
+        ? `
+        <h2>No hay cuentas activas</h2>
+        <p class="lista-vacia">
+            Tienes ${cuentasArchivadas.length} cuenta${cuentasArchivadas.length === 1 ? "" : "s"} archivada${cuentasArchivadas.length === 1 ? "" : "s"}.
+            No se han borrado: siguen guardadas y conservan sus movimientos.
+        </p>
+        <p class="lista-vacia">
+            Puedes restaurarlas desde <strong>Configuración › Datos</strong>.
+        </p>
+    `
+        : `
         <h2>No hay cuentas</h2>
         <p class="lista-vacia">
             Crea tu primera cuenta usando el botón <strong>"Cuenta"</strong> en la barra inferior.

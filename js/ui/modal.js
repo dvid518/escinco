@@ -35,7 +35,7 @@ function sobreponer(overlay) {
  * @param {Object} opciones
  * @param {string} [opciones.titulo]
  * @param {string} [opciones.contenido]       HTML del cuerpo
- * @param {string} [opciones.variante]        'info' | 'form' | 'confirm' | 'wide' | 'narrow'
+ * @param {string} [opciones.variante]        'info' | 'form' | 'confirm' | 'wide' | 'xl' | 'narrow'
  * @param {string} [opciones.confirmText]
  * @param {string} [opciones.cancelText]
  * @param {string} [opciones.footerExtra]      HTML de botones extra en el footer

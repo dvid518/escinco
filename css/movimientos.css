@@ -330,6 +330,12 @@
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item {
     --card-acciones-w: 88px;
     position: relative;
+    /* Recorta a las esquinas redondeadas: .card-item-main se pinta encima con
+       `background: inherit` y es un cuadrado, así que sin este recorte el
+       hover se salía de la capsula de 40px y la fila se veía cuadrada.
+       El glow del hover NO lo recorta — el box-shadow del propio elemento se
+       dibuja fuera de su border-box; lo que lo recortaba antes era el
+       backdrop-filter de .glass, que convertía al elemento en backdrop root. */
     overflow: hidden;
     padding: 0;
     gap: 0;

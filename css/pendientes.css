@@ -22,7 +22,7 @@
 }
 
 .pendiente-crear-btn:hover {
-    box-shadow: 0 0 10px var(--shadow);
+    --glow: 0 0 10px var(--shadow);
 }
 
 /* --------------------------------------------
@@ -119,6 +119,9 @@
     position: relative;
     padding: 0;
     gap: 0;
+    /* Recorta a las esquinas: .card-item-main se pinta encima con
+       `background: inherit` y es un cuadrado. Ver el mismo comentario en
+       css/movimientos.css. */
     overflow: hidden;
     cursor: pointer;
     touch-action: pan-y;

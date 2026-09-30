@@ -19,6 +19,11 @@
     color: var(--text);
     width: 60px;
     height: 60px;
+    /* El logo y la franja de versión se reparten el espacio libre (los dos
+       tienen margin-top: auto), así el formulario queda centrado y la versión
+       pegada al borde inferior. Con `justify-content: center` no bastaría:
+       un margen automático absorbe el espacio libre antes que él. */
+    margin-top: auto;
     transition: all 0.3s ease;
 }
 
@@ -168,6 +173,39 @@
     50% {
         transform: scale(1.03);
     }
+}
+
+/* --------------------------------------------
+   VERSIÓN · BORDE INFERIOR DEL PANEL
+   -------------------------------------------- */
+/* Nombre y versión al pie del panel, en Roboto Mono (--font-secondary), que
+   es la fuente con la que se leen todas las cifras de la app.
+   `margin-top: auto` la empuja al borde inferior aunque el contenido se quede
+   corto: .login-section es una columna de altura completa con el contenido
+   centrado. */
+.panel-version {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 8px;
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--textSecondary);
+    opacity: 0.6;
+}
+
+.panel-version-brand {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.panel-version-numero {
+    padding: 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
 }
 
 /* --------------------------------------------
