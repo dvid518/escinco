@@ -672,6 +672,9 @@ function plantillaMovimiento(m, cuentaId = null) {
 function esMovimientoPositivo(m, cuentaId = null) {
     if (m?.tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA) return cuentaId ? m.tarjeta === cuentaId : false
     if (m?.tipo === TIPOS_MOVIMIENTO.ERROR) return m.operacion === "sumar"
+    if (m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
+        return cuentaId ? m.cuentaDestino === cuentaId : false
+    }
     return m?.tipo === "ingreso" || m?.tipo === "ventaActivo" || m?.tipo === "p2pVenta"
 }
 
