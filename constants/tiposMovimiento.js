@@ -41,6 +41,9 @@ export const CONFIG_MOVIMIENTOS = {
             "cuentaDestino",
             "monto",
             "fechaRealizacion"
+        ],
+        camposOpcionales: [
+            "concepto"
         ]
     },
 
