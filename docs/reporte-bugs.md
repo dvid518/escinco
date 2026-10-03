@@ -6,14 +6,16 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 
 - Total de bugs identificados: **21**
 - Resueltos: **13**
-- Pendientes: **8**
+- Pendientes: **7**
+- Descartados: **1**
 - Críticos: **0**
 - Altos: **0**
-- Medios: **3**
+- Medios: **2**
 - Bajos: **5**
 
 Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 13
-resueltos hay 2 de severidad Alta (R-03 y R-05) y 1 más Alta (BUG-019).
+resueltos hay 2 de severidad Alta (R-03 y R-05) y 1 más Alta (BUG-019). El
+descartado (BUG-018) estaba como Media.
 
 ### Convenciones de identificadores
 
@@ -224,11 +226,72 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | BUG-013 | La cuenta nueva no se selecciona automáticamente | `js/pages/cuentas.js` | Media | Media | Pendiente |
 | BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
 | BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
-| BUG-016 | El hover del selector de tipo ilumina un cuadrado | `js/pages/movimientos.js`, `css/pendientes.css` | Baja | Baja | Pendiente |
-| BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js` | Baja | Baja | Pendiente |
-| BUG-018 | El loading de los modales fijos se posiciona mal | `js/ui/modal.js`, `css/modal.css` | Media | Media | Pendiente |
+| BUG-016 | El hover del selector de tipo ilumina un cuadrado | `js/pages/movimientos.js`, `css/pendientes.css` | Baja | Baja | Pendiente (sin verificar) |
+| BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js` | Baja | Baja | Pendiente (sin verificar) |
 | BUG-020 | `fechaRealizacion` se guarda como `Date` en dos rutas | `js/pages/inversiones.js` | Media | Media | Pendiente |
 | BUG-025 | El filtro por cuenta inactivo deja negativas las transferencias entrantes | `js/pages/movimientos.js` | Baja | Baja | Pendiente (latente) |
+
+---
+
+## Bugs descartados
+
+| ID | Título | Módulo | Severidad | Estado |
+|----|--------|--------|-----------|--------|
+| BUG-018 | La desviación del logo de progreso es ≤8px | `js/ui/modal.js`, `css/modal.css` | Baja | Descartado (wontfix) |
+
+### BUG-018 descartado — la desviación del logo de progreso es ≤8px
+- **Módulo**: `js/ui/modal.js`, `css/modal.css`
+- **Severidad**: Baja (cosmético)
+- **Prioridad**: Baja
+- **Estado**: Descartado (*wontfix*)
+- **Descripción**: el indicador de carga (logo de escinco girando) se posiciona
+  con `top: 48%` respecto de la caja completa del `.modal` (header + body +
+  footer), no respecto del `.modal-body`, que es la única zona que se difumina.
+  Eso es cierto, pero la desviación resultante es **imperceptible**. Con `a` el
+  alto del header, `f` el del footer y `H` el del modal:
+
+  ```
+  centro del logo = 0.48H
+  centro del body = (H + a − f) / 2
+  desviación      = −0.02H + (f − a)/2
+  ```
+
+  Medidos del CSS, `a ≈ 61px` y `f ≈ 77px`, luego `(f − a)/2 = +8px`:
+
+  | Modal | H | Desviación | ¿Invade el header? |
+  |-------|---|------------|--------------------|
+  | Confirmación corta (`.modal-confirm`) | ~222px | **+3.6px** (ligeramente abajo) | No: el logo de 72px cabe en el body de ~84px |
+  | Configuración (`.modal-xl`, 88vh) | ~792px | **−7.8px** (ligeramente arriba) | No |
+
+  Sobre un logo de 72px, el máximo es **11%, y no se percibe**. El caso en el que
+  la desviación crecería a ~34px —los modales sin footer— **no existe**: los
+  únicos sin footer son los `soloCerrar` (`confirmText: "Cerrar"`), y los 11 que
+  hay tienen `onConfirm` **síncrono**, así que el spinner nunca llega a verse; y
+  los `confirmText: null, cancelText: null` sin footer tampoco tienen `onConfirm`.
+  Se revisaron los 42 `onConfirm: async` del proyecto: todos acaban teniendo
+  footer, porque `confirmText: null` se convierte en `"Aceptar"`
+  (`js/ui/modal.js:79-81`) y eso ya fuerza `mostrarFooter = true`. Los dos
+  `footerExtra` (`js/pages/dashboard.js:1021`, `js/pages/trading.js:1278`) añaden
+  un botón en la misma fila flex, así que no alteran la altura del footer.
+- **Pasos para reproducir**: no se reproduce. El síntoma que motivó el reporte
+  original (*"en modales cortos el logo invade el encabezado"*) **no ocurre**.
+- **Resultado esperado**: el indicador centrado sobre el área de contenido
+  difuminada, sea cual sea la altura del modal.
+- **Resultado actual**: hasta 8px de desviación, imperceptible a simple vista.
+- **Evidencia**: `js/ui/modal.js:178-183` (el logo se añade como hijo de
+  `.modal`), `css/modal.css:403-415` (`position: absolute`, `top: 48%`),
+  `css/modal.css:397-401` (lo que se difumina es `.modal-body`),
+  `css/modal.css:84-94` (alto del header), `css/modal.css:205-213` (alto del
+  footer), `js/ui/modal.js:88-89` (cálculo de `soloCerrar` y `mostrarFooter`)
+- **Notas**: la solución correcta —envolver `.modal-body` y el logo en un
+  contenedor `position: relative` y centrarlo con `top: 50%`— tocaría el flujo de
+  scroll de los 42 modales que pasan por `confirmar()`, para ganar 8px. Riesgo de
+  regresión alto sobre un beneficio imperceptible, así que se descarta. Ajustar
+  `top: 48%` a `top: 50%` mejoraría los modales altos (−7.8 → −4.2px) y
+  empeoraría los cortos (+3.6 → −0.4px): tampoco compensa.
+
+  El defecto **grave** de este mismo flujo de modal no era este, sino el cierre
+  a media operación, que sí se corrigió y está registrado como **BUG-019**.
 
 ---
 
@@ -294,33 +357,6 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 - **Notas**: son tres sitios a corregir porque conviven un formulario de dos
   pasos, uno de un paso y el antiguo. Si se unifica la creación en una sola
   función, el arreglo es de una línea.
-
-### BUG-018: El loading de los modales fijos se posiciona mal
-- **Módulo**: `js/ui/modal.js`, `css/modal.css`
-- **Severidad**: Media
-- **Prioridad**: Media
-- **Estado**: Pendiente — el estado de carga **sí existe**, el defecto es de colocación
-- **Descripción**: el indicador de carga (logo de escinco girando) se posiciona
-  con `top: 48%` respecto de la caja completa del `.modal` (header + body +
-  footer), no respecto del `.modal-body`, que es la única zona que se difumina.
-  En consecuencia no queda centrado sobre el contenido.
-- **Pasos para reproducir**:
-  1. Abrir un modal de confirmación de altura corta (por ejemplo *Eliminar
-     cuenta*).
-  2. Pulsar confirmar.
-  3. Observar dónde aparece el logo girando respecto del título y del texto.
-  4. Comparar con un modal alto (por ejemplo el de configuración).
-- **Resultado esperado**: el indicador centrado sobre el área de contenido
-  difuminada, sea cual sea la altura del modal.
-- **Resultado actual**: en modales cortos el logo invade el área del
-  encabezado; en los altos queda descentrado respecto del cuerpo.
-- **Evidencia**: `js/ui/modal.js:178-183` (se añade `.modal-procesando-logo`
-  como hijo de `.modal`), `css/modal.css:403-415` (`position: absolute`,
-  `top: 48%`), `css/modal.css:397-401` (lo que se difumina es `.modal-body`)
-- **Notas**: la animación en sí es correcta: `@keyframes loading` está definida
-  en `css/style.css:980` y `.loading-logo svg.spin` en `css/modal.css:561`.
-  El defecto grave de este mismo flujo, el cierre del modal a media operación,
-  está registrado como **BUG-019**.
 
 ### BUG-020: `fechaRealizacion` se guarda como `Date` en dos rutas
 - **Módulo**: `js/pages/inversiones.js`
@@ -448,6 +484,11 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   tiene su propio `:hover` (en `css/pendientes.css:300-306`). De paso se
   arreglaría la accesibilidad por teclado.
 
+  **Pendiente de verificación en navegador.** Este bug y **BUG-017** se
+  reportaron leyendo el CSS, sin abrirlos en el navegador. Si al verificarlos
+  resultan ser como **BUG-018** —una desviación imperceptible—, se descartarán
+  con el mismo criterio. No invertir esfuerzo en arreglarlos sin verlos primero.
+
 ### BUG-017: El pie de Configuración se extiende debajo del sidebar
 - **Módulo**: `js/ui/configuracion.js`, `css/configuracion.css`
 - **Severidad**: Baja
@@ -479,6 +520,10 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 - **Notas**: el pie está `position: sticky; bottom: 0` para que la versión siga
   visible en secciones largas; la solución debe preservar ese comportamiento
   (por ejemplo, haciéndolo ítem del grid en la fila 2, columna 2).
+
+  **Pendiente de verificación en navegador.** Al igual que **BUG-016**, se
+  reportó leyendo el CSS sin abrir la aplicación. Si al verificarlo resulta ser
+  como **BUG-018**, se descartará con el mismo criterio.
 
 ---
 
@@ -533,3 +578,47 @@ Documento relacionado: [`deuda-tecnica.md`](./deuda-tecnica.md). Los bugs
 **BUG-013** a **BUG-018**, **BUG-024** y **BUG-025** tienen su causa raíz o su
 solución en los ítems **DEUDA-003**, **DEUDA-004**, **DEUDA-006** y
 **DEUDA-012**.
+
+---
+
+## Lecciones aprendidas
+
+Este registro se redactó en tres pasos y **cinco de los veintiún hallazgos
+iniciales resultaron mal descritos o sobredimensionados**. Se deja constancia
+porque el valor de un reporte de bugs está en ser honesto sobre su propia
+fiabilidad, no solo en la lista final.
+
+### Qué salió mal
+
+| Tipo de bug | Ejemplos | Por qué falló |
+|-------------|----------|---------------|
+| Visual, reportado sin navegador | BUG-018 (descartado), BUG-016 y BUG-017 (sin verificar) | Se dedujo el efecto de una regla CSS sin renderizarlo. En BUG-018 se afirmó que el logo invadía el header; la desviación real es de ≤8px. |
+| De flujo asíncrono, reportado sin leer el flujo entero | BUG-019, BUG-024 | Se leyó el fragmento relevante (`pointer-events`, el call site) y se infirió el comportamiento, sin abrir la función que lo governa. En BUG-019 se afirmó que el modal se cerraba a media operación; lo impedía el guard `if (procesando) return` de `cerrar()`. |
+
+En los tres casos verificados la comprobación en código demostró que el bug **no
+existía o estaba sobredimensionado**, y en los dos primeros el defecto real
+resultó ser **otro distinto** que sí se corrigió (BUG-025 y BUG-019
+respectivamente).
+
+### Regla que se adopta
+
+1. **Verificar en código antes de reportar.** Abrir la función completa que
+   gobierna el comportamiento, no solo el fragmento que lo sugiere. Para BUG-019
+   bastaba con leer `cerrar()` en `js/ui/modal.js:145`.
+2. **Marcar explícitamente lo que no se puede verificar.** Un bug visual sin
+   navegador disponible va como *"pendiente de verificación en navegador"*, nunca
+   como confirmado. Así queda BUG-016 y BUG-017.
+3. **No reportar defectos cosméticos sin cuantificarlos.** Si el beneficio no
+   supera el ruido, es *wontfix* documentado, como BUG-018.
+4. **Documentar las correcciones, no solo los hallazgos.** Las secciones de
+   *Trazabilidad* y *Correcciones de alcance* existen para que un lector pueda
+   encadenar el razonamiento. Un reporte que solo muestra el estado final esconde
+   cuánto costó llegar a él y cuánto margen de error tiene.
+
+### Lo que sí sobrevivió a la verificación
+
+Once de los trece bugs resueltos salieron de commits cuyo diff se leyó entero,
+no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y BUG-024.
+Los siete pendientes verificados en código son **BUG-013**, **BUG-014**,
+**BUG-015**, **BUG-020** y **BUG-025** (más BUG-016 y BUG-017 a la espera de
+comprobación visual). Ninguno de ellos depende de una percepción.
