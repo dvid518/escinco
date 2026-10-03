@@ -21,7 +21,12 @@ export async function accionExportar() {
         `,
         variante: "narrow",
         confirmText: null,
-        cancelText: null
+        cancelText: null,
+        // La exportación no se puede deshacer: el modal de progreso no se cierra
+        // hasta que la operación termine (ver BUG-019).
+        cerrarAlClickFuera: false,
+        cerrarConEsc: false,
+        cerrarConBotonX: false
     })
 
     try {

@@ -1823,7 +1823,12 @@ function abrirModalPreviewImportacion(archivo, preview) {
                     `,
                     variante: "narrow",
                     confirmText: null,
-                    cancelText: null
+                    cancelText: null,
+                    // La importación no se puede deshacer: el modal de progreso
+                    // no se cierra hasta que la operación termine (ver BUG-019).
+                    cerrarAlClickFuera: false,
+                    cerrarConEsc: false,
+                    cerrarConBotonX: false
                 })
             }, 100)
 
@@ -1984,7 +1989,12 @@ function confirmarEliminacionFinal() {
                 `,
                 variante: "narrow",
                 confirmText: null,
-                cancelText: null
+                cancelText: null,
+                // El borrado no se puede deshacer: el modal de progreso no se
+                // cierra hasta que la operación termine (ver BUG-019).
+                cerrarAlClickFuera: false,
+                cerrarConEsc: false,
+                cerrarConBotonX: false
             })
 
             try {
@@ -2223,7 +2233,12 @@ function abrirModalConfirmacionFinal() {
                 `,
                 variante: "narrow",
                 confirmText: null,
-                cancelText: null
+                cancelText: null,
+                // El borrado no se puede deshacer: el modal de progreso no se
+                // cierra hasta que la operación termine (ver BUG-019).
+                cerrarAlClickFuera: false,
+                cerrarConEsc: false,
+                cerrarConBotonX: false
             })
 
             try {

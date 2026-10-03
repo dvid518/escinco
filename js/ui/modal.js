@@ -44,6 +44,9 @@ function sobreponer(overlay) {
  * @param {Function} [opciones.onCancel]      Se llama al cerrar sin confirmar
  * @param {boolean} [opciones.cerrarAlClickFuera=true]
  * @param {boolean} [opciones.cerrarConEsc=true]
+ * @param {boolean} [opciones.cerrarConBotonX=true]  Muestra la X del header.
+ *   En false el modal solo se cierra al confirmar: para modales de progreso de
+ *   operaciones que no se pueden deshacer.
  */
 export function abrirModal(opciones) {
     const {
@@ -57,7 +60,8 @@ export function abrirModal(opciones) {
         onConfirm = null,
         onCancel = null,
         cerrarAlClickFuera = true,
-        cerrarConEsc = true
+        cerrarConEsc = true,
+        cerrarConBotonX = true
     } = opciones
 
     const persistente = modoPersistenteActivo()
@@ -92,12 +96,13 @@ export function abrirModal(opciones) {
                     <div class="modal-header-acciones">
                         ${textoHeaderExtra}
                     </div>
-                    <button class="modal-close" type="button" aria-label="Cerrar">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon">
-                            <path d="M18 6 6 18"/>
-                            <path d="m6 6 12 12"/>
-                        </svg>
-                    </button>
+${cerrarConBotonX ? `
+                            <button class="modal-close" type="button" aria-label="Cerrar">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon">
+                                    <path d="M18 6 6 18"/>
+                                    <path d="m6 6 12 12"/>
+                                </svg>
+                            </button>` : ""}
                 </div>
             </div>
             <div class="modal-body">
