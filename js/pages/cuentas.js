@@ -1555,8 +1555,11 @@ function _abrirModalCrearCuentaDosPasos() {
             }
 
             try {
-                await crearCuenta(uid, datos)
+                // Seleccionar la cuenta recién creada: sin esto el detalle sigue
+                // mostrando la cuenta anterior y hay que buscarla a mano.
+                const creada = await crearCuenta(uid, datos)
                 await cargarCuentas()
+                await seleccionarCuenta(creada.id)
                 mostrarNotificacion("exito", "Cuenta creada")
                 return true
             } catch (error) {
@@ -1699,8 +1702,11 @@ function abrirFormularioCrearCuenta(tipo) {
             }
 
             try {
-                await crearCuenta(uid, datos)
+                // Se llega desde el paso 1 del modal de dos pasos: seleccionar
+                // la cuenta recién creada.
+                const creada = await crearCuenta(uid, datos)
                 await cargarCuentas()
+                await seleccionarCuenta(creada.id)
                 mostrarNotificacion("exito", "Cuenta creada")
                 return true
             } catch (error) {
