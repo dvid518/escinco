@@ -2578,9 +2578,12 @@ function plantillaMovimiento(m) {
     `
 }
 
-function esMovimientoPositivo(m) {
+function esMovimientoPositivo(m, cuentaId = null) {
     if (m?.tipo === TIPOS_MOVIMIENTO.ERROR) {
         return m.operacion === "sumar"
+    }
+    if (m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
+        return cuentaId ? m.cuentaDestino === cuentaId : false
     }
     if (!m?.tipo) return false
     return (
