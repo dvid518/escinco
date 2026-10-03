@@ -157,9 +157,13 @@ export function abrirModal(opciones) {
         }
         if (procesando) return
 
-        // Mientras procesa: blur del modal + escinco girando, pero sin bloquear
-        // la interfaz de fondo (el usuario puede seguir navegando). El modal
-        // queda sin interacción (procesando=true + botones desactivados).
+        // Mientras procesa: blur del cuerpo del modal + escinco girando. El
+        // overlay captura los clics a propósito, así que la pantalla no es
+        // navegable durante la acción: es lo prudente cuando la operación ya no
+        // se puede deshacer (eliminar un movimiento, borrar datos).
+        // El modal tampoco acepta interacción (botones desactivados) y `cerrar`
+        // aborta mientras procesando === true, de modo que ni la X, ni ESC, ni
+        // el clic fuera pueden cerrar el modal a media operación.
         procesando = true
         overlay.classList.add("modal-procesando")
         confirmBtn?.setAttribute("disabled", "true")
