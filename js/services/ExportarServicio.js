@@ -148,9 +148,13 @@ export async function exportarDVID(uid) {
             metas: serializarFechas(metas),
             historial: serializarFechas(historial),
             // `cerrado` siempre es false: `cerrarSnapshotDelDia` no tiene llamador.
-            // Fuera del .dvid. El documento de Firestore lo conserva (setDoc
+// Fuera del .dvid. El documento de Firestore lo conserva (setDoc
             // con merge no borra campos).
-            snapshots: serializarFechas(snapshots.map(({ cerrado, ...s }) => s)),
+            //
+            // `patrimonioUSDT` tampoco: es idéntico a `patrimonioUSD`. Los
+            // snapshots ya existentes en Firestore lo conservan, así que sin
+            // esto el .dvid seguiría exportándolo desde ellos.
+            snapshots: serializarFechas(snapshots.map(({ cerrado, patrimonioUSDT, ...s }) => s)),
             preferencias: serializarFechas(preferencias)
         }
 

@@ -31,7 +31,7 @@ export async function guardarSnapshotDelDia(uid, datos) {
     
     if (existente.exists()) {
         const actuales = existente.data()
-        const totalesSinCambios = ["patrimonioPEN", "patrimonioUSD", "patrimonioUSDT"]
+        const totalesSinCambios = ["patrimonioPEN", "patrimonioUSD"]
             .every(campo => Number(actuales[campo] ?? 0) === Number(datos[campo] ?? 0))
         if (totalesSinCambios) return false
         await setDoc(referencia, {

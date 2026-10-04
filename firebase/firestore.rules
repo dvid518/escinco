@@ -348,7 +348,13 @@ service cloud.firestore {
           ])
           && esNumero(request.resource.data.patrimonioPEN)
           && esNumero(request.resource.data.patrimonioUSD)
-          && esNumero(request.resource.data.patrimonioUSDT)
+          // `patrimonioUSDT` es opcional desde que dejó de escribirse: era
+          // idéntico a `patrimonioUSD` (el servicio normaliza USDT = USD) y solo
+          // ocupaba espacio. Con `esNumero` un snapshot sin el campo se
+          // rechazaba, porque `null is number` es false. Los documentos
+          // antiguos que lo conserven siguen valiendo: `esNumeroONulo` acepta
+          // el número presente igual que la ausencia.
+          && esNumeroONulo(request.resource.data.patrimonioUSDT)
           && esBoolONulo(request.resource.data.cerrado)
           && esTimestampONulo(request.resource.data.actualizacion);
 

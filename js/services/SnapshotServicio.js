@@ -76,8 +76,13 @@ export async function registrarSnapshot(uid) {
 
         await guardarSnapshotDelDia(uid, {
             patrimonioPEN: patrimonio.patrimonioPEN,
-            patrimonioUSD: patrimonio.patrimonioUSD,
-            patrimonioUSDT: patrimonio.patrimonioUSDT
+            patrimonioUSD: patrimonio.patrimonioUSD
+            // `patrimonioUSDT` no se persiste: era idéntico a
+            // `patrimonioUSD` (el servicio normaliza USDT = USD), así que solo
+            // ocupaba espacio en cada documento y en cada .dvid. Los snapshots
+            // antiguos que lo conserven siguen leyéndose: las reglas lo
+            // aceptan como opcional y `obtenerPatrimonioParaGrafico` cae a
+            // `patrimonioUSD`.
         })
 
         console.log("[INFO] Snapshot registrado:", patrimonio)
@@ -105,7 +110,10 @@ export async function obtenerPatrimonioParaGrafico(uid, dias = 30) {
             }),
             dataPEN: snapshots.map(s => s.patrimonioPEN || 0),
             dataUSD: snapshots.map(s => s.patrimonioUSD || 0),
-            dataUSDT: snapshots.map(s => s.patrimonioUSDT || 0),
+            // USDT = USD por definición del servicio, así que la serie sale de
+            // `patrimonioUSD`. Funciona igual con los snapshots antiguos que
+            // todavía guarden `patrimonioUSDT`.
+            dataUSDT: snapshots.map(s => s.patrimonioUSD || 0),
             snapshots
         }
     } catch (error) {
