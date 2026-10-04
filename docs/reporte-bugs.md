@@ -5,17 +5,18 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 ## Resumen
 
 - Total de bugs identificados: **26**
-- Resueltos: **17**
-- Pendientes: **8**
+- Resueltos: **20**
+- Pendientes: **5**
 - Descartados: **1**
 - Críticos: **0**
-- Altos: **2**
+- Altos: **0**
 - Medios: **1**
-- Bajos: **5**
+- Bajos: **4**
 
-Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 17
-resueltos hay 2 de severidad Alta (R-03 y R-05) y 1 más Alta (BUG-019). El
-descartado (BUG-018) estaba como Media.
+Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 20
+resueltos hay 2 de severidad Alta (R-03 y R-05) y 3 más Alta (BUG-019, BUG-029
+y BUG-030). El descartado (BUG-018) estaba como Media. **Ya no queda ningún bug
+de severidad Alta pendiente**, que era el objetivo.
 
 ### Convenciones de identificadores
 
@@ -60,16 +61,19 @@ o acción destructiva) · **Media** (funciona mal en un caso real) · **Baja**
 | BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | `9cfe6cd` | 2026-10-03 |
 | BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | `9cfe6cd` | 2026-10-03 |
 | BUG-020 | `fechaRealizacion` se guarda como `Date` en dos rutas | `js/pages/inversiones.js` | Media | `a4b1041` | 2026-10-03 |
+| BUG-029 | Un `ReferenceError` rompe la vista de detalle de movimientos | `js/pages/movimientos.js` | **Alta** | `496e6b2` | 2026-10-03 |
+| BUG-030 | El campo `id` del historial rompe la importación en cuentas nuevas | `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js` | **Alta** | `f05fef5` | 2026-10-03 |
+| BUG-027 | Se ofrece "Pagar tarjeta" en un ciclo ya pagado | `js/pages/cuentas.js`, `js/services/CreditoServicio.js` | Baja | `944819d` | 2026-10-03 |
 
 > **Nota sobre R-02:** el commit declara corregido el signo de las
 > transferencias, pero solo se aplicó a `js/pages/cuentas.js`. Las otras dos
 > copias de la función quedaron atrás: ver **BUG-024**.
 
-> **Nota sobre BUG-014, BUG-015 y BUG-020:** los tres están commiteados
-> (`9cfe6cd` y `a4b1041`) y revisados en código, pero **aún no verificados en
-> navegador**. Se anotan como resueltos de forma provisional: si al
-> verificarlos fallaran, se revierte el commit y vuelven a la lista de
-> pendientes.
+> **Nota sobre BUG-014, BUG-015, BUG-020, BUG-027, BUG-029 y BUG-030:** los seis
+> están commiteados y revisados en código, pero **ninguno verificado todavía en
+> navegador** (salvo BUG-030, que se verificó por ejecución). Se anotan como
+> resueltos de forma provisional: si al verificarlos fallaran, se revierte el
+> commit y vuelven a la lista de pendientes.
 
 ### Detalle de los bugs resueltos
 
@@ -409,6 +413,216 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 
 ---
 
+#### BUG-030: El campo `id` del historial rompe la importación en cuentas nuevas
+- **Módulo**: `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js`
+- **Severidad**: Alta
+- **Prioridad**: Alta
+- **Estado**: Pendiente
+- **Descripción**: el export del historial de precios añade un campo `id` que
+  la aplicación nunca escribe. En `ExportarServicio.js:116` el mapeo es
+  `registros.map(r => ({ id: r.fecha, ...r }))`: el `id` es un artefacto de
+  para tener el identificador a mano, pero **viaja dentro del JSON**. Al
+  importar, `ImportarServicio.js:388-394` hace `setDoc` con `...datos`, y
+  `datos` contiene ese `id`. Y las reglas limitan la colección a
+  `hasOnly(['fecha', 'precio', 'cerrado', 'actualizacion'])`
+  (`firebase/firestore.rules:489-491`): **`id` no está en la lista.**
+
+  El efecto es que importar un `.dvid` en una cuenta **sin historial previo**
+  falla en **cada registro**, con *"Missing or insufficient permissions"*. Los
+  errores se acumulan en `resultado.errores` (`:398`) sin que la interfaz
+  explique nada. Es el **mismo modo de fallo que DEUDA-013**, que ya lo
+  provocó dos veces (R-03 con `operacion`, R-05 con `metaId`): un
+  `hasOnly` escrito a mano que el código y las reglas no comparten, y un
+  rechazo que la app no sabe explicar.
+
+  **Es invisible en las pruebas de roundtrip sobre la misma cuenta**, y por eso
+  lleva tiempo sin reportarse. En `update` las reglas usan validadores
+  condicionales sin `hasOnly` (`firestore.rules:496-499`, por diseño para no
+  romper documentos legacy), así que reimportar sobre datos que ya existen
+  **sí pasa** e inyecta un campo `id` que la app nunca escribe. El bug solo
+  aparece al importar en una cuenta nueva.
+- **Pasos para reproducir**:
+  1. Exportar un `.dvid` de una cuenta que tenga historial de precios.
+  2. Abrir el archivo y comprobar que cada registro de `historial[].registros`
+     trae `"id"` junto a `"fecha"`, con el mismo valor.
+  3. Crear una cuenta nueva, o una cuenta existente sin historial.
+  4. Importar el `.dvid`.
+  5. Observar que el resumen de la importación muestra `historial: 0` y una
+     lista de erroresfilled de *"Missing or insufficient permissions"*.
+  6. Como contraste: en la cuenta original, reimportar el mismo archivo
+     **funciona**, y los documentos de historial quedan con un campo `id`
+     espurio.
+- **Resultado esperado**: el `.dvid` no transporta campos que la aplicación no
+  escribe, e importar un respaldo en una cuenta vacía restituye todo.
+- **Resultado actual**: la importación del historial falla por completo en
+  cuentas nuevas, y duplica la fecha en las existentes.
+- **Evidencia**:
+  - `js/services/ExportarServicio.js:116` (el `id` en el mapeo del export)
+  - `js/services/ImportarServicio.js:385` (`registro.fecha || registro.id`, usa
+    el `id` como fallback pero no lo descarta), `:388` (`datos` lo conserva),
+    `:390-394` (`setDoc` con `...datos`, que lo escribe)
+  - `firebase/firestore.rules:489-491` (`hasOnly` de `create` en `historial`,
+    sin `id`)
+  - `firebase/firestore.rules:496-499` (`update` sin `hasOnly`, por eso el
+    roundtrip sobre la misma cuenta no falla)
+  - `js/repositories/HistorialRepositorio.js:114-117` (el lector ya devuelve
+    `fecha` desde el id del documento; el `id` del export es redundante
+    también como valor)
+- **Notas**: **son dos arreglos, y solo uno está en el alcance de este bug.**
+  1. Quitar `id` del `.dvid`. Es una línea y cierra el síntoma.
+  2. La causa de fondo es **DEUDA-013**: la lista de campos admitidos está
+     escrita a mano en las reglas y no se deriva de la que usa el código. Un
+     campo sobrante rompe un `create` exactamente igual que un campo faltante.
+     Este bug es la **tercera aparición** del mismo modo de fallo, registrada
+     en DEUDA-013.
+
+  El arreglo (1) no previene (2): la próxima vez que una ruta de escritura
+  añada un campo, el mismo fallo reaparece. Y al revés que en R-03 y R-05,
+  aquí el campo **sobra** en vez de faltar, lo que confirma que la lista está
+  desalineada en las dos direcciones.
+
+  Se detectó **midiendo**, no leyendo código de forma lineal: al comparar las
+  secciones del `.dvid` con los `hasOnly` de las reglas, buscando simetrías
+  entre export e import. Ninguna de las dos mitades del flujo delata el problema
+  por separado.
+
+  Verificado ejecutando las transformaciones exactas de ambos servicios sobre
+  un documento de historial: el campo `id` sobrevive a la serialización y
+  aparece entre los rechazados por `hasOnly`.
+
+#### BUG-029: Un `ReferenceError` rompe la vista de detalle de movimientos
+- **Módulo**: `js/pages/movimientos.js`
+- **Severidad**: Alta
+- **Prioridad**: Alta
+- **Estado**: Pendiente
+- **Descripción**: `abrirFormularioDetalle` compara contra `tipo`, que **no está
+  declarado en su ámbito**. La única declaración de `tipo` del archivo es el
+  parámetro de `abrirFormularioMovimiento` (`:943`); no hay local ni
+  declaración a nivel de módulo. Es el caso más severo del registro, y el
+  diagnóstico inicial —"se rompe el modal de detalle"— era incorrecto: el
+  modal **sí abre**.
+
+  La razón es que la función es `async`. El `ReferenceError` no interrumpe la
+  ejecución de forma sincronizable: se convierte en una **promesa rechazada**.
+  Y el modal ya está abierto para entonces, porque `abrirModal` corre en
+  `:1148`, catorce líneas antes. El usuario ve el modal con normalidad y no
+  perceive nada raro.
+
+  Lo que se rompe es todo lo que viene después:
+
+  | Línea | Qué deja de ejecutarse | Consecuencia visible |
+  |-------|------------------------|----------------------|
+  | `:1164` | `vincularSimboloDivisa()` | el símbolo de divisa junto a *Monto* no se actualiza al cambiar de cuenta |
+  | `:1165` | `bloquearFormulario(true)` | **el formulario queda editable en una vista que debe ser de solo lectura** |
+  | `:1166` | `renderizarAccionesDetalle(modalEl, true)` | **no se pintan los botones de acción** (Editar, Deshacer, Eliminar) |
+
+  Y como `:1155-1156` declara `confirmText: null` y `cancelText: null`, tampoco
+  hay botones en el footer. El resultado es un **formulario editable sin
+  ningún botón para guardar**: el usuario cree que está en modo edición y no
+  puede guardar. Solo puede cerrarlo.
+
+  Lo que hace la severidad Alta, y por encima de la pérdida de la garantía de
+  solo lectura, es que **`manejarAccionDetalle("guardar")` (`:1223`) queda
+  inalcanzable**: sus botones nunca se pintaron. **La función de editar
+  movimientos está muerta por este bug.** La rama `"cancelar"` (`:1212-1213`),
+  que vuelve a llamar a `abrirFormularioDetalle`, es inalcanzable por lo mismo
+  —y si se alcanzara, lanzaría el mismo error otra vez.
+
+- **Pasos para reproducir**:
+  1. Abrir Movimientos.
+  2. Hacer clic en cualquier movimiento para ver su detalle.
+  3. Observar que el modal **abre**.
+  4. Comprobar que **no hay botones de acción** abajo (Editar, Deshacer,
+     Eliminar).
+  5. Comprobar que los campos **sí son editables**, cuando deberían estar
+     deshabilitados.
+  6. Abrir la consola: `Uncaught (in promise) ReferenceError: tipo is not defined`.
+- **Resultado esperado**: la vista de detalle muestra el movimiento con los
+  campos deshabilitados y sus botones de acción (Editar, Deshacer, Eliminar).
+- **Resultado actual**: el modal abre con un formulario editable y sin ningún
+  botón, ni de acción ni de confirmación. Editar es imposible.
+- **Evidencia**:
+  - `js/pages/movimientos.js:1161-1163` (la comparación con `tipo` no declarado)
+  - `js/pages/movimientos.js:943` (la única declaración de `tipo`: el parámetro
+    de `abrirFormularioMovimiento`)
+  - `js/pages/movimientos.js:1148` (`abrirModal`, que se ejecuta antes y por eso
+    el modal sí abre)
+  - `js/pages/movimientos.js:1155-1156` (`confirmText: null`, `cancelText: null`)
+  - `js/pages/movimientos.js:1164-1166` (las tres llamadas que no se ejecutan)
+  - `js/pages/movimientos.js:1223` (`manejarAccionDetalle("guardar")`,
+    inalcanzable)
+  - `js/pages/movimientos.js:1212-1213` (la rama `"cancelar"`, también
+    inalcanzable)
+  - Call sites sin `await` ni `.catch()`: `js/pages/dashboard.js:2554`,
+    `js/pages/movimientos.js:1139`, `js/pages/movimientos.js:1213`
+  - Sin handler global: cero coincidencias de `unhandledrejection` y
+    `window.onerror` en `js/` y en `sw.js`
+- **Notas**: **es silencioso**, y por eso lleva meses sin reportarse: la
+  excepción solo aparece como `Uncaught (in promise) ReferenceError` en la
+  consola, sin ningún aviso en la interfaz. Ninguno de los tres call sites la
+  captura y no hay handler global que la muestre.
+
+  El arreglo más pequeño es **borrar la llamada**: en una vista de solo lectura
+  el filtro no aporta nada, porque `bloquearFormulario(true)` deshabilita todos
+  los `select` justo después. Y activarlo no sería neutro: si se limitara a
+  cambiar `tipo` por `m.tipo`, el `actualizar()` del filtro detectaría el destino
+  deshabilitado en las transferencias heredadas entre divisas y pondría
+  `destino.value = ""`, borrando de la pantalla la cuenta de destino.
+
+  **Este bug se detectó de paso al aplicar DEUDA-002.** Se buscaba un segundo
+  call site de `filtrarCuentasPagoTarjeta` —el segundo sí existe, en
+  `:1162`— y al leerlo se vio que comparaba contra una variable inexistente.
+  Es el tercer hallazgo cuyo diagnóstico inicial estuvo mal: BUG-019, BUG-024 y
+  este.
+
+---
+
+#### BUG-027: Se ofrece "Pagar tarjeta" en un ciclo ya pagado
+- **Módulo**: `js/pages/cuentas.js`
+- **Severidad**: Baja
+- **Prioridad**: Baja
+- **Estado**: Resuelto por `944819d` (2026-10-03), pendiente de verificación
+- **Descripción**: el botón *"Pagar tarjeta"* se ofrece incluso cuando el ciclo
+  de la tarjeta ya está saldado. El usuario puede abrir el formulario de pago
+  de una deuda que ya está pagada, y el movimiento resultante sería un pago sin
+  contrapartida real.
+- **Pasos para reproducir**:
+  1. Ir a Cuentas y seleccionar una **tarjeta de crédito**.
+  2. Pagar el ciclo completo, hasta que el badge marque *Pagado*.
+  3. Pulsar el botón *"Pagar tarjeta"* de la barra de totales.
+  4. Abrir el formulario de pago igualmente.
+  5. Repetir con el botón *"Pagar tarjeta"* del modal educativo (badge).
+- **Resultado esperado**: con el ciclo pagado, no se ofrece pagar, o el botón
+  aparece deshabilitado explicando que no hay nada pendiente.
+- **Resultado actual**: el botón se sigue mostrando y abre el formulario.
+- **Evidencia**: `js/pages/cuentas.js:595` (el botón de la barra de totales; se
+  emite siempre que `cuenta.tipo === "credito"`, sin mirar el estado del ciclo),
+  `js/pages/cuentas.js:611-622` (el listener, también sin mirar el estado),
+  `js/services/CreditoServicio.js:320` (el `confirmText` del modal educativo,
+  que lo ofrece siempre),
+  `js/pages/cuentas.js:411,477` (el flag `pagadoCompleto` sí se calcula y se
+  usa, pero no en estos dos sitios)
+- **Notas**: **el defecto está en dos sitios, no en uno.** El bug se reportaba
+  contra el detalle de tarjeta, pero el modal educativo
+  (`CreditoServicio.js:320`) tiene su propio `confirmText: "Pagar tarjeta"`
+  incondicional, así que cerrar solo el de `cuentas.js:595` dejaría el mismo
+  problema en el modal. Ambos deben consultar `pagadoCompleto`.
+
+  `pagadoCompleto` lo calcula `estadoCicloDe` (`CreditoServicio.js:171`), que
+  `mostrarDetalleCuenta` ya invoca para las tarjetas
+  (`cuentas.js:322`), así que el dato está disponible: no hace falta trabajo
+  extra para corregirlo.
+
+  En el caso del modal, la corrección natural es convertirlo en `soloCerrar`
+  cuando el ciclo está pagado. Hay que decidir si `abrirModalEducativoCredito`
+  recibe el estado del ciclo o lo calcula, porque hoy solo recibe la tarjeta y
+  no tiene acceso a los movimientos.
+
+  Se decidió **no tocarlo** en el sprint de BUG-014/015 por ser de los menores,
+  y por eso queda registrado en vez de resuelto.
+
+---
+
 ---
 
 ## Bugs pendientes
@@ -419,10 +633,7 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js` | Baja | Baja | Pendiente (sin verificar) |
 | BUG-025 | El filtro por cuenta inactivo deja negativas las transferencias entrantes | `js/pages/movimientos.js` | Baja | Baja | Pendiente (latente) |
 | BUG-026 | Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe` | `js/pages/cuentas.js`, `js/services/CreditoServicio.js` | Media | Media | Pendiente |
-| BUG-027 | Se ofrece "Pagar tarjeta" en un ciclo ya pagado | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
 | BUG-028 | Las tarjetas de crédito no se excluyen del filtro de transferencias | `js/ui/formularioMovimiento.js` | Baja | Baja | Pendiente |
-| BUG-029 | Un `ReferenceError` rompe la vista de detalle de movimientos | `js/pages/movimientos.js` | **Alta** | **Alta** | Pendiente |
-| BUG-030 | El campo `id` del historial rompe la importación en cuentas nuevas | `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js` | **Alta** | **Alta** | Pendiente |
 
 ---
 
@@ -521,91 +732,6 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   `esMovimientoPositivo` en un módulo compartido no basta con copiar la función:
   hay que pasar el `cuentaId` desde `plantillaMovimiento` hasta la llamada, o
   el bug reaparece en cuanto se conecte el filtro.
-
-### BUG-029: Un `ReferenceError` rompe la vista de detalle de movimientos
-- **Módulo**: `js/pages/movimientos.js`
-- **Severidad**: Alta
-- **Prioridad**: Alta
-- **Estado**: Pendiente
-- **Descripción**: `abrirFormularioDetalle` compara contra `tipo`, que **no está
-  declarado en su ámbito**. La única declaración de `tipo` del archivo es el
-  parámetro de `abrirFormularioMovimiento` (`:943`); no hay local ni
-  declaración a nivel de módulo. Es el caso más severo del registro, y el
-  diagnóstico inicial —"se rompe el modal de detalle"— era incorrecto: el
-  modal **sí abre**.
-
-  La razón es que la función es `async`. El `ReferenceError` no interrumpe la
-  ejecución de forma sincronizable: se convierte en una **promesa rechazada**.
-  Y el modal ya está abierto para entonces, porque `abrirModal` corre en
-  `:1148`, catorce líneas antes. El usuario ve el modal con normalidad y no
-  perceive nada raro.
-
-  Lo que se rompe es todo lo que viene después:
-
-  | Línea | Qué deja de ejecutarse | Consecuencia visible |
-  |-------|------------------------|----------------------|
-  | `:1164` | `vincularSimboloDivisa()` | el símbolo de divisa junto a *Monto* no se actualiza al cambiar de cuenta |
-  | `:1165` | `bloquearFormulario(true)` | **el formulario queda editable en una vista que debe ser de solo lectura** |
-  | `:1166` | `renderizarAccionesDetalle(modalEl, true)` | **no se pintan los botones de acción** (Editar, Deshacer, Eliminar) |
-
-  Y como `:1155-1156` declara `confirmText: null` y `cancelText: null`, tampoco
-  hay botones en el footer. El resultado es un **formulario editable sin
-  ningún botón para guardar**: el usuario cree que está en modo edición y no
-  puede guardar. Solo puede cerrarlo.
-
-  Lo que hace la severidad Alta, y por encima de la pérdida de la garantía de
-  solo lectura, es que **`manejarAccionDetalle("guardar")` (`:1223`) queda
-  inalcanzable**: sus botones nunca se pintaron. **La función de editar
-  movimientos está muerta por este bug.** La rama `"cancelar"` (`:1212-1213`),
-  que vuelve a llamar a `abrirFormularioDetalle`, es inalcanzable por lo mismo
-  —y si se alcanzara, lanzaría el mismo error otra vez.
-
-- **Pasos para reproducir**:
-  1. Abrir Movimientos.
-  2. Hacer clic en cualquier movimiento para ver su detalle.
-  3. Observar que el modal **abre**.
-  4. Comprobar que **no hay botones de acción** abajo (Editar, Deshacer,
-     Eliminar).
-  5. Comprobar que los campos **sí son editables**, cuando deberían estar
-     deshabilitados.
-  6. Abrir la consola: `Uncaught (in promise) ReferenceError: tipo is not defined`.
-- **Resultado esperado**: la vista de detalle muestra el movimiento con los
-  campos deshabilitados y sus botones de acción (Editar, Deshacer, Eliminar).
-- **Resultado actual**: el modal abre con un formulario editable y sin ningún
-  botón, ni de acción ni de confirmación. Editar es imposible.
-- **Evidencia**:
-  - `js/pages/movimientos.js:1161-1163` (la comparación con `tipo` no declarado)
-  - `js/pages/movimientos.js:943` (la única declaración de `tipo`: el parámetro
-    de `abrirFormularioMovimiento`)
-  - `js/pages/movimientos.js:1148` (`abrirModal`, que se ejecuta antes y por eso
-    el modal sí abre)
-  - `js/pages/movimientos.js:1155-1156` (`confirmText: null`, `cancelText: null`)
-  - `js/pages/movimientos.js:1164-1166` (las tres llamadas que no se ejecutan)
-  - `js/pages/movimientos.js:1223` (`manejarAccionDetalle("guardar")`,
-    inalcanzable)
-  - `js/pages/movimientos.js:1212-1213` (la rama `"cancelar"`, también
-    inalcanzable)
-  - Call sites sin `await` ni `.catch()`: `js/pages/dashboard.js:2554`,
-    `js/pages/movimientos.js:1139`, `js/pages/movimientos.js:1213`
-  - Sin handler global: cero coincidencias de `unhandledrejection` y
-    `window.onerror` en `js/` y en `sw.js`
-- **Notas**: **es silencioso**, y por eso lleva meses sin reportarse: la
-  excepción solo aparece como `Uncaught (in promise) ReferenceError` en la
-  consola, sin ningún aviso en la interfaz. Ninguno de los tres call sites la
-  captura y no hay handler global que la muestre.
-
-  El arreglo más pequeño es **borrar la llamada**: en una vista de solo lectura
-  el filtro no aporta nada, porque `bloquearFormulario(true)` deshabilita todos
-  los `select` justo después. Y activarlo no sería neutro: si se limitara a
-  cambiar `tipo` por `m.tipo`, el `actualizar()` del filtro detectaría el destino
-  deshabilitado en las transferencias heredadas entre divisas y pondría
-  `destino.value = ""`, borrando de la pantalla la cuenta de destino.
-
-  **Este bug se detectó de paso al aplicar DEUDA-002.** Se buscaba un segundo
-  call site de `filtrarCuentasPagoTarjeta` —el segundo sí existe, en
-  `:1162`— y al leerlo se vio que comparaba contra una variable inexistente.
-  Es el tercer hallazgo cuyo diagnóstico inicial estuvo mal: BUG-019, BUG-024 y
-  este.
 
 ### BUG-028: Las tarjetas de crédito no se excluyen del filtro de transferencias
 - **Módulo**: `js/ui/formularioMovimiento.js`
@@ -725,127 +851,6 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   Lo que destapó este bug fue el cierre de **BUG-015**: el modal ya existía y
   funcionaba, pero nunca se había abierto desde la tarjeta, así que la
   discrepancia entre el badge y el modal no era observable.
-
-### BUG-027: Se ofrece "Pagar tarjeta" en un ciclo ya pagado
-- **Módulo**: `js/pages/cuentas.js`
-- **Severidad**: Baja
-- **Prioridad**: Baja
-- **Estado**: Pendiente
-- **Descripción**: el botón *"Pagar tarjeta"* se ofrece incluso cuando el ciclo
-  de la tarjeta ya está saldado. El usuario puede abrir el formulario de pago
-  de una deuda que ya está pagada, y el movimiento resultante sería un pago sin
-  contrapartida real.
-- **Pasos para reproducir**:
-  1. Ir a Cuentas y seleccionar una **tarjeta de crédito**.
-  2. Pagar el ciclo completo, hasta que el badge marque *Pagado*.
-  3. Pulsar el botón *"Pagar tarjeta"* de la barra de totales.
-  4. Abrir el formulario de pago igualmente.
-  5. Repetir con el botón *"Pagar tarjeta"* del modal educativo (badge).
-- **Resultado esperado**: con el ciclo pagado, no se ofrece pagar, o el botón
-  aparece deshabilitado explicando que no hay nada pendiente.
-- **Resultado actual**: el botón se sigue mostrando y abre el formulario.
-- **Evidencia**: `js/pages/cuentas.js:595` (el botón de la barra de totales; se
-  emite siempre que `cuenta.tipo === "credito"`, sin mirar el estado del ciclo),
-  `js/pages/cuentas.js:611-622` (el listener, también sin mirar el estado),
-  `js/services/CreditoServicio.js:320` (el `confirmText` del modal educativo,
-  que lo ofrece siempre),
-  `js/pages/cuentas.js:411,477` (el flag `pagadoCompleto` sí se calcula y se
-  usa, pero no en estos dos sitios)
-- **Notas**: **el defecto está en dos sitios, no en uno.** El bug se reportaba
-  contra el detalle de tarjeta, pero el modal educativo
-  (`CreditoServicio.js:320`) tiene su propio `confirmText: "Pagar tarjeta"`
-  incondicional, así que cerrar solo el de `cuentas.js:595` dejaría el mismo
-  problema en el modal. Ambos deben consultar `pagadoCompleto`.
-
-  `pagadoCompleto` lo calcula `estadoCicloDe` (`CreditoServicio.js:171`), que
-  `mostrarDetalleCuenta` ya invoca para las tarjetas
-  (`cuentas.js:322`), así que el dato está disponible: no hace falta trabajo
-  extra para corregirlo.
-
-  En el caso del modal, la corrección natural es convertirlo en `soloCerrar`
-  cuando el ciclo está pagado. Hay que decidir si `abrirModalEducativoCredito`
-  recibe el estado del ciclo o lo calcula, porque hoy solo recibe la tarjeta y
-  no tiene acceso a los movimientos.
-
-  Se decidió **no tocarlo** en el sprint de BUG-014/015 por ser de los menores,
-  y por eso queda registrado en vez de resuelto.
-
-### BUG-030: El campo `id` del historial rompe la importación en cuentas nuevas
-- **Módulo**: `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js`
-- **Severidad**: Alta
-- **Prioridad**: Alta
-- **Estado**: Pendiente
-- **Descripción**: el export del historial de precios añade un campo `id` que
-  la aplicación nunca escribe. En `ExportarServicio.js:116` el mapeo es
-  `registros.map(r => ({ id: r.fecha, ...r }))`: el `id` es un artefacto de
-  para tener el identificador a mano, pero **viaja dentro del JSON**. Al
-  importar, `ImportarServicio.js:388-394` hace `setDoc` con `...datos`, y
-  `datos` contiene ese `id`. Y las reglas limitan la colección a
-  `hasOnly(['fecha', 'precio', 'cerrado', 'actualizacion'])`
-  (`firebase/firestore.rules:489-491`): **`id` no está en la lista.**
-
-  El efecto es que importar un `.dvid` en una cuenta **sin historial previo**
-  falla en **cada registro**, con *"Missing or insufficient permissions"*. Los
-  errores se acumulan en `resultado.errores` (`:398`) sin que la interfaz
-  explique nada. Es el **mismo modo de fallo que DEUDA-013**, que ya lo
-  provocó dos veces (R-03 con `operacion`, R-05 con `metaId`): un
-  `hasOnly` escrito a mano que el código y las reglas no comparten, y un
-  rechazo que la app no sabe explicar.
-
-  **Es invisible en las pruebas de roundtrip sobre la misma cuenta**, y por eso
-  lleva tiempo sin reportarse. En `update` las reglas usan validadores
-  condicionales sin `hasOnly` (`firestore.rules:496-499`, por diseño para no
-  romper documentos legacy), así que reimportar sobre datos que ya existen
-  **sí pasa** e inyecta un campo `id` que la app nunca escribe. El bug solo
-  aparece al importar en una cuenta nueva.
-- **Pasos para reproducir**:
-  1. Exportar un `.dvid` de una cuenta que tenga historial de precios.
-  2. Abrir el archivo y comprobar que cada registro de `historial[].registros`
-     trae `"id"` junto a `"fecha"`, con el mismo valor.
-  3. Crear una cuenta nueva, o una cuenta existente sin historial.
-  4. Importar el `.dvid`.
-  5. Observar que el resumen de la importación muestra `historial: 0` y una
-     lista de erroresfilled de *"Missing or insufficient permissions"*.
-  6. Como contraste: en la cuenta original, reimportar el mismo archivo
-     **funciona**, y los documentos de historial quedan con un campo `id`
-     espurio.
-- **Resultado esperado**: el `.dvid` no transporta campos que la aplicación no
-  escribe, e importar un respaldo en una cuenta vacía restituye todo.
-- **Resultado actual**: la importación del historial falla por completo en
-  cuentas nuevas, y duplica la fecha en las existentes.
-- **Evidencia**:
-  - `js/services/ExportarServicio.js:116` (el `id` en el mapeo del export)
-  - `js/services/ImportarServicio.js:385` (`registro.fecha || registro.id`, usa
-    el `id` como fallback pero no lo descarta), `:388` (`datos` lo conserva),
-    `:390-394` (`setDoc` con `...datos`, que lo escribe)
-  - `firebase/firestore.rules:489-491` (`hasOnly` de `create` en `historial`,
-    sin `id`)
-  - `firebase/firestore.rules:496-499` (`update` sin `hasOnly`, por eso el
-    roundtrip sobre la misma cuenta no falla)
-  - `js/repositories/HistorialRepositorio.js:114-117` (el lector ya devuelve
-    `fecha` desde el id del documento; el `id` del export es redundante
-    también como valor)
-- **Notas**: **son dos arreglos, y solo uno está en el alcance de este bug.**
-  1. Quitar `id` del `.dvid`. Es una línea y cierra el síntoma.
-  2. La causa de fondo es **DEUDA-013**: la lista de campos admitidos está
-     escrita a mano en las reglas y no se deriva de la que usa el código. Un
-     campo sobrante rompe un `create` exactamente igual que un campo faltante.
-     Este bug es la **tercera aparición** del mismo modo de fallo, registrada
-     en DEUDA-013.
-
-  El arreglo (1) no previene (2): la próxima vez que una ruta de escritura
-  añada un campo, el mismo fallo reaparece. Y al revés que en R-03 y R-05,
-  aquí el campo **sobra** en vez de faltar, lo que confirma que la lista está
-  desalineada en las dos direcciones.
-
-  Se detectó **midiendo**, no leyendo código de forma lineal: al comparar las
-  secciones del `.dvid` con los `hasOnly` de las reglas, buscando simetrías
-  entre export e import. Ninguna de las dos mitades del flujo delata el problema
-  por separado.
-
-  Verificado ejecutando las transformaciones exactas de ambos servicios sobre
-  un documento de historial: el campo `id` sobrevive a la serialización y
-  aparece entre los rechazados por `hasOnly`.
 
 ### BUG-016: El hover del selector de tipo ilumina un cuadrado
 - **Módulo**: `js/pages/movimientos.js`, `css/pendientes.css`
@@ -1047,14 +1052,14 @@ lo que lo hunted, y no leer el código de arriba abajo.
 
 ### Lo que sí sobrevivió a la verificación
 
-Once de los diecisiete bugs resueltos salieron de commits cuyo diff se leyó
-entero, no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y
-BUG-024. De los seis restantes, **BUG-013** se cerró leyendo su diff, con una
+Once de los veinte bugs resueltos salieron de commits cuyo diff se leyó entero,
+no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y
+BUG-024. De los nueve restantes, **BUG-013** se cerró leyendo su diff, con una
 corrección de alcance (el reporte lo situaba en tres sitios y eran dos), y
-**BUG-014**, **BUG-015** y **BUG-020** se resolvieron leyendo su propio diff,
-aunque los tres están a la espera de que se vean en el navegador.
+**BUG-014**, **BUG-015**, **BUG-020**, **BUG-027**, **BUG-029** y **BUG-030** se
+resolvieron leyendo su propio diff, aunque los seis están a la espera de
+comprobación.
 
-Los ocho pendientes verificados en código son **BUG-025**, **BUG-026**,
-**BUG-027**, **BUG-028**, **BUG-029** y **BUG-030** (más BUG-016 y BUG-017 a la
-espera de comprobación visual). Ninguno de ellos depende de una percepción, salvo
-**BUG-030**, que se verificó por ejecución y no necesita navegador.
+Los cinco pendientes verificados en código son **BUG-025**, **BUG-026** y
+**BUG-028** (más BUG-016 y BUG-017 a la espera de comprobación visual). Ninguno
+de ellos depende de una percepción.
