@@ -107,16 +107,30 @@ export async function exportarDVID(uid) {
         })
 
         // Historial de precios por activo (con símbolo para remapeado).
-        const historial = []
-        for (const activo of activos) {
-            const registros = await obtenerHistorial(uid, activo.id, DIAS_HISTORIAL)
-            if (registros.length > 0) {
-                historial.push({
+        //
+        // En paralelo: son A consultas, y en serie costaban A viajes de red
+        // secuenciales. Con 20 activos, 20 esperas en cadena.
+        //
+        // DIAS_HISTORIAL se queda en 9999 a propósito: `limit()` no cuesta nada
+        // cuando la colección tiene menos documentos, así que recortarlo no
+        // daría rendimiento y sí perdería historial del respaldo.
+        //
+        // `registros` va sin transformar: `obtenerHistorial` ya devuelve
+        // `{ fecha: <id del doc>, ...datos }`. El `id` que se añadía aquí
+        // era un artefacto del mapeo que rompía la importación en cuentas
+        // nuevas, porque el `hasOnly` de `historial` no lo admite (BUG-030).
+        const historial = (await Promise.all(
+            activos.map(async activo => {
+                const registros = await obtenerHistorial(uid, activo.id, DIAS_HISTORIAL)
+                if (registros.length === 0) return null
+                return {
                     activoSimbolo: activo.simbolo,
-                    registros: registros.map(r => ({ id: r.fecha, ...r }))
-                })
-            }
-        }
+                    // `cerrado` siempre es false y su único escritor
+                    // (`cerrarDia`) no tiene llamador. Fuera del .dvid.
+                    registros: registros.map(({ cerrado, ...registro }) => registro)
+                }
+            })
+        )).filter(Boolean)
 
         const datos = {
             formato: "escinco",
@@ -133,11 +147,15 @@ export async function exportarDVID(uid) {
             estrategias: serializarFechas(estrategias),
             metas: serializarFechas(metas),
             historial: serializarFechas(historial),
-            snapshots: serializarFechas(snapshots),
+            // `cerrado` siempre es false: `cerrarSnapshotDelDia` no tiene llamador.
+            // Fuera del .dvid. El documento de Firestore lo conserva (setDoc
+            // con merge no borra campos).
+            snapshots: serializarFechas(snapshots.map(({ cerrado, ...s }) => s)),
             preferencias: serializarFechas(preferencias)
         }
 
-        const json = JSON.stringify(datos, null, 2)
+        // Sin indentación: es el 30 % del archivo y un .dvid no se lee a mano.
+        const json = JSON.stringify(datos)
         const blob = new Blob([json], { type: "application/x-escinco-backup" })
         const url = URL.createObjectURL(blob)
 
