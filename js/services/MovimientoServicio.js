@@ -58,6 +58,7 @@ export async function registrarMovimiento(uid, tipo, datos) {
     // Los pagos de tarjeta se limitan a la deuda pendiente: si el monto la
     // supera, solo se registra lo necesario para pagarla por completo.
     await ajustarPagoDeTarjeta(uid, tipoFinal, datos)
+    await validarDivisaTransferencia(uid, tipoFinal, datos)
 
     // 1. Crear el movimiento
     const movimiento = await crearMovimiento(uid, {
@@ -163,6 +164,7 @@ export async function actualizarMovimiento(uid, movimientoId, movimientoOriginal
     normalizarFechaFutura(datos)
 
     await ajustarPagoDeTarjeta(uid, tipoFinal, datos, movimientoOriginal)
+    await validarDivisaTransferencia(uid, tipoFinal, datos)
 
     const metaVinculada = await resolverMetaDeMovimiento(uid, movimientoOriginal)
 
@@ -366,6 +368,45 @@ async function ajustarPagoDeTarjeta(uid, tipo, datos, movimientoOriginal = null)
     }
 
     return datos
+}
+
+/**
+ * Una transferencia entre cuentas de distinta divisa movería el mismo nominal
+ * en los dos lados: 100 USD saldrían de la cuenta en USD y entrarían 100 PEN
+ * en la cuenta en PEN. `cambioDivisa` ya cubre ese caso con `tasa` y
+ * `montoDestino` propios, así que aquí se rechaza en vez de convertir.
+ *
+ * No se convierte con `convertirMonto` a propósito: la app tiene un único tipo
+ * de cambio global (PEN/USD) y no uno por par, así que convertir en silencio
+ * aplicaría una tasa que el usuario no eligió y que no podría revisar.
+ *
+ * Solo se valida al crear y al editar, nunca al revertir: los movimientos
+ * heredados que ya están corruptos deben poder borrarse y deshacerse.
+ */
+async function validarDivisaTransferencia(uid, tipo, datos) {
+    if (tipo !== TIPOS_MOVIMIENTO.TRANSFERENCIA) return datos
+
+    const origen = datos?.cuentaOrigen ? await obtenerCuenta(uid, datos.cuentaOrigen) : null
+    const destino = datos?.cuentaDestino ? await obtenerCuenta(uid, datos.cuentaDestino) : null
+    if (!origen) throw new Error("No se encontró la cuenta de origen")
+    if (!destino) throw new Error("No se encontró la cuenta de destino")
+
+    const monedaOrigen = (origen.moneda || "pen").toLowerCase()
+    const monedaDestino = (destino.moneda || "pen").toLowerCase()
+    if (monedaOrigen === monedaDestino) return datos
+
+    // Si el usuario desactivó "Cambio de divisa", el rechazo sin alternativa lo
+    // dejaría sin forma de mover dinero entre divisas: se le dice dónde
+    // reactivarlo. La etiqueta es la de Configuración, no la del selector.
+    const cambioDivisaActivo =
+        sesion.getPreferencias()?.tiposMovimiento?.cambioDivisa !== false
+    const alternativa = cambioDivisaActivo
+        ? 'Para mover dinero entre divisas, usa el tipo "Cambio de divisa".'
+        : 'Para mover dinero entre divisas, activa "Cambio de divisa" en Configuración → Apariencia → Tipos de movimiento en el selector.'
+
+    throw new Error(
+        `"${origen.nombre}" y "${destino.nombre}" no usan la misma divisa. ${alternativa}`
+    )
 }
 
 function esMovimientoDeActivo(tipo) {

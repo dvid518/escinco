@@ -997,6 +997,8 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
 
     if (tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA) {
         filtrarCuentasPagoTarjeta()
+    } else if (tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
+        filtrarCuentasDestinoTransferencia()
     }
     vincularSimboloDivisa()
 }
@@ -1019,6 +1021,33 @@ function filtrarCuentasPagoTarjeta() {
     }
 
     tarjeta.addEventListener("change", actualizar)
+    actualizar()
+}
+
+/**
+ * Una transferencia solo puede mover dinero entre cuentas de la misma divisa
+ * (ver `validarDivisaTransferencia`): el servicio mueve el mismo nominal en
+ * los dos lados y no hay conversión. Oculta las opciones de destino que no
+ * encajan con la divisa del origen, para no dejar elegir un movimiento que el
+ * servicio va a rechazar.
+ */
+function filtrarCuentasDestinoTransferencia() {
+    const origen = document.getElementById("campo-cuentaOrigen")
+    const destino = document.getElementById("campo-cuentaDestino")
+    if (!origen || !destino) return
+
+    const actualizar = () => {
+        const moneda = origen.selectedOptions?.[0]?.dataset?.moneda
+        Array.from(destino.options).forEach((opcion, indice) => {
+            if (indice === 0) return
+            const compatible = !moneda || opcion.dataset.moneda === moneda
+            opcion.hidden = !compatible
+            opcion.disabled = !compatible
+        })
+        if (destino.selectedOptions[0]?.disabled) destino.value = ""
+    }
+
+    origen.addEventListener("change", actualizar)
     actualizar()
 }
 
