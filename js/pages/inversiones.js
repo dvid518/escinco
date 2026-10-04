@@ -1,5 +1,5 @@
 import { sesion } from "../core/sesion.js"
-import { getFechaHoy, parseFechaLocal } from "../core/fechas.js"
+import { fechaLocalISO, getFechaHoy, parseFechaLocal } from "../core/fechas.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import {
     buscarActivoPorSimbolo,
@@ -1439,7 +1439,7 @@ export function abrirModalCompra() {
             <div class="form-group">
                 <label for="compra-fecha">Fecha</label>
                 <div class="campo-fecha">
-                    <input type="date" id="compra-fecha" class="form-input" value="${hoy}">
+                    <input type="date" id="compra-fecha" class="form-input" value="${hoy}" max="${hoy}">
                     <button type="button" class="btn-calendario" aria-label="Abrir calendario">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
                             <path d="M8 2v4"/>
@@ -1502,7 +1502,7 @@ export function abrirModalCompra() {
                     precio,
                     comision,
                     divisa,
-                    fechaRealizacion: fecha ? parseFechaLocal(fecha) : new Date()
+                    fechaRealizacion: fechaLocalISO(parseFechaLocal(fecha))
                 })
 
                 await cargarPosiciones()
@@ -1567,7 +1567,7 @@ export function abrirModalVenta() {
             <div class="form-group">
                 <label for="venta-fecha">Fecha</label>
                 <div class="campo-fecha">
-                    <input type="date" id="venta-fecha" class="form-input" value="${hoy}">
+                    <input type="date" id="venta-fecha" class="form-input" value="${hoy}" max="${hoy}">
                     <button type="button" class="btn-calendario" aria-label="Abrir calendario">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
                             <path d="M8 2v4"/>
@@ -1621,7 +1621,7 @@ export function abrirModalVenta() {
                     precio,
                     comision,
                     divisa: posicion.divisa || "usd",
-                    fechaRealizacion: fecha ? parseFechaLocal(fecha) : new Date()
+                    fechaRealizacion: fechaLocalISO(parseFechaLocal(fecha))
                 })
 
                 await cargarPosiciones()
