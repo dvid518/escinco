@@ -165,7 +165,17 @@ export async function crearMovimiento(uid, datos) {
         ...datos,
         fechaRegistro: serverTimestamp()
     })
-    cacheCapa.invalidar(uid, "movimientos")
+    // Parchear en vez de invalidar: las vistas de Movimientos, Cuentas y
+    // Dashboard se suscriben a `movimientos-actualizados` y las tres releen
+    // movimientos al guardar. Invalidando, las tres perdían la caché y cada
+    // una pagaba la colección entera (que no pagina). Con el parche, la
+    // primera lectura repuebla y las otras dos aciertan.
+    //
+    // `serverTimestamp()` se resuelve en local con una estimación, así que la
+    // copia cacheada puede diferir del valor final del servidor por unos
+    // milisegundos. El TTL de 5 min la corrige sola.
+    const movimiento = { id: resultado.id, ...datos, fechaRegistro: serverTimestamp() }
+    cacheCapa.parchear(uid, "movimientos", lista => [...lista, movimiento])
     return resultado
 }
 
@@ -183,14 +193,18 @@ export async function obtenerMovimientos(uid) {
 export async function actualizarMovimientoDoc(uid, movimientoId, datos) {
     const referencia = doc(db, "usuarios", uid, "movimientos", movimientoId)
     const resultado = await updateDoc(referencia, datos)
-    cacheCapa.invalidar(uid, "movimientos")
+    cacheCapa.parchear(uid, "movimientos", lista =>
+        lista.map(m => (m.id === movimientoId ? { ...m, ...datos } : m))
+    )
     return resultado
 }
 
 export async function eliminarMovimientoDoc(uid, movimientoId) {
     const referencia = doc(db, "usuarios", uid, "movimientos", movimientoId)
     const resultado = await deleteDoc(referencia)
-    cacheCapa.invalidar(uid, "movimientos")
+    cacheCapa.parchear(uid, "movimientos", lista =>
+        lista.filter(m => m.id !== movimientoId)
+    )
     return resultado
 }
 

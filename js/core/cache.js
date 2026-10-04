@@ -34,6 +34,7 @@ const stats = {
     aciertosEnVuelo: 0,  // servidas reutilizando una petición en curso
     red: 0,              // lecturas que realmente tocaron la fuente
     invalidaciones: 0,
+    parches: 0,          // correcciones en sitio que evitaron una lectura
     porClave: new Map()  // clave -> { solicitadas, aciertos, aciertosEnVuelo, red }
 }
 
@@ -103,6 +104,42 @@ export const cacheCapa = {
         }
     },
 
+    /**
+     * Corrige una entrada de caché en sitio, sin soltar la invalidación.
+     *
+     * Para colecciones que crecen de a uno (movimientos): cuando la caché está
+     * caliente, parchear el array cuesta 0 lecturas de red, mientras que
+     * invalidar obliga a releer la colección entera en el siguiente render. Con
+     * varias vistas suscritas a un mismo evento, un solo guardado disparaba
+     * varias lecturas completas.
+     *
+     * Si la entrada no existe o ya expiró, no hace nada: el siguiente
+     * `obtener()` la trae fresca de Firestore, que es el comportamiento
+     * correcto.
+     *
+     * @param {string} uid
+     * @param {string} clave
+     * @param {(datos:any[]) => any[]} fn  recibe el array actual y devuelve el nuevo
+     */
+    parchear(uid, clave, fn) {
+        if (!uid || typeof fn !== "function") return
+        const k = claveCompuesta(uid, clave)
+        const entrada = entradas.get(k)
+        if (!entrada) return
+
+        if (entrada.expira <= Date.now()) {
+            entradas.delete(k)
+            return
+        }
+        if (!Array.isArray(entrada.datos)) return
+
+        const siguiente = fn(entrada.datos)
+        if (!Array.isArray(siguiente)) return
+
+        entrada.datos = siguiente
+        stats.parches++
+    },
+
     invalidarPrefijo(uid, prefijo) {
         if (!uid) return
         const p = claveCompuesta(uid, prefijo)
@@ -140,6 +177,7 @@ export const cacheCapa = {
             aciertos: stats.aciertos,
             aciertosEnVuelo: stats.aciertosEnVuelo,
             invalidaciones: stats.invalidaciones,
+            parches: stats.parches,
             ahorroPorcentual: solicitadas
                 ? Math.round(((solicitadas - red) / solicitadas) * 100)
                 : 0,
@@ -156,6 +194,7 @@ export const cacheCapa = {
         stats.aciertosEnVuelo = 0
         stats.red = 0
         stats.invalidaciones = 0
+        stats.parches = 0
         stats.porClave.clear()
     },
 
