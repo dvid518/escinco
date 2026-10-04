@@ -4,12 +4,12 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 
 ## Resumen
 
-- Total de bugs identificados: **25**
+- Total de bugs identificados: **26**
 - Resueltos: **17**
-- Pendientes: **7**
+- Pendientes: **8**
 - Descartados: **1**
 - Críticos: **0**
-- Altos: **1**
+- Altos: **2**
 - Medios: **1**
 - Bajos: **5**
 
@@ -22,7 +22,7 @@ descartado (BUG-018) estaba como Media.
 | Prefijo | Significado |
 |---------|-------------|
 | `R-01`…`R-11` | Bugs **resueltos**, ordenados por commit |
-| `BUG-013`…`BUG-029` | Bugs con identificador propio, resueltos o pendientes |
+| `BUG-013`…`BUG-030` | Bugs con identificador propio, resueltos o pendientes |
 
 `BUG-012` ("Transferencias no permiten agregar concepto") se investigó en el
 código y resultó **ya corregido** por `38e7f7a`; quedó registrado como **R-01**
@@ -57,20 +57,19 @@ o acción destructiva) · **Media** (funciona mal en un caso real) · **Baja**
 | BUG-024 | Divergencia entre las tres copias de `esMovimientoPositivo` | `js/pages/movimientos.js`, `js/pages/dashboard.js` | Baja | `89d9f58` | 2026-10-03 |
 | BUG-019 | Los modales de progreso son descartables a media operación | `js/ui/configuracion.js`, `js/ui/exportar.js`, `js/ui/modal.js` | **Alta** | `b953014` | 2026-10-03 |
 | BUG-013 | La cuenta nueva no se selecciona automáticamente | `js/pages/cuentas.js` | Media | `bf663ab` (+ `ae6b045`) | 2026-10-03 |
-| BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | *pendiente* | 2026-10-03 |
-| BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | *pendiente* | 2026-10-03 |
+| BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | `9cfe6cd` | 2026-10-03 |
+| BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | `9cfe6cd` | 2026-10-03 |
 | BUG-020 | `fechaRealizacion` se guarda como `Date` en dos rutas | `js/pages/inversiones.js` | Media | `a4b1041` | 2026-10-03 |
 
 > **Nota sobre R-02:** el commit declara corregido el signo de las
 > transferencias, pero solo se aplicó a `js/pages/cuentas.js`. Las otras dos
 > copias de la función quedaron atrás: ver **BUG-024**.
 
-> **Nota sobre BUG-014, BUG-015 y BUG-020:** el arreglo está aplicado y
-> revisado en código. **BUG-020** ya está committeado (`a4b1041`);
-> **BUG-014** y **BUG-015** **aún no**, así que su columna de commit dice
-> *pendiente*. Se anotan como resueltos de forma provisional: si al
-> verificarlos en navegador fallaran, se revierte el cambio y vuelven a la
-> lista de pendientes.
+> **Nota sobre BUG-014, BUG-015 y BUG-020:** los tres están commiteados
+> (`9cfe6cd` y `a4b1041`) y revisados en código, pero **aún no verificados en
+> navegador**. Se anotan como resueltos de forma provisional: si al
+> verificarlos fallaran, se revierte el commit y vuelven a la lista de
+> pendientes.
 
 ### Detalle de los bugs resueltos
 
@@ -423,6 +422,7 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | BUG-027 | Se ofrece "Pagar tarjeta" en un ciclo ya pagado | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
 | BUG-028 | Las tarjetas de crédito no se excluyen del filtro de transferencias | `js/ui/formularioMovimiento.js` | Baja | Baja | Pendiente |
 | BUG-029 | Un `ReferenceError` rompe la vista de detalle de movimientos | `js/pages/movimientos.js` | **Alta** | **Alta** | Pendiente |
+| BUG-030 | El campo `id` del historial rompe la importación en cuentas nuevas | `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js` | **Alta** | **Alta** | Pendiente |
 
 ---
 
@@ -770,6 +770,83 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   Se decidió **no tocarlo** en el sprint de BUG-014/015 por ser de los menores,
   y por eso queda registrado en vez de resuelto.
 
+### BUG-030: El campo `id` del historial rompe la importación en cuentas nuevas
+- **Módulo**: `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js`
+- **Severidad**: Alta
+- **Prioridad**: Alta
+- **Estado**: Pendiente
+- **Descripción**: el export del historial de precios añade un campo `id` que
+  la aplicación nunca escribe. En `ExportarServicio.js:116` el mapeo es
+  `registros.map(r => ({ id: r.fecha, ...r }))`: el `id` es un artefacto de
+  para tener el identificador a mano, pero **viaja dentro del JSON**. Al
+  importar, `ImportarServicio.js:388-394` hace `setDoc` con `...datos`, y
+  `datos` contiene ese `id`. Y las reglas limitan la colección a
+  `hasOnly(['fecha', 'precio', 'cerrado', 'actualizacion'])`
+  (`firebase/firestore.rules:489-491`): **`id` no está en la lista.**
+
+  El efecto es que importar un `.dvid` en una cuenta **sin historial previo**
+  falla en **cada registro**, con *"Missing or insufficient permissions"*. Los
+  errores se acumulan en `resultado.errores` (`:398`) sin que la interfaz
+  explique nada. Es el **mismo modo de fallo que DEUDA-013**, que ya lo
+  provocó dos veces (R-03 con `operacion`, R-05 con `metaId`): un
+  `hasOnly` escrito a mano que el código y las reglas no comparten, y un
+  rechazo que la app no sabe explicar.
+
+  **Es invisible en las pruebas de roundtrip sobre la misma cuenta**, y por eso
+  lleva tiempo sin reportarse. En `update` las reglas usan validadores
+  condicionales sin `hasOnly` (`firestore.rules:496-499`, por diseño para no
+  romper documentos legacy), así que reimportar sobre datos que ya existen
+  **sí pasa** e inyecta un campo `id` que la app nunca escribe. El bug solo
+  aparece al importar en una cuenta nueva.
+- **Pasos para reproducir**:
+  1. Exportar un `.dvid` de una cuenta que tenga historial de precios.
+  2. Abrir el archivo y comprobar que cada registro de `historial[].registros`
+     trae `"id"` junto a `"fecha"`, con el mismo valor.
+  3. Crear una cuenta nueva, o una cuenta existente sin historial.
+  4. Importar el `.dvid`.
+  5. Observar que el resumen de la importación muestra `historial: 0` y una
+     lista de erroresfilled de *"Missing or insufficient permissions"*.
+  6. Como contraste: en la cuenta original, reimportar el mismo archivo
+     **funciona**, y los documentos de historial quedan con un campo `id`
+     espurio.
+- **Resultado esperado**: el `.dvid` no transporta campos que la aplicación no
+  escribe, e importar un respaldo en una cuenta vacía restituye todo.
+- **Resultado actual**: la importación del historial falla por completo en
+  cuentas nuevas, y duplica la fecha en las existentes.
+- **Evidencia**:
+  - `js/services/ExportarServicio.js:116` (el `id` en el mapeo del export)
+  - `js/services/ImportarServicio.js:385` (`registro.fecha || registro.id`, usa
+    el `id` como fallback pero no lo descarta), `:388` (`datos` lo conserva),
+    `:390-394` (`setDoc` con `...datos`, que lo escribe)
+  - `firebase/firestore.rules:489-491` (`hasOnly` de `create` en `historial`,
+    sin `id`)
+  - `firebase/firestore.rules:496-499` (`update` sin `hasOnly`, por eso el
+    roundtrip sobre la misma cuenta no falla)
+  - `js/repositories/HistorialRepositorio.js:114-117` (el lector ya devuelve
+    `fecha` desde el id del documento; el `id` del export es redundante
+    también como valor)
+- **Notas**: **son dos arreglos, y solo uno está en el alcance de este bug.**
+  1. Quitar `id` del `.dvid`. Es una línea y cierra el síntoma.
+  2. La causa de fondo es **DEUDA-013**: la lista de campos admitidos está
+     escrita a mano en las reglas y no se deriva de la que usa el código. Un
+     campo sobrante rompe un `create` exactamente igual que un campo faltante.
+     Este bug es la **tercera aparición** del mismo modo de fallo, registrada
+     en DEUDA-013.
+
+  El arreglo (1) no previene (2): la próxima vez que una ruta de escritura
+  añada un campo, el mismo fallo reaparece. Y al revés que en R-03 y R-05,
+  aquí el campo **sobra** en vez de faltar, lo que confirma que la lista está
+  desalineada en las dos direcciones.
+
+  Se detectó **midiendo**, no leyendo código de forma lineal: al comparar las
+  secciones del `.dvid` con los `hasOnly` de las reglas, buscando simetrías
+  entre export e import. Ninguna de las dos mitades del flujo delata el problema
+  por separado.
+
+  Verificado ejecutando las transformaciones exactas de ambos servicios sobre
+  un documento de historial: el campo `id` sobrevive a la serialización y
+  aparece entre los rechazados por `hasOnly`.
+
 ### BUG-016: El hover del selector de tipo ilumina un cuadrado
 - **Módulo**: `js/pages/movimientos.js`, `css/pendientes.css`
 - **Severidad**: Baja
@@ -861,6 +938,7 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | BUG-013 reportado con 3 caminos de creación | Eran 2: el tercero era código muerto, borrado en `ae6b045` |
 | Sin reportar, hallazgo al conectar el modal educativo | **BUG-026**, **BUG-027** |
 | Sin reportar, hallazgo al aplicar DEUDA-002 (opción a) | **BUG-028**, **BUG-029** |
+| Sin reportar, hallazgo al medir el formato `.dvid` | **BUG-030** |
 
 Pendiente de verificación manual: **BUG-016** y **BUG-017**, más los cierres de
 **BUG-013**, **BUG-014**, **BUG-015** y **BUG-020** —los de Cuentas, Inversiones
@@ -869,9 +947,21 @@ percepción visual: su mecanismo está identificado en el código CSS, pero conv
 una comprobación en navegador antes de darlos por buenos. Los cierres sí están
 verificados en código, pero el arreglo no se da por bueno hasta verlo funcionar;
 si alguno fallara, se revierte. **BUG-029** se verifica mirando no si el modal
-abre, sino si tiene botones de acción y si los campos están deshabilitados. El
-resto se confirmó leyendo el código, salvo **BUG-025**, que es latente por
-definición: no se reproduce mientras el filtro por cuenta no esté conectado.
+abre, sino si tiene botones de acción y si los campos están deshabilitados.
+**BUG-030** está verificado por ejecución, no necesita navegador: se reproduce
+importando un `.dvid` en una cuenta sin historial. El resto se confirmó leyendo
+el código, salvo **BUG-025**, que es latente por definición: no se reproduce
+mientras el filtro por cuenta no esté conectado.
+
+Tres afirmaciones de este reporte se apoyan en la **ausencia de un llamador** y
+conviene comprobarlas en el navegador antes de construir nada sobre ellas:
+`limpiarHistorial` (`js/services/HistorialServicio.js:66`, sin llamadores),
+`cerrarDia` (`js/repositories/HistorialRepositorio.js:71`, sin llamadores) y
+`cerrarSnapshotDelDia` (`js/repositories/SnapshotRepositorio.js:57`, sin
+llamadores). Solo la primera tiene consecuencias de crecimiento; las otras dos
+son un campo muerto cada una. También es invisible desde el código si hay una
+política **TTL nativa de Firestore** activa sobre `historial` o `snapshots`:
+eso se configura en la consola del proyecto, no en el repo.
 
 ### Correcciones de alcance aplicadas durante la redacción
 
@@ -913,7 +1003,7 @@ caso más del mismo tipo que **DEUDA-004**, y ambos deberían resolverse juntos.
 
 ## Lecciones aprendidas
 
-Este registro se redactó en cinco pasos y **siete de los veinticinco hallazgos
+Este registro se redactó en seis pasos y **siete de los veintiséis hallazgos
 iniciales resultaron mal descritos, mal contados o sobredimensionados**. Se deja
 constancia porque el valor de un reporte de bugs está en ser honesto sobre su
 propia fiabilidad, no solo en la lista final.
@@ -926,12 +1016,19 @@ propia fiabilidad, no solo en la lista final.
 | De flujo asíncrono, reportado sin leer el flujo entero | BUG-019, BUG-024 | Se leyó el fragmento relevante (`pointer-events`, el call site) y se infirió el comportamiento, sin abrir la función que lo governa. En BUG-019 se afirmó que el modal se cerraba a media operación; lo impedía el guard `if (procesando) return` de `cerrar()`. |
 | Conteo de sitios sin comprobar las llamadas | BUG-013 | Se afirmó que había tres caminos de creación de cuenta y se señaló uno a `js/pages/cuentas.js:1843` que no tenía ninguna llamada en el repositorio. Eran dos. |
 | Afirmar la ausencia de algo sin buscarlo | BUG-015 | Se escribió que *"no existe el modal educativo en el código"*. Existía entero, con su markup y su CSS, en `js/services/CreditoServicio.js:281`; lo que faltaba era el call site. |
-| Leer un síntoma sin abrir el flujo completo | BUG-029 | Se afirmaba que el modal de detalle se rompía. Como la función es `async`, el `ReferenceError` se convierte en promesa rechazada y el modal **sí abre** (`abrirModal` corre antes). Lo que se pierde es `bloquearFormulario(true)` y `renderizarAccionesDetalle`, es decir, los botones de acción y el modo de solo lectura. |
+| Leer un síntoma sin abrir el flujo completo | BUG-029 | Se afirmaba que el modal de detalle se rompía. Como la función es `async`, el `ReferenceError` se convierte en promesa rechazada y el modal **síabre** (`abrirModal` corre antes). Lo que se pierde es `bloquearFormulario(true)` y `renderizarAccionesDetalle`, es decir, los botones de acción y el modo de solo lectura. |
 
 En los seis casos verificados la comprobación en código demostró que el bug
 **no existía, estaba mal descrito o estaba sobredimensionado**, y en los cuatro
 primeros el defecto real resultó ser **otro distinto** que sí se corrigió
 (BUG-025, BUG-019, BUG-026 y BUG-029 respectivamente).
+
+**BUG-030 es el caso contrario y por eso reinforces la regla**: no fue un error de
+diagnóstico sino un defecto que nadie había mirado, y apareció al **medir** —
+comparando las secciones del `.dvid` contra los `hasOnly` de las reglas y
+buscando simetrías entre export e import. Ninguna de las dos mitades del flujo
+delata el problema por separado. Un mapa de "qué campos escribe cada ruta" es
+lo que lo hunted, y no leer el código de arriba abajo.
 
 ### Regla que se adopta
 
@@ -957,6 +1054,7 @@ corrección de alcance (el reporte lo situaba en tres sitios y eran dos), y
 **BUG-014**, **BUG-015** y **BUG-020** se resolvieron leyendo su propio diff,
 aunque los tres están a la espera de que se vean en el navegador.
 
-Los siete pendientes verificados en código son **BUG-025**, **BUG-026**,
-**BUG-027**, **BUG-028** y **BUG-029** (más BUG-016 y BUG-017 a la espera de
-comprobación visual). Ninguno de ellos depende de una percepción.
+Los ocho pendientes verificados en código son **BUG-025**, **BUG-026**,
+**BUG-027**, **BUG-028**, **BUG-029** y **BUG-030** (más BUG-016 y BUG-017 a la
+espera de comprobación visual). Ninguno de ellos depende de una percepción, salvo
+**BUG-030**, que se verificó por ejecución y no necesita navegador.

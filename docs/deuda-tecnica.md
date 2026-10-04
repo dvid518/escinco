@@ -182,17 +182,31 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   `firebase/firestore.rules:144` (`update` de cuentas)
 
 ### DEUDA-013: El `hasOnly` de `movimientos` es una lista manual ya desincronizada
-- **Módulo**: `firebase/firestore.rules`, `constants/tiposMovimiento.js`
+- **Módulo**: `firebase/firestore.rules`, `constants/tiposMovimiento.js`,
+  `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js`
 - **Descripción**: la lista de campos admitidos en `create` para movimientos
   está escrita a mano y se desincroniza cada vez que `CONFIG_MOVIMIENTOS` crece.
-  Ya ha pasado dos veces: `metaId` (corregido en `c014e94`, R-05) y `operacion`
-  (corregido en `9c4cc4b`, R-03). En ambos casos el síntoma fue el mismo y muy
-  difícil de diagnosticar: *"Missing or insufficient permissions"* al guardar, sin
-  ningún mensaje de la app que lo explicara, y en el caso de R-03 el fallo se
-  extendía al deshacer.
-- **Impacto**: cada campo nuevo obliga a recordar tres sitios (constantes,
-  reglas `create`, reglas `update`). Es deuda que **ya ha causado dos
-  incidentes de producción**, por lo que la prioridad no es hipotética.
+  Ya ha pasado **tres veces**, y la tercera es de otra naturaleza:
+
+  | # | Qué se desincronizó | Síntoma | Estado |
+  |---|---|---|---|
+  | 1 | `metaId` no estaba en la lista | *"Missing or insufficient permissions"* al aportar a una meta | R-05, `c014e94` |
+  | 2 | `operacion` no estaba en la lista | Ídem, y además rompía el deshacer | R-03, `9c4cc4b` |
+  | 3 | `id` **sobra** en el historial | La importación de historial falla entera en cuentas nuevas | **BUG-030**, pendiente |
+
+  En los dos primeros casos **faltaba** un campo que el código escribía. En el
+  tercero **sobra** uno que el exportador escribe y la app nunca. Los dos casos
+  confirmen que la lista está desalineada **en las dos direcciones**, que es
+  justo lo que hace imposible detectarla leyendo solo un lado.
+
+  El síntoma es idéntico en los tres: *"Missing or insufficient permissions"*, sin
+  ningún mensaje de la app que lo explique. En BUG-030 es peor, porque la ruta
+  es la **importación de un respaldo**, y ahí el usuario está intentando
+  recuperar sus datos: el fallo aparece justo cuando más le importa.
+- **Impacto**: cada campo nuevo —y cada campo sobrante— obliga a recordar tres
+  sitios (constantes, reglas `create`, reglas `update`). Es deuda que **ya ha
+  causado dos incidentes de producción y un bug abierto**, por lo que la
+  prioridad no es hipotética.
 - **Prioridad**: Alta
 - **Solución propuesta**: dos niveles. (a) Corto plazo: una prueba unitaria o un
   script de build que compare `CONFIG_MOVIMIENTOS` contra el `hasOnly` y falle
@@ -200,8 +214,15 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   de Firebase, de forma que cada tipo de movimiento tenga un test que intente
   guardarlo. Como mínimo, un comentario en el `hasOnly` que recuerde la
   dependencia.
+  Con BUG-030, la comparación debería abarcar **también las rutas de escritura no
+  covered por la UI** —el export/import es una de ellas y nadie la tenía en la
+  cabeza al escribir las reglas—. Un campo `id` en el export es el tipo de cosa
+  que un test de roundtrip habría atrapado al primer intento.
 - **Evidencia**: `firebase/firestore.rules:156-162` (la lista),
   `constants/tiposMovimiento.js:16-151` (la fuente que la obliga a crecer),
+  `firebase/firestore.rules:489-491` (el `hasOnly` de `historial`, sin `id`),
+  `js/services/ExportarServicio.js:116` (el `id` que se introduce),
+  `js/services/ImportarServicio.js:388-394` (la escritura rechazada),
   `git show 9c4cc4b`, `git show c014e94` (los dos commits que la repararon)
 
 ### DEUDA-004: Tres copias de `esMovimientoPositivo`, todavía divergentes
