@@ -1158,9 +1158,6 @@ export async function abrirFormularioDetalle(m) {
     })
 
     rellenarFormulario(m.tipo, m)
-    if (tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA) {
-        filtrarCuentasPagoTarjeta()
-    }
     vincularSimboloDivisa()
     bloquearFormulario(true)
     renderizarAccionesDetalle(modalEl, true)
