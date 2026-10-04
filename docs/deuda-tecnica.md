@@ -27,7 +27,8 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
 | ID | Título | Módulo | Impacto | Prioridad |
 |----|--------|--------|---------|-----------|
 | DEUDA-001 | `cambioDivisa` sin signo ni monto correctos en la cuenta destino | `js/services/MovimientoServicio.js`, páginas | **Saldos mostrados con signo y monto equivocados** | Alta |
-| DEUDA-002 | Transferencias entre divisas distintas mueven el mismo nominal en ambos lados | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | **Saldos corruptos al transferir entre cuentas de distinta moneda** | Alta |
+| DEUDA-002 | Transferencias entre divisas distintas mueven el mismo nominal en ambos lados | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | **Mitigada en `f9ceb1a`: ahora se rechazan. Ver DEUDA-002b** | Alta |
+| DEUDA-002b | Transferencia no soporta `tasa` ni `montoDestino`, así que no puede cruzar divisas | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | No se puede mover dinero entre divisas si se desactiva *Cambio de divisa* | Media |
 | DEUDA-012 | Asimetría `create`/`update`: `create` no valida 11 campos que `update` sí | `firebase/firestore.rules` | Documentos que se pueden crear pero no editar | Alta |
 | DEUDA-013 | El `hasOnly` de `movimientos` es una lista manual ya desincronizada dos veces | `firebase/firestore.rules` | **Ya causó R-03 y R-05; reincidencia previsible** | Alta |
 | DEUDA-003 | `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` | 3 páginas | Signo de comisión calculado sin perspectiva de cuenta | Media |
@@ -91,6 +92,17 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   corruptos y, como el error es silencioso y contable, no se detecta hasta que
   el patrimonio deja de cuadrar. Es el ítem más grave del registro.
 - **Prioridad**: Alta
+- **Estado**: **Mitigada** en `f9ceb1a` con la opción (a). El defecto sigue
+  latente en los movimientos ya guardados; la solución de fondo es **DEUDA-002b**.
+- **Lo que se hizo en `f9ceb1a`**: `validarDivisaTransferencia` rechaza la
+  transferencia si origen y destino no comparten divisa, en las dos rutas de
+  escritura (`registrarMovimiento` y `actualizarMovimiento`), y
+  `filtrarCuentasDestinoTransferencia` oculta en el formulario las opciones de
+  destino incompatibles. Ambas capas copian el patrón que ya existía para
+  `pagoTarjeta`, que es donde estaba la validación equivalente
+  (`MovimientoServicio.js:343-345`). **No** se valida al revertir, para que los
+  movimientos heredados corruptos se puedan borrar y deshacer.
+- **Lo que queda**: **DEUDA-002b**. Los documentos ya corruptos no se reparan.
 - **Solución propuesta**: dos alternativas. (a) Mínimo: validar en
   `actualizarSaldos` y en el formulario que `cuentaOrigen` y `cuentaDestino`
   compartan divisa, y rechazarlo con un mensaje claro. (b) Correcto: extender
@@ -100,7 +112,49 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
 - **Evidencia**: `constants/tiposMovimiento.js:37-48` (transferencia sin
   `montoDestino`/`tasa`), `constants/tiposMovimiento.js:50-60` (el contraste con
   `cambioDivisa`), `js/services/MovimientoServicio.js:402-405` (el mismo
-  `datos.monto` en ambos lados)
+  `datos.monto` en ambos lados), `js/services/MovimientoServicio.js:535-557`
+  (`actualizarSaldoCuenta`, aritmética pura sin conversión)
+- **Nota de alcance**: la severidad Alta de este ítem era **teórica**: depende de
+  que existan usuarios con cuentas en varias divisas que transferan entre ellas.
+  Nadie lo había verificado en datos. Queda pendiente de comprobarlo en la
+  consola de Firebase; si no hay usuarios afectados, la prioridad real la
+  define ese recuento y no la severidad.
+
+### DEUDA-002b: Transferencia no soporta `tasa` ni `montoDestino`
+- **Módulo**: `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js`,
+  `js/ui/formularioMovimiento.js`
+- **Descripción**: extender `transferencia` con `tasa` y `montoDestino` para
+  permitir transferencias entre divisas con conversión explícita. La conversión
+  existe (`convertirMonto`, `js/services/DivisaServicio.js:63-88`), pero la
+  tasa debe venir del usuario, no de las preferencias, porque la app tiene un
+  solo tipo de cambio global (PEN/USD).
+- **Por qué no se hizo ya en DEUDA-002**: `convertirMonto` es pura y síncrona,
+  pero lee el tipo de cambio de las preferencias del usuario y normaliza
+  `USDT = USD`. Convertir con ella aplicaría en silencio una tasa que el usuario
+  no eligió y que no podría revisar, que es exactamente el daño que
+  `f9ceb1a` evita rechazando. La tasa tiene que ser un dato explícito del
+  movimiento, como ya hace `cambioDivisa` con su campo `tasa`.
+- **Impacto**: con la opción (a) aplicada, un usuario que desactive *Cambio de
+  divisa* en Configuración → Apariencia **se queda sin ninguna forma de mover
+  dinero entre cuentas de distinta divisa**. Hoy puede hacerlo mal; con el
+  arreglo, no puede. El mensaje de error de `validarDivisaTransferencia` le dice
+  dónde reactivar el toggle, pero eso es un rodeo, no una solución.
+- **Prioridad**: Media
+- **Evidencia**: `constants/tiposMovimiento.js:37-48` (lo que le falta a
+  `transferencia`), `js/services/DivisaServicio.js:54-88` (el tipo de cambio
+  global y `convertirMonto`), `js/ui/formularioMovimiento.js:164-206` (los
+  `input` de `montoOrigen`, `montoDestino` y `tasa` que hay que replicar para
+  `transferencia`)
+- **Notas**: **no requiere cambios en las reglas de Firestore**.
+  `montoOrigen`, `montoDestino` y `tasa` ya están en el `hasOnly` de movimientos
+  (`firebase/firestore.rules:158`) y ya se validan como número (`:170-172`), que
+  es la trampa que ya produjo R-03 y R-05 dos veces. Aquí está pagada de
+  antemano.
+
+  Conviene resolverla junto con **BUG-028** (las tarjetas de crédito no se
+  excluyen de los selects de transferencia): al decidir qué tipos de cuenta
+  pueden participar en una transferencia, encaja de forma natural excluir las
+  tarjetas, cuya deuda no vive en `saldoInicial`.
 
 ### DEUDA-012: Asimetría `create`/`update` en las reglas de Firestore
 - **Módulo**: `firebase/firestore.rules`

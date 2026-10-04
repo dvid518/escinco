@@ -4,16 +4,16 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 
 ## Resumen
 
-- Total de bugs identificados: **21**
-- Resueltos: **13**
+- Total de bugs identificados: **25**
+- Resueltos: **17**
 - Pendientes: **7**
 - Descartados: **1**
 - Críticos: **0**
-- Altos: **0**
-- Medios: **2**
+- Altos: **1**
+- Medios: **1**
 - Bajos: **5**
 
-Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 13
+Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 17
 resueltos hay 2 de severidad Alta (R-03 y R-05) y 1 más Alta (BUG-019). El
 descartado (BUG-018) estaba como Media.
 
@@ -22,7 +22,7 @@ descartado (BUG-018) estaba como Media.
 | Prefijo | Significado |
 |---------|-------------|
 | `R-01`…`R-11` | Bugs **resueltos**, ordenados por commit |
-| `BUG-013`…`BUG-025` | Bugs con identificador propio, resueltos o pendientes |
+| `BUG-013`…`BUG-029` | Bugs con identificador propio, resueltos o pendientes |
 
 `BUG-012` ("Transferencias no permiten agregar concepto") se investigó en el
 código y resultó **ya corregido** por `38e7f7a`; quedó registrado como **R-01**
@@ -56,10 +56,21 @@ o acción destructiva) · **Media** (funciona mal en un caso real) · **Baja**
 | R-11 | Cards clicables sin `cursor: pointer` | `css/dashboard.css` | Baja | `c014e94` | 2026-09-22 |
 | BUG-024 | Divergencia entre las tres copias de `esMovimientoPositivo` | `js/pages/movimientos.js`, `js/pages/dashboard.js` | Baja | `89d9f58` | 2026-10-03 |
 | BUG-019 | Los modales de progreso son descartables a media operación | `js/ui/configuracion.js`, `js/ui/exportar.js`, `js/ui/modal.js` | **Alta** | `b953014` | 2026-10-03 |
+| BUG-013 | La cuenta nueva no se selecciona automáticamente | `js/pages/cuentas.js` | Media | `bf663ab` (+ `ae6b045`) | 2026-10-03 |
+| BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | *pendiente* | 2026-10-03 |
+| BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | *pendiente* | 2026-10-03 |
+| BUG-020 | `fechaRealizacion` se guarda como `Date` en dos rutas | `js/pages/inversiones.js` | Media | `a4b1041` | 2026-10-03 |
 
 > **Nota sobre R-02:** el commit declara corregido el signo de las
 > transferencias, pero solo se aplicó a `js/pages/cuentas.js`. Las otras dos
 > copias de la función quedaron atrás: ver **BUG-024**.
+
+> **Nota sobre BUG-014, BUG-015 y BUG-020:** el arreglo está aplicado y
+> revisado en código. **BUG-020** ya está committeado (`a4b1041`);
+> **BUG-014** y **BUG-015** **aún no**, así que su columna de commit dice
+> *pendiente*. Se anotan como resueltos de forma provisional: si al
+> verificarlos en navegador fallaran, se revierte el cambio y vuelven a la
+> lista de pendientes.
 
 ### Detalle de los bugs resueltos
 
@@ -217,19 +228,201 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   como *"el modal se cierra a media operación"*, yendo al guard `procesando` que
   en realidad lo impedía. El razonamiento del cambio queda en *Trazabilidad*.
 
+#### BUG-013: La cuenta nueva no se selecciona automáticamente
+- **Módulo**: `js/pages/cuentas.js`
+- **Severidad**: Media
+- **Prioridad**: Media
+- **Estado**: Resuelto por `bf663ab` (2026-10-03), cerrado con `ae6b045`
+- **Descripción**: los caminos de creación de cuenta llamaban a `crearCuenta()`
+  y a `cargarCuentas()`, pero nunca a `seleccionarCuenta()`.
+  `cargarCuentas()` preserva la selección anterior y, si no hay ninguna, elige
+  `cuentas[0]`. El resultado era que la cuenta recién creada no quedaba
+  seleccionada, pese a que `crearCuenta` sí devuelve el `DocumentReference` con
+  su `.id` y el dato estaba disponible.
+- **Pasos para reproducir**:
+  1. Entrar a Cuentas con al menos una cuenta ya seleccionada.
+  2. Crear una cuenta nueva (lastbar → *Nueva cuenta*), cualquier tipo.
+  3. Observar la vista tras el toast *"Cuenta creada"*.
+  4. Repetir partiendo de cero, sin ninguna cuenta seleccionada.
+- **Resultado esperado**: el detalle de la cuenta recién creada se abre
+  automáticamente, para poder verificarla y empezar a operar sobre ella.
+- **Resultado actual**: corregido. Los dos caminos vivos llaman a
+  `seleccionarCuenta(creada.id)` después de `cargarCuentas()`.
+- **Evidencia**: `js/pages/cuentas.js:1558-1564` (modal de dos pasos),
+  `js/pages/cuentas.js:1705-1710` (formulario de un paso),
+  `js/pages/cuentas.js:170-175` (la preservación de selección en `cargarCuentas`),
+  `firebase/firestore.js:118-125` (`crearCuenta` devuelve el resultado de `addDoc`)
+- **Notas**: el reporte original creía que había **tres** caminos y señalaba
+  un tercero en `js/pages/cuentas.js:1843`. No los hay: eran **dos**. El
+  tercero era `_abrirModalCrearCuentaLegacy`, una función de 156 líneas sin
+  ninguna llamada en todo el repositorio, eliminada como código muerto en
+  `ae6b045` como parte del cierre de este bug. El arreglo quedó entonces en
+  dos sitios, no en tres, y no hace falta unificar la creación en una sola
+  función.
+
+  La llamada a `seleccionarCuenta()` va **después** de `cargarCuentas()` y no
+  antes: `seleccionarCuenta` busca el id dentro del array `cuentas` y aborta
+  si no lo encuentra, y la cuenta recién creada solo existe en ese array
+  después de recargar.
+
+  **Pendiente de verificación en navegador.** El cierre queda sujeto a que se
+  comprueben los tres casos de los pasos de reproducción.
+
+#### BUG-014: "Estado del ciclo" de la tarjeta aparece dentro del scroll
+- **Módulo**: `js/pages/cuentas.js`
+- **Severidad**: Baja
+- **Prioridad**: Baja
+- **Estado**: Resuelto, **pendiente de verificación en navegador**
+- **Descripción**: la fila *"Estado del ciclo"* se emitía dentro de
+  `.cuenta-detalle`, que es el contenedor con scroll del panel de detalle.
+  Duplicaba la información que el badge del encabezado ya muestra, y ese badge
+  está fuera del scroll. Al desplazarse, el usuario veía el mismo dato dos
+  veces.
+- **Pasos para reproducir**:
+  1. Ir a Cuentas y seleccionar una **tarjeta de crédito**.
+  2. Ver el badge de estado en la esquina superior derecha del encabezado
+     (*Normal*, *Advertencia*, *Crítico* o *Pagado*).
+  3. Desplazar el bloque de detalle hasta el final.
+  4. Observar la fila *"Estado del ciclo"* con el mismo valor.
+- **Resultado esperado**: el estado del ciclo se muestra **solo** en el badge
+  del encabezado, que permanece siempre visible.
+- **Resultado actual**: corregido. La fila se eliminó de la plantilla.
+- **Evidencia**: el badge del encabezado sigue en `js/pages/cuentas.js:430`; la
+  fila duplicada estaba en `js/pages/cuentas.js:479-482` (pre-`bf663ab`), y
+  `css/cuentas.css:207-217` (`.cuenta-detalle` con `overflow-y: auto`)
+- **Notas**: la fila era la última del bloque, así que solo se veía al llegar
+  al final del scroll; por eso convivió tanto tiempo sin reportarse. Al
+  quitarla no queda ninguna variable muerta: `claseEstado` sigue usándose en
+  el resumen de *"Consumos del ciclo"* y en el badge de porcentaje, y
+  `nivelTexto` en el badge del encabezado.
+
+  Al abrir el modal educativo desde el badge (**BUG-015**) la fila del scroll
+  ya no compite con nada: el dato vive en el encabezado y su explicación, en el
+  modal.
+
+#### BUG-015: El badge de estado "Normal" no abre el modal educativo
+- **Módulo**: `js/pages/cuentas.js`
+- **Severidad**: Baja
+- **Prioridad**: Baja
+- **Estado**: Resuelto, **pendiente de verificación en navegador**
+- **Descripción**: el badge de estado de la tarjeta se renderizaba como un
+  `span` plano: sin `tabindex`, sin `role`, sin `data-*`, sin `cursor: pointer`
+  y **sin ningún listener**. El usuario que no entendía qué significaba
+  *Normal* / *Advertencia* / *Crítico* no tenía dónde consultarlo.
+- **Pasos para reproducir**:
+  1. Ir a Cuentas y seleccionar una tarjeta de crédito.
+  2. Localizar el badge de estado junto a *Tarjeta de crédito*.
+  3. Hacer clic sobre él.
+  4. Intentar alcanzarlo con el teclado (Tab).
+- **Resultado esperado**: el badge es un control activable (por clic y por
+  teclado) que abre un modal educativo explicando los niveles de uso de la
+  línea de crédito.
+- **Resultado actual**: corregido. El badge es un `<button type="button">` con
+  listener que abre el modal educativo.
+- **Evidencia**: `js/pages/cuentas.js:430` (el badge, ahora `button`),
+  `js/pages/cuentas.js:354-357` (el listener, en el bloque post-render donde ya
+  se enlazaban los `.btn-copiar`),
+  `js/services/CreditoServicio.js:281` (el modal), `css/cuentas.css:158-175`
+  (el estilo de interaction)
+- **Notas**: **el reporte original se equivocaba en el diagnóstico.** Afirmaba
+  que *"no existe el modal educativo en el código"*. Sí existía:
+  `abrirModalEducativoCredito(tarjeta)` en `js/services/CreditoServicio.js:281`,
+  con su markup `.credito-educativo-*` y todo su CSS ya escrito
+  (`css/cuentas.css:379-458`). No hubo que crearlo ni decidir su diseño.
+
+  Lo que faltaba era **el acceso**: la función estaba `export`ada pero su único
+  llamador era `notificarUsoDeCredito`
+  (`js/services/CreditoServicio.js:277`), que a su vez solo se dispara desde el
+  botón *"Más info"* de un toast de cruce de umbral
+  (`js/services/CreditoServicio.js:231,238`). Es decir, el modal era
+  inalcanzable salvo en el instante en que la tarjeta cruzaba un umbral, y
+  nunca desde la tarjeta que lo motivating. El arreglo fue una línea de
+  `import` y un listener.
+
+  Se eligió `<button>` nativo en vez de `span` con `role`/`tabindex`: da
+  teclado, rol y `focus-visible` sin wiring a mano.
+
+  Del CSS hizo falta algo que no estaba previsto: el `button` global de
+  `css/style.css:318` pone `background-color: var(--surface)` y un
+  `button:hover` propio (`css/style.css:332`). El `background: transparent` que
+  necesita el badge para verse como el `span` que era **anulaba también el
+  hover**, dejando un control clicable sin ninguna señal. Se añadió un hover
+  explícito en `css/cuentas.css:173-175`.
+
+  Abrir el modal destapó dos defectos que no estaban registrados: **BUG-026**
+  y **BUG-027**.
+
+#### BUG-020: `fechaRealizacion` se guarda como `Date` en dos rutas
+- **Módulo**: `js/pages/inversiones.js`
+- **Severidad**: Media
+- **Prioridad**: Media
+- **Estado**: Resuelto por `a4b1041` (2026-10-03), pendiente de verificación en navegador
+- **Descripción**: los modales de **compra** y **venta** manual de
+  inversiones escribían `fechaRealizacion` como un objeto `Date`. `addDoc` lo
+  convierte a `Timestamp` de Firestore, mientras que el resto de la aplicación
+  usa string `"YYYY-MM-DD"`. Como `normalizarFechaFutura()` solo normaliza
+  cuando el valor es string, estas dos rutas **no recortaban las fechas futuras**,
+  contradiciendo la regla documentada en el propio archivo.
+- **Pasos para reproducir**:
+  1. En Inversiones, registrar una **compra** manual con fecha de realización
+     en el futuro.
+  2. Confirmar que se guarda con esa fecha futura (el resto de tipos de
+     movimiento la convierten a hoy).
+  3. Repetir en el modal de **venta**.
+  4. Opcional: leer el documento y observar que `fechaRealizacion` es un
+     `Timestamp`, no un string.
+- **Resultado esperado**: toda `fechaRealizacion` se guarda como string
+  `"YYYY-MM-DD"` y se normaliza a hoy cuando es futura, en los tres tipos de
+  vía de alta.
+- **Resultado actual**: corregido en las dos vías de alta. Además del cambio de
+  tipo, se añadió `max="${hoy}"` a los dos `input type="date"`, que es la
+  prevention en la UI que ya usa el formulario canónico de movimientos
+  (`js/ui/formularioMovimiento.js:249`). Sin esa segunda capa el recorte sería
+  silencioso: el usuario elegiría mañana y se guardaría hoy sin aviso.
+- **Evidencia**: `js/pages/inversiones.js:2` (el import de `fechaLocalISO`, que
+  faltaba y hubo que añadir), `js/pages/inversiones.js:1442,1570` (los dos
+  `input type="date"` con `max`), `js/pages/inversiones.js:1505,1624` (las dos
+  escrituras, ya como string),
+  `js/services/MovimientoServicio.js:19-25` (`normalizarFechaFutura`, que solo
+  actúa sobre strings),
+  `js/services/MovimientoServicio.js:17-18` (la regla documentada que se incumplía)
+- **Notas**: la vista no se rompe porque `formatearFecha`
+  (`js/pages/cuentas.js:1029-1042`) y `normalizarFecha`
+  (`js/services/MovimientoServicio.js:709-713`) sí saben leer `Timestamp`. El
+  problema de la inconsistencia de datos de partida queda como **DEUDA-011**, y
+  las reglas de Firestore no lo detectan porque `create` no valida el tipo de
+  `fechaRealizacion` (**DEUDA-012**).
+
+  El arreglo **solo afecta a escrituras nuevas**: los movimientos de compra y
+  venta ya guardados siguen con `Timestamp` y no se migran. Decisión tomada, no
+  un olvido.
+
+  Las dos capas de la defensa son complementarias, no intercambiables: `max` es
+  prevención en la UI y se puede saltar desde la consola o DevTools;
+  `normalizarFechaFutura` es la red de seguridad del servicio. Con las dos, los
+  dos caminos dan hoy.
+
+  **Pendiente de verificación en navegador.** Los pasos 2, 3 y 5 son verificables
+  en la aplicación; el paso 4 **no**: `fechaRealizacion` no se muestra en
+  ningún sitio más que a través de `formatearFecha`, que ya normaliza los tres
+  tipos, así que un `Timestamp` y un string se ven idénticos. Distinguirlo
+  requiere la consola de Firebase.
+
+---
+
 ---
 
 ## Bugs pendientes
 
 | ID | Título | Módulo | Severidad | Prioridad | Estado |
 |----|--------|--------|-----------|-----------|--------|
-| BUG-013 | La cuenta nueva no se selecciona automáticamente | `js/pages/cuentas.js` | Media | Media | Pendiente |
-| BUG-014 | "Estado del ciclo" de la tarjeta aparece dentro del scroll | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
-| BUG-015 | El badge de estado "Normal" no abre el modal educativo | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
 | BUG-016 | El hover del selector de tipo ilumina un cuadrado | `js/pages/movimientos.js`, `css/pendientes.css` | Baja | Baja | Pendiente (sin verificar) |
 | BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js` | Baja | Baja | Pendiente (sin verificar) |
-| BUG-020 | `fechaRealizacion` se guarda como `Date` en dos rutas | `js/pages/inversiones.js` | Media | Media | Pendiente |
 | BUG-025 | El filtro por cuenta inactivo deja negativas las transferencias entrantes | `js/pages/movimientos.js` | Baja | Baja | Pendiente (latente) |
+| BUG-026 | Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe` | `js/pages/cuentas.js`, `js/services/CreditoServicio.js` | Media | Media | Pendiente |
+| BUG-027 | Se ofrece "Pagar tarjeta" en un ciclo ya pagado | `js/pages/cuentas.js` | Baja | Baja | Pendiente |
+| BUG-028 | Las tarjetas de crédito no se excluyen del filtro de transferencias | `js/ui/formularioMovimiento.js` | Baja | Baja | Pendiente |
+| BUG-029 | Un `ReferenceError` rompe la vista de detalle de movimientos | `js/pages/movimientos.js` | **Alta** | **Alta** | Pendiente |
 
 ---
 
@@ -329,126 +522,253 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   hay que pasar el `cuentaId` desde `plantillaMovimiento` hasta la llamada, o
   el bug reaparece en cuanto se conecte el filtro.
 
-### BUG-013: La cuenta nueva no se selecciona automáticamente
-- **Módulo**: `js/pages/cuentas.js`
+### BUG-029: Un `ReferenceError` rompe la vista de detalle de movimientos
+- **Módulo**: `js/pages/movimientos.js`
+- **Severidad**: Alta
+- **Prioridad**: Alta
+- **Estado**: Pendiente
+- **Descripción**: `abrirFormularioDetalle` compara contra `tipo`, que **no está
+  declarado en su ámbito**. La única declaración de `tipo` del archivo es el
+  parámetro de `abrirFormularioMovimiento` (`:943`); no hay local ni
+  declaración a nivel de módulo. Es el caso más severo del registro, y el
+  diagnóstico inicial —"se rompe el modal de detalle"— era incorrecto: el
+  modal **sí abre**.
+
+  La razón es que la función es `async`. El `ReferenceError` no interrumpe la
+  ejecución de forma sincronizable: se convierte en una **promesa rechazada**.
+  Y el modal ya está abierto para entonces, porque `abrirModal` corre en
+  `:1148`, catorce líneas antes. El usuario ve el modal con normalidad y no
+  perceive nada raro.
+
+  Lo que se rompe es todo lo que viene después:
+
+  | Línea | Qué deja de ejecutarse | Consecuencia visible |
+  |-------|------------------------|----------------------|
+  | `:1164` | `vincularSimboloDivisa()` | el símbolo de divisa junto a *Monto* no se actualiza al cambiar de cuenta |
+  | `:1165` | `bloquearFormulario(true)` | **el formulario queda editable en una vista que debe ser de solo lectura** |
+  | `:1166` | `renderizarAccionesDetalle(modalEl, true)` | **no se pintan los botones de acción** (Editar, Deshacer, Eliminar) |
+
+  Y como `:1155-1156` declara `confirmText: null` y `cancelText: null`, tampoco
+  hay botones en el footer. El resultado es un **formulario editable sin
+  ningún botón para guardar**: el usuario cree que está en modo edición y no
+  puede guardar. Solo puede cerrarlo.
+
+  Lo que hace la severidad Alta, y por encima de la pérdida de la garantía de
+  solo lectura, es que **`manejarAccionDetalle("guardar")` (`:1223`) queda
+  inalcanzable**: sus botones nunca se pintaron. **La función de editar
+  movimientos está muerta por este bug.** La rama `"cancelar"` (`:1212-1213`),
+  que vuelve a llamar a `abrirFormularioDetalle`, es inalcanzable por lo mismo
+  —y si se alcanzara, lanzaría el mismo error otra vez.
+
+- **Pasos para reproducir**:
+  1. Abrir Movimientos.
+  2. Hacer clic en cualquier movimiento para ver su detalle.
+  3. Observar que el modal **abre**.
+  4. Comprobar que **no hay botones de acción** abajo (Editar, Deshacer,
+     Eliminar).
+  5. Comprobar que los campos **sí son editables**, cuando deberían estar
+     deshabilitados.
+  6. Abrir la consola: `Uncaught (in promise) ReferenceError: tipo is not defined`.
+- **Resultado esperado**: la vista de detalle muestra el movimiento con los
+  campos deshabilitados y sus botones de acción (Editar, Deshacer, Eliminar).
+- **Resultado actual**: el modal abre con un formulario editable y sin ningún
+  botón, ni de acción ni de confirmación. Editar es imposible.
+- **Evidencia**:
+  - `js/pages/movimientos.js:1161-1163` (la comparación con `tipo` no declarado)
+  - `js/pages/movimientos.js:943` (la única declaración de `tipo`: el parámetro
+    de `abrirFormularioMovimiento`)
+  - `js/pages/movimientos.js:1148` (`abrirModal`, que se ejecuta antes y por eso
+    el modal sí abre)
+  - `js/pages/movimientos.js:1155-1156` (`confirmText: null`, `cancelText: null`)
+  - `js/pages/movimientos.js:1164-1166` (las tres llamadas que no se ejecutan)
+  - `js/pages/movimientos.js:1223` (`manejarAccionDetalle("guardar")`,
+    inalcanzable)
+  - `js/pages/movimientos.js:1212-1213` (la rama `"cancelar"`, también
+    inalcanzable)
+  - Call sites sin `await` ni `.catch()`: `js/pages/dashboard.js:2554`,
+    `js/pages/movimientos.js:1139`, `js/pages/movimientos.js:1213`
+  - Sin handler global: cero coincidencias de `unhandledrejection` y
+    `window.onerror` en `js/` y en `sw.js`
+- **Notas**: **es silencioso**, y por eso lleva meses sin reportarse: la
+  excepción solo aparece como `Uncaught (in promise) ReferenceError` en la
+  consola, sin ningún aviso en la interfaz. Ninguno de los tres call sites la
+  captura y no hay handler global que la muestre.
+
+  El arreglo más pequeño es **borrar la llamada**: en una vista de solo lectura
+  el filtro no aporta nada, porque `bloquearFormulario(true)` deshabilita todos
+  los `select` justo después. Y activarlo no sería neutro: si se limitara a
+  cambiar `tipo` por `m.tipo`, el `actualizar()` del filtro detectaría el destino
+  deshabilitado en las transferencias heredadas entre divisas y pondría
+  `destino.value = ""`, borrando de la pantalla la cuenta de destino.
+
+  **Este bug se detectó de paso al aplicar DEUDA-002.** Se buscaba un segundo
+  call site de `filtrarCuentasPagoTarjeta` —el segundo sí existe, en
+  `:1162`— y al leerlo se vio que comparaba contra una variable inexistente.
+  Es el tercer hallazgo cuyo diagnóstico inicial estuvo mal: BUG-019, BUG-024 y
+  este.
+
+### BUG-028: Las tarjetas de crédito no se excluyen del filtro de transferencias
+- **Módulo**: `js/ui/formularioMovimiento.js`
+- **Severidad**: Baja
+- **Prioridad**: Baja
+- **Estado**: Pendiente
+- **Descripción**: al cerrar DEUDA-002 (opción a) se añadió
+  `filtrarCuentasDestinoTransferencia`, que oculta las opciones de destino cuya
+  divisa no coincide con la del origen. El filtro **no excluye las tarjetas de
+  crédito**, y no se excluyeron a propósito: hacerlo cambiaría más
+  comportamiento del que cubre DEUDA-002.
+
+  El problema de fondo es otro y es anterior: para el tipo `transferencia`,
+  `cuentasElegibles` es `cuentasActivas` **sin ningún filtro**, así que los dos
+  selects (origen y destino) ofrecen también tarjetas de crédito. Y una tarjeta
+  no tiene un saldo que mover: su deuda vive en el campo `deuda`, no en
+  `saldoInicial`. Una transferencia hacia una tarjeta acaba en
+  `actualizarSaldoCuenta`, que resta el monto a `saldoInicial` de la tarjeta,
+  un campo que las tarjetas no usan para nada. El efecto es un campo
+  `saldoInicial` basura en una tarjeta, invisible salvo que alguien lo mire.
+- **Pasos para reproducir**:
+  1. Ir a Movimientos → *Transferencia*.
+  2. Abrir la lista de cuenta de destino.
+  3. Observar que aparecen tarjetas de crédito.
+  4. Elegir una tarjeta como destino y guardar.
+  5. Leer el documento de la tarjeta y observar que `saldoInicial` cambió.
+- **Resultado esperado**: los selects de origen y destino de una transferencia
+  ofrecen solo cuentas con saldo, nunca tarjetas. La deuda de una tarjeta se
+  mueve con `pagoTarjeta` o con `gasto`, no con una transferencia.
+- **Resultado actual**: las tarjetas son elegibles y el movimiento se guarda.
+- **Evidencia**: `js/ui/formularioMovimiento.js:26-30` (para `transferencia`,
+  `cuentasElegibles = cuentasActivas`, sin exclusión de `credito`; compárese con
+  la rama de `esPagoTarjeta` en la línea 27, que sí la excluye),
+  `js/ui/formularioMovimiento.js:32-34` (las opciones que se pintan en ambos
+  selects), `js/ui/formularioMovimiento.js:113-122` (el select de destino),
+  `js/services/MovimientoServicio.js:535-557` (`actualizarSaldoCuenta`, que solo
+  toca `saldoInicial` y no distingue el tipo de cuenta)
+- **Notas**: se puede resolver junto con **DEUDA-002b**. Al extender
+  `transferencia` con `tasa` y `montoDestino` hay que decidir de paso qué tipos
+  de cuenta pueden participar, y ahí encaja de forma natural filtrar las
+  tarjetas.
+
+  Quedó fuera de DEUDA-002 a propósito y así se dice en su commit: excluir las
+  tarjetas del filtro es una decisión de alcance que no corresponde a un arreglo
+  cuya premisa es "las dos cuentas deben usar la misma divisa".
+
+### BUG-026: Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe`
+- **Módulo**: `js/pages/cuentas.js`, `js/services/CreditoServicio.js`
 - **Severidad**: Media
 - **Prioridad**: Media
 - **Estado**: Pendiente
-- **Descripción**: los tres caminos de creación de cuenta llaman a
-  `crearCuenta()` y a `cargarCuentas()`, pero nunca a `seleccionarCuenta()`.
-  `cargarCuentas()` preserva la selección anterior y, si no hay ninguna, elige
-  `cuentas[0]`. El resultado es que la cuenta recién creada no queda
-  seleccionada, pese a que `crearCuenta` sí devuelve el `DocumentReference` con
-  su `.id` y el dato está disponible.
-- **Pasos para reproducir**:
-  1. Entrar a Cuentas con al menos una cuenta ya seleccionada.
-  2. Crear una cuenta nueva (lastbar → *Nueva cuenta*), cualquier tipo.
-  3. Observar la vista tras el toast *"Cuenta creada"*.
-  4. Repetir partiendo de cero, sin ninguna cuenta seleccionada.
-- **Resultado esperado**: el detalle de la cuenta recién creada se abre
-  automáticamente, para poder verificarla y empezar a operar sobre ella.
-- **Resultado actual**: el detalle sigue mostrando la cuenta anterior (o la
-  primera del listado). El usuario tiene que buscarla y hacer clic.
-- **Evidencia**: `js/pages/cuentas.js:1558-1561` (formulario dos pasos),
-  `js/pages/cuentas.js:1702-1705` (formulario de un paso),
-  `js/pages/cuentas.js:1843` (formulario antiguo),
-  `js/pages/cuentas.js:170-175` (la preservación de selección en `cargarCuentas`),
-  `firebase/firestore.js:118-125` (`crearCuenta` devuelve el resultado de `addDoc`)
-- **Notas**: son tres sitios a corregir porque conviven un formulario de dos
-  pasos, uno de un paso y el antiguo. Si se unifica la creación en una sola
-  función, el arreglo es de una línea.
+- **Descripción**: el nivel de uso de una tarjeta se calcula en la aplicación
+  con **dos funciones distintas y sobre dos magnitudes distintas**:
 
-### BUG-020: `fechaRealizacion` se guarda como `Date` en dos rutas
-- **Módulo**: `js/pages/inversiones.js`
-- **Severidad**: Media
-- **Prioridad**: Media
-- **Estado**: Pendiente
-- **Descripción**: los modales de **compra** y **venta** manual de
-  inversiones escriben `fechaRealizacion` como un objeto `Date`. `addDoc` lo
-  convierte a `Timestamp` de Firestore, mientras que el resto de la aplicación
-  usa string `"YYYY-MM-DD"`. Como `normalizarFechaFutura()` solo normaliza
-  cuando el valor es string, estas dos rutas **no recortan las fechas futuras**,
-  contradiciendo la regla documentada en el propio archivo.
-- **Pasos para reproducir**:
-  1. En Inversiones, registrar una **compra** manual con fecha de realización
-     en el futuro.
-  2. Confirmar que se guarda con esa fecha futura (el resto de tipos de
-     movimiento la convierten a hoy).
-  3. Repetir en el modal de **venta**.
-  4. Opcional: leer el documento y observar que `fechaRealizacion` es un
-     `Timestamp`, no un string.
-- **Resultado esperado**: toda `fechaRealizacion` se guarda como string
-  `"YYYY-MM-DD"` y se normaliza a hoy cuando es futura, en los tres tipos de
-  vía de alta.
-- **Resultado actual**: dos de las tres vías guardan un `Timestamp` y aceptan
-  fechas futuras.
-- **Evidencia**: `js/pages/inversiones.js:1505` (compra),
-  `js/pages/inversiones.js:1624` (venta),
-  `js/services/MovimientoServicio.js:19-25` (`normalizarFechaFutura`, solo
-  actúa sobre strings),
-  `js/services/MovimientoServicio.js:17-18` (la regla documentada que se incumple)
-- **Notas**: la vista no se rompe porque `formatearFecha`
-  (`js/pages/cuentas.js:1029-1042`) y `normalizarFecha`
-  (`js/services/MovimientoServicio.js:709-713`) sí saben leer `Timestamp`. El
-  problema es la inconsistencia de datos de partida, tratada como **DEUDA-011**,
-  y el incumplimiento de la regla de fechas futuras. Las reglas de Firestore no
-  lo detectan porque `create` no valida el tipo de `fechaRealizacion`
-  (**DEUDA-012**).
+  | Función | Base del porcentaje | Dónde se usa |
+  |---------|--------------------|--------------|
+  | `nivelEstadoCuenta(tarjeta, consumos)` | consumos **del ciclo** | el badge del encabezado y la barra de progreso de `cuentas.js` |
+  | `nivelUsoDe(tarjeta)` | campo almacenado `deuda` | el modal educativo, las notificaciones de cruce y las tarjetas del dashboard |
 
-### BUG-014: "Estado del ciclo" de la tarjeta aparece dentro del scroll
+  Las dos viven en `js/services/CreditoServicio.js` y tienen casi el mismo
+  cuerpo, pero **no son equivalentes**: `nivelEstadoCuenta` recibe los
+  consumos por parámetro y `nivelUsoDe` los lee del documento.
+
+  Y el campo `deuda` **no se deriva** de los movimientos del ciclo: se mantiene
+  como un contador incremental que `js/services/MovimientoServicio.js:602-616`
+  suma y resta en cada alta. El consumo del ciclo, en cambio, se recalcula en
+  cada render desde la lista de movimientos
+  (`js/services/CreditoServicio.js:168`, `movimientosDelCiclo`). Son dos
+  mecanismos independientes para el mismo concepto.
+
+  El propio código admite que pueden no coincidir: `cuentas.js:413` compara
+  `deuda` con `estado.restante` y trata la diferencia como la excepción
+  (`saldoPorPagarIgual = Math.abs(deuda - estado.restante) < 0.005`), en vez de
+  asumir que son lo mismo.
+
+  Consecuencias:
+  1. El badge puede marcar *Normal* mientras el modal que se abre al pulsarlo
+     explica un nivel distinto, con otro color de barra y otro porcentaje.
+  2. En el caso inverso, el badge *Crítico* abre un modal que se ve *Normal*.
+  3. Las notificaciones de cruce de umbral se disparan por `nivelUsoDe`
+     (`CreditoServicio.js:225`), así que un usuario puede recibir un aviso de
+     *Crítico* con la tarjeta mientras su badge dice *Normal*.
+- **Pasos para reproducir**:
+  1. Encontrar una tarjeta donde `deuda` y `consumos − pagos` del ciclo no
+     coincidan (típico: un pago del ciclo anterior, una importación de `.dvid`
+     o un movimiento deshecho).
+  2. Ir a Cuentas y anotar el nivel del badge y el porcentaje de la barra.
+  3. Pulsar el badge para abrir el modal educativo.
+  4. Comparar el nivel y el porcentaje del modal con los del badge.
+  5. Repetir observando el dashboard, que usa `nivelUsoDe`.
+- **Resultado esperado**: un único cálculo de nivel de uso, el mismo en el
+  badge, en el modal, en el dashboard y en las notificaciones.
+- **Resultado actual**: cuatro superficies que pueden discrepar entre sí.
+- **Evidencia**:
+  - `js/services/CreditoServicio.js:42-52` (`nivelUsoDe`, sobre `deuda`)
+  - `js/services/CreditoServicio.js:54-65` (`nivelEstadoCuenta`, sobre `consumos`)
+  - `js/pages/cuentas.js:403` (el badge usa `nivelEstadoCuenta`)
+  - `js/services/CreditoServicio.js:282` (el modal usa `nivelUsoDe`)
+  - `js/services/CreditoServicio.js:225` (las notificaciones usan `nivelUsoDe`)
+  - `js/services/MovimientoServicio.js:602-616` (el contador `deuda`, incremental)
+  - `js/services/CreditoServicio.js:168-183` (`estadoCicloDe`, recalculado)
+  - `js/pages/cuentas.js:413` (`saldoPorPagarIgual`, que presupone la
+    posibilidad de divergencia)
+- **Notas**: **solución: unificar en una sola función.** La decisión de fondo no
+  es cuál de las dos se queda, sino cuál de las dos magnitudes es la buena. Si
+  se unifica sobre `deuda`, el nivel pasa a ser independiente del ciclo y hay
+  que revisar `estadoCicloDe`. Si se unifica sobre los consumos del ciclo, hay
+  que decidir qué ocurre con `deuda` y quién la mantiene. Son las dos
+  hipótesis y conviene decidir antes de escribir el código, porque es un
+  cambio de comportamiento, no una refactorización.
+
+  Es el mismo patrón de divergencia por copias que ya se detectó en
+  **DEUDA-004** con `esMovimientoPositivo`, y comparte con él la causa:
+  **cálculo desnormalizado en dos sitios en lugar de uno solo.** Resolver las
+  dos cosas juntas tiene sentido.
+
+  Lo que destapó este bug fue el cierre de **BUG-015**: el modal ya existía y
+  funcionaba, pero nunca se había abierto desde la tarjeta, así que la
+  discrepancia entre el badge y el modal no era observable.
+
+### BUG-027: Se ofrece "Pagar tarjeta" en un ciclo ya pagado
 - **Módulo**: `js/pages/cuentas.js`
 - **Severidad**: Baja
 - **Prioridad**: Baja
 - **Estado**: Pendiente
-- **Descripción**: la fila *"Estado del ciclo"* se emite dentro de
-  `.cuenta-detalle`, que es el contenedor con scroll del panel de detalle. Duplica
-  la información que el badge del encabezado ya muestra, y ese badge está fuera
-  del scroll. Al desplazarse, el usuario ve el mismo dato dos veces.
+- **Descripción**: el botón *"Pagar tarjeta"* se ofrece incluso cuando el ciclo
+  de la tarjeta ya está saldado. El usuario puede abrir el formulario de pago
+  de una deuda que ya está pagada, y el movimiento resultante sería un pago sin
+  contrapartida real.
 - **Pasos para reproducir**:
   1. Ir a Cuentas y seleccionar una **tarjeta de crédito**.
-  2. Ver el badge de estado en la esquina superior derecha del encabezado
-     (*Normal*, *Advertencia*, *Crítico* o *Pagado*).
-  3. Desplazar el bloque de detalle hasta el final.
-  4. Observar la fila *"Estado del ciclo"* con el mismo valor.
-- **Resultado esperado**: el estado del ciclo se muestra **solo** en el badge
-  del encabezado, que permanece siempre visible.
-- **Resultado actual**: aparece también como última fila del bloque con scroll,
-  duplicando el dato.
-- **Evidencia**: `js/pages/cuentas.js:479-482` (la fila dentro de
-  `.cuenta-detalle`), `js/pages/cuentas.js:423` (el badge del encabezado),
-  `css/cuentas.css:207-217` (`.cuenta-detalle` con `overflow-y: auto`)
-- **Notas**: la fila es la última del bloque, así que solo se ve al llegar al
-  final del scroll; por eso convivió tanto tiempo sin reportarse.
+  2. Pagar el ciclo completo, hasta que el badge marque *Pagado*.
+  3. Pulsar el botón *"Pagar tarjeta"* de la barra de totales.
+  4. Abrir el formulario de pago igualmente.
+  5. Repetir con el botón *"Pagar tarjeta"* del modal educativo (badge).
+- **Resultado esperado**: con el ciclo pagado, no se ofrece pagar, o el botón
+  aparece deshabilitado explicando que no hay nada pendiente.
+- **Resultado actual**: el botón se sigue mostrando y abre el formulario.
+- **Evidencia**: `js/pages/cuentas.js:595` (el botón de la barra de totales; se
+  emite siempre que `cuenta.tipo === "credito"`, sin mirar el estado del ciclo),
+  `js/pages/cuentas.js:611-622` (el listener, también sin mirar el estado),
+  `js/services/CreditoServicio.js:320` (el `confirmText` del modal educativo,
+  que lo ofrece siempre),
+  `js/pages/cuentas.js:411,477` (el flag `pagadoCompleto` sí se calcula y se
+  usa, pero no en estos dos sitios)
+- **Notas**: **el defecto está en dos sitios, no en uno.** El bug se reportaba
+  contra el detalle de tarjeta, pero el modal educativo
+  (`CreditoServicio.js:320`) tiene su propio `confirmText: "Pagar tarjeta"`
+  incondicional, así que cerrar solo el de `cuentas.js:595` dejaría el mismo
+  problema en el modal. Ambos deben consultar `pagadoCompleto`.
 
-### BUG-015: El badge de estado "Normal" no abre el modal educativo
-- **Módulo**: `js/pages/cuentas.js`
-- **Severidad**: Baja
-- **Prioridad**: Baja
-- **Estado**: Pendiente
-- **Descripción**: el badge de estado de la tarjeta se renderiza como un `span`
-  plano: sin `tabindex`, sin `role`, sin `data-*`, sin `cursor: pointer` y **sin
-  ningún listener**. Tampoco existe el modal educativo que debería abrir. El
-  usuario que no entiende qué significa *Normal* / *Advertencia* / *Crítico* no
-  tiene dónde consultarlo.
-- **Pasos para reproducir**:
-  1. Ir a Cuentas y seleccionar una tarjeta de crédito.
-  2. Localizar el badge de estado junto a *Tarjeta de crédito*.
-  3. Hacer clic sobre él.
-  4. Intentar alcanzarlo con el teclado (Tab).
-- **Resultado esperado**: el badge es un control activable (por clic y por
-  teclado) que abre un modal educativo explicando los niveles de uso de la
-  línea de crédito.
-- **Resultado actual**: no ocurre nada al hacer clic; el badge no es alcanzable
-  con el teclado y no hay ningún modal educativo en el código.
-- **Evidencia**: `js/pages/cuentas.js:423` (el `span` sin atributos de
-  interacción), `js/pages/cuentas.js:409` (el `claseBadge` que decide el
-  aspecto pero nunca se enlaza),
-  `js/pages/cuentas.js:347, 864, 1489-1491` (los únicos `querySelectorAll` de
-  la página: ninguno sobre `.cuenta-badge`)
-- **Notas**: existe un resto del diseño anterior en
-  `css/cuentas.css:298`, un comentario que aún dice *"CRÉDITO · BARRA DE USO
-  (modal educativo)"*. Conviene decidir si el modal educativo se implementa o si
-  el badge deja de aparentar ser interactivo.
+  `pagadoCompleto` lo calcula `estadoCicloDe` (`CreditoServicio.js:171`), que
+  `mostrarDetalleCuenta` ya invoca para las tarjetas
+  (`cuentas.js:322`), así que el dato está disponible: no hace falta trabajo
+  extra para corregirlo.
+
+  En el caso del modal, la corrección natural es convertirlo en `soloCerrar`
+  cuando el ciclo está pagado. Hay que decidir si `abrirModalEducativoCredito`
+  recibe el estado del ciclo o lo calcula, porque hoy solo recibe la tarjeta y
+  no tiene acceso a los movimientos.
+
+  Se decidió **no tocarlo** en el sprint de BUG-014/015 por ser de los menores,
+  y por eso queda registrado en vez de resuelto.
 
 ### BUG-016: El hover del selector de tipo ilumina un cuadrado
 - **Módulo**: `js/pages/movimientos.js`, `css/pendientes.css`
@@ -538,10 +858,18 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | Sin reportar, hallazgo al aplicar BUG-024 | **BUG-025** (latente) |
 | Sin reportar, propuesto y luego descartado | BUG-021/022/023 → **DEUDA-010** |
 | `576d71c` (comentario corregido) | Impide volver a afirmar el síntoma falso de BUG-019 |
+| BUG-013 reportado con 3 caminos de creación | Eran 2: el tercero era código muerto, borrado en `ae6b045` |
+| Sin reportar, hallazgo al conectar el modal educativo | **BUG-026**, **BUG-027** |
+| Sin reportar, hallazgo al aplicar DEUDA-002 (opción a) | **BUG-028**, **BUG-029** |
 
-Pendiente de verificación manual: **BUG-016**, **BUG-017** y **BUG-018**. Los
-tres dependen de percepción visual: su mecanismo está identificado en el código
-CSS, pero conviene una comprobación en navegador antes de darlos por buenos. El
+Pendiente de verificación manual: **BUG-016** y **BUG-017**, más los cierres de
+**BUG-013**, **BUG-014**, **BUG-015** y **BUG-020** —los de Cuentas, Inversiones
+y Movimientos—, más el paso 5 de **BUG-029**. Los dos primeros dependen de
+percepción visual: su mecanismo está identificado en el código CSS, pero conviene
+una comprobación en navegador antes de darlos por buenos. Los cierres sí están
+verificados en código, pero el arreglo no se da por bueno hasta verlo funcionar;
+si alguno fallara, se revierte. **BUG-029** se verifica mirando no si el modal
+abre, sino si tiene botones de acción y si los campos están deshabilitados. El
 resto se confirmó leyendo el código, salvo **BUG-025**, que es latente por
 definición: no se reproduce mientras el filtro por cuenta no esté conectado.
 
@@ -575,18 +903,20 @@ la interfaz de fondo seguía navegable, cuando el CSS hace lo contrario. El
 código y su documentación discrepaban, y la documentación era la que mentía.
 
 Documento relacionado: [`deuda-tecnica.md`](./deuda-tecnica.md). Los bugs
-**BUG-013** a **BUG-018**, **BUG-024** y **BUG-025** tienen su causa raíz o su
-solución en los ítems **DEUDA-003**, **DEUDA-004**, **DEUDA-006** y
-**DEUDA-012**.
+**BUG-013** a **BUG-018**, **BUG-024**, **BUG-025**, **BUG-028** y **BUG-029**
+tienen su causa raíz o su solución en los ítems **DEUDA-003**, **DEUDA-004**,
+**DEUDA-006**, **DEUDA-012** y **DEUDA-002b**. El código muerto que se borró al
+cerrar **BUG-013** (`ae6b045`) es un caso más de **DEUDA-006**. **BUG-026** es un
+caso más del mismo tipo que **DEUDA-004**, y ambos deberían resolverse juntos.
 
 ---
 
 ## Lecciones aprendidas
 
-Este registro se redactó en tres pasos y **cinco de los veintiún hallazgos
-iniciales resultaron mal descritos o sobredimensionados**. Se deja constancia
-porque el valor de un reporte de bugs está en ser honesto sobre su propia
-fiabilidad, no solo en la lista final.
+Este registro se redactó en cinco pasos y **siete de los veinticinco hallazgos
+iniciales resultaron mal descritos, mal contados o sobredimensionados**. Se deja
+constancia porque el valor de un reporte de bugs está en ser honesto sobre su
+propia fiabilidad, no solo en la lista final.
 
 ### Qué salió mal
 
@@ -594,11 +924,14 @@ fiabilidad, no solo en la lista final.
 |-------------|----------|---------------|
 | Visual, reportado sin navegador | BUG-018 (descartado), BUG-016 y BUG-017 (sin verificar) | Se dedujo el efecto de una regla CSS sin renderizarlo. En BUG-018 se afirmó que el logo invadía el header; la desviación real es de ≤8px. |
 | De flujo asíncrono, reportado sin leer el flujo entero | BUG-019, BUG-024 | Se leyó el fragmento relevante (`pointer-events`, el call site) y se infirió el comportamiento, sin abrir la función que lo governa. En BUG-019 se afirmó que el modal se cerraba a media operación; lo impedía el guard `if (procesando) return` de `cerrar()`. |
+| Conteo de sitios sin comprobar las llamadas | BUG-013 | Se afirmó que había tres caminos de creación de cuenta y se señaló uno a `js/pages/cuentas.js:1843` que no tenía ninguna llamada en el repositorio. Eran dos. |
+| Afirmar la ausencia de algo sin buscarlo | BUG-015 | Se escribió que *"no existe el modal educativo en el código"*. Existía entero, con su markup y su CSS, en `js/services/CreditoServicio.js:281`; lo que faltaba era el call site. |
+| Leer un síntoma sin abrir el flujo completo | BUG-029 | Se afirmaba que el modal de detalle se rompía. Como la función es `async`, el `ReferenceError` se convierte en promesa rechazada y el modal **sí abre** (`abrirModal` corre antes). Lo que se pierde es `bloquearFormulario(true)` y `renderizarAccionesDetalle`, es decir, los botones de acción y el modo de solo lectura. |
 
-En los tres casos verificados la comprobación en código demostró que el bug **no
-existía o estaba sobredimensionado**, y en los dos primeros el defecto real
-resultó ser **otro distinto** que sí se corrigió (BUG-025 y BUG-019
-respectivamente).
+En los seis casos verificados la comprobación en código demostró que el bug
+**no existía, estaba mal descrito o estaba sobredimensionado**, y en los cuatro
+primeros el defecto real resultó ser **otro distinto** que sí se corrigió
+(BUG-025, BUG-019, BUG-026 y BUG-029 respectivamente).
 
 ### Regla que se adopta
 
@@ -617,8 +950,13 @@ respectivamente).
 
 ### Lo que sí sobrevivió a la verificación
 
-Once de los trece bugs resueltos salieron de commits cuyo diff se leyó entero,
-no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y BUG-024.
-Los siete pendientes verificados en código son **BUG-013**, **BUG-014**,
-**BUG-015**, **BUG-020** y **BUG-025** (más BUG-016 y BUG-017 a la espera de
+Once de los diecisiete bugs resueltos salieron de commits cuyo diff se leyó
+entero, no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y
+BUG-024. De los seis restantes, **BUG-013** se cerró leyendo su diff, con una
+corrección de alcance (el reporte lo situaba en tres sitios y eran dos), y
+**BUG-014**, **BUG-015** y **BUG-020** se resolvieron leyendo su propio diff,
+aunque los tres están a la espera de que se vean en el navegador.
+
+Los siete pendientes verificados en código son **BUG-025**, **BUG-026**,
+**BUG-027**, **BUG-028** y **BUG-029** (más BUG-016 y BUG-017 a la espera de
 comprobación visual). Ninguno de ellos depende de una percepción.
