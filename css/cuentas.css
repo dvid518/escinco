@@ -158,6 +158,21 @@
 .cuenta-badge.estado {
     color: var(--positive);
     border-color: var(--positive);
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.cuenta-badge.estado:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+/* El botón global de style.css pone su propio hover, que el `background`
+   transparente de arriba anula. Sin esto el badge sería clicable sin dar
+   ninguna señal. */
+.cuenta-badge.estado:hover {
+    background: var(--lightHover);
 }
 
 .cuenta-badge.estado.aviso {

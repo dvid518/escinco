@@ -17,7 +17,7 @@ import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoServicio.js"
-import { estadoCicloDe, nivelEstadoCuenta, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
+import { abrirModalEducativoCredito, estadoCicloDe, nivelEstadoCuenta, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 
@@ -350,6 +350,13 @@ async function mostrarDetalleCuenta() {
             if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
         })
     })
+
+    // El modal educativo de niveles de uso ya existía en CreditoServicio, pero
+    // solo se alcanzaba desde el toast de cruce de umbral. El badge del
+    // encabezado es su otro acceso natural.
+    panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
+        badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta))
+    })
 }
 
 // ============================================
@@ -420,7 +427,7 @@ function plantillaInfoTarjeta(c, ciclo) {
             </div>
             <div class="cuenta-perfil-badges">
                 <span class="cuenta-badge">Tarjeta de crédito</span>
-                <span class="cuenta-badge estado ${claseBadge}">${nivelTexto}</span>
+                <button type="button" class="cuenta-badge estado ${claseBadge}" title="¿Qué significa este estado?">${nivelTexto}</button>
             </div>
         </div>
 
@@ -476,10 +483,6 @@ function plantillaInfoTarjeta(c, ciclo) {
             ${c.anualidad ? `<div class="field"><span class="label">Anualidad</span><span class="value">${formatearMontoConDivisa(c.anualidad, c.moneda)}${anualidad ? ` · ${anualidad.fecha.toLocaleDateString("es-PE")}` : ""}</span></div>` : ""}
             ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${c.num} <button type="button" class="btn-copiar" data-copiar="${c.num}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
             ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
-            <div class="field">
-                <span class="label">Estado del ciclo</span>
-                <span class="value ${claseEstado}">${nivelTexto}</span>
-            </div>
         </div>
     `
 }
