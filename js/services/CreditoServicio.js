@@ -1,4 +1,4 @@
-import { obtenerCuentas, actualizarCuenta } from "../../firebase/firestore.js"
+import { obtenerCuentas, obtenerMovimientos, actualizarCuenta } from "../../firebase/firestore.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { abrirModal } from "../ui/modal.js"
@@ -214,9 +214,19 @@ export function proximaAnualidad(tarjeta) {
 // (una vez, gracias a los flags) y limpia los flags al bajar del aviso.
 // Devuelve cuántas notificaciones dispararon y persiste el estado.
 
-export async function notificarCruces(cuentas, uid) {
+export async function notificarCruces(cuentas, uid, movimientos = null) {
     const actualizaciones = []
     let notificadas = 0
+    // Los movimientos solo hacen falta cuando hay una notificación que
+    // disparar, y eso ocurre una sola vez por umbral cruzado. Se resuelven ahí
+    // y no al entrar, para que el recorrido habitual no cuestione nada. Con la
+    // caché de movimientos parcheada (c18c823) la lectura sale del Serving.
+    let movs = movimientos
+
+    const pagadoDe = async (c) => {
+        if (movs === null && uid) movs = await obtenerMovimientos(uid)
+        return estadoCicloDe(c, movs || []).pagadoCompleto
+    }
 
     for (const c of cuentas) {
         if (c.tipo !== "credito") continue
@@ -228,14 +238,14 @@ export async function notificarCruces(cuentas, uid) {
         if (nivel === "critico") {
             if (!c.avisoCriticoEnviado) {
                 notificadas++
-                notificarUsoDeCredito(c)
+                notificarUsoDeCredito(c, { pagadoCompleto: await pagadoDe(c) })
                 cambios.avisoUsoEnviado = true
                 cambios.avisoCriticoEnviado = true
             }
         } else if (nivel === "aviso") {
             if (!c.avisoUsoEnviado) {
                 notificadas++
-                notificarUsoDeCredito(c)
+                notificarUsoDeCredito(c, { pagadoCompleto: await pagadoDe(c) })
                 cambios.avisoUsoEnviado = true
             }
         } else if (c.avisoUsoEnviado || c.avisoCriticoEnviado) {
@@ -265,7 +275,7 @@ export async function evaluarCreditosYNotificar(uid) {
 // NOTIFICACIÓN + MODAL EDUCATIVO
 // ============================================
 
-function notificarUsoDeCredito(tarjeta) {
+function notificarUsoDeCredito(tarjeta, opciones = {}) {
     const info = nivelUsoDe(tarjeta)
     const mensaje = info.nivel === "critico"
         ? `${tarjeta.nombre}: usaste el ${info.porcentaje.toFixed(1)}% de tu línea de crédito. Por encima del ${info.critico}% es uso excesivo y puede afectar tu historial crediticio.`
@@ -274,13 +284,18 @@ function notificarUsoDeCredito(tarjeta) {
     mostrarNotificacion("warning", mensaje, 0, [{
         texto: "Más info",
         primaria: true,
-        alClick: () => abrirModalEducativoCredito(tarjeta)
+        alClick: () => abrirModalEducativoCredito(tarjeta, opciones)
     }])
 }
 
-export function abrirModalEducativoCredito(tarjeta) {
+export function abrirModalEducativoCredito(tarjeta, opciones = {}) {
     const { nivel, porcentaje, aviso, critico, limite, deuda } = nivelUsoDe(tarjeta)
     const simbolo = simboloMonedaCuenta(tarjeta.moneda)
+    // Uno de los dos sitios de BUG-027: con el ciclo pagado, el botón principal
+    // ofrecería saldar una deuda ya saldada, así que el modal pasa a `soloCerrar`.
+    // El otro sitio es el botón de la barra de totales de la tarjeta, en
+    // `cuentas.js`.
+    const pagadoCompleto = opciones.pagadoCompleto === true
 
     abrirModal({
         titulo: `Manejo del dinero · ${tarjeta.nombre}`,
@@ -317,8 +332,10 @@ export function abrirModalEducativoCredito(tarjeta) {
                 <p class="credito-educativo-tip">Tip: paga más que el mínimo, respeta tu día de pago y limita los consumos con la tarjeta para mantener una utilización sana.</p>
             </div>
         `,
-        confirmText: `${icono("credit-card", 16)} Pagar tarjeta`,
-        onConfirm: async () => {
+        confirmText: pagadoCompleto ? "Cerrar" : `${icono("credit-card", 16)} Pagar tarjeta`,
+        // `soloCerrar` exige `onConfirm` presente (modal.js:88), y devolver
+        // algo distinto de `false` cierra el modal (modal.js:204).
+        onConfirm: pagadoCompleto ? async () => true : async () => {
             try {
                 const { abrirPagarTarjeta } = await import("../pages/cuentas.js")
                 await abrirPagarTarjeta(tarjeta)

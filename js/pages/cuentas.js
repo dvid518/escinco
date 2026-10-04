@@ -355,7 +355,11 @@ async function mostrarDetalleCuenta() {
     // solo se alcanzaba desde el toast de cruce de umbral. El badge del
     // encabezado es su otro acceso natural.
     panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
-        badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta))
+        badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta, {
+            // `ciclo` solo se calcula para tarjetas (`:322`) y este badge solo se
+            // emite en ellas.
+            pagadoCompleto: ciclo?.pagadoCompleto === true
+        }))
     })
 }
 
@@ -589,10 +593,17 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 
     // Las tarjetas de crédito solo registran gastos y pagos; el resto de
     // cuentas abre el selector con la cuenta ya preseleccionada.
+    // Con el ciclo ya pagado no hay nada que pagar: el botón ofrecería saldar una
+    // deuda saldada (BUG-027). `involucrados` es un superconjunto de lo que
+    // necesita `movimientosDelCiclo`, así que el ciclo sale igual que en el
+    // detalle de la tarjeta.
+    const ciclo = cuenta.tipo === "credito" ? estadoCicloDe(cuenta, involucrados) : null
+    const puedePagarTarjeta = ciclo ? ciclo.pagadoCompleto !== true : true
+
     const acciones = cuenta.estado === "archivada" ? "" : cuenta.tipo === "credito" ? `
             <div class="totales-acciones">
                 <button type="button" class="totales-btn" id="btn-gasto-tarjeta" title="Registrar gasto" aria-label="Registrar gasto">${icono("arrow-up-right", 16)}</button>
-                <button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>
+                ${puedePagarTarjeta ? `<button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>` : ""}
             </div>
         ` : `
             <div class="totales-acciones">
