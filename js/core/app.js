@@ -33,7 +33,12 @@ export async function initApp() {
     observeAuth(async (user) => {
         if (bootFinalizado) return
 
-        if (!user) {
+        // Sin sesión, o con sesión pero sin el correo verificado, el dashboard
+        // no se pinta: se sustituye la URL y no se toca nada más. El dashboard
+        // exige las dos cosas. Un usuario recién registrado tiene sesión pero
+        // no está verificado, y puede llegar aquí por un /dashboard guardado o
+        // por la copia del SW en caché, no solo desde auth.js.
+        if (!user || !user.emailVerified) {
             quitarCarga()
             window.location.replace("/login")
             return

@@ -121,19 +121,12 @@ function trasPintar() {
 }
 
 /**
- * Destino común de los cuatro caminos que abren sesión (login con contraseña,
- * registro, Google en login y Google en registro): si el correo está verificado
- * se entra, y si no se manda el enlace y se pasa al estado de verificación.
+ * Estado de verificación para un usuario que ya tiene sesión pero cuyo correo
+ * sigue sin confirmar.
  * @param {object} user
  */
-async function trasAutenticar(user) {
-    if (user.emailVerified) {
-        await trasPintar()
-        irAlDashboard()
-        return
-    }
-
-    // El enlace ya puede haberse enviado antes (reintento de verificación):
+async function irAVerificacion(user) {
+    // El enlace puede haberse enviado ya (reintento de verificación):
     // enviarVerificacion no hace nada si el correo ya está verificado, pero sí
     // si lo está reenvía. Un fallo aquí no debe trappingar a quien ya entró: el
     // estado de verificación tiene su propio botón de reenviar.
@@ -146,6 +139,22 @@ async function trasAutenticar(user) {
 
     pintarDestinatario(user.email)
     mostrarEstado("verificacion")
+}
+
+/**
+ * Destino común de los cuatro caminos que abren sesión (login con contraseña,
+ * registro, Google en login y Google en registro): si el correo está verificado
+ * se entra, y si no se manda el enlace y se pasa al estado de verificación.
+ * @param {object} user
+ */
+async function trasAutenticar(user) {
+    if (user.emailVerified) {
+        await trasPintar()
+        irAlDashboard()
+        return
+    }
+
+    await irAVerificacion(user)
 }
 
 // ============================================
@@ -471,7 +480,17 @@ function observarSesion() {
         // este paso dejaría a un usuario ya verificado mirando el login.
         if (await aplicarEnlaceDeVerificacion()) return
 
-        if (user.emailVerified) irAlDashboard()
+        if (user.emailVerified) {
+            irAlDashboard()
+            return
+        }
+
+        // Sesión abierta sin correo confirmado: el formulario de login no es la
+        // puerta correcta, porque el usuario ya está dentro. Se le lleva al
+        // estado de verificación, igual que trasAutenticar tras un registro o un
+        // login. Sin esto, un /dashboard guardado lo expulsaba de vuelta aquí y
+        // lo dejaba mirando un login que no necesita.
+        await irAVerificacion(user)
     })
 
     setTimeout(() => {
