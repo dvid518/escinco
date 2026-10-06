@@ -5,7 +5,7 @@
     "lang": "es",
     "dir": "ltr",
     "id": "/",
-    "start_url": "/",
+    "start_url": "/dashboard",
     "scope": "/",
     "display": "standalone",
     "display_override": ["standalone", "minimal-ui"],
@@ -38,7 +38,7 @@
         {
             "name": "Dashboard",
             "short_name": "Dashboard",
-            "url": "/",
+            "url": "/dashboard",
             "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
         },
         {
