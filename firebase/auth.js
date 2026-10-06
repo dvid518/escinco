@@ -14,6 +14,11 @@ import {
     fetchSignInMethodsForEmail,
     getAdditionalUserInfo,
     deleteUser,
+    sendEmailVerification,
+    sendPasswordResetEmail,
+    confirmPasswordReset,
+    applyActionCode,
+    reload,
     setPersistence,
     browserSessionPersistence,
     browserLocalPersistence
@@ -29,6 +34,8 @@ const auth = getAuth(app)
 const INACTIVIDAD_MINUTOS_DEFAULT = 15
 const REAUTH_VIGENCIA_MINUTOS = 5
 const CLAVE_REAUTH = "escinco_reauth_time"
+const RUTA_RESET_PASSWORD = "/reset-password"
+const RUTA_AUTH = "/auth.html"
 const EVENTOS_ACTIVIDAD = ["click", "mousemove", "keydown", "scroll", "touchstart"]
 
 let inactivityTimer = null
@@ -107,6 +114,88 @@ export async function actualizarNombre(nombre) {
 
 export async function login(email, password) {
     return await signInWithEmailAndPassword(auth, email, password)
+}
+
+// ============================================
+// VERIFICACIÓN DE CORREO
+// ============================================
+// Firebase no marca el correo como verificado solo con enviar el enlace: lo hace
+// cuando el usuario lo abre. Ese enlace va a Firebase, no a la app, así que el
+// objeto user de la sesión sigue diciendo emailVerified: false. Hay que recargar
+// el usuario para enterarse de que ya está verificado.
+//
+// handleCodeInApp: true evita la pantalla intermedia de Firebase: el enlace
+// vuelve a la app (RUTA_AUTH) con ?oobCode=...&mode=verifyEmail y es la propia
+// app la que aplica el código con aplicarCodigoDeAccion. isLoginIntended
+// mantiene la sesión abierta al aplicarlo, para que el usuario no tenga que
+// volver a entrar.
+
+/**
+ * Envía el enlace de verificación al usuario indicado.
+ * @param {object} [user=auth.currentUser]
+ * @returns {boolean} false si el correo ya estaba verificado
+ */
+export async function enviarVerificacion(user = auth.currentUser) {
+    if (!user) throw new Error("No hay usuario autenticado")
+    if (user.emailVerified) return false
+    await sendEmailVerification(user, {
+        url: `${window.location.origin}${RUTA_AUTH}`,
+        handleCodeInApp: true,
+        isLoginIntended: true
+    })
+    return true
+}
+
+/**
+ * Aplica el código del enlace de verificación (o de recuperación) recibido en
+ * la URL. El código no vale por sí solo: sin esta llamada el correo sigue sin
+ * verificar aunque el usuario haya abierto el enlace.
+ * @param {string} oobCode
+ */
+export async function aplicarCodigoDeAccion(oobCode) {
+    if (!oobCode) throw new Error("No hay código de acción")
+    await applyActionCode(auth, oobCode)
+    return true
+}
+
+/**
+ * Refresca el usuario de la sesión para leer emailVerified al día.
+ * @returns {object|null}
+ */
+export async function recargarUsuario() {
+    const user = auth.currentUser
+    if (!user) return null
+    await reload(user)
+    return user
+}
+
+// ============================================
+// RECUPERACIÓN DE CONTRASEÑA
+// ============================================
+// Firebase manda el correo con un enlace que lleva el código (oobCode) a la
+// página de reset. La URL tiene que ser absoluta y su dominio estar autorizado
+// en el proyecto, así que aquí no se puede pasar "/reset-password" a secas.
+
+/**
+ * Envía el correo de recuperación de contraseña.
+ * @param {string} email
+ */
+export async function enviarRecuperacion(email) {
+    await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}${RUTA_RESET_PASSWORD}`,
+        handleCodeInApp: true
+    })
+    return true
+}
+
+/**
+ * Aplica la nueva contraseña del enlace de recuperación.
+ * @param {string} oobCode
+ * @param {string} nuevaClave
+ */
+export async function confirmarNuevaClave(oobCode, nuevaClave) {
+    await confirmPasswordReset(auth, oobCode, nuevaClave)
+    return true
 }
 
 // ============================================

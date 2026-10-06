@@ -1,0 +1,377 @@
+/* ============================================
+   LANDING · ESCUCO EN /home
+   ============================================ */
+/* Página pública de presentación. Comparte el sistema de color y la escala
+   tipográfica de style.css: aquí solo se declara la composición (columnas,
+   rejillas, la maqueta de la captura) y los dos formatos de botón.
+
+   El cuerpo global es una columna de altura completa con overflow oculto
+   (style.css:173-189). La landing sí tiene que desplazar, así que .home-scroll
+   es el contenedor que scrollea y el resto se compone hacia dentro. */
+
+/* --------------------------------------------
+   ESTRUCTURA
+   -------------------------------------------- */
+
+.home-scroll {
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.home-header,
+.home-main,
+.home-footer {
+    width: min(100%, 1080px);
+    margin: 0 auto;
+    padding-left: 24px;
+    padding-right: 24px;
+    box-sizing: border-box;
+}
+
+/* El <main> global es una fila al 85% con flex:1 (style.css:201). La landing
+   lo usa como columna de secciones, así que se recompone como bloque. */
+.home-main {
+    display: block;
+    width: min(100%, 1080px);
+    flex: none;
+}
+
+/* --------------------------------------------
+   CABECERA
+   -------------------------------------------- */
+
+.home-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.home-marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.home-marca #logo {
+    width: 32px;
+    height: 32px;
+}
+
+.home-marca-nombre {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: -0.02em;
+}
+
+.home-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* --------------------------------------------
+   BOTONES
+   -------------------------------------------- */
+/* La jerarquía se consigue con dos modificadores de color sobre una misma forma
+   (cápsula de 50px), no con clases distintas: el mismo criterio que .modal-btn. */
+
+.home-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 44px;
+    padding: 0 22px;
+    border-radius: 50px;
+    font-family: var(--font-primary);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.home-btn-solido {
+    background-color: var(--text);
+    color: var(--background);
+}
+
+.home-btn-solido:hover {
+    background-color: var(--border);
+    color: var(--background);
+}
+
+.home-btn-fantasma {
+    background-color: transparent;
+    color: var(--text);
+    border-color: var(--border);
+}
+
+.home-btn-fantasma:hover {
+    background-color: var(--lightHover);
+    border-color: var(--text);
+    color: var(--text);
+}
+
+/* --------------------------------------------
+   HERO
+   -------------------------------------------- */
+
+.home-hero {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 72px 0 0;
+    text-align: center;
+}
+
+/* Único titular fluido de la landing: sigue el criterio de que lo que escala con
+   el viewport son las cifras, aquí el titular hace ese papel. */
+.home-titular {
+    margin: 0;
+    max-width: 18ch;
+    font-size: clamp(28px, 5.4vw, 46px);
+    font-weight: 700;
+    line-height: 1.15;
+    letter-spacing: -0.04em;
+    color: var(--text);
+}
+
+.home-subtitulo {
+    margin: 0;
+    max-width: 46ch;
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+}
+
+.home-acciones {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+/* --------------------------------------------
+   CAPTURA DEL DASHBOARD
+   -------------------------------------------- */
+/* No hay imagen del panel en el repositorio, así que la captura se construye
+   con markup y color de tema: una maqueta de la navbar, la cifra de patrimonio
+   y la rejilla de cards. Al vivir en el CSS, no hay peso de imagen y la maqueta
+   se ve igual de bien en oscuro que en claro. */
+
+.home-captura {
+    width: 100%;
+    margin: 28px 0 0;
+}
+
+.home-captura-frame {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 25px;
+    background-color: var(--background);
+}
+
+.home-captura-navbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 25px;
+    background-color: var(--background);
+    overflow: hidden;
+}
+
+.home-captura-logo {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border-radius: 8px;
+    background-color: var(--border);
+}
+
+.home-pill {
+    padding: 6px 14px;
+    border-radius: 50px;
+    background-color: var(--surface);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--textSecondary);
+    white-space: nowrap;
+}
+
+.home-pill-act {
+    background-color: var(--text);
+    color: var(--background);
+}
+
+.home-captura-cuerpo {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.home-captura-rejilla {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.home-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px;
+    border: 1px solid var(--lightBorder);
+    border-radius: 20px;
+    background-color: var(--surface);
+    text-align: left;
+}
+
+.home-card-patrimonio {
+    border-color: var(--border);
+}
+
+.home-card-rotulo {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--textSecondary);
+}
+
+.home-card-cifra {
+    font-family: var(--font-secondary);
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.05em;
+    color: var(--text);
+}
+
+.home-card-cifra-menor {
+    font-size: 15px;
+    letter-spacing: -0.02em;
+}
+
+.home-cifra-negativa {
+    color: var(--negative);
+}
+
+.home-card-delta {
+    font-family: var(--font-secondary);
+    font-size: 12px;
+    color: var(--positive);
+}
+
+/* --------------------------------------------
+   CARACTERÍSTICAS
+   -------------------------------------------- */
+
+.home-features {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    padding: 64px 0;
+}
+
+.home-feature {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 24px 20px;
+    border: 1px solid var(--lightBorder);
+    border-radius: 25px;
+    background-color: var(--surface);
+}
+
+.home-feature-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50px;
+    background-color: var(--background);
+    color: var(--positive);
+}
+
+.home-feature-titulo {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.home-feature-texto {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+}
+
+/* --------------------------------------------
+   PIE
+   -------------------------------------------- */
+
+.home-footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border-top: 1px solid var(--borderAlt);
+}
+
+.home-footer-marca {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--textSecondary);
+}
+
+/* --------------------------------------------
+   RESPONSIVE
+   -------------------------------------------- */
+
+@media (max-width: 900px) {
+    .home-features {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .home-captura-rejilla {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 560px) {
+    .home-header,
+    .home-main,
+    .home-footer {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    .home-hero {
+        padding-top: 48px;
+    }
+
+    .home-features {
+        grid-template-columns: minmax(0, 1fr);
+        padding: 48px 0;
+    }
+
+    .home-captura-rejilla {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .home-captura-navbar {
+        flex-wrap: wrap;
+    }
+}

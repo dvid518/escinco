@@ -1,0 +1,122 @@
+/* ============================================
+   AUTH UNIFICADO
+   ============================================ */
+/* Un solo documento (auth.html) con los cuatro estados de acceso: login,
+   recuperación, registro y verificación de correo. Cada estado es una <section>
+   y solo uno está visible a la vez: el atributo `hidden` hace el trabajo y
+   .auth-estado[hidden] lo refuerza porque la regla de estado declara display.
+
+   Lo que sí es de este archivo son las piezas que el login y el registro sueltos
+   no tenían: los enlaces entre estados, el aviso de recuperación, el mensaje de
+   verificación y el botón de acción sin campo de contraseña. El formulario
+   (.login-form, .pass-block, .google-btn) sigue viniendo de index.css y
+   componentes.css: la forma es la que ya tenía la app, no una nueva. */
+
+/* --------------------------------------------
+   ESTADOS
+   -------------------------------------------- */
+
+.auth-estado {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+/* Necesario: la regla de arriba declara `display: flex`, que gana al
+   `display: none` que el navegador aplica a [hidden]. Lo mismo pasa con los
+   descendientes que ocultan un componente que también declara display. */
+.auth-estado[hidden],
+.auth-estado [hidden] {
+    display: none;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* --------------------------------------------
+   ENLACES ENTRE ESTADOS
+   -------------------------------------------- */
+
+.auth-enlace {
+    margin: 0;
+    font-size: 14px;
+    color: var(--textSecondary);
+    text-align: center;
+}
+
+.auth-enlace a {
+    color: var(--text);
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.auth-enlace a:hover {
+    color: var(--positive);
+}
+
+/* --------------------------------------------
+   MENSAJES
+   -------------------------------------------- */
+
+/* min-height para que la aparición del texto no dé un salto de layout. */
+.auth-aviso {
+    margin: 0;
+    min-height: 20px;
+    max-width: 320px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--textSecondary);
+    text-align: center;
+}
+
+.auth-mensaje {
+    margin: 0;
+    max-width: 320px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+    text-align: center;
+}
+
+.auth-mensaje #verificacion_email {
+    color: var(--text);
+    font-weight: 600;
+}
+
+/* --------------------------------------------
+   BOTONES DE ACCIÓN SIN CAMPO
+   -------------------------------------------- */
+
+/* Botón que ocupa la caja de un campo (50px, misma cápsula): es la acción
+   principal de su estado. */
+.auth-texto-btn {
+    width: 100%;
+    height: 100%;
+    border: 1px solid var(--surface);
+    font-family: var(--font-primary);
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.auth-texto-btn:hover {
+    border-color: var(--border);
+    box-shadow: 0 0 15px var(--shadow);
+}
+
+/* Botón con forma de enlace: acción secundaria dentro del mismo estado. */
+.auth-enlace-btn {
+    padding: 8px 12px;
+    background-color: transparent;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.auth-enlace-btn:hover {
+    background-color: transparent;
+    color: var(--positive);
+}

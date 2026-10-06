@@ -9,14 +9,17 @@ const CACHE_RUNTIME = `${VERSION_APP}-runtime`
 // Assets que se precargan al instalar el SW
 const SHELL_ASSETS = [
     "/",
+    "/home.html",
     "/dashboard.html",
-    "/login.html",
-    "/register.html",
+    "/auth.html",
+    "/reset-password.html",
     "/manifest.webmanifest",
 
     // CSS
     "/css/style.css",
     "/css/index.css",
+    "/css/home.css",
+    "/css/auth.css",
     "/css/dashboard.css",
     "/css/navegacion.css",
     "/css/cuentas.css",
@@ -26,7 +29,6 @@ const SHELL_ASSETS = [
     "/css/configuracion.css",
     "/css/pendientes.css",
     "/css/modal.css",
-    "/css/register.css",
     "/css/componentes.css",
     "/css/iconos.css",
 
@@ -40,10 +42,12 @@ const SHELL_ASSETS = [
     "/js/core/iconos.js",
     "/js/core/cache.js",
     "/js/core/fechas.js",
+    "/js/core/movimientos.js",
 
     // JS pages
-    "/js/pages/index.js",
-    "/js/pages/register.js",
+    "/js/pages/home.js",
+    "/js/pages/auth.js",
+    "/js/pages/reset-password.js",
     "/js/pages/dashboard.js",
     "/js/pages/cuentas.js",
     "/js/pages/movimientos.js",
