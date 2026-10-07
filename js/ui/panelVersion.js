@@ -3,13 +3,13 @@ import { VERSION } from "../../constants/version.js"
 // ============================================
 // VERSIÓN EN EL BORDE INFERIOR DEL PANEL
 // ============================================
-// Login y register no tienen lastbar ni panel: son páginas estáticas cuyo
-// único contenedor es el <main>. La versión se pinta en JS (no en el HTML)
-// para que la número solo viva en constants/version.js: escribirla a mano en
-// los dos .html obligaba a acordarse de subirla en los tres sitios a la vez.
+// Las páginas de acceso no tienen lastbar ni panel: son documentos estáticos
+// cuyo único contenedor es el <main>. La versión se pinta en JS (no en el
+// HTML) para que la número solo viva en constants/version.js: escribirla a mano
+// en los .html obligaba a acordarse de subirla en todos los sitios a la vez.
 //
 // Se inyecta en cualquier elemento con [data-panel-version], así que el
-// markup de login.html y register.html no necesita conocer el formato.
+// markup de auth.html y reset-password.html no necesita conocer el formato.
 
 const CLASE = "panel-version"
 

@@ -380,6 +380,10 @@ async function ajustarPagoDeTarjeta(uid, tipo, datos, movimientoOriginal = null)
  * de cambio global (PEN/USD) y no uno por par, así que convertir en silencio
  * aplicaría una tasa que el usuario no eligió y que no podría revisar.
  *
+ * Valida además que ninguna de las dos cuentas sea una tarjeta de crédito
+ * (BUG-028), que es la otra mitad del mismo problema: un `saldoInicial` que
+ * se mueve en un campo que las tarjetas no usan.
+ *
  * Solo se valida al crear y al editar, nunca al revertir: los movimientos
  * heredados que ya están corruptos deben poder borrarse y deshacerse.
  */
@@ -390,6 +394,25 @@ async function validarDivisaTransferencia(uid, tipo, datos) {
     const destino = datos?.cuentaDestino ? await obtenerCuenta(uid, datos.cuentaDestino) : null
     if (!origen) throw new Error("No se encontró la cuenta de origen")
     if (!destino) throw new Error("No se encontró la cuenta de destino")
+
+    // Una tarjeta de crédito no tiene saldo que mover: su deuda vive en
+    // `deuda`, y una transferencia terminaría restando o sumando a
+    // `saldoInicial`, un campo que las tarjetas no usan para nada. El efecto
+    // es un `saldoInicial` basura, invisible salvo que alguien lo mire. El
+    // formulario ya no ofrece tarjetas (BUG-028); esto es la misma regla en
+    // la única capa donde no se puede confiar en el cliente.
+    if (destino.tipo === "credito") {
+        throw new Error(
+            `"${destino.nombre}" es una tarjeta de crédito y no admite transferencias. ` +
+            `Para pagar su deuda usa "Pago de tarjeta", y para gastar con ella, "Gasto".`
+        )
+    }
+    if (origen.tipo === "credito") {
+        throw new Error(
+            `"${origen.nombre}" es una tarjeta de crédito y no tiene saldo del que transferir. ` +
+            `Para pagar su deuda usa "Pago de tarjeta".`
+        )
+    }
 
     const monedaOrigen = (origen.moneda || "pen").toLowerCase()
     const monedaDestino = (destino.moneda || "pen").toLowerCase()

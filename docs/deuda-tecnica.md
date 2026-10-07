@@ -4,10 +4,14 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 
 ## Resumen
 
-- Total de ítems: **21**
-- Prioridad alta: **4**
-- Prioridad media: **8**
-- Prioridad baja: **9**
+- Total de ítems: **23**
+- Prioridad alta: **5**
+- Prioridad media: **10**
+- Prioridad baja: **8**
+- De los anteriores, **3 están resueltos** (DEUDA-001, DEUDA-003, DEUDA-004) y
+  conservan su prioridad original tachada, para que se vea qué eran.
+
+Los conteos del resumen son de la tabla, no al revés: 5 + 10 + 8 = 23.
 
 ### Criterio de prioridad
 
@@ -26,15 +30,16 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
 
 | ID | Título | Módulo | Impacto | Prioridad |
 |----|--------|--------|---------|-----------|
-| DEUDA-001 | `cambioDivisa` sin signo ni monto correctos en la cuenta destino | `js/services/MovimientoServicio.js`, páginas | **Saldos mostrados con signo y monto equivocados** | Alta |
+| DEUDA-001 | `cambioDivisa` sin signo ni monto correctos en la cuenta destino | `js/core/movimientos.js` | **Resuelta al unificar `esMovimientoPositivo`** | ~~Alta~~ Resuelta |
 | DEUDA-002 | Transferencias entre divisas distintas mueven el mismo nominal en ambos lados | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | **Mitigada en `f9ceb1a`: ahora se rechazan. Ver DEUDA-002b** | Alta |
 | DEUDA-002b | Transferencia no soporta `tasa` ni `montoDestino`, así que no puede cruzar divisas | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | No se puede mover dinero entre divisas si se desactiva *Cambio de divisa* | Media |
 | DEUDA-012 | Asimetría `create`/`update`: `create` no valida 11 campos que `update` sí | `firebase/firestore.rules` | Documentos que se pueden crear pero no editar | Alta |
 | DEUDA-013 | El `hasOnly` de `movimientos` es una lista manual ya desincronizada dos veces | `firebase/firestore.rules` | **Ya causó R-03 y R-05; reincidencia previsible** | Alta |
-| DEUDA-003 | `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` | 3 páginas | Signo de comisión calculado sin perspectiva de cuenta | Media |
-| DEUDA-004 | Tres copias de `esMovimientoPositivo`, todavía divergentes | `cuentas.js:672`, `movimientos.js:283`, `dashboard.js:2581` | Mitigada: la divergencia de `transferencia` se alineó en `89d9f58`; quedan `pagoTarjeta` y `cambioDivisa` | Media |
+| DEUDA-003 | `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` | `js/core/movimientos.js` | **Resuelta al unificar las dos funciones** | ~~Media~~ Resuelta |
+| DEUDA-004 | Tres copias de `esMovimientoPositivo`, todavía divergentes | `js/core/movimientos.js` | **Resuelta**: una sola función, con las tres ramas que faltaban | ~~Media~~ Resuelta |
 | DEUDA-006 | 18 exports sin un solo llamador | 13 archivos de `js/` | ~600 líneas de código muerto | Media |
 | DEUDA-008 | `doodles.js` se importa en caliente pero no está precacheado | `sw.js` | **Fallo de import offline en el primer arranque** | Media |
+| DEUDA-022 | Un cálculo desnormalizado en dos sitios se detecta leyendo el código entero | 4 bugs cerrados juntos en 2026-10-05 | **Es la causa raíz de BUG-025 y BUG-026, y de DEUDA-001/003/004** | Alta |
 | DEUDA-011 | `fechaRealizacion` como `Date` (→ `Timestamp`) en 2 rutas, string en el resto | `js/pages/inversiones.js` | Colección heterogénea; origen de BUG-020 | Media |
 | DEUDA-014 | Siete copias de la función de formateo de fecha | 7 archivos de `js/` | ~90 líneas duplicadas y con divergencias | Media |
 | DEUDA-016 | ~40 normalizaciones ad-hoc de moneda, 4 convenciones distintas | 15 archivos de `js/` | Formato de divisa incoherente entre vistas | Media |
@@ -53,8 +58,16 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
 
 ## Detalle
 
-### DEUDA-001: `cambioDivisa` sin signo ni monto correctos en la cuenta destino
-- **Módulo**: `js/services/MovimientoServicio.js`, `js/pages/cuentas.js`, `js/pages/movimientos.js`, `js/pages/dashboard.js`
+### DEUDA-001: `cambioDivisa` sin signo ni monto correctos en la cuenta destino — RESUELTA
+- **Módulo**: `js/core/movimientos.js` (antes `MovimientoServicio.js` y 3 páginas)
+- **Resolución (2026-10-05)**: resuelta de paso al unificar `esMovimientoPositivo`
+  y `montoDeMovimiento` en `js/core/movimientos.js`. `cambioDivisa` tiene su
+  rama (`positivo` en la cuenta destino) y `montoDeMovimiento` elige entre
+  `montoOrigen` y `montoDestino` según `cuentaId`. Sin `cuentaId` —la lista
+  global de Movimientos y el dashboard, que no tienen vista por cuenta— se
+  muestra el nominal de origen, que es el que salió del bolsillo. Verificado
+  por ejecución.
+- **Lo que se describe** es el estado original, anterior a la resolución:
 - **Descripción**: el tipo `cambioDivisa` no está contemplado en ninguna de las
   tres copias de `esMovimientoPositivo`, así que cae a la rama `default` y
   devuelve `false` siempre: el cambio de divisa se muestra **negativo también en
@@ -151,10 +164,17 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   es la trampa que ya produjo R-03 y R-05 dos veces. Aquí está pagada de
   antemano.
 
-  Conviene resolverla junto con **BUG-028** (las tarjetas de crédito no se
-  excluyen de los selects de transferencia): al decidir qué tipos de cuenta
-  pueden participar en una transferencia, encaja de forma natural excluir las
-  tarjetas, cuya deuda no vive en `saldoInicial`.
+  Conviene resolverla junto con **BUG-028**, que ya se cerró (2026-10-05) y
+  dejó escrita la regla de qué tipos de cuenta pueden participar en una
+  transferencia: los selects de un tipo que mueve saldos ofrecen cuentas con
+  saldo; los que mueven deuda ofrecen tarjetas. Al extender `transferencia` con
+  `tasa` y `montoDestino` esa regla ya está decidida y solo hay que respetarla.
+
+**Nota**: `validarDivisaTransferencia` produjo hasta ahora los dos rechazos —
+  el de divisa (esta ficha) y el de tarjeta (**BUG-028**)—, y nombra en cada
+  mensaje el tipo de movimiento que sí sirve para el caso. Si se extiende
+  `transferencia` con conversión, el rechazo por divisa desaparece de esta
+  función y queda solo el de tarjeta.
 
 ### DEUDA-012: Asimetría `create`/`update` en las reglas de Firestore
 - **Módulo**: `firebase/firestore.rules`
@@ -225,8 +245,23 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   `js/services/ImportarServicio.js:388-394` (la escritura rechazada),
   `git show 9c4cc4b`, `git show c014e94` (los dos commits que la repararon)
 
-### DEUDA-004: Tres copias de `esMovimientoPositivo`, todavía divergentes
-- **Módulo**: `js/pages/cuentas.js:672`, `js/pages/movimientos.js:283`, `js/pages/dashboard.js:2581`
+### DEUDA-004: Tres copias de `esMovimientoPositivo`, todavía divergentes — RESUELTA
+- **Módulo**: `js/core/movimientos.js`
+- **Resolución (2026-10-05)**: `esMovimientoPositivo` y `montoDeMovimiento`
+  viven ahora en `js/core/movimientos.js` y las tres páginas las importan. Las
+  copias locales se borraron. La función unificada tiene las cuatro ramas que
+  faltaban en algún sitio:
+  - `pagoTarjeta` (solo estaba en `cuentas.js`)
+  - `cambioDivisa` (no estaba en ninguna)
+  - `transferencia` y `error` (ya alineadas)
+  Y `montoDeMovimiento` elige el nominal de `cambioDivisa` según `cuentaId`
+  (**DEUDA-001**) y propaga `cuentaId` al decidir el signo de la comisión
+  (**DEUDA-003**).
+
+  Esto es lo que hizo posible cerrar **BUG-025**: la ficha de ese bug pedía
+  expresamente no limitarse a copiar la función, sino propagar el `cuentaId`
+  desde la plantilla, y eso solo era fiable con un único hogar.
+- **Lo que se describe** es el estado original:
 - **Descripción**: la función está triplicada. El commit `a942616` añadió la
   rama `transferencia` solo en la copia de `cuentas.js`, y las otras dos se
   quedaron atrás, también sin el parámetro `cuentaId`. El commit `89d9f58`
@@ -259,8 +294,14 @@ la causa raíz o la solución de bugs registrados. Se indica en cada uno.
   `git show a942616` (el fix incompleto), `git show 89d9f58` (la alineación),
   `js/pages/movimientos.js:248` (el `plantillaMovimiento` sin ámbito de cuenta)
 
-### DEUDA-003: `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId`
-- **Módulo**: `js/pages/cuentas.js:1010`, `js/pages/movimientos.js:299`, `js/pages/dashboard.js:2598`
+### DEUDA-003: `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` — RESUELTA
+- **Módulo**: `js/core/movimientos.js`
+- **Resolución (2026-10-05)**: resuelta con **DEUDA-004**. La función unificada
+  tiene la firma `montoDeMovimiento(m, cuentaId = null)` y todas las llamadas
+  que tienen ámbito de cuenta lo pasan. Las dos que no lo tienen (la lista
+  global de Movimientos y los últimos movimientos del dashboard) no tienen vista
+  por cuenta, así que `null` es la respuesta correcta ahí, no una omisión.
+- **Lo que se describe** es el estado original:
 - **Descripción**: al calcular el total de una compra/venta de activo,
   `montoDeMovimiento` decide si la comisión suma o resta con
   `esMovimientoPositivo(m)`, sin segundo argumento. Con `cuentaId === null` las

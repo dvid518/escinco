@@ -17,7 +17,8 @@ import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoServicio.js"
-import { abrirModalEducativoCredito, estadoCicloDe, nivelEstadoCuenta, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
+import { abrirModalEducativoCredito, estadoCicloDe, nivelUsoDe, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
+import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 
@@ -411,17 +412,23 @@ function plantillaInfoTarjeta(c, ciclo) {
     const limite = Number(c.limite) || 0
     const disponible = Math.max(0, limite - deuda)
     const estado = ciclo || estadoCicloDe(c, [])
-    const { nivel, porcentaje } = nivelEstadoCuenta(c, estado.consumos)
-    const nivelTexto = estado.pagadoCompleto
-        ? "Pagado"
-        : nivel === "critico" ? "Crítico" : nivel === "aviso" ? "Advertencia" : "Normal"
-    const claseEstado = estado.pagadoCompleto ? "positive" : nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : "positive"
-    const claseBarra = estado.pagadoCompleto ? "" : nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : ""
-    const claseBadge = estado.pagadoCompleto ? "normal" : nivel === "critico" ? "critico" : nivel === "aviso" ? "aviso" : "normal"
+    // El nivel sale de `nivelUsoDe` (sobre `deuda`), igual que el modal, el
+    // dashboard y las notificaciones. Antes venía de `nivelEstadoCuenta`, que
+    // calculaba el mismo nivel sobre los consumos del ciclo y podía discrepar
+    // de las otras tres superficies (BUG-026).
+    const { nivel, porcentaje } = nivelUsoDe(c)
+    // El badge, la barra y el porcentaje se derivan todos de `nivel`. Antes
+    // cada uno tenía su propio ternario y además se pisaban con
+    // `estado.pagadoCompleto`, de modo que un ciclo pagado con deuda de ciclos
+    // anteriores mostraba "Pagado" al lado de una barra al 90% (BUG-026). El
+    // estado del ciclo vive en sus propias tarjetas, no en el nivel de uso.
+    const nivelTexto = nivel === "critico" ? "Crítico" : nivel === "aviso" ? "Advertencia" : "Normal"
+    const claseEstado = nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : "positive"
+    const claseBarra = nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : ""
+    const claseBadge = nivel === "critico" ? "critico" : nivel === "aviso" ? "aviso" : "normal"
     const corteInfo = calcularDiasHasta(c.diaCorte)
     const pagoInfo = calcularDiasHasta(c.diaPago)
     const anualidad = proximaAnualidad(c)
-    const saldoPorPagarIgual = Math.abs(deuda - estado.restante) < 0.005
 
     return `
         <div class="cuenta-perfil">
@@ -442,16 +449,16 @@ function plantillaInfoTarjeta(c, ciclo) {
             </div>
             <div class="resumen-card">
                 <div class="resumen-label">Deuda total</div>
-                <div class="resumen-valor ${saldoPorPagarIgual || deuda > 0 ? "negative" : ""}">${formatearMontoConDivisa(deuda, c.moneda)}</div>
+                <div class="resumen-valor ${deuda > 0 ? "negative" : ""}">${formatearMontoConDivisa(deuda, c.moneda)}</div>
             </div>
             <div class="resumen-card">
                 <div class="resumen-label">Consumos del ciclo</div>
                 <div class="resumen-valor ${claseEstado}">${formatearMontoConDivisa(estado.consumos, c.moneda)}</div>
             </div>
-            ${saldoPorPagarIgual ? "" : `<div class="resumen-card">
+            <div class="resumen-card">
                 <div class="resumen-label">Saldo por pagar</div>
                 <div class="resumen-valor ${estado.restante > 0 ? "negative" : "positive"}">${formatearMontoConDivisa(estado.restante, c.moneda)}</div>
-            </div>`}
+            </div>
         </div>
 
         <div class="credito-uso">
@@ -572,7 +579,7 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
     movimientosTotales.forEach(m => {
         const divisa = (m.divisa || cuenta.moneda || "PEN").toUpperCase()
         if (!porDivisa[divisa]) porDivisa[divisa] = { positivo: 0, negativo: 0 }
-        const monto = montoDeMovimiento(m)
+        const monto = montoDeMovimiento(m, cuenta.id)
         if (esMovimientoPositivo(m, cuenta.id)) porDivisa[divisa].positivo += monto
         else porDivisa[divisa].negativo += monto
     })
@@ -650,7 +657,7 @@ function movimientoInvolucra(m, cuentaId) {
 }
 
 function plantillaMovimiento(m, cuentaId = null) {
-    const monto = montoDeMovimiento(m)
+    const monto = montoDeMovimiento(m, cuentaId)
     const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "−"
     const clase = esPositivo ? "positive" : "negative"
@@ -681,15 +688,6 @@ function plantillaMovimiento(m, cuentaId = null) {
             </div>
         </div>
     `
-}
-
-function esMovimientoPositivo(m, cuentaId = null) {
-    if (m?.tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA) return cuentaId ? m.tarjeta === cuentaId : false
-    if (m?.tipo === TIPOS_MOVIMIENTO.ERROR) return m.operacion === "sumar"
-    if (m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
-        return cuentaId ? m.cuentaDestino === cuentaId : false
-    }
-    return m?.tipo === "ingreso" || m?.tipo === "ventaActivo" || m?.tipo === "p2pVenta"
 }
 
 // ============================================
@@ -1012,20 +1010,6 @@ function abrirModalEliminarMovimientoCuenta(m) {
             }
         }
     })
-}
-
-function montoDeMovimiento(m) {
-    if (m.monto !== undefined && m.monto !== null && m.monto !== "") {
-        return Number(m.monto) || 0
-    }
-    if (m.cantidad && m.precio) {
-        const total = Number(m.cantidad) * Number(m.precio)
-        const comision = Number(m.comision) || 0
-        return esMovimientoPositivo(m) ? (total - comision) : (total + comision)
-    }
-    if (m.montoOrigen) return Number(m.montoOrigen) || 0
-    if (m.montoDestino) return Number(m.montoDestino) || 0
-    return 0
 }
 
 function fechaDeMovimiento(m) {

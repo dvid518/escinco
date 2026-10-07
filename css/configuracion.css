@@ -82,6 +82,13 @@
     align-items: start;
 }
 
+/* El pie es ítem del grid (fila 2, columna 2) y no hermano suyo: como hermano
+   ocupaba el ancho completo y su borde superior pasaba por debajo de la
+   columna del menú (BUG-017). */
+.config-layout > .panel-footer {
+    grid-column: 2;
+}
+
 .config-body {
     display: flex;
     min-width: 0;
@@ -109,6 +116,11 @@
         gap: 16px;
     }
 
+    /* Una sola columna: el pie vuelve a ocupar el ancho entero. */
+    .config-layout > .panel-footer {
+        grid-column: 1 / -1;
+    }
+
     .config-nav {
         position: static;
         flex-direction: row;
@@ -127,8 +139,9 @@
    ======================================== */
 /* La misma pantalla, pero ocupando #app-content como una página más del router
    (Accesibilidad › "Configuración como"). Al no haber .modal-body, el
-   contenedor que scrollea es .config-layout y el pie se queda fijo abajo sin
-   necesitar sticky: se saca de flujo y se apoya en el fondo. */
+   contenedor que scrollea es `.config-layout`, que es también el grid: el pie
+   es su última fila y se mantiene visible con el mismo `sticky` que en modo
+   ventana. */
 
 .config-pagina {
     box-sizing: border-box;
@@ -175,10 +188,12 @@
     overflow-y: auto;
 }
 
+/* En modo página el contenedor que scrollea es `.config-layout`, así que el
+   pie sigue usando `sticky` para no viajar con el contenido. Ya no hace falta
+   sacarlo de flujo como antes, cuando era hermano del grid y por eso ocupaba
+   el ancho entero (BUG-017). */
 .config-pagina .panel-footer {
-    position: static;
     margin: 16px 0 0;
-    padding: 12px 0 0;
     background: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -468,8 +483,12 @@
     position: sticky;
     bottom: 0;
     z-index: 2;
-    margin: 20px -24px -20px;
-    padding: 12px 24px;
+    /* Sin márgenes negativos: el pie es ítem del grid, en la columna del
+       contenido, así que ya está alineado con ella. Los negativos existían
+       para llegar al borde de `.modal-body` desde fuera del grid, y era
+       justamente lo que lo metía bajo la columna del menú (BUG-017). */
+    margin: 20px 0;
+    padding: 12px 0;
     border-top: 1px solid var(--border);
     display: flex;
     align-items: center;

@@ -22,6 +22,7 @@ import {
 } from "../services/DivisaServicio.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import { estadoCicloDe, nivelUsoDe, proximaAnualidad } from "../services/CreditoServicio.js"
+import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
 import { obtenerPendientes } from "../repositories/PendienteRepositorio.js"
 import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
@@ -2576,35 +2577,6 @@ function plantillaMovimiento(m) {
             <span class="movimiento-monto ${clase}">${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}</span>
         </div>
     `
-}
-
-function esMovimientoPositivo(m, cuentaId = null) {
-    if (m?.tipo === TIPOS_MOVIMIENTO.ERROR) {
-        return m.operacion === "sumar"
-    }
-    if (m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
-        return cuentaId ? m.cuentaDestino === cuentaId : false
-    }
-    if (!m?.tipo) return false
-    return (
-        m.tipo === "ingreso" ||
-        m.tipo === "ventaActivo" ||
-        m.tipo === "p2pVenta"
-    )
-}
-
-function montoDeMovimiento(m) {
-    if (m.monto !== undefined && m.monto !== null && m.monto !== "") {
-        return Number(m.monto) || 0
-    }
-    if (m.cantidad && m.precio) {
-        const total = Number(m.cantidad) * Number(m.precio)
-        const comision = Number(m.comision) || 0
-        return esMovimientoPositivo(m) ? (total - comision) : (total + comision)
-    }
-    if (m.montoOrigen) return Number(m.montoOrigen) || 0
-    if (m.montoDestino) return Number(m.montoDestino) || 0
-    return 0
 }
 
 function fechaDeMovimiento(m) {

@@ -474,7 +474,6 @@ function plantillaConfiguracion() {
                 </div>
             </div>
                 </div>
-                </div>
                 <footer class="panel-footer">
                     <span class="footer-brand">${VERSION.nombre}</span>
                     <span class="footer-version">v${VERSION.numero}</span>
@@ -482,6 +481,7 @@ function plantillaConfiguracion() {
                 </footer>
             </div>
         </div>
+    </div>
     `
 }
 

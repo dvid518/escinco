@@ -22,12 +22,24 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
     const divisaObjetivo = divisaPreseleccionada ? String(divisaPreseleccionada).toLowerCase() : null
     const comparteDivisa = c => (c.moneda || "pen").toLowerCase() === divisaObjetivo
 
+    // Una tarjeta de crédito no tiene saldo que mover: su deuda vive en el
+    // campo `deuda`, no en `saldoInicial`. Ofrecérsela en un select de cuenta
+    // que mueve saldos produce un `saldoInicial` basura (BUG-028).
+    //
+    //   · pagoTarjeta  → el origen es una cuenta con saldo; la tarjeta va en
+    //     su propio select (`tarjeta`).
+    //   · transferencia → origen y destino son cuentas con saldo. La deuda de
+    //     una tarjeta se mueve con `pagoTarjeta` o con `gasto`.
+    //   · resto        → solo se excluyen cuando hay divisa predefinida, que es
+    //     el caso del consolidado de un pendiente (una compra con tarjeta es
+    //     legítima: aumenta su deuda en vez de bajar su saldo).
     const esPagoTarjeta = tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA
-    const cuentasElegibles = esPagoTarjeta
+    const esTransferencia = tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA
+    const excluyeCredito = esPagoTarjeta || esTransferencia || !!divisaObjetivo
+
+    const cuentasElegibles = excluyeCredito
         ? cuentasActivas.filter(c => c.tipo !== "credito" && (!divisaObjetivo || comparteDivisa(c)))
-        : divisaObjetivo
-            ? cuentasActivas.filter(c => comparteDivisa(c) && c.tipo !== "credito")
-            : cuentasActivas
+        : cuentasActivas
 
     const cuentasOptions = cuentasElegibles
         .map(c => `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}" data-tipo="${c.tipo || "otro"}">${c.nombre} (${presentarDivisa(c.moneda || "pen")})</option>`)

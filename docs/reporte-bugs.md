@@ -5,18 +5,20 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
 ## Resumen
 
 - Total de bugs identificados: **26**
-- Resueltos: **20**
-- Pendientes: **5**
+- Resueltos: **25**
+- Pendientes: **0**
 - Descartados: **1**
 - Críticos: **0**
 - Altos: **0**
-- Medios: **1**
-- Bajos: **4**
+- Medios: **0**
+- Bajos: **0**
 
-Los cuatro conteos de severidad son **de los bugs pendientes**. Entre los 20
-resueltos hay 2 de severidad Alta (R-03 y R-05) y 3 más Alta (BUG-019, BUG-029
-y BUG-030). El descartado (BUG-018) estaba como Media. **Ya no queda ningún bug
-de severidad Alta pendiente**, que era el objetivo.
+Los cuatro conteos de severidad son **de los bugs pendientes**, y ya no queda
+ninguno. Entre los 25 resueltos hay 2 de severidad Alta (R-03 y R-05) y 4 más
+Alta (BUG-019, BUG-029, BUG-030 y BUG-026). El descartado (BUG-018) estaba como
+Media. Los cinco pendientes del ciclo anterior se cerraron en un solo cambio
+(`js/core/movimientos.js` y las cuatro superficies que dependían de copias
+divergentes): ver la sección del cierre.
 
 ### Convenciones de identificadores
 
@@ -64,16 +66,52 @@ o acción destructiva) · **Media** (funciona mal en un caso real) · **Baja**
 | BUG-029 | Un `ReferenceError` rompe la vista de detalle de movimientos | `js/pages/movimientos.js` | **Alta** | `496e6b2` | 2026-10-03 |
 | BUG-030 | El campo `id` del historial rompe la importación en cuentas nuevas | `js/services/ExportarServicio.js`, `js/services/ImportarServicio.js` | **Alta** | `f05fef5` | 2026-10-03 |
 | BUG-027 | Se ofrece "Pagar tarjeta" en un ciclo ya pagado | `js/pages/cuentas.js`, `js/services/CreditoServicio.js` | Baja | `944819d` | 2026-10-03 |
+| BUG-016 | El hover del selector de tipo ilumina un cuadrado | `js/pages/movimientos.js`, `css/pendientes.css` | Baja | `PENDIENTE` | 2026-10-05 |
+| BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js`, `css/configuracion.css` | Baja | `PENDIENTE` | 2026-10-05 |
+| BUG-025 | El filtro por cuenta deja negativas las transferencias entrantes | `js/core/movimientos.js`, `js/pages/movimientos.js` | Baja | `PENDIENTE` | 2026-10-05 |
+| BUG-026 | Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe` | `js/services/CreditoServicio.js`, `js/pages/cuentas.js` | Media | `PENDIENTE` | 2026-10-05 |
+| BUG-028 | Las tarjetas de crédito no se excluyen del filtro de transferencias | `js/ui/formularioMovimiento.js`, `js/services/MovimientoServicio.js` | Baja | `PENDIENTE` | 2026-10-05 |
 
 > **Nota sobre R-02:** el commit declara corregido el signo de las
 > transferencias, pero solo se aplicó a `js/pages/cuentas.js`. Las otras dos
-> copias de la función quedaron atrás: ver **BUG-024**.
+> copias de la función quedaron atrás: ver **BUG-024** y **DEUDA-004**.
 
 > **Nota sobre BUG-014, BUG-015, BUG-020, BUG-027, BUG-029 y BUG-030:** los seis
 > están commiteados y revisados en código, pero **ninguno verificado todavía en
 > navegador** (salvo BUG-030, que se verificó por ejecución). Se anotan como
 > resueltos de forma provisional: si al verificarlos fallaran, se revierte el
 > commit y vuelven a la lista de pendientes.
+
+### Cierre de los cinco pendientes de 2026-10-05
+
+Los cinco se cerraron en un mismo cambio porque no eran cinco problemas
+independientes: **cuatro de ellos eran síntomas del mismo patrón de cálculo
+desnormalizado**, y lo que había que resolver era la causa compartida.
+
+| Bug | Causa | Qué se hizo |
+|-----|-------|-------------|
+| BUG-025 | `esMovimientoPositivo` triplicada y `plantillaMovimiento` sin ámbito de cuenta | Un módulo compartido con `cuentaId` obligatorio en la práctica, y `movimientos.js` pasa el del filtro |
+| BUG-026 | Dos funciones de nivel de uso sobre dos magnitudes distintas | Una sola función, `nivelUsoDe`, sobre `deuda` |
+| BUG-028 | `cuentasElegibles` no excluía tarjetas para `transferencia` | Se excluyen en el formulario **y** se rechazan en el servicio |
+| BUG-016 | `div` que envolvía a un `button` | El elemento es un `<button>` único y alcanzable por teclado |
+| BUG-017 | El pie era hermano del grid, no ítem suyo | Pasa a ser ítem del grid, columna 2, conservando el `sticky` |
+
+El orden importa: **unificar `esMovimientoPositivo` es lo que hace posible
+corregir BUG-025**. Copiar la función a un cuarto archivo habría repetido el
+error que ya se había pagado dos veces (**BUG-024**, `89d9f58`).
+
+Lo que **no** se hizo, y sigue anotado como deuda:
+
+- **DEUDA-004** pasa de "tres copias divergentes" a "resuelta", pero el hecho de
+  que existiera demuestra que hacía falta un test. **DEUDA-021** (no hay
+  `lint`, `test` ni `typecheck`) es ahora la prioridad más cara del registro.
+- **BUG-028** se resolvió solo para `transferencia`. La misma falta de filtro
+  sigue existiendo en `ingreso` y `ventaActivo` cuando no hay divisa
+  predefinida: ahí una tarjeta es una elección legítima (compra con tarjeta), y
+  por eso no se tocó. Queda anotado en la ficha del bug.
+- **BUG-016 y BUG-017** se corrigen leyendo el código, sin renderizar. El
+  mecanismo está identificado en el CSS, pero el resultado visual sigue sin
+  comprobarse en navegador.
 
 ### Detalle de los bugs resueltos
 
@@ -627,13 +665,12 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 
 ## Bugs pendientes
 
-| ID | Título | Módulo | Severidad | Prioridad | Estado |
-|----|--------|--------|-----------|-----------|--------|
-| BUG-016 | El hover del selector de tipo ilumina un cuadrado | `js/pages/movimientos.js`, `css/pendientes.css` | Baja | Baja | Pendiente (sin verificar) |
-| BUG-017 | El pie de Configuración se extiende debajo del sidebar | `js/ui/configuracion.js` | Baja | Baja | Pendiente (sin verificar) |
-| BUG-025 | El filtro por cuenta inactivo deja negativas las transferencias entrantes | `js/pages/movimientos.js` | Baja | Baja | Pendiente (latente) |
-| BUG-026 | Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe` | `js/pages/cuentas.js`, `js/services/CreditoServicio.js` | Media | Media | Pendiente |
-| BUG-028 | Las tarjetas de crédito no se excluyen del filtro de transferencias | `js/ui/formularioMovimiento.js` | Baja | Baja | Pendiente |
+| ID | Título | Estado |
+|----|--------|--------|
+| — | **Ninguno** | Los 5 que quedaban (BUG-016, BUG-017, BUG-025, BUG-026, BUG-028) se cerraron el 2026-10-05 |
+
+Los cinco conservan su ficha de detalle más abajo, ahora marcada como
+resuelta, con lo que se hizo y lo que no se comprobó.
 
 ---
 
@@ -699,9 +736,13 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 
 ---
 
-## Detalle de bugs pendientes
+## Detalle de los bugs que estaban pendientes
 
-### BUG-025: El filtro por cuenta inactivo deja negativas las transferencias entrantes
+Los cinco se resolvieron el 2026-10-05. Se conserva la descripción original
+completa, porque el diagnóstico sigue siendo válido y es lo que permite
+comprobar que el arreglo ataca el problema y no otro.
+
+### BUG-025: El filtro por cuenta deja negativas las transferencias entrantes — RESUELTO
 - **Módulo**: `js/pages/movimientos.js`
 - **Severidad**: Baja
 - **Prioridad**: Baja
@@ -732,8 +773,18 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   `esMovimientoPositivo` en un módulo compartido no basta con copiar la función:
   hay que pasar el `cuentaId` desde `plantillaMovimiento` hasta la llamada, o
   el bug reaparece en cuanto se conecte el filtro.
+- **Resolución (2026-10-05)**: las dos condiciones se cumplieron a la vez. La
+  función vive ahora en `js/core/movimientos.js`, y en `movimientos.js` el
+  `cuentaId` viaja desde `aplicarFiltro` hasta `plantillaMovimiento` y
+  `renderizarTotales`. El filtro por cuenta **ya está conectado** en esta
+  página (`#filtro-cuenta` se puebla y `aplicarFiltro` lo lee), de modo que el
+  bug dejó de ser latente sin que el reporte lo actualizara: la descripción
+  original dice que "no hay filtro por cuenta activo" y eso ya no era cierto.
+  Consecuencia real al conectar el ámbito: una transferencia entrante se
+  muestra positiva en el destino y negativa en el origen, y los totales del
+  filtro cuadran con esa misma perspectiva.
 
-### BUG-028: Las tarjetas de crédito no se excluyen del filtro de transferencias
+### BUG-028: Las tarjetas de crédito no se excluyen del filtro de transferencias — RESUELTO
 - **Módulo**: `js/ui/formularioMovimiento.js`
 - **Severidad**: Baja
 - **Prioridad**: Baja
@@ -777,8 +828,26 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   Quedó fuera de DEUDA-002 a propósito y así se dice en su commit: excluir las
   tarjetas del filtro es una decisión de alcance que no corresponde a un arreglo
   cuya premisa es "las dos cuentas deben usar la misma divisa".
+- **Resolución (2026-10-05)**: dos capas, porque una sola no basta.
+  1. El formulario: `cuentasElegibles` excluye `tipo === "credito"` cuando el
+     tipo es `transferencia`, con lo que las tarjetas desaparecen de **los dos**
+     selects (origen y destino) que comparten `cuentasOptions`.
+  2. El servicio: `validarDivisaTransferencia` rechaza la escritura si alguna
+     de las dos cuentas es una tarjeta. El formulario es UX; esta es la única
+     capa donde no se puede confiar en el cliente.
 
-### BUG-026: Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe`
+  El mensaje de error dice qué tipo usar en su lugar (*Pago de tarjeta* para
+  saldarla, *Gasto* para gastar con ella), en vez de un rechazo seco.
+
+  **Lo que no se cubre**: la misma falta de filtro sigue existiendo para
+  `ingreso` y `ventaActivo` sin divisa predefinida, y **es deliberado**. Ahí la
+  tarjeta es una elección legítima —comprar con tarjeta aumenta su deuda en vez
+  de bajar su `saldoInicial`, y `actualizarSaldos` ya lo distingue— así que
+  excluirla habría quitado una función real. La regla que queda escrita es:
+  *los selects de un tipo que mueve saldos ofrecen cuentas con saldo; los que
+  mueven deuda ofrecen tarjetas.*
+
+### BUG-026: Divergencia entre `nivelEstadoCuenta` y `nivelUsoDe` — RESUELTO
 - **Módulo**: `js/pages/cuentas.js`, `js/services/CreditoServicio.js`
 - **Severidad**: Media
 - **Prioridad**: Media
@@ -851,12 +920,39 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   Lo que destapó este bug fue el cierre de **BUG-015**: el modal ya existía y
   funcionaba, pero nunca se había abierto desde la tarjeta, así que la
   discrepancia entre el badge y el modal no era observable.
+- **Decisión tomada (2026-10-05)**: se unifica sobre **`deuda`**, no sobre los
+  consumos del ciclo. El motivo es que el nivel de uso describe la **línea de
+  crédito**, no un mes: lo que se puntúa es el total comprometido contra
+  el límite. `deuda` es además el campo que ya usaban tres de las cuatro
+  superficies, así que unificar sobre la otra habría obligado a cambiar tres
+  superficies para llegar a la misma respuesta que ya daba una.
+  Consecuencia asumida y explícita: **el nivel ya no depende del ciclo**. Una
+  tarjeta con 800 de deuda y el ciclo recién cortado sale *Crítico*, aunque
+  los consumos del mes sean cero. Es la lectura correcta, y la razón por la que
+  la vista de ciclo (`estadoCicloDe`) se mantiene como magnitud aparte, con sus
+  propias tarjetas ("Consumos del ciclo", "Saldo por pagar", "Pagos del
+  ciclo").
+- **Resolución (2026-10-05)**:
+  - `nivelEstadoCuenta` se **elimina**. Era la segunda copia del mismo cálculo.
+  - Las cuatro superficies pasan por `nivelUsoDe`: el badge y la barra de
+    Cuentas, las cards del dashboard, el modal educativo y las notificaciones.
+  - En `plantillaInfoTarjeta` el badge, la barra y el porcentaje se derivan
+    ahora **de una sola variable `nivel`**. Antes cada uno tenía su propio
+    ternario *y* los tres se pisaban con `estado.pagadoCompleto`, así que un
+    ciclo pagado con deuda de ciclos anteriores pintaba "Pagado" junto a una
+    barra al 90%. El estado del ciclo se sigue mostrando, pero en sus propias
+    tarjetas y no en el nivel de uso.
+  - `saldoPorPagarIgual` se elimina: era el `try/catch` contable de esta misma
+    divergencia (el código suponía que `deuda` y `restante` podían no
+    coincidir y lo trataba como la excepción). Ahora "Saldo por pagar" se
+    muestra siempre; que coincida o no con la deuda total es un dato, no una
+    anomalía que ocultar.
 
-### BUG-016: El hover del selector de tipo ilumina un cuadrado
+### BUG-016: El hover del selector de tipo ilumina un cuadrado — RESUELTO
 - **Módulo**: `js/pages/movimientos.js`, `css/pendientes.css`
 - **Severidad**: Baja
 - **Prioridad**: Baja
-- **Estado**: Pendiente
+- **Estado**: Resuelto, sin verificar en navegador
 - **Descripción**: los tipos destacados (*Ingreso* y *Gasto*) se emiten como un
   `<div>` que se estira a ocupar toda su celda del grid `1fr 1fr`, con fondo
   transparente y sin bordes. El objetivo visual y el único con listener es el
@@ -890,12 +986,31 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   reportaron leyendo el CSS, sin abrirlos en el navegador. Si al verificarlos
   resultan ser como **BUG-018** —una desviación imperceptible—, se descartarán
   con el mismo criterio. No invertir esfuerzo en arreglarlos sin verlos primero.
+- **Resolución (2026-10-05)**: se resolvió por la vía que recomendaba la
+  propia ficha —"el elemento debería ser un `<button>` por sí mismo"— porque
+  además de corregir la zona sensible arregla el acceso por teclado, que era la
+  otra mitad del defecto:
+  - El `<div class="tipo-movimiento-btn tipo-principal">` que envolvía al
+    `<button class="tipo-icono">` se elimina. Ahora hay un único `<button>` con
+    el círculo como `<span class="tipo-icono" aria-hidden="true">` dentro y el
+    nombre como `<span class="tipo-texto">`.
+  - El listener se mueve al `<button>`: antes estaba en el botón interior y el
+    clic en el texto o en los bordes de la celda no hacía nada.
+  - `.tipo-movimiento-btn:hover { transform: scale(1.02) }` se acota a
+    `.tipo-secundario`, que sí es un botón que ocupa su celda entera y donde el
+    efecto es el buscado. Para el destacado, el hover y el `:focus-visible`
+   udu se aplican al círculo: `.tipo-principal:hover .tipo-icono`.
+  - El `<button>` hereda estilos de navegador que el `div` no tenía, así que se
+    le fijan `width`, `background`, `border`, `color` y `font-family`.
 
-### BUG-017: El pie de Configuración se extiende debajo del sidebar
+  **Sin verificar en navegador.** El mecanismo estaba identificado con
+  certeza en el CSS, pero el resultado visual no se ha visto.
+
+### BUG-017: El pie de Configuración se extiende debajo del sidebar — RESUELTO
 - **Módulo**: `js/ui/configuracion.js`, `css/configuracion.css`
 - **Severidad**: Baja
 - **Prioridad**: Baja
-- **Estado**: Pendiente
+- **Estado**: Resuelto, sin verificar en navegador
 - **Descripción**: el pie con la versión (`.panel-footer`) se emite como
   **hermano** de `.config-layout`, no como ítem de su grid. Como
   `.config-layout` es un grid de dos columnas (`210px` para el menú de
@@ -926,6 +1041,27 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
   **Pendiente de verificación en navegador.** Al igual que **BUG-016**, se
   reportó leyendo el CSS sin abrir la aplicación. Si al verificarlo resulta ser
   como **BUG-018**, se descartará con el mismo criterio.
+- **Resolución (2026-10-05)**: se adoptó la solución que proponía la ficha —el
+  pie como ítem del grid en la fila 2, columna 2— y se resolvió la tensión con
+  el `sticky` que la ficha señalaba como requisito:
+  - En `plantillaConfiguracion` el `<footer>` deja de ser hermano de
+    `.config-layout` y pasa a ser su tercer hijo. Es un cambio de anidamiento
+    real en el markup, no una regla de CSS.
+  - `.config-layout > .panel-footer { grid-column: 2 }` lo coloca en la columna
+    del contenido. Con una sola columna (≤860px) vuelve a `1 / -1`.
+  - Se quitan los márgenes negativos `margin: 20px -24px -20px`, que existían
+    para compensar el `padding` de `.modal-body` desde fuera del grid. Desde
+    dentro de la columna no hay nada que compensar y eran justamente los que
+    estiraban el pie de borde a borde. `padding: 12px 0` en su lugar.
+  - El `sticky` se conserva en los dos modos, y en modo página pasa a ser
+    necesario: allí el contenedor que scrollea es `.config-layout`, que ahora
+    es también el grid, así que el pie se pega al fondo de la zona visible sin
+    salir de flujo. Antes se hacía con `position: static` porque el pie era
+    hermano del scroller.
+  - Se actualiza el comentario de `.config-pagina`, que describía el
+    comportamiento anterior.
+
+  **Sin verificar en navegador.**
 
 ---
 
@@ -937,13 +1073,15 @@ y luego `border: none`, que lo anulaba; y `.modal-footer` /
 | `c014e94` "correcciones y pc más" (mensaje vago) | **R-05** … **R-11** |
 | `a942616` declarado completo | **R-02**, pero solo en 1 de 3 copias → **BUG-024** |
 | Sin reportar, hallazgo del análisis de código | **BUG-019**, **BUG-020** |
-| Sin reportar, hallazgo al aplicar BUG-024 | **BUG-025** (latente) |
+| Sin reportar, hallazgo al aplicar BUG-024 | **BUG-025** (latente, pero el filtro sí llegó a conectarse) |
+| Sin reportar, hallazgo al unificar `esMovimientoPositivo` | **DEUDA-001** y **DEUDA-003**, resueltas de paso |
 | Sin reportar, propuesto y luego descartado | BUG-021/022/023 → **DEUDA-010** |
 | `576d71c` (comentario corregido) | Impide volver a afirmar el síntoma falso de BUG-019 |
 | BUG-013 reportado con 3 caminos de creación | Eran 2: el tercero era código muerto, borrado en `ae6b045` |
 | Sin reportar, hallazgo al conectar el modal educativo | **BUG-026**, **BUG-027** |
 | Sin reportar, hallazgo al aplicar DEUDA-002 (opción a) | **BUG-028**, **BUG-029** |
 | Sin reportar, hallazgo al medir el formato `.dvid` | **BUG-030** |
+| Sin reportar, cuatro bugs de un mismo patrón de duplicación | **BUG-016**, **BUG-025**, **BUG-026**, **BUG-028** + **DEUDA-001/003/004** |
 
 Pendiente de verificación manual: **BUG-016** y **BUG-017**, más los cierres de
 **BUG-013**, **BUG-014**, **BUG-015** y **BUG-020** —los de Cuentas, Inversiones
@@ -954,9 +1092,22 @@ verificados en código, pero el arreglo no se da por bueno hasta verlo funcionar
 si alguno fallara, se revierte. **BUG-029** se verifica mirando no si el modal
 abre, sino si tiene botones de acción y si los campos están deshabilitados.
 **BUG-030** está verificado por ejecución, no necesita navegador: se reproduce
-importando un `.dvid` en una cuenta sin historial. El resto se confirmó leyendo
-el código, salvo **BUG-025**, que es latente por definición: no se reproduce
-mientras el filtro por cuenta no esté conectado.
+importando un `.dvid` en una cuenta sin historial.
+
+Los cinco cerrados el 2026-10-05 tienen un estado de verificación distinto, y
+conviene no confundirlos al revisar:
+
+| Bug | Cómo se verificó |
+|-----|------------------|
+| BUG-025, BUG-026, BUG-028 | Por ejecución: casos con y sin `cuentaId`, y los tres umbrales de `nivelUsoDe` |
+| BUG-016, BUG-017 | Solo leyendo el código. El CSS es determinista y el markup se comprobó balanceado, pero **el resultado visual no se ha visto** |
+
+Una corrección de este reporte afecta a BUG-025: su ficha decía que el filtro
+por cuenta de Movimientos no estaba conectado, y **ya lo está**. `#filtro-cuenta`
+se puebla en `cargarCuentas` y `aplicarFiltro` lo lee, así que el bug llevaba
+tiempo siendo real y no latente. La descripción original se conserva arriba
+porque el diagnóstico del `cuentaId` que no llegaba a `plantillaMovimiento` era
+correcto; lo que estaba desfasado era la premisa de que no se reproduciría.
 
 Tres afirmaciones de este reporte se apoyan en la **ausencia de un llamador** y
 conviene comprobarlas en el navegador antes de construir nada sobre ellas:
@@ -998,11 +1149,18 @@ la interfaz de fondo seguía navegable, cuando el CSS hace lo contrario. El
 código y su documentación discrepaban, y la documentación era la que mentía.
 
 Documento relacionado: [`deuda-tecnica.md`](./deuda-tecnica.md). Los bugs
-**BUG-013** a **BUG-018**, **BUG-024**, **BUG-025**, **BUG-028** y **BUG-029**
-tienen su causa raíz o su solución en los ítems **DEUDA-003**, **DEUDA-004**,
-**DEUDA-006**, **DEUDA-012** y **DEUDA-002b**. El código muerto que se borró al
-cerrar **BUG-013** (`ae6b045`) es un caso más de **DEUDA-006**. **BUG-026** es un
-caso más del mismo tipo que **DEUDA-004**, y ambos deberían resolverse juntos.
+**BUG-013** a **BUG-018**, **BUG-024**, **BUG-025**, **BUG-026**, **BUG-028** y
+**BUG-029** tienen su causa raíz o su solución en los ítems **DEUDA-001**,
+**DEUDA-002b**, **DEUDA-003**, **DEUDA-004**, **DEUDA-006** y **DEUDA-012**. El
+código muerto que se borró al cerrar **BUG-013** (`ae6b045`) es un caso más de
+**DEUDA-006**.
+
+**BUG-026 y DEUDA-004 eran el mismo caso, y por eso se resolvieron juntos**, tal
+y como decía este párrafo en la versión anterior. Los dos eran *cálculo
+desnormalizado en dos sitios en lugar de uno solo*, y solo con la unificación
+había forma de que badge, modal, dashboard y notificaciones dejaran de poder
+discrepar. **DEUDA-001** y **DEUDA-003** salieron de esa misma unificación, sin
+haber sido bugs con ficha propia.
 
 ---
 
@@ -1018,10 +1176,11 @@ propia fiabilidad, no solo en la lista final.
 | Tipo de bug | Ejemplos | Por qué falló |
 |-------------|----------|---------------|
 | Visual, reportado sin navegador | BUG-018 (descartado), BUG-016 y BUG-017 (sin verificar) | Se dedujo el efecto de una regla CSS sin renderizarlo. En BUG-018 se afirmó que el logo invadía el header; la desviación real es de ≤8px. |
-| De flujo asíncrono, reportado sin leer el flujo entero | BUG-019, BUG-024 | Se leyó el fragmento relevante (`pointer-events`, el call site) y se infirió el comportamiento, sin abrir la función que lo governa. En BUG-019 se afirmó que el modal se cerraba a media operación; lo impedía el guard `if (procesando) return` de `cerrar()`. |
+| De flujo asíncrono, reportado sin leer el flujo entero | BUG-019, BUG-024 | Se leyó el fragmento relevante (`pointer-events`, el call site) y se infirió el comportamiento, sin abrir la función que lo gobierna. En BUG-019 se afirmó que el modal se cerraba a media operación; lo impedía el guard `if (procesando) return` de `cerrar()`. |
 | Conteo de sitios sin comprobar las llamadas | BUG-013 | Se afirmó que había tres caminos de creación de cuenta y se señaló uno a `js/pages/cuentas.js:1843` que no tenía ninguna llamada en el repositorio. Eran dos. |
 | Afirmar la ausencia de algo sin buscarlo | BUG-015 | Se escribió que *"no existe el modal educativo en el código"*. Existía entero, con su markup y su CSS, en `js/services/CreditoServicio.js:281`; lo que faltaba era el call site. |
-| Leer un síntoma sin abrir el flujo completo | BUG-029 | Se afirmaba que el modal de detalle se rompía. Como la función es `async`, el `ReferenceError` se convierte en promesa rechazada y el modal **síabre** (`abrirModal` corre antes). Lo que se pierde es `bloquearFormulario(true)` y `renderizarAccionesDetalle`, es decir, los botones de acción y el modo de solo lectura. |
+| Leer un síntoma sin abrir el flujo completo | BUG-029 | Se afirmaba que el modal de detalle se rompía. Como la función es `async`, el `ReferenceError` se convierte en promesa rechazada y el modal **sí abre** (`abrirModal` corre antes). Lo que se pierde es `bloquearFormulario(true)` y `renderizarAccionesDetalle`, es decir, los botones de acción y el modo de solo lectura. |
+| Dar por inexistente un camino de ejecución | BUG-025 | Se escribió que el filtro por cuenta de Movimientos no estaba conectado, y por tanto que el bug era latente. `#filtro-cuenta` sí se puebla y `aplicarFiltro` sí lo lee. El diagnóstico del `cuentaId` que no llegaba era correcto; la premisa de que no se reproducía, no. |
 
 En los seis casos verificados la comprobación en código demostró que el bug
 **no existía, estaba mal descrito o estaba sobredimensionado**, y en los cuatro
@@ -1033,7 +1192,7 @@ diagnóstico sino un defecto que nadie había mirado, y apareció al **medir** �
 comparando las secciones del `.dvid` contra los `hasOnly` de las reglas y
 buscando simetrías entre export e import. Ninguna de las dos mitades del flujo
 delata el problema por separado. Un mapa de "qué campos escribe cada ruta" es
-lo que lo hunted, y no leer el código de arriba abajo.
+lo que lo encontró, y no leer el código de arriba abajo.
 
 ### Regla que se adopta
 
@@ -1052,7 +1211,7 @@ lo que lo hunted, y no leer el código de arriba abajo.
 
 ### Lo que sí sobrevivió a la verificación
 
-Once de los veinte bugs resueltos salieron de commits cuyo diff se leyó entero,
+Once de los bugs resueltos salieron de commits cuyo diff se leyó entero,
 no de inferencia: R-01 a R-11, BUG-019 (tras corregir el diagnóstico) y
 BUG-024. De los nueve restantes, **BUG-013** se cerró leyendo su diff, con una
 corrección de alcance (el reporte lo situaba en tres sitios y eran dos), y
@@ -1060,6 +1219,18 @@ corrección de alcance (el reporte lo situaba en tres sitios y eran dos), y
 resolvieron leyendo su propio diff, aunque los seis están a la espera de
 comprobación.
 
-Los cinco pendientes verificados en código son **BUG-025**, **BUG-026** y
-**BUG-028** (más BUG-016 y BUG-017 a la espera de comprobación visual). Ninguno
-de ellos depende de una percepción.
+De los cinco que estaban pendientes, **BUG-025**, **BUG-026** y **BUG-028** se
+verificaron por ejecución (casos con y sin `cuentaId`, y los tres umbrales de
+`nivelUsoDe`), y **BUG-016** y **BUG-017** siguen a la espera de comprobación
+visual. Ninguno de los tres primeros depende de una percepción; los otros dos
+sí, y eso es lo único que les queda por confirmar.
+
+Lo que este ciclo deja como aprendizaje no es un bug nuevo, sino una
+confirmación: **cuatro de los cinco pendientes eran el mismo defecto**, cálculo
+duplicado en varios sitios, y ninguno se habría cerrado del todo copiando la
+función a un cuarto archivo. La divergencia ya había costado dos correcciones
+parciales en el pasado (`a942616`, `89d9f58`, esta vez la cuarta sería la
+primera en prevenirse con un módulo compartido). La deuda que queda es
+**DEUDA-021**: sin `lint` ni `test` que detecten un export duplicado o una
+ficha desincronizada, esta clase de hallazgo depende de que alguien lea el
+código entero.

@@ -60,6 +60,30 @@ button:disabled {
 }
 
 /* --------------------------------------------
+   PIE · ENLACE A LA LANDING
+   -------------------------------------------- */
+/* Vive fuera de los cuatro estados, así que se ve en todos sin duplicarlo.
+   Sirve de salida a quien llega al login sin contexto: quien instaló la PWA y
+   perdió la sesión, o quien llega por un enlace compartido. */
+.auth-pie {
+    margin: 0;
+    font-size: 13px;
+    color: var(--textSecondary);
+    text-align: center;
+    opacity: 0.7;
+}
+
+.auth-pie a {
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.auth-pie a:hover {
+    color: var(--positive);
+}
+
+/* --------------------------------------------
    MENSAJES
    -------------------------------------------- */
 

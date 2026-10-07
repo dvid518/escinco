@@ -39,6 +39,20 @@ export function usoDe(tarjeta) {
 }
 
 // Nivel de uso: "normal" | "aviso" | "critico"
+//
+// Esta es la **única** función que calcula el nivel de uso de una tarjeta, y
+// todas las superficies que lo muestran pasan por aquí: el badge y la barra de
+// Cuentas, las cards del dashboard, el modal educativo y las notificaciones de
+// cruce (BUG-026).
+//
+// Se mide sobre `deuda`, el total adeudado, y no sobre los consumos del ciclo.
+// La razón es que el nivel de uso es un dato de la **línea de crédito**: lo que
+// las entidades miran es el total comprometido contra el límite, no lo que
+// pasó en un mes concreto. Los consumos del ciclo son otra magnitud, con su
+// propia función y su propia vista (`estadoCicloDe`), y las dos ya no se
+// confunden: antes `nivelEstadoCuenta` hacía el mismo cálculo sobre
+// `consumos` y el resultado convivía con este en cuatro superficies, que
+// podían discrepar entre sí.
 export function nivelUsoDe(tarjeta) {
     const { limite, deuda, porcentaje } = usoDe(tarjeta)
     const { aviso, critico } = umbralesDe(tarjeta)
@@ -49,19 +63,6 @@ export function nivelUsoDe(tarjeta) {
                 ? "aviso"
                 : "normal"
     return { nivel, porcentaje, aviso, critico, limite, deuda }
-}
-
-export function nivelEstadoCuenta(tarjeta, consumos) {
-    const limite = Number(tarjeta?.limite) || 0
-    const gastos = Math.max(0, Number(consumos) || 0)
-    const porcentaje = limite > 0 ? (gastos / limite) * 100 : 0
-    const { aviso, critico } = umbralesDe(tarjeta)
-    const nivel = limite > 0 && porcentaje >= critico
-        ? "critico"
-        : limite > 0 && porcentaje >= aviso
-            ? "aviso"
-            : "normal"
-    return { nivel, porcentaje, aviso, critico, limite, gastos }
 }
 
 export function simboloMonedaCuenta(moneda) {

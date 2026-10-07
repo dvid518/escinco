@@ -271,8 +271,12 @@
     transition: all 0.2s ease;
 }
 
+/* El destacado es el `<button>` completo: el círculo es su contenido, no un
+   botón anidado. La celda entera es sensible al clic y al teclado, y el hover
+   ilumina el círculo, no un cuadrado (BUG-016). */
 .tipo-movimiento-btn.tipo-principal {
     display: flex;
+    width: 100%;
     flex-direction: column;
     align-items: center;
     justify-content: center;
@@ -281,6 +285,9 @@
     border-radius: 0;
     border: none;
     background: transparent;
+    color: var(--text);
+    font-family: var(--font-primary);
+    cursor: pointer;
 }
 
 .tipo-movimiento-btn.tipo-principal .tipo-icono {
@@ -293,11 +300,11 @@
     background: var(--surface);
     border: 1px solid var(--border);
     color: var(--text);
-    cursor: pointer;
     transition: all 0.2s ease;
 }
 
-.tipo-movimiento-btn.tipo-principal .tipo-icono:hover {
+.tipo-movimiento-btn.tipo-principal:hover .tipo-icono,
+.tipo-movimiento-btn.tipo-principal:focus-visible .tipo-icono {
     background: var(--lightHover);
     color: var(--text);
     border-color: var(--text);
@@ -313,8 +320,5 @@
 .tipo-movimiento-btn.tipo-secundario:hover {
     box-shadow: 0 0 10px var(--shadow);
     background: var(--lightHover);
-}
-
-.tipo-movimiento-btn:hover {
     transform: scale(1.02);
 }

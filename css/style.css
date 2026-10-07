@@ -820,11 +820,11 @@ option {
 /* ============================================
    TRANSICIÓN ENTRE DOCUMENTOS (login → dashboard)
    ============================================
-   style.css lo cargan login.html, register.html y dashboard.html, y los
-   tres optan por @view-transition { navigation: auto }. El logo existe en
-   los dos con el mismo id, así que darle un nombre lo convierte en el
-   elemento compartido: en vez de fundir dos páginas enteras, el logo viaja
-   del centro de la pantalla a la navbar y el resto se funde alrededor. */
+   style.css lo cargan auth.html, reset-password.html, index.html y
+   dashboard.html, y todos optan por @view-transition { navigation: auto }. El
+   logo existe en los dos con el mismo id, así que darle un nombre lo convierte
+   en el elemento compartido: en vez de fundir dos páginas enteras, el logo
+   viaja del centro de la pantalla a la navbar y el resto se funde alrededor. */
 #logo {
     view-transition-name: logo;
 }

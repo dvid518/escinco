@@ -16,6 +16,7 @@ import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
 
 let movimientos = []
 let cuentas = []
@@ -245,9 +246,12 @@ function plantillaVacio() {
     `
 }
 
-function plantillaMovimiento(m) {
-    const monto = montoDeMovimiento(m)
-    const esPositivo = esMovimientoPositivo(m)
+// `cuentaId` es el ámbito desde el que se mira el movimiento: sin él, una
+// transferencia o un cambio de divisa se etiquetan siempre como salida, que es
+// el lado contrario del correcto en la cuenta de destino (BUG-025).
+function plantillaMovimiento(m, cuentaId = null) {
+    const monto = montoDeMovimiento(m, cuentaId)
+    const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "-"
     const clase = esPositivo ? "positive" : "negative"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
@@ -278,34 +282,6 @@ function plantillaMovimiento(m) {
             </div>
         </div>
     `
-}
-
-function esMovimientoPositivo(m, cuentaId = null) {
-    if (m?.tipo === TIPOS_MOVIMIENTO.ERROR) {
-        return m.operacion === "sumar"
-    }
-    if (m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) {
-        return cuentaId ? m.cuentaDestino === cuentaId : false
-    }
-    return (
-        m?.tipo === "ingreso" ||
-        m?.tipo === "ventaActivo" ||
-        m?.tipo === "p2pVenta"
-    )
-}
-
-function montoDeMovimiento(m) {
-    if (m.monto !== undefined && m.monto !== null && m.monto !== "") {
-        return Number(m.monto) || 0
-    }
-    if (m.cantidad && m.precio) {
-        const total = Number(m.cantidad) * Number(m.precio)
-        const comision = Number(m.comision) || 0
-        return esMovimientoPositivo(m) ? (total - comision) : (total + comision)
-    }
-    if (m.montoOrigen) return Number(m.montoOrigen) || 0
-    if (m.montoDestino) return Number(m.montoDestino) || 0
-    return 0
 }
 
 function formatearFecha(valor) {
@@ -687,7 +663,7 @@ function aplicarFiltro() {
         })
     }
 
-    renderizarTotales(filtrados)
+    renderizarTotales(filtrados, cuentaId)
     cardConAcciones = null
 
     if (filtrados.length === 0) {
@@ -697,14 +673,14 @@ function aplicarFiltro() {
         return
     }
 
-    container.innerHTML = filtrados.map(plantillaMovimiento).join("")
+    container.innerHTML = filtrados.map(m => plantillaMovimiento(m, cuentaId)).join("")
 }
 
 // ============================================
 // TOTALES DEL FILTRO
 // ============================================
 
-function renderizarTotales(filtrados) {
+function renderizarTotales(filtrados, cuentaId = null) {
     const contenedor = document.getElementById("totales-movimientos")
     if (!contenedor) return
 
@@ -715,8 +691,8 @@ function renderizarTotales(filtrados) {
         if (!porDivisa[divisa]) {
             porDivisa[divisa] = { positivo: 0, negativo: 0 }
         }
-        const monto = montoDeMovimiento(m)
-        if (esMovimientoPositivo(m)) {
+        const monto = montoDeMovimiento(m, cuentaId)
+        if (esMovimientoPositivo(m, cuentaId)) {
             porDivisa[divisa].positivo += monto
         } else {
             porDivisa[divisa].negativo += monto
@@ -850,15 +826,19 @@ export function abrirSelectorTipoMovimiento(cuentaId = null) {
         : []
     const secundarios = disponibles.filter(t => !destacados.includes(t))
 
+    // El destacado es un único `<button>`, no un `div` que envuelve a otro
+    // `button`. Con el `div` exterior la zona sensible era el cuadrado entero
+    // de la celda y el efecto de hover se disparaba en las esquinas, además de
+    // quedar fuera del recorrido del teclado (BUG-016).
     const botonDestacado = t => {
         const nombre = CONFIG_MOVIMIENTOS[t]?.nombre || NOMBRES_ADICIONALES[t] || t
         return `
-        <div class="tipo-movimiento-btn tipo-principal" data-tipo="${t}">
-            <button type="button" class="tipo-icono" aria-label="Crear ${nombre}">
+        <button class="tipo-movimiento-btn tipo-principal" data-tipo="${t}" type="button" aria-label="Crear ${nombre}">
+            <span class="tipo-icono" aria-hidden="true">
                 ${icono(ICONO_TIPO_MOVIMIENTO[t] || "plus-circle", 24)}
-            </button>
+            </span>
             <span class="tipo-texto">${nombre}</span>
-        </div>
+        </button>
     `
     }
     // Si la cantidad de secundarios es impar, el último (error) ocupa ambas columnas.
@@ -898,10 +878,8 @@ export function abrirSelectorTipoMovimiento(cuentaId = null) {
         abrirFormularioMovimiento(tipo, null, opciones)
     }
 
-    document.querySelectorAll(".tipo-principal").forEach(cont => {
-        const tipo = cont.dataset.tipo
-        const iconoBtn = cont.querySelector(".tipo-icono")
-        iconoBtn?.addEventListener("click", () => abrirFormularioPorTipo(tipo))
+    document.querySelectorAll(".tipo-principal").forEach(btn => {
+        btn.addEventListener("click", () => abrirFormularioPorTipo(btn.dataset.tipo))
     })
 
     document.querySelectorAll(".tipo-secundario").forEach(btn => {
