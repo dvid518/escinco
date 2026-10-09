@@ -127,11 +127,31 @@ function restaurarScroll(estado) {
 }
 
 function transicionPagina(callback) {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof document.startViewTransition !== "function") {
+    const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    if (reducido || typeof document.startViewTransition !== "function") {
         callback()
         return Promise.resolve()
     }
-    return document.startViewTransition(callback).updateCallbackDone.catch(() => {})
+
+    // La transicion de vista es un adorno: si el navegador la aborta, la
+    // navegacion tiene que continuar igual. Se controla la EXCEPCION y las TRES
+    // promesas que devuelve, porque si una transicion se aborta (otra en curso,
+    // pestaña en segundo plano, navegacion durante el pintado) `ready` y
+    // `finished` rechazan, y sin manejarlas sale un "Uncaught (in promise)".
+    try {
+        const transicion = document.startViewTransition(callback)
+        return Promise.all([
+            transicion.ready,
+            transicion.finished,
+            transicion.updateCallbackDone
+        ]).catch(() => {})
+    } catch (error) {
+        // Si lanza de forma sincrona el callback no se ha ejecutado: hay que
+        // lanzarlo aqui o la navegacion se quedaria a medias.
+        console.warn("[WARN] Transicion de vista omitida:", error?.message || error)
+        callback()
+        return Promise.resolve()
+    }
 }
 
 function precargarPagina(page) {
