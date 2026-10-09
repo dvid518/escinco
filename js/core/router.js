@@ -25,8 +25,10 @@ function importarPagina(page) {
         : import(`../pages/${page}.js`)
 }
 
+// true = Panel (los ajustes van dentro del #panel con ruta propia, que es lo
+// predeterminado). false = Modal (ventana grande sobre la página actual).
 function configuracionComoPagina() {
-    return sesion.getPreferencias()?.accesibilidad?.configComoPagina === true
+    return sesion.getPreferencias()?.accesibilidad?.configComoPagina !== false
 }
 
 function abrirConfiguracionComoPanel() {

@@ -352,14 +352,14 @@ function plantillaConfiguracion() {
                 <div class="config-group">
                     <span class="config-label">Configuración como</span>
                     <div class="toggle-group" id="toggle-config-modo">
-                        <span class="toggle-option" data-config-modo="pagina">Página</span>
                         <span class="toggle-option active" data-config-modo="panel">Panel</span>
+                        <span class="toggle-option" data-config-modo="modal">Modal</span>
                     </div>
                     <span class="config-hint">
-                        Panel: se abre como ventana grande sobre la página en la que
-                        estás, sin cambiar de ruta. Página: ocupa la pantalla completa
-                        con su propia ruta <strong>/configuracion</strong> y el botón
-                        Guardar en la barra inferior.
+                        Panel: los ajustes van dentro del panel de la app, con su
+                        ruta <strong>/configuración</strong> y el pie fijo abajo.
+                        Modal: se abre como ventana grande sobre la página en la
+                        que estás, sin cambiar de ruta.
                     </span>
                 </div>
 
@@ -476,21 +476,27 @@ function plantillaConfiguracion() {
                 </div>
                 </div>
 
-                <!-- El pie va DENTRO de .config-body, como último elemento, y no
-                     como hermano suyo en el grid. Como hermano ocupaba una fila
-                     propia cuya altura la fijaba la columna del menú, así que en
-                     una sección corta el pie caía por debajo del sidebar en vez
-                     de pegarse al final del contenido (BUG-017). Dentro del
-                     cuerpo ya no existe esa fila: es simplemente el último
-                     bloque que se recorre, y el estilo sticky de .panel-footer lo
-                     mantiene visible al llegar al final. -->
-                <footer class="panel-footer">
+                </div>
+            </div>
+
+            <!-- El pie va FUERA de .config-layout, no dentro de .config-body.
+                 Dentro ocupaba solo el ancho de la columna de contenido, y el
+                 panel es un grid de menú + cuerpo: el pie quedaba a media
+                 anchura. Como hermano del grid ocupa TODO el ancho del panel y,
+                 con position sticky, queda fijo al hacer scroll.
+                 El botón Guardar se replica aquí porque en modo Panel (la ruta
+                 /configuración) no hay modal que ponga su propio pie. -->
+            <footer class="panel-footer config-panel-footer">
+                <div class="config-footer-info">
                     <span class="footer-brand">${VERSION.nombre}</span>
                     <span class="footer-version">v${VERSION.numero}</span>
                     <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
-                </footer>
-            </div>
-        </div>
+                </div>
+                <div class="config-footer-acciones">
+                    <button type="button" class="modal-btn modal-btn-secondary" id="config-cerrar">Cerrar</button>
+                    <button type="button" class="modal-btn modal-btn-primary" id="config-guardar">Guardar</button>
+                </div>
+            </footer>
     </div>
     </div>
     `
@@ -513,7 +519,9 @@ function plantillaConfiguracion() {
 // cambia quién pone el Guardar y dónde se avisa de los cambios pendientes.
 
 let modalConfiguracion = null
-let modoActual = "panel"
+// "ruta"  = los ajustes van dentro del #panel con ruta propia (modo Panel).
+// "modal" = ventana grande sobre la página actual (modo Modal).
+let modoActual = "modal"
 
 /**
  * Abre la configuración en una ventana grande. Es idempotente: si ya está
@@ -526,8 +534,8 @@ export function abrirConfiguracion() {
     uid = sesion.uid
     hayCambios = false
     nombrePendiente = null
-    modoActual = "panel"
-    console.log("[INFO] Configuración abierta como panel para UID:", uid)
+    modoActual = "modal"
+    console.log("[INFO] Configuración abierta como modal para UID:", uid)
 
     modalConfiguracion = abrirModal({
         titulo: "Configuración",
@@ -581,7 +589,7 @@ export async function init() {
     uid = sesion.uid
     hayCambios = false
     nombrePendiente = null
-    modoActual = "pagina"
+    modoActual = "ruta"
     await iniciarConfiguracion()
 }
 
@@ -618,6 +626,41 @@ async function iniciarConfiguracion() {
     configurarPeriodoEvolucion()
     configurarResaltarPatrimonio()
     refrescarContadorArchivadas()
+    configurarPieConfiguracion()
+}
+
+// Botones del pie que van dentro del panel. Solo tienen sentido en modo Panel
+// (la ruta /configuración): en modo Modal el modal-xl ya pone su propio pie con
+// Guardar y Cerrar, y duplicarlos sería confuso.
+function configurarPieConfiguracion() {
+    const acciones = document.querySelector(".config-footer-acciones")
+    if (modoActual !== "ruta") {
+        if (acciones) acciones.hidden = true
+        return
+    }
+
+    const guardar = document.getElementById("config-guardar")
+    const cerrar = document.getElementById("config-cerrar")
+
+    guardar?.addEventListener("click", async () => {
+        if (!hayCambios) return
+        await guardarPreferencias()
+    })
+
+    cerrar?.addEventListener("click", () => {
+        if (!hayCambios) { navegarFueraDeConfiguracion(); return }
+        const preferenciasPendientes = construirPreferencias()
+        mostrarNotificacion("warning", "Hay cambios sin guardar", 0, [
+            { texto: "Guardar", primaria: true, alClick: () => aplicarPreferencias(preferenciasPendientes) },
+            { texto: "Descartar", clase: "cancel", alClick: () => navegarFueraDeConfiguracion() }
+        ], () => navegarFueraDeConfiguracion())
+    })
+}
+
+// Vuelve al panel principal tras guardar o descartar.
+async function navegarFueraDeConfiguracion() {
+    const { navigateTo } = await import("../core/router.js")
+    navigateTo("/dashboard")
 }
 
 // ============================================
@@ -950,7 +993,7 @@ async function cargarPreferencias() {
 
         // Accesibilidad
         const acc = prefs?.accesibilidad || {}
-        const modoConfig = acc.configComoPagina === true ? "pagina" : "panel"
+        const modoConfig = acc.configComoPagina === false ? "modal" : "panel"
         document.querySelectorAll("#toggle-config-modo .toggle-option").forEach(opcion => {
             opcion.classList.toggle("active", opcion.dataset.configModo === modoConfig)
         })
@@ -1330,7 +1373,7 @@ function marcarCambioNuevo() {
 }
 
 document.addEventListener("pagina-cambiando", (event) => {
-    if (modoActual !== "pagina") return
+    if (modoActual !== "ruta") return
     if (event.detail?.desde !== "configuracion") return
     if (!hayCambios || avisoDescartado || avisoCambiosActivo) return
 
@@ -1357,15 +1400,21 @@ document.addEventListener("pagina-cambiando", (event) => {
 // ============================================
 // ESTADO DEL BOTÓN GUARDAR
 // ============================================
-// El Guardar se atenúa mientras no haya nada que guardar. En modo panel es el
-// botón de confirmar del modal; en modo página, el item de la lastbar.
+// El Guardar se atenúa mientras no haya nada que guardar. En modo Modal es el
+// botón de confirmar del modal; en modo Panel, el del pie y el de la lastbar.
 
 function actualizarEstadoGuardar() {
     hayCambios = hayCambiosEnVivo()
 
-    if (modoActual === "pagina") {
+    if (modoActual === "ruta") {
         document.querySelector('.lastbar .item[data-accion="guardar"]')
             ?.classList.toggle("desact", !hayCambios)
+        const botonPie = document.getElementById("config-guardar")
+        if (botonPie) {
+            botonPie.classList.toggle("desact", !hayCambios)
+            if (hayCambios) botonPie.removeAttribute("disabled")
+            else botonPie.setAttribute("disabled", "true")
+        }
         return
     }
 
@@ -1406,7 +1455,7 @@ function construirPreferencias() {
         unClickSeleccion: document.getElementById("acc-un-click-seleccion")?.checked === true,
         lateralidadCuentaInfo: getLateralidadCuentaUI(),
         resaltarIngresoGasto: document.getElementById("acc-resaltar-ingreso-gasto")?.checked !== false,
-        configComoPagina: document.querySelector("#toggle-config-modo .toggle-option.active")?.dataset.configModo === "pagina"
+        configComoPagina: document.querySelector("#toggle-config-modo .toggle-option.active")?.dataset.configModo !== "modal"
     }
 
     const tiposMovimiento = {
@@ -1634,12 +1683,14 @@ function configurarBotones() {
 // salta al cambiar de pestaña.
 
 export function configComoPagina() {
-    return sesion.getPreferencias()?.accesibilidad?.configComoPagina === true
+    // Antes que undefined significaba "panel ventana"; ahora el predeterminado
+    // es el panel con #panel, asi que solo un false explicito pide el modal.
+    return sesion.getPreferencias()?.accesibilidad?.configComoPagina !== false
 }
 
 function configurarModoConfiguracion() {
     const opciones = document.querySelectorAll("#toggle-config-modo .toggle-option")
-    const activo = configComoPagina() ? "pagina" : "panel"
+    const activo = modoConfigActual()
 
     opciones.forEach(opt => {
         opt.classList.toggle("active", opt.dataset.configModo === activo)
@@ -1648,11 +1699,22 @@ function configurarModoConfiguracion() {
             opciones.forEach(o => o.classList.remove("active"))
             opt.classList.add("active")
             marcarCambioNuevo()
-            // No se persiste al instante: la ventana tiene su propio Guardar.
-            // Mientras tanto, el engranaje sigue funcionando con el modo viejo,
-            // que es lo coherente con el resto de cambios de esta pantalla.
+            // No se persiste al instante: la pantalla tiene su propio Guardar.
+            // Mientras tanto el engranaje sigue con el modo viejo, que es lo
+            // coherente con el resto de cambios de esta pantalla.
         })
     })
+}
+
+// "panel" = los ajustes dentro del #panel con ruta propia (lo predeterminado).
+// "modal"  = la ventana grande sobre la página actual.
+//
+// Se sigue guardando en `accesibilidad.configComoPagina`, donde true significaba
+// "página con #panel". La variable mantiene el nombre para no invalidar lo que
+// ya tienen guardado los usuarios: false = modal (lo que antes era "panel"
+// ventana), true = panel.
+function modoConfigActual() {
+    return configComoPagina() ? "panel" : "modal"
 }
 
 export function abrirModalLogout() {

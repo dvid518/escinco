@@ -1,6 +1,6 @@
 # Registro de deuda técnica
 
-Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.17)
+Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.21)
 
 ## Resumen
 
@@ -23,6 +23,9 @@ Los conteos del resumen son de la tabla, no al revés: 5 + 10 + 8 = 23.
 
 Relación con [`reporte-bugs.md`](./reporte-bugs.md): varios ítems de deuda son
 la causa raíz o la solución de bugs registrados. Se indica en cada uno.
+
+Lo que está abierto y accionable ahora mismo está en
+[`pendientes.md`](./pendientes.md), con ids `PEND-0xx`.
 
 ---
 

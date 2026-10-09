@@ -82,12 +82,10 @@
     align-items: start;
 }
 
-/* El pie es ítem del grid (fila 2, columna 2) y no hermano suyo: como hermano
-   ocupaba el ancho completo y su borde superior pasaba por debajo de la
-   columna del menú (BUG-017). */
-.config-layout > .panel-footer {
-    grid-column: 2;
-}
+/* El pie ya no es un ítem del grid: es el último hijo de .config-body (ver
+   plantillaConfiguracion en js/ui/configuracion.js). No hay ninguna regla que
+   lo coloque en una fila propia, así que ya no puede caer bajo la columna del
+   menú (BUG-017). El `grid-column` que lo fijaba aquí se eliminó con él. */
 
 .config-body {
     display: flex;
@@ -116,11 +114,8 @@
         gap: 16px;
     }
 
-    /* Una sola columna: el pie vuelve a ocupar el ancho entero. */
-    .config-layout > .panel-footer {
-        grid-column: 1 / -1;
-    }
-
+    /* Una sola columna: el menú pasa a ser una franja horizontal y el pie,
+       que ya vive dentro de .config-body, no necesita reposicionarse. */
     .config-nav {
         position: static;
         flex-direction: row;
@@ -197,6 +192,55 @@
     background: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
+}
+
+/* El pie del panel va FUERA de `.config-layout`, así que ocupa todo el ancho
+   del panel (menú + cuerpo) en vez de solo la columna del contenido. Y como
+   el scroll lo hace `.config-layout`, `sticky` dentro de él no serviría: se
+   ancla al contenedor de scroll más cercano. */
+.config-panel-footer {
+    position: sticky;
+    bottom: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    width: 100%;
+    margin: 0;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--glass-frosted);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+}
+
+.config-footer-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: var(--textSecondary);
+    flex-wrap: wrap;
+}
+
+.config-footer-acciones {
+    display: flex;
+    gap: 10px;
+    margin-left: auto;
+}
+
+@media (max-width: 520px) {
+    .config-panel-footer {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .config-footer-acciones {
+        margin-left: 0;
+        justify-content: flex-end;
+    }
 }
 
 /* ========================================

@@ -43,6 +43,7 @@ const SHELL_ASSETS = [
     "/js/core/cache.js",
     "/js/core/fechas.js",
     "/js/core/movimientos.js",
+    "/js/core/familiaCuentas.js",
 
     // JS pages
     "/js/pages/home.js",

@@ -1,0 +1,247 @@
+# Registro de pendientes
+
+Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.21)
+
+Este archivo es la lista **accionable** de lo que queda abierto: lo que bloquea,
+lo que está a medio hacer y lo que se decidió aplazar. No sustituye a los
+registros históricos, los referencia:
+
+- [`reporte-bugs.md`](./reporte-bugs.md) — historial de bugs (`BUG-0xx` resueltos, `R-xx`).
+- [`deuda-tecnica.md`](./deuda-tecnica.md) — deuda estructural (`DEUDA-0xx`) con prioridad.
+- [`roadmap.md`](./roadmap.md) — fases del producto.
+
+Cada pendiente usa un id `PEND-0xx`. Cuando se resuelve, se deja tachado con su
+commit y, si procede, se propaga al registro que le corresponda.
+
+## Resumen
+
+| Prioridad | Pendientes |
+|-----------|-----------|
+| **Bloqueante** | 1 |
+| **Alta** | 3 |
+| **Media** | 3 |
+| **Baja** | 2 |
+
+---
+
+## Bloqueantes
+
+### PEND-001 · `Missing or insufficient permissions` al registrar el snapshot diario
+
+| | |
+|---|---|
+| **Prioridad** | Bloqueante |
+| **Estado** | Sin causa confirmada |
+| **Módulo** | `firebase/firestore.js`, `firebase/firestore.rules` |
+
+Al registrar el snapshot del día salta `FirebaseError: Missing or insufficient
+permissions`.
+
+**Lo ya descartado** (no volver a mirar esto):
+
+- La ruta coincide con la regla: write en `usuarios/{uid}/snapshots/{YYYY-MM-DD}` ↔
+  `match /usuarios/{uid}/snapshots/{fecha}`.
+- `sesion.uid` sale de `user.uid`, no de un campo del perfil.
+- `npm run deploy:rules` responde `already up to date`: las reglas desplegadas son
+  las del repositorio.
+
+**Lo que falta**: el error completo de Firestore desde DevTools, con `path` y el
+motivo. Sin eso no se puede acotar.
+
+**Cómo obtenerlo**: DevTools → consola → reproducir → copiar el objeto `error`
+completo (incluye `code`, `message` y `customData`).
+
+**Candidate a revisar cuando llegue**: que la escritura se dispare antes de que
+termine la autenticación real, o que el `uid` usado sea el del perfil cacheado y
+no el del token.
+
+---
+
+## Alta
+
+### PEND-002 · Rediseño de subcuentas sin commitear y sin probar en navegador
+
+| | |
+|---|---|
+| **Prioridad** | Alta |
+| **Estado** | Funciona en los tests, nunca se ha ejecutado en la app |
+| **Módulo** | `js/core/familiaCuentas.js`, `js/pages/cuentas.js`, `js/pages/dashboard.js` |
+
+El modelo de subcuentas (`padreId`) está implementado y los seis tests pasan,
+pero **nunca ha corrido en navegador**. Además está en el working tree sin
+commitear, y `npm run deploy` publica el working tree entero, así que ya está
+en producción sin haber pasado por una revisión.
+
+Modelo implementado, para no perderlo:
+
+- El padre es la subcuenta de su primera divisa.
+- Cada divisa extra es una cuenta real con `padreId`.
+- Cada hija conserva su `moneda` y su `saldoInicial` (no heredan del padre).
+- Las hijas se ocultan del sidebar.
+- La card del padre muestra el total de la familia; las hijas no generan card.
+- Transferencias entre divisas distintas siguen exigiendo *Cambio de divisa*.
+- Archivar el padre archiva también a sus hijas; eliminarlo se bloquea si tiene hijas.
+
+**Antes de commitear**: probar en `https://escinco.web.app` crear una cuenta
+PEN/USD/USDT, mover saldo en cada hija, y comprobar que el patrimonio y la card
+del padre cuadran.
+
+### PEND-003 · La limpieza de preferencias redundantes queda aplazada
+
+| | |
+|---|---|
+| **Prioridad** | Alta |
+| **Estado** | Decidido aplazar |
+| **Módulo** | `usuarios/{uid}/preferencias` |
+
+`aplicarPreferenciasDiff()` (commit `a29a107`) ya escribe **solo** las claves que
+difieren del default y **borra con `deleteField()`** las que volvieron a él. Pero
+eso solo aplica a partir del próximo guardado de cada usuario: **las
+preferencias ya guardadas siguen con sus claves redundantes**.
+
+**Por qué se aplaza**: borrarlas en lote requiere credenciales admin, y el
+proyecto no tiene `firebase-admin` ni service account. Añadir esa dependencia no
+se ha autorizado.
+
+**Opciones cuando se retome**:
+
+| Opción | Coste |
+|--------|-------|
+| Migración client-side al leer | Sin dependencias, pero añade una escritura en el primer arranque de cada usuario |
+| Script con `firebase-admin` | Barato en escrituras, requiere credenciales y una devDependency nueva |
+| Dejarlo así | Inofensivo: las claves de más se sobrescriben al siguiente guardado y no afectan al comportamiento |
+
+**Impacto actual: ninguno.** Se documenta para que no se pierda de vista.
+
+### PEND-004 · Modo Panel de configuración sin verificar en navegador
+
+| | |
+|---|---|
+| **Prioridad** | Alta |
+| **Estado** | Implementado, sin probar en la app |
+| **Módulo** | `js/ui/configuracion.js`, `js/core/router.js`, `css/configuracion.css` |
+
+Se invirtió el predeterminado: ahora **Panel** es el modo por defecto y **Modal**
+la opción.
+
+- El toggle pasó de tres opciones (Página / Panel) a dos (Panel / Modal).
+- `accesibilidad.configComoPagina` sigue siendo la clave almacenada para no
+  invalidar lo que ya tienen guardado los usuarios: `false` = modal, `true` = panel.
+- `modoActual` (interno) se renombró de `"pagina"`/`"panel"` a `"ruta"`/`"modal"`,
+  porque `"panel"` pasó a significar lo contrario.
+- El pie se movió **fuera de `.config-layout`**: dentro ocupaba solo el ancho de
+  la columna de contenido, y el panel es un grid de menú + cuerpo.
+- El pie lleva ahora Guardar y Cerrar propios, porque en modo Panel no hay modal
+  que los ponga. En modo Modal se ocultan para no duplicar los del modal.
+
+**Pendiente de comprobar**: el pie a todo el ancho, que Guardar se atenúe sin
+cambios, y que Cerrar avise de cambios sin guardar.
+
+**Relacionado**: `BUG-017` (el pie se extendía debajo del sidebar) queda
+resuelto por este cambio, pero sigue marcado `PENDIENTE` en `reporte-bugs.md`
+porque no se ha verificado en navegador.
+
+---
+
+## Media
+
+### PEND-005 · `js/core/familiaCuentas.js` fuera del precache
+
+| | |
+|---|---|
+| **Prioridad** | Media |
+| **Estado** | **Corregido en el working tree** |
+| **Módulo** | `sw.js` |
+
+El módulo nuevo no estaba en `SHELL_ASSETS`, así que sin red la página de Cuentas
+fallaría al importar `familiaCuentas.js`. Añadido a `SHELL_ASSETS` junto a
+`movimientos.js`, con la versión subida a `1.0.0-beta.21`.
+
+Pendiente de confirmar en la siguiente carga que el service worker toma la
+versión nueva.
+
+### PEND-006 · `configuracion.js` se commiteó con cambios previos dentro
+
+| | |
+|---|---|
+| **Prioridad** | Media |
+| **Estado** | Anotado, sin resolver |
+| **Módulo** | `js/ui/configuracion.js` |
+
+El commit `a29a107` (diff de preferencias) arrastró cambios anteriores de ese
+archivo que ya estaban en el working tree y no eran de este trabajo. Quedó
+anotado en el mensaje del commit, pero si se quiere separar, hay que partir el
+archivo en dos commits.
+
+### PEND-007 · Sin suite de tests en el repositorio
+
+| | |
+|---|---|
+| **Prioridad** | Media |
+| **Estado** | Decidido no integrar todavía |
+| **Módulo** | raíz |
+
+Los seis tests del modelo de subcuentas y de preferencias viven en
+`%TEMP%\opencode\*.mjs`, fuera del proyecto, y con stubs de Firebase. Se pierden
+al limpiar la caché y no corren en CI.
+
+Cuando se quiera, el sitio es `tests/` con Node como runner y los stubs de
+`firebase/firestore.js` resueltos por import map.
+
+---
+
+## Baja
+
+### PEND-008 · El deploy publica cambios sin revisar
+
+| | |
+|---|---|
+| **Prioridad** | Baja |
+| **Estado** | Riesgo conocido, aceptado |
+| **Módulo** | `firebase.json` |
+
+`npm run deploy` sube el working tree completo. En el último despliegue se
+publicaron 1421 archivos, incluidos **32 archivos modificados que no eran de este
+trabajo** (home, auth, tema, gráficos, sidebar, manifest…) y el rediseño de
+PEND-002 sin commitear.
+
+Mitigación futura: `firebase deploy --only hosting` sigue usando el directorio,
+así que la única forma real es desplegar con el árbol limpio.
+
+### PEND-009 · Actualizar el estado de beta en la documentación
+
+| | |
+|---|---|
+| **Prioridad** | Baja |
+| **Estado** | Desfasado |
+| **Módulo** | `docs/` |
+
+- `roadmap.md` dice "v1.0.0-beta.5 (≈86 %)"; la app va en **beta.21**.
+- `deuda-tecnica.md` ya está en beta.21, pero su resumen de ítems y prioridades
+  no incluye lo que este trabajo añadió (subcuentas, diff de preferencias,
+  modo Panel).
+- Ambos siguen describiendo el modelo de cuentas sin `padreId`.
+
+---
+
+## Planes a futuro
+
+1. **Limpiar preferencias redundantes** en lote (PEND-003).
+2. **Cerrar el origen del `Missing or insufficient permissions`** de los snapshots
+   (PEND-001).
+3. **Integrar los tests** en el repositorio y en CI (PEND-007).
+4. **Partir `configuracion.js`** para que el diff de preferencias y los cambios
+   previos sean commits independientes (PEND-006).
+5. **Revisar `DEUDA-012` y `DEUDA-013`** (`create`/`update` asimétricos y el
+`hasOnly` manual de `movimientos`): son reincidentes, y ya produjeron R-03
+y R-05.
+
+---
+
+## Reglas de este archivo
+
+- Un pendiente se cierra con su commit y, si aplica, con una línea en
+  `reporte-bugs.md` o `deuda-tecnica.md`.
+- Nada se borra: se tacha. El motivo importa tanto como el arreglo.
+- Si un pendiente necesita una decisión del usuario y no está clara, se queda
+  en *Bloqueante* con la pregunta escrita.
