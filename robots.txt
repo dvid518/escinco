@@ -1,0 +1,17 @@
+User-agent: *
+Allow: /
+
+# La app es una SPA: sin sesión no hay nada que indexar en estas rutas, y con
+# sesión el contenido es privado. Se dejan fuera para no ofrecer al buscador
+# páginas que devuelven un panel vacío o un rebote a /login.
+Disallow: /dashboard
+Disallow: /cuentas
+Disallow: /movimientos
+Disallow: /inversiones
+Disallow: /trading
+Disallow: /configuracion
+Disallow: /login
+Disallow: /register
+Disallow: /reset-password
+
+Sitemap: https://escinco.web.app/sitemap.xml

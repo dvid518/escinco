@@ -100,7 +100,14 @@ service cloud.firestore {
             'nombre', 'tipo', 'moneda', 'saldoInicial', 'estado', 'esPatrimonio',
             'fechaCreacion', 'deuda', 'limite', 'desgravamen', 'diaCorte', 'diaPago',
             'num', 'cci', 'vence', 'umbralAviso', 'umbralCritico', 'orden',
-            'anualidad', 'anualidadFecha', 'avisoUsoEnviado', 'avisoCriticoEnviado'
+            'anualidad', 'anualidadFecha', 'avisoUsoEnviado', 'avisoCriticoEnviado',
+            // Campos que la app ya escribia y que el hasOnly rechazaba, con lo
+            // que crear una cuenta de tipo banco/tarjeta de debito, una cuenta
+            // de exchange o una cuenta con cuenta padre fallaba con
+            // "Missing or insufficient permissions".
+            'numeroCuenta', 'padreId', 'uid',
+            // Subcuentas por divisa: { habilitadas: [ ... ] }
+            'subcuentas'
           ])
           && request.resource.data.keys().hasAll(['nombre', 'tipo', 'moneda', 'saldoInicial', 'estado', 'esPatrimonio', 'orden'])
           && esTexto(request.resource.data.nombre)
@@ -117,7 +124,13 @@ service cloud.firestore {
           && (('umbralCritico' in request.resource.data) ? esNumero(request.resource.data.umbralCritico) : true)
           && (('vence' in request.resource.data) ? esTexto(request.resource.data.vence) : true)
           && (('avisoUsoEnviado' in request.resource.data) ? esBool(request.resource.data.avisoUsoEnviado) : true)
-          && (('avisoCriticoEnviado' in request.resource.data) ? esBool(request.resource.data.avisoCriticoEnviado) : true);
+          && (('avisoCriticoEnviado' in request.resource.data) ? esBool(request.resource.data.avisoCriticoEnviado) : true)
+          // Opcionales que la app escribe en algunos tipos de cuenta.
+          && (('numeroCuenta' in request.resource.data) ? esTexto(request.resource.data.numeroCuenta) : true)
+          && (('padreId' in request.resource.data) ? request.resource.data.padreId == null || esTexto(request.resource.data.padreId) : true)
+          && (('uid' in request.resource.data) ? esTexto(request.resource.data.uid) : true)
+          // `subcuentas` es opcional: solo lo traen las cuentas con subcuentas.
+          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true);
 
         allow update: if esPropietario(uid)
           && ifPresenteTexto(request.resource.data, 'nombre')
@@ -141,7 +154,9 @@ service cloud.firestore {
           && ifPresenteTextoONulo(request.resource.data, 'num')
           && ifPresenteTextoONulo(request.resource.data, 'cci')
           && ifPresenteTextoONulo(request.resource.data, 'vence')
-          && ifPresenteTimestampONulo(request.resource.data, 'fechaCreacion');
+          && ifPresenteTimestampONulo(request.resource.data, 'fechaCreacion')
+          // Editar una cuenta puede anadir subcuentas en otra divisa.
+          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true);
 
         allow delete: if esPropietario(uid);
       }

@@ -9,10 +9,12 @@ import {
     eliminarCuenta,
     normalizarOrdenCuentas,
     reordenarCuentas,
-    restaurarDocumento
+    restaurarDocumento,
+    actualizarMovimientoDoc
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { DIVISAS_LABELS, DIVISAS_SYMBOLS } from "../../constants/divisas.js"
+import { convertirMonto } from "../services/DivisaServicio.js"
 import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
@@ -227,10 +229,6 @@ function renderizarSidebar() {
         texto.textContent = cuenta.nombre
         btn.appendChild(texto)
 
-        if (cuentaSeleccionada && cuenta.id === cuentaSeleccionada.id) {
-            btn.classList.add("act")
-        }
-
         btn.addEventListener("click", () => seleccionarCuenta(cuenta.id))
         item.addEventListener("dragstart", evento => {
             evento.dataTransfer.effectAllowed = "move"
@@ -251,16 +249,36 @@ function renderizarSidebar() {
             ordenadas.splice(desde, 1)
             ordenadas.splice(hasta, 0, origen)
             reordenarCuentas(uid, ordenadas)
-                .then(() => cargarCuentas())
+                .then(() => aplicarOrdenEnMemoria(ordenadas))
                 .catch(error => {
                     console.error("Error reordenando cuentas:", error)
-                    mostrarNotificacion("error", "No se pudo guardar el orden de las cuentas")
+                    // En caso de error, conservamos el orden en memoria (lo que el usuario hizo)
+                    // y no mostramos notificación para no interrumpir el flow.
+                    aplicarOrdenEnMemoria(ordenadas)
                 })
         })
 
         item.append(btn)
         sidebar.appendChild(item)
     })
+}
+
+/**
+ * Deja el nuevo orden solo en memoria y repinta el sidebar.
+ *
+ * Antes esto llamaba a cargarCuentas(), que vacía el sidebar y el panel con
+ * esqueletos y vuelve a leer todas las cuentas de Firestore: al mover una
+ * cuenta por encima de otra se recargaba la página entera, se perdía la
+ * selección y había que esperar el viaje de red para volver a ver lo mismo.
+ *
+ * reordenarCuentas() ya escribe el `orden` y ya invalida la caché, así que
+ * aquí solo hace falta adjuntar ese orden al array local y volver a dibujar la
+ * lista. El panel no se toca: la cuenta seleccionada no ha cambiado y su
+ * detalle sigue siendo válido.
+ */
+function aplicarOrdenEnMemoria(ordenadas) {
+    cuentas = ordenadas.slice()
+    renderizarSidebar()
 }
 
 // ============================================
@@ -288,10 +306,6 @@ async function seleccionarCuenta(id) {
     cuentaSeleccionada = cuentas.find(c => c.id === id)
     if (!cuentaSeleccionada) return
 
-    document.querySelectorAll("#sidebar .cuenta-sidebar-btn").forEach(btn => {
-        btn.classList.toggle("act", btn.dataset.id === id)
-    })
-
     await mostrarDetalleCuenta()
     actualizarLastbar()
 }
@@ -305,63 +319,176 @@ async function mostrarDetalleCuenta() {
     if (!panel || !cuentaSeleccionada) return
 
     panel.setAttribute("aria-busy", "true")
+    const cuenta = cuentaSeleccionada
+
     if (!panel.querySelector(".cuenta-vista")) {
         panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
     }
-    const cuenta = cuentaSeleccionada
+
     let movimientos = []
     try {
         movimientos = await obtenerMovimientos(uid)
     } catch (error) {
         console.error("Error cargando movimientos de la cuenta:", error)
     }
+
     if (cuentaSeleccionada?.id !== cuenta.id) {
         panel.removeAttribute("aria-busy")
         return
     }
 
-    const ciclo = cuenta.tipo === "credito" ? estadoCicloDe(cuenta, movimientos) : null
-    const panelInfo = cuenta.tipo === "credito"
-        ? plantillaInfoTarjeta(cuenta, ciclo)
-        : plantillaInfoNormal(cuenta)
+    // Verificar si la cuenta tiene subcuentas
+    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
+    const divisasSubcuentas = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
 
-    panel.innerHTML = `
-        <div class="cuenta-vista ${lateralidadInfo()}">
-            <div class="cuenta-vista-movimientos">
-                <div class="cuenta-mov-head">
-                    <div class="totales" id="totales-movimientos-cuenta"></div>
+    if (tieneSubcuentas) {
+        // Renderizar vista de subcuentas con tabs
+        await renderizarVistaSubcuentas(panel, cuenta, movimientos)
+        panel.removeAttribute("aria-busy")
+        vincularInteraccionCardsCuenta()
+    } else {
+        const ciclo = cuenta.tipo === "credito" ? estadoCicloDe(cuenta, movimientos) : null
+        const panelInfo = cuenta.tipo === "credito"
+            ? plantillaInfoTarjeta(cuenta, ciclo)
+            : plantillaInfoNormal(cuenta)
+
+        panel.innerHTML = `
+            <div class="cuenta-vista ${lateralidadInfo()}">
+                <div class="cuenta-vista-movimientos">
+                    <div class="cuenta-mov-head">
+                        <div class="totales" id="totales-movimientos-cuenta"></div>
+                    </div>
+                    <div class="lista-cards" id="lista-movimientos-cuenta">
+                        ${skeletonMarkup({ rows: 3 })}
+                    </div>
                 </div>
-                <div class="lista-cards" id="lista-movimientos-cuenta">
-                    ${skeletonMarkup({ rows: 3 })}
+                <div class="cuenta-vista-info">
+                    ${panelInfo}
                 </div>
             </div>
-            <div class="cuenta-vista-info">
-                ${panelInfo}
+        `
+
+        await cargarMovimientosDeCuenta(cuenta, movimientos)
+        panel.removeAttribute("aria-busy")
+        vincularInteraccionCardsCuenta()
+
+        panel.querySelectorAll(".btn-copiar").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const texto = btn.dataset.copiar
+                if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
+            })
+        })
+
+        // El modal educativo de niveles de uso
+        panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
+            badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta, {
+                pagadoCompleto: ciclo?.pagadoCompleto === true
+            }))
+        })
+    }
+}
+
+function calcularSaldoSubcuenta(movimientos, divisa) {
+    const movimientosDivisa = movimientos.filter(m => (m.divisa || "").toUpperCase() === divisa.toUpperCase())
+    let saldo = 0
+    movimientosDivisa.forEach(m => {
+        const monto = montoDeMovimiento(m, null)
+        if (esMovimientoPositivo(m, null)) saldo += monto
+        else saldo -= monto
+    })
+    return saldo
+}
+
+function renderizarVistaSubcuentas(panel, cuenta, movimientos) {
+    const lateral = lateralidadInfo()
+    const divisas = cuenta.subcuentas.habilitadas
+    const saldos = {}
+
+    // Calcular saldos por divisa
+    divisas.forEach(divisa => {
+        saldos[divisa] = calcularSaldoSubcuenta(movimientos, divisa)
+    })
+
+    // Renderizar tabs de subcuentas
+    const tabsNav = `
+        <div class="subcuentas-tabs">
+            ${divisas.map((divisa, idx) => {
+                const saldo = saldos[divisa] || 0
+                const simbolo = DIVISAS_SYMBOLS[divisa] || divisa.toUpperCase()
+                const label = sesion.getPreferencias()?.formatoDivisa === "codigo" ? divisa.toUpperCase() : simbolo
+                return `
+                    <button class="subcuenta-tab${idx === 0 ? " active" : ""}" data-divisa="${divisa}" role="tab" aria-controls="subcuenta-${divisa}">
+                        ${cuenta.nombre} ${label}
+                    </button>
+                `
+            }).join("")}
+        </div>
+    `
+
+    // Renderizar contenido de cada subcuenta
+    const tabsContent = `
+        ${divisas.map((divisa, idx) => {
+            const saldo = saldos[divisa] || 0
+            const movimientosDivisa = movimientos.filter(m => (m.divisa || "").toUpperCase() === divisa.toUpperCase())
+            const moneda = divisa.toUpperCase()
+            const simbolo = DIVISAS_SYMBOLS[divisa] || "$"
+            const esPositivo = saldo >= 0
+
+            // Totales de esta subcuenta
+            const positivos = movimientosDivisa.filter(m => esMovimientoPositivo(m, null)).reduce((sum, m) => sum + (montoDeMovimiento(m, null) || 0), 0)
+            const negativos = movimientosDivisa.filter(m => !esMovimientoPositivo(m, null)).reduce((sum, m) => sum + Math.abs(montoDeMovimiento(m, null) || 0), 0)
+
+            return `
+                <div class="subcuenta-contenido${idx === 0 ? " active" : ""}" id="subcuenta-${divisa}">
+                    <div class="subcuenta-saldo ${esPositivo ? "positive" : "negative"}">
+                        ${saldo < 0 ? "−" : ""}${simbolo} ${Math.abs(saldo).toFixed(2)}
+                    </div>
+                    <div class="subcuenta-movimientos">
+                        ${movimientosDivisa.length > 0 ? `
+                            ${movimientosDivisa.slice(0, 10).map(m => `
+                                <div class="card-item" data-id="${m.id}">
+                                    <div class="card-item-info">
+                                        <span class="card-item-titulo">${m.concepto || m.tipo || "Sin concepto"}</span>
+                                        <span class="card-item-detalle">${formatearFecha(m.fechaRealizacion)}</span>
+                                    </div>
+                                    <div class="card-item-valor ${esMovimientoPositivo(m, null) ? "positive" : "negative"}">
+                                        ${signoMovimiento(m)} ${formatearMontoConDivisa(Math.abs(montoDeMovimiento(m, null)), m.divisa || "pen")}
+                                    </div>
+                                </div>
+                            `).join("")}
+                            <p class="lista-vacia">Mostrando los 10 movimientos más recientes</p>
+                        ` : `
+                            <p class="lista-vacia">No hay movimientos en esta subcuenta aún.</p>
+                        `}
+                    </div>
+                </div>
+            `
+        }).join("")}
+    `
+
+    panel.innerHTML = `
+        <div class="cuenta-vista ${lateral}">
+            ${tabsNav}
+            <div class="subcuentas-contenido">
+                ${tabsContent}
             </div>
         </div>
     `
 
-    await cargarMovimientosDeCuenta(cuenta, movimientos)
-    panel.removeAttribute("aria-busy")
-    vincularInteraccionCardsCuenta()
-
-    panel.querySelectorAll(".btn-copiar").forEach(btn => {
-        btn.addEventListener("click", () => {
-            const texto = btn.dataset.copiar
-            if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
+    // Vincular eventos de tabs
+    document.querySelectorAll(".subcuenta-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll(".subcuenta-tab").forEach(t => t.classList.remove("active"))
+            tab.classList.add("active")
+            document.querySelectorAll(".subcuenta-contenido").forEach(c => c.classList.remove("active"))
+            const targetId = tab.getAttribute("aria-controls")
+            document.getElementById(targetId).classList.add("active")
         })
     })
+}
 
-    // El modal educativo de niveles de uso ya existía en CreditoServicio, pero
-    // solo se alcanzaba desde el toast de cruce de umbral. El badge del
-    // encabezado es su otro acceso natural.
-    panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
-        badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta, {
-            // `ciclo` solo se calcula para tarjetas (`:322`) y este badge solo se
-            // emite en ellas.
-            pagadoCompleto: ciclo?.pagadoCompleto === true
-        }))
-    })
+function signoMovimiento(m) {
+    return esMovimientoPositivo(m, null) ? "+" : "−"
 }
 
 // ============================================
@@ -387,6 +514,13 @@ function plantillaInfoNormal(c) {
             ${saldo < 0 ? "−" : ""}${formatearMontoConDivisa(Math.abs(saldo), c.moneda)}
         </div>
 
+        <div class="credito-resumen">
+            <div class="resumen-card">
+                <div class="resumen-label">Saldo actual</div>
+                <div class="resumen-valor ${esPositivo ? "positive" : "negative"}">${formatearMontoConDivisa(saldo, c.moneda)}</div>
+            </div>
+        </div>
+
         <div class="cuenta-detalle">
             <div class="field">
                 <span class="label">Tipo</span>
@@ -396,7 +530,7 @@ function plantillaInfoNormal(c) {
                 <span class="label">Moneda</span>
                 <span class="value">${(c.moneda || "PEN").toUpperCase()}</span>
             </div>
-            ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${c.num} <button type="button" class="btn-copiar" data-copiar="${c.num}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
+            ${c.num || c.numeroCuenta ? `<div class="field"><span class="label">Número</span><span class="value">${c.num || c.numeroCuenta} <button type="button" class="btn-copiar" data-copiar="${c.num || c.numeroCuenta}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
             ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
             ${c.cci ? `<div class="field"><span class="label">CCI</span><span class="value">${c.cci} <button type="button" class="btn-copiar" data-copiar="${c.cci}" title="Copiar CCI">${icono("copy", 14)}</button></span></div>` : ""}
         </div>
@@ -502,9 +636,12 @@ function plantillaInfoTarjeta(c, ciclo) {
 export async function abrirPagarTarjeta(cuenta) {
     try {
         const { abrirFormularioMovimiento } = await import("./movimientos.js")
+        const divisa = cuenta.subcuentas && cuenta.subcuentas.habilitadas.includes(cuenta.moneda || "pen")
+            ? cuenta.moneda || "pen"
+            : cuenta.moneda || "pen"
         abrirFormularioMovimiento(TIPOS_MOVIMIENTO.PAGO_TARJETA, null, {
             alGuardar: () => cargarCuentas(),
-            valores: { tarjeta: cuenta.id, divisa: cuenta.moneda || "pen" }
+            valores: { tarjeta: cuenta.id, divisa }
         })
     } catch (error) {
         console.error("Error abriendo pago de tarjeta:", error)
@@ -530,8 +667,43 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
 
     try {
         const movimientos = movimientosCargados || await obtenerMovimientos(uid)
+        const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
+        const divisasSubcuentas = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
+
+        // Filtrar movimientos que involucran la cuenta padre
         const involucrados = movimientos
             .filter(m => movimientoInvolucra(m, cuenta.id))
+        
+        // Si la cuenta tiene subcuentas, agrupar movimientos por divisa
+        if (tieneSubcuentas) {
+            // Agrupar movimientos por divisa de la subcuenta
+            const movimientosPorDivisa = {}
+            divisasSubcuentas.forEach(divisa => {
+                movimientosPorDivisa[divisa] = movimientos.filter(m => {
+                    const mDivisa = (m.divisa || "").toUpperCase()
+                    return mDivisa === divisa.toUpperCase()
+                })
+            })
+            // Añadir también movimientos que no coincidan exactamente con las divisas seleccionadas
+            // pero que involucran la cuenta (para casos de migración)
+            const movimientoSinDivisa = movimientos.filter(m => !m.divisa && movimientoInvolucra(m, cuenta.id))
+            
+            // Si hay movimientos sin divisa, asignarlos a la primera divisa
+            if (movimientoSinDivisa.length > 0 && divisasSubcuentas.length > 0) {
+                movimientosPorDivisa[divisasSubcuentas[0]] = (
+                    (movimientosPorDivisa[divisasSubcuentas[0]] || []).concat(movimientoSinDivisa)
+                ).filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
+            }
+            
+            // Aplanar para el renderizado (usaremos la agrupación manual)
+            involucrados.length = 0 // Limpiar para no duplicar
+            
+            // Renderizar usando la agrupación por divisa
+            await renderizarMovimientosSubcuentas(contenedor, contenedorTotales, cuenta, movimientosPorDivisa, divisasSubcuentas)
+            return
+        }
+
+        const involucradosOrdenados = involucrados
             .sort((a, b) => {
                 const fa = (fechaDeMovimiento(a)?.getTime?.()) || 0
                 const fb = (fechaDeMovimiento(b)?.getTime?.()) || 0
@@ -542,11 +714,11 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
             })
 
         if (contenedorTotales) {
-            contenedorTotales.innerHTML = renderizarTotalesCuenta(cuenta, involucrados)
+            contenedorTotales.innerHTML = renderizarTotalesCuenta(cuenta, involucradosOrdenados)
             vincularAccionesTotales(cuenta)
         }
 
-        const recientes = involucrados.slice(0, 20)
+        const recientes = involucradosOrdenados.slice(0, 20)
         movimientosCuentaActivos = recientes
 
         if (recientes.length === 0) {
@@ -568,8 +740,132 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
     }
 }
 
+async function renderizarMovimientosSubcuentas(contenedor, contenedorTotales, cuenta, movimientosPorDivisa, divisasSubcuentas) {
+    // Renderizar tabs de subcuentas
+    const tabsNav = `
+        <div class="subcuentas-tabs">
+            ${divisasSubcuentas.map((divisa, idx) => {
+                const saldo = calcularSaldoSubcuentaPorDivisa(movimientosPorDivisa[divisa] || [], divisa)
+                const simbolo = DIVISAS_SYMBOLS[divisa] || divisa.toUpperCase()
+                return `
+                    <button class="subcuenta-tab${idx === 0 ? " active" : ""}" data-divisa="${divisa}" role="tab" aria-controls="subcuenta-${divisa}">
+                        ${cuenta.nombre} ${simbolo}
+                    </button>
+                `
+            }).join("")}
+        </div>
+    `
+
+    // Renderizar contenido de cada subcuenta
+    const tabsContent = `
+        ${divisasSubcuentas.map((divisa, idx) => {
+            const movimientos = movimientosPorDivisa[divisa] || []
+            const saldo = calcularSaldoSubcuentaPorDivisa(movimientos, divisa)
+            const simbolo = DIVISAS_SYMBOLS[divisa] || "$"
+            const esPositivo = saldo >= 0
+
+            const positivos = movimientos.filter(m => esMovimientoPositivo(m, null)).reduce((sum, m) => sum + (montoDeMovimiento(m, null) || 0), 0)
+            const negativos = movimientos.filter(m => !esMovimientoPositivo(m, null)).reduce((sum, m) => sum + Math.abs(montoDeMovimiento(m, null) || 0), 0)
+
+            return `
+                <div class="subcuenta-contenido${idx === 0 ? " active" : ""}" id="subcuenta-${divisa}">
+                    <div class="subcuenta-saldo ${esPositivo ? "positive" : "negative"}">
+                        ${saldo < 0 ? "−" : ""}${simbolo} ${Math.abs(saldo).toFixed(2)}
+                    </div>
+                    <div class="subcuenta-movimientos">
+                        ${movimientos.length > 0 ? `
+                            ${movimientos.slice(0, 10).map(m => `
+                                <div class="card-item" data-id="${m.id}">
+                                    <div class="card-item-info">
+                                        <span class="card-item-titulo">${m.concepto || m.tipo || "Sin concepto"}</span>
+                                        <span class="card-item-detalle">${formatearFecha(m.fechaRealizacion)}</span>
+                                    </div>
+                                    <div class="card-item-valor ${esMovimientoPositivo(m, null) ? "positive" : "negative"}">
+                                        ${signoMovimiento(m)} ${formatearMontoConDivisa(Math.abs(montoDeMovimiento(m, null)), m.divisa || "pen")}
+                                    </div>
+                                </div>
+                            `).join("")}
+                            <p class="lista-vacia">Mostrando los 10 movimientos más recientes</p>
+                        ` : `
+                            <p class="lista-vacia">No hay movimientos en esta subcuenta aún.</p>
+                        `}
+                    </div>
+                </div>
+            `
+        }).join("")}
+    `
+
+    contenedor.innerHTML = ""
+    contenedorTotales.innerHTML = ""
+    
+    // Renderizar tabs navigation
+    const navDiv = document.createElement("div")
+    navDiv.innerHTML = tabsNav
+    contenedor.parentElement?.insertBefore(navDiv, contenedor)
+    
+    // Renderizar contenido
+    const contenidoDiv = document.createElement("div")
+    contenidoDiv.innerHTML = tabsContent
+    contenedor.parentElement?.insertBefore(contenidoDiv, contenedor)
+    
+    // Mover el contenedor original después del contenido
+    contenedor.parentElement?.insertBefore(contenedor, contenidoDiv.nextSibling)
+    
+    // Vincular eventos de tabs
+    document.querySelectorAll(".subcuenta-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            document.querySelectorAll(".subcuenta-tab").forEach(t => t.classList.remove("active"))
+            tab.classList.add("active")
+            document.querySelectorAll(".subcuenta-contenido").forEach(c => c.classList.remove("active"))
+            const targetId = tab.getAttribute("aria-controls")
+            document.getElementById(targetId).classList.add("active")
+        })
+    })
+}
+
+function calcularSaldoSubcuentaPorDivisa(movimientos, divisa) {
+    let saldo = 0
+    movimientos.forEach(m => {
+        const monto = montoDeMovimiento(m, null)
+        if (esMovimientoPositivo(m, null)) saldo += monto
+        else saldo -= monto
+    })
+    return saldo
+}
+
 // Totales adaptados a los movimientos que involucran esta cuenta.
 function renderizarTotalesCuenta(cuenta, involucrados) {
+    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
+
+    if (tieneSubcuentas) {
+        // Renderizar totales por divisa para subcuentas
+        const porDivisa = {}
+        const divisas = cuenta.subcuentas.habilitadas
+
+        involucrados.forEach(m => {
+            const divisa = (m.divisa || cuenta.moneda || "PEN").toUpperCase()
+            if (!porDivisa[divisa]) porDivisa[divisa] = { positivo: 0, negativo: 0 }
+            const monto = montoDeMovimiento(m, cuenta.id)
+            if (esMovimientoPositivo(m, cuenta.id)) porDivisa[divisa].positivo += monto
+            else porDivisa[divisa].negativo += monto
+        })
+
+        const lineas = Object.entries(porDivisa)
+            .map(([divisa, totales]) => `
+                <span class="totales-item">
+                    <span class="totales-positivo">+${formatearMontoConDivisa(totales.positivo, divisa)}</span>
+                    <span class="totales-sep">/</span>
+                    <span class="totales-negativo">−${formatearMontoConDivisa(totales.negativo, divisa)}</span>
+                </span>
+            `)
+            .join("")
+
+        return `
+            <span class="totales-count">${involucrados.length} movimientos</span>
+            ${lineas}
+        `
+    }
+
     const porDivisa = {}
 
     const movimientosTotales = cuenta.tipo === "credito"
@@ -626,6 +922,8 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 }
 
 function vincularAccionesTotales(cuenta) {
+    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
+
     if (cuenta.tipo === "credito") {
         document.getElementById("btn-gasto-tarjeta")?.addEventListener("click", () => {
             import("./movimientos.js").then(({ abrirFormularioMovimiento }) => {
@@ -637,6 +935,12 @@ function vincularAccionesTotales(cuenta) {
         })
         document.getElementById("btn-pagar-tarjeta")?.addEventListener("click", () => {
             abrirPagarTarjeta(cuenta)
+        })
+    } else if (tieneSubcuentas) {
+        document.getElementById("btn-nuevo-movimiento-cuenta")?.addEventListener("click", () => {
+            import("./movimientos.js").then(({ abrirSelectorTipoMovimiento }) => {
+                abrirSelectorTipoMovimiento(cuenta.id)
+            })
         })
     } else {
         document.getElementById("btn-nuevo-movimiento-cuenta")?.addEventListener("click", () => {
@@ -660,10 +964,13 @@ function plantillaMovimiento(m, cuentaId = null) {
     const monto = montoDeMovimiento(m, cuentaId)
     const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "−"
-    const clase = esPositivo ? "positive" : "negative"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
     const seleccionada = seleccionadosCuenta.has(m.id) ? " seleccionado" : ""
+
+    // Determinar clase de color: error muestra en ambar
+    let clase = esPositivo ? "positive" : "negative"
+    if (m.tipo === "error") clase = "ambar"
 
     return `
         <div class="card-item${seleccionada}" data-id="${m.id}">
@@ -1378,6 +1685,46 @@ const TIPOS_CUENTA_CREACION = [
     { id: "debito", nombre: "Tarjeta de débito", icono: "credit-card" }
 ]
 
+// El ejemplo del nombre tiene que encajar con lo que se está creando: "Ej:
+// BBVA, BCP..." en una cuenta de efectivo no dice nada. Los de tipo tarjeta
+// tampoco, porque el nombre es lo que el usuario elige para distinguirla, no
+// el banco emisor.
+const PLACEHOLDER_NOMBRE_POR_TIPO = {
+    efectivo: "Ej: Efectivo",
+    broker: "Ej: Broker principal...",
+    exchange: "Ej: Exchange principal...",
+    credito: "Ej: Tarjeta BCP...",
+    debito: "Ej: Débito BBVA..."
+}
+
+/**
+ * Deja el nombre en una columna y lo estira a dos solo si hace falta.
+ *
+ * Los formularios van en rejilla de dos columnas, así que un número impar de
+ * celdas deja media fila vacía al final. Se cuentan CELDAS (un .form-group vale
+ * 1, un .form-group.full vale 2) y, si el total es impar, el nombre se estira
+ * para ocupar las dos y la rejilla queda llena. Es el mismo criterio que usa
+ * el selector de tipo de movimiento para su botón de "error".
+ *
+ * Se cuenta en celdas y no en campos a propósito: el campo "Fecha de
+ * anualidad" ocupa dos columnas y por eso el formulario de crédito suma 15
+ * celdas, no 13, y sin contar así quedaría un hueco al final.
+ */
+function ajustarAnchoNombre(formulario) {
+    if (!formulario) return
+    const grupos = [...formulario.querySelectorAll(".form-group")]
+    const nombre = grupos.find(grupo => grupo.querySelector("#campo-nombre"))
+    if (!nombre) return
+
+    const celdas = grupos
+        .filter(grupo => !grupo.hidden)
+        .reduce((total, grupo) => total + (grupo.classList.contains("full") ? 2 : 1), 0)
+
+    // El nombre entra en el recuento como una celda; si el total es impar se
+    // le da la segunda y todo empareja.
+    nombre.classList.toggle("full", celdas % 2 === 1)
+}
+
 function _abrirModalCrearCuentaDosPasos() {
     let tipoSeleccionado = null
     let paso = 1
@@ -1393,7 +1740,8 @@ function _abrirModalCrearCuentaDosPasos() {
         </div>
     `
 
-    const formulario = tipo => `
+    const formulario = tipo => {
+        return `
         <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
             <input type="hidden" id="campo-tipo" value="${tipo}">
             <div class="form-group full">
@@ -1401,12 +1749,13 @@ function _abrirModalCrearCuentaDosPasos() {
                 <input type="text" id="campo-nombre" class="form-input" placeholder="Ej: BBVA, BCP..." required>
             </div>
             <div class="form-group">
-                <label for="campo-moneda">Moneda</label>
-                <select id="campo-moneda" class="form-input" required>
-                    <option value="pen">PEN</option>
-                    <option value="usd">USD</option>
-                    <option value="usdt">USDT</option>
-                </select>
+                <label>Divisa de la cuenta</label>
+                <div class="toggle-group">
+                    <span class="toggle-option" data-divisa="pen">PEN</span>
+                    <span class="toggle-option" data-divisa="usd">USD</span>
+                    <span class="toggle-option" data-divisa="usdt">USDT</span>
+                </div>
+                <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
             <div class="form-group">
                 <label for="campo-saldo">Saldo inicial</label>
@@ -1509,21 +1858,44 @@ function _abrirModalCrearCuentaDosPasos() {
 
             const nombre = modalEl.querySelector("#campo-nombre")?.value.trim()
             const tipo = tipoSeleccionado
-            const moneda = modalEl.querySelector("#campo-moneda")?.value || "pen"
+            const toggles = modalEl.querySelectorAll(".toggle-option")
+            const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
+            const numDivisasSeleccionadas = divisasSeleccionadas.length
             const saldo = parseFloat(modalEl.querySelector("#campo-saldo")?.value) || 0
             if (!nombre) {
                 mostrarNotificacion("warning", "El nombre es obligatorio")
                 return false
             }
 
+            let monedaCuenta
+            let subcuentasConfig
+
+            if (numDivisasSeleccionadas >= 2) {
+                // Multiple currencies selected: create account with subaccounts
+                monedaCuenta = divisasSeleccionadas[0]
+                subcuentasConfig = { habilitadas: divisasSeleccionadas }
+            } else if (numDivisasSeleccionadas === 1) {
+                // Single currency selected: regular account (unique/única)
+                monedaCuenta = divisasSeleccionadas[0]
+                subcuentasConfig = null
+            } else {
+                // No currency selected: regular account default to PEN
+                monedaCuenta = "pen"
+                subcuentasConfig = null
+            }
+
             const datos = {
                 nombre,
                 tipo,
-                moneda,
-                saldoInicial: saldo,
+                moneda: monedaCuenta,
+                saldoInicial: subcuentasConfig ? 0 : saldo,
                 estado: "activa",
                 esPatrimonio: true,
                 orden: cuentas.length
+            }
+
+            if (subcuentasConfig) {
+                datos.subcuentas = subcuentasConfig
             }
 
             if (tipo === "credito") {
@@ -1578,34 +1950,50 @@ function _abrirModalCrearCuentaDosPasos() {
 
 function abrirFormularioCrearCuenta(tipo) {
     const esCredito = tipo === "credito"
-    const esTarjeta = esCredito || tipo === "debito"
-    const esCuenta = tipo === "broker" || tipo === "exchange"
+    const esDebito = tipo === "debito"
+    const esTarjeta = esCredito || esDebito
+    // Una tarjeta de débito también se abre como cuenta bancaria: tiene su
+    // número de cuenta y su CCI, además del número de tarjeta. Por eso
+    // comparte los campos de cuenta con broker y exchange.
+    const esCuenta = tipo === "broker" || tipo === "exchange" || esDebito
     const contenido = `
         <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
             <input type="hidden" id="campo-tipo" value="${tipo}">
-            <div class="form-group full">
+            <div class="form-group">
                 <label for="campo-nombre">Nombre de la cuenta</label>
-                <input type="text" id="campo-nombre" class="form-input" placeholder="Ej: Broker principal..." required>
+                <input type="text" id="campo-nombre" class="form-input" placeholder="${PLACEHOLDER_NOMBRE_POR_TIPO[tipo] || PLACEHOLDER_NOMBRE_POR_TIPO.broker}" required>
             </div>
             <div class="form-group">
-                <label for="campo-moneda">Moneda</label>
-                <select id="campo-moneda" class="form-input" required>
-                    <option value="pen">PEN</option>
-                    <option value="usd">USD</option>
-                    <option value="usdt">USDT</option>
-                </select>
+                <label>Divisa de la cuenta</label>
+                <div class="toggle-group">
+                    <span class="toggle-option" data-divisa="pen">PEN</span>
+                    <span class="toggle-option" data-divisa="usd">USD</span>
+                    <span class="toggle-option" data-divisa="usdt">USDT</span>
+                </div>
+                <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
             <div class="form-group">
                 <label for="campo-saldo">Saldo inicial</label>
                 <input type="number" id="campo-saldo" class="form-input" step="0.01" min="0" value="0">
             </div>
-            <div class="form-group cuenta-only" ${esCuenta ? "" : "hidden"}>
+            <div class="form-group cuenta-only" ${tipo === "exchange" ? "hidden" : (esCuenta ? "" : "hidden")}>
                 <label for="campo-num-cuenta">Número de cuenta</label>
                 <input type="text" id="campo-num-cuenta" class="form-input" placeholder="000-000000000000">
             </div>
-            <div class="form-group cuenta-only" ${esCuenta ? "" : "hidden"}>
+            <div class="form-group cuenta-only" ${tipo === "exchange" ? "hidden" : (esCuenta ? "" : "hidden")}>
                 <label for="campo-cci">CCI</label>
                 <input type="text" id="campo-cci" class="form-input" placeholder="000000000000000000000000">
+            </div>
+            <div class="form-group" ${tipo === "exchange" ? "" : "hidden"}>
+                <label for="campo-uid">UID</label>
+                <input type="text" id="campo-uid" class="form-input" placeholder="UID del exchange">
+            </div>
+            <div class="form-group">
+                <label for="campo-padre">Cuenta padre (opcional)</label>
+                <select id="campo-padre" class="form-input">
+                    <option value="">Ninguna</option>
+                    ${cuentas.map(c => `<option value="${c.id}">${c.nombre} · ${(c.moneda || "").toUpperCase()}</option>`).join("")}
+                </select>
             </div>
             <div class="form-group card-only" ${esTarjeta ? "" : "hidden"}>
                 <label for="campo-num-tarjeta">Número de tarjeta</label>
@@ -1658,21 +2046,45 @@ function abrirFormularioCrearCuenta(tipo) {
         cancelText: "Cancelar",
         onConfirm: async () => {
             const nombre = modal.querySelector("#campo-nombre")?.value.trim()
-            const moneda = modal.querySelector("#campo-moneda")?.value || "pen"
+            const tipo = tipo
+            const toggles = modal.querySelectorAll(".toggle-option")
+            const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
+            const numDivisasSeleccionadas = divisasSeleccionadas.length
             const saldo = parseFloat(modal.querySelector("#campo-saldo")?.value) || 0
             if (!nombre) {
                 mostrarNotificacion("warning", "El nombre es obligatorio")
                 return false
             }
 
+            let monedaCuenta
+            let subcuentasConfig
+
+            if (numDivisasSeleccionadas >= 2) {
+                // Multiple currencies selected: create account with subaccounts
+                monedaCuenta = divisasSeleccionadas[0]
+                subcuentasConfig = { habilitadas: divisasSeleccionadas }
+            } else if (numDivisasSeleccionadas === 1) {
+                // Single currency selected: regular account (unique/única)
+                monedaCuenta = divisasSeleccionadas[0]
+                subcuentasConfig = null
+            } else {
+                // No currency selected: regular account default to PEN
+                monedaCuenta = "pen"
+                subcuentasConfig = null
+            }
+
             const datos = {
                 nombre,
                 tipo,
-                moneda,
-                saldoInicial: saldo,
+                moneda: monedaCuenta,
+                saldoInicial: subcuentasConfig ? 0 : saldo,
                 estado: "activa",
                 esPatrimonio: true,
                 orden: cuentas.length
+            }
+
+            if (subcuentasConfig) {
+                datos.subcuentas = subcuentasConfig
             }
             if (esCredito) {
                 datos.limite = parseFloat(modal.querySelector("#campo-limite")?.value) || 0
@@ -1694,11 +2106,24 @@ function abrirFormularioCrearCuenta(tipo) {
             if (esTarjeta) {
                 datos.num = modal.querySelector("#campo-num-tarjeta")?.value.trim() || ""
                 datos.vence = modal.querySelector("#campo-vence")?.value.trim() || ""
-            } else if (esCuenta) {
-                datos.num = modal.querySelector("#campo-num-cuenta")?.value.trim() || ""
-                datos.cci = modal.querySelector("#campo-cci")?.value.trim() || ""
+            }
+            if (esCuenta) {
+                if (tipo === "exchange") {
+                    // Exchange solo guarda su UID: no hay número de cuenta ni CCI.
+                    datos.uid = modal.querySelector("#campo-uid")?.value.trim() || ""
+                    datos.num = ""
+                    datos.cci = ""
+                } else {
+                    if (esDebito) {
+                        datos.numeroCuenta = modal.querySelector("#campo-num-cuenta")?.value.trim() || ""
+                    } else {
+                        datos.num = modal.querySelector("#campo-num-cuenta")?.value.trim() || ""
+                    }
+                    datos.cci = modal.querySelector("#campo-cci")?.value.trim() || ""
+                }
             }
 
+            datos.padreId = modal.querySelector("#campo-padre")?.value || null
             try {
                 // Se llega desde el paso 1 del modal de dos pasos: seleccionar
                 // la cuenta recién creada.
@@ -1715,6 +2140,7 @@ function abrirFormularioCrearCuenta(tipo) {
         }
     })
     modal.querySelector("#campo-nombre")?.focus()
+    ajustarAnchoNombre(modal.querySelector("#form-crear-cuenta"))
 }
 
 // ============================================
@@ -1726,6 +2152,8 @@ function _abrirModalEditarCuenta(cuenta) {
     const permisoMoneda = cuenta.tipo !== "credito"
     const esArchivada = cuenta.estado === "archivada"
     const saldoParaEliminar = saldoParaRegla(cuenta)
+    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
+    const divisasExistentes = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
     const partesAnualidad = String(cuenta.anualidadFecha || "").split("-").map(Number)
     const anualidadFechaInput = partesAnualidad.length === 2 && partesAnualidad.every(Number.isFinite)
         ? `${new Date().getFullYear()}-${String(partesAnualidad[0]).padStart(2, "0")}-${String(partesAnualidad[1]).padStart(2, "0")}`
@@ -1733,18 +2161,19 @@ function _abrirModalEditarCuenta(cuenta) {
 
     const html = `
         <form id="form-editar-cuenta" class="form-movimiento form-movimiento-grid">
-            <div class="form-group full">
+            <div class="form-group">
                 <label for="edit-nombre">Nombre</label>
                 <input type="text" id="edit-nombre" class="form-input" value="${cuenta.nombre || ""}" required>
             </div>
             ${permisoMoneda ? `
                 <div class="form-group">
-                    <label for="edit-moneda">Moneda</label>
-                    <select id="edit-moneda" class="form-input">
-                        <option value="pen" ${moneda === "pen" ? "selected" : ""}>PEN</option>
-                        <option value="usd" ${moneda === "usd" ? "selected" : ""}>USD</option>
-                        <option value="usdt" ${moneda === "usdt" ? "selected" : ""}>USDT</option>
-                    </select>
+                    <label>Divisa de la cuenta</label>
+                    <div class="toggle-group">
+                        <span class="toggle-option${divisasExistentes.includes("pen") ? " active" : ""}" data-divisa="pen">PEN</span>
+                        <span class="toggle-option${divisasExistentes.includes("usd") ? " active" : ""}" data-divisa="usd">USD</span>
+                        <span class="toggle-option${divisasExistentes.includes("usdt") ? " active" : ""}" data-divisa="usdt">USDT</span>
+                    </div>
+                    ${tieneSubcuentas ? '<p class="form-hint">Las divisas no pueden eliminarse de una cuenta con subcuentas existentes.</p>' : '<p class="form-hint">Seleccione las divisas para las subcuentas.</p>'}
                 </div>
             ` : ""}
             ${cuenta.tipo === "credito" ? `
@@ -1792,7 +2221,7 @@ function _abrirModalEditarCuenta(cuenta) {
                     <input type="text" id="edit-vence" class="form-input" maxlength="5" placeholder="MM/AA" value="${cuenta.vence || ""}">
                 </div>
             ` : ""}
-            ${cuenta.tipo === "broker" || cuenta.tipo === "exchange" ? `
+            ${cuenta.tipo === "broker" ? `
                 <div class="form-group">
                     <label for="edit-num">Número de cuenta</label>
                     <input type="text" id="edit-num" class="form-input" value="${cuenta.num || ""}">
@@ -1802,10 +2231,24 @@ function _abrirModalEditarCuenta(cuenta) {
                     <input type="text" id="edit-cci" class="form-input" value="${cuenta.cci || ""}">
                 </div>
             ` : ""}
+            ${cuenta.tipo === "exchange" ? `
+                <div class="form-group">
+                    <label for="edit-uid">UID</label>
+                    <input type="text" id="edit-uid" class="form-input" value="${cuenta.uid || ""}">
+                </div>
+            ` : ""}
+            ${cuenta.tipo === "debito" ? `
+                <span class="form-section-title">Cuenta bancaria</span>
+                <div class="form-group">
+                    <label for="edit-num-cuenta">Número de cuenta</label>
+                    <input type="text" id="edit-num-cuenta" class="form-input" value="${cuenta.numeroCuenta || ""}">
+                </div>
+                <div class="form-group">
+                    <label for="edit-cci-debito">CCI</label>
+                    <input type="text" id="edit-cci-debito" class="form-input" value="${cuenta.cci || ""}">
+                </div>
+            ` : ""}
             <div class="cuenta-acciones-secundarias">
-                <button type="button" class="modal-btn modal-btn-secondary" id="btn-editar-estado">
-                    ${esArchivada ? "Desarchivar" : "Archivar"}
-                </button>
                 ${saldoParaEliminar === 0 ? `<button type="button" class="modal-btn modal-btn-secondary modal-btn-danger" id="btn-editar-eliminar">
                     Eliminar
                 </button>` : ""}
@@ -1813,7 +2256,7 @@ function _abrirModalEditarCuenta(cuenta) {
         </form>
     `
 
-    abrirModal({
+    const modalEditar = abrirModal({
         titulo: `Editar ${cuenta.nombre}`,
         contenido: html,
         variante: "form",
@@ -1828,10 +2271,61 @@ function _abrirModalEditarCuenta(cuenta) {
 
             const datos = { nombre }
 
+            const toggles = document.querySelectorAll(".toggle-option")
+            const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
+            const numDivisasSeleccionadas = divisasSeleccionadas.length
+
+            // Si la cuenta ya tiene subcuentas, no se pueden eliminar divisas
+            if (tieneSubcuentas) {
+                // Las divisas ya están activas y no se pueden cambiar
+                // Aún así, actualizamos el nombre y guardamos
+            } else if (numDivisasSeleccionadas >= 2) {
+                // Multiple currencies selected: add subaccounts
+                datos.subcuentas = { habilitadas: divisasSeleccionadas }
+            } else if (numDivisasSeleccionadas === 1) {
+                // Single currency selected: regular account (no subaccounts needed)
+                // No agregar subcuentasConfig, la cuenta será única
+            } else {
+                // No currency selected: mantener configuración actual
+            }
+
             if (permisoMoneda) {
                 const monedaNueva = document.getElementById("edit-moneda")?.value
                 if (monedaNueva && monedaNueva !== moneda) {
                     datos.moneda = monedaNueva
+                    // El saldo inicial estaba en la moneda anterior: no se
+                    // trata de "mismo valor en otra moneda", se convierte.
+                    if (!cuenta.tipo || cuenta.tipo === "efectivo" || cuenta.tipo === "broker" || cuenta.tipo === "exchange" || cuenta.tipo === "debito") {
+                        datos.saldoInicial = convertirMonto(cuenta.saldoInicial || 0, moneda, monedaNueva)
+                    }
+                    // Los movimientos históricos se expresan en la divisa del
+                    // registro; al cambiar la moneda de la cuenta se convierten
+                    // para que el nominal siga siendo el mismo valor económico.
+                    try {
+                        const todos = await obtenerMovimientos(sesion.uid)
+                        const deCuenta = todos.filter(m =>
+                            m.cuenta === cuenta.id ||
+                            m.cuentaOrigen === cuenta.id ||
+                            m.cuentaDestino === cuenta.id ||
+                            m.tarjeta === cuenta.id
+                        )
+                        for (const m of deCuenta) {
+                            if (!m.divisa || m.divisa === monedaNueva) continue
+                            const actualizado = { divisa: monedaNueva }
+                            if (typeof m.monto === "number" || (m.monto !== undefined && m.monto !== null && m.monto !== "")) {
+                                actualizado.monto = convertirMonto(Number(m.monto), m.divisa, monedaNueva)
+                            }
+                            if (m.montoOrigen !== undefined && m.montoOrigen !== null && m.montoOrigen !== "") {
+                                actualizado.montoOrigen = convertirMonto(Number(m.montoOrigen), m.divisa, monedaNueva)
+                            }
+                            if (m.montoDestino !== undefined && m.montoDestino !== null && m.montoDestino !== "") {
+                                actualizado.montoDestino = convertirMonto(Number(m.montoDestino), m.divisa, monedaNueva)
+                            }
+                            await actualizarMovimientoDoc(sesion.uid, m.id, actualizado)
+                        }
+                    } catch (error) {
+                        console.warn("[WARN] No se pudieron convertir movimientos de la cuenta:", error)
+                    }
                 }
             }
 
@@ -1857,9 +2351,22 @@ function _abrirModalEditarCuenta(cuenta) {
                 datos.vence = document.getElementById("edit-vence")?.value.trim() || ""
             }
 
-            if (cuenta.tipo === "broker" || cuenta.tipo === "exchange") {
+            if (cuenta.tipo === "broker") {
                 datos.num = document.getElementById("edit-num")?.value.trim() || ""
                 datos.cci = document.getElementById("edit-cci")?.value.trim() || ""
+            }
+
+            if (cuenta.tipo === "exchange") {
+                datos.uid = document.getElementById("edit-uid")?.value.trim() || ""
+                datos.num = ""
+                datos.cci = ""
+            }
+
+            if (cuenta.tipo === "debito") {
+                // Igual que al crear: el número de la tarjeta sigue en `num` y
+                // el de la cuenta bancaria va en `numeroCuenta`.
+                datos.numeroCuenta = document.getElementById("edit-num-cuenta")?.value.trim() || ""
+                datos.cci = document.getElementById("edit-cci-debito")?.value.trim() || ""
             }
 
             try {
