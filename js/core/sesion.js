@@ -1,42 +1,92 @@
+// ============================================
+// PREFERENCIAS · DEFAULTS Y FUSION
+// ============================================
+// Los defaults viven aqui y en ningun otro sitio. El documento de Firestore
+// guarda SOLO lo que el usuario cambia de verdad: un usuario recien creado no
+// tiene nada escrito, y volver a marcar un default borra la clave en vez de
+// guardar el valor por escrito.
+//
+// Eso obliga a que la lectura complete siempre los huecos, y por eso la
+// fusion es en profundidad: un grupo guardado parcialmente (por ejemplo
+// `accesibilidad` con una sola clave) no puede reemplazar al grupo entero, o se
+// perderian los defaults que no esten guardados.
+
+export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
+    tema: "dark",
+    divisaPrincipal: "pen",
+    paginas: Object.freeze({
+        dashboard: true,
+        cuentas: true,
+        movimientos: true,
+        inversiones: true,
+        trading: true,
+        configuracion: true
+    }),
+    seg: Object.freeze({
+        inactividadMinutos: 15,
+        cerrarAlCerrarPestana: true
+    }),
+    accesibilidad: Object.freeze({
+        modalesPersistentes: false,
+        doodles: false,
+        unClickSeleccion: false,
+        lateralidadCuentaInfo: "derecha",
+        resaltarIngresoGasto: true,
+        configComoPagina: false
+    }),
+    tiposMovimiento: Object.freeze({
+        cambioDivisa: true,
+        compraActivo: false,
+        ventaActivo: false,
+        pagoTarjeta: false,
+        p2pCompra: true,
+        p2pVenta: true,
+        trade: true
+    }),
+    movimientosRecientes: 5,
+    periodoEvolucion: "30d",
+    resaltarPatrimonio: 0,
+    formatoDivisa: "simbolo"
+})
+
+export function esObjetoPlano(valor) {
+    return !!valor && typeof valor === "object" && !Array.isArray(valor)
+}
+
+/**
+ * Fusiona `encima` sobre `base` entrando un nivel en los objetos. Los valores
+ * de `encima` que no existen en `base` se anaden tal cual, para que las claves
+ * antiguas o futuras no se pierdan al normalizar.
+ */
+export function fusionarProfundo(base, encima) {
+    if (!esObjetoPlano(encima)) return esObjetoPlano(base) ? { ...base } : base
+    const salida = esObjetoPlano(base) ? { ...base } : {}
+    for (const [clave, valor] of Object.entries(encima)) {
+        const actual = salida[clave]
+        if (esObjetoPlano(actual) && esObjetoPlano(valor)) {
+            salida[clave] = fusionarProfundo(actual, valor)
+        } else if (esObjetoPlano(valor)) {
+            // Grupo nuevo: se clona en profundidad. Si se asignara por
+            // referencia, `sesion.preferencias` apuntaria a los defaults
+            // CONGELADOS y cualquier mutacion lanzaria en modo estricto.
+            salida[clave] = fusionarProfundo({}, valor)
+        } else {
+            salida[clave] = valor
+        }
+    }
+    return salida
+}
+
+// Copia profunda a partir de los defaults congelados.
+function defaultsClonados() {
+    return fusionarProfundo({}, PREFERENCIAS_POR_DEFECTO)
+}
+
 class Sesion {
     constructor() {
         this.usuario = null
         this.cache = new Map()
-        this.preferencias = {
-            paginas: {
-                dashboard: true,
-                cuentas: true,
-                movimientos: true,
-                inversiones: true,
-                trading: true,
-                configuracion: true
-            },
-            seg: {
-                inactividadMinutos: 15,
-                cerrarAlCerrarPestana: true
-            },
-            accesibilidad: {
-                modalesPersistentes: false,
-                doodles: false,
-                unClickSeleccion: false,
-                lateralidadCuentaInfo: "derecha",
-                resaltarIngresoGasto: true,
-                configComoPagina: false
-            },
-            tiposMovimiento: {
-                cambioDivisa: true,
-                compraActivo: false,
-                ventaActivo: false,
-                pagoTarjeta: false,
-                p2pCompra: true,
-                p2pVenta: true,
-                trade: true
-            },
-            movimientosRecientes: 5,
-            periodoEvolucion: "30d",
-            resaltarPatrimonio: 0,
-            formatoDivisa: "simbolo"
-        }
+        this.preferencias = defaultsClonados()
         // Intentar cargar preferencias guardadas al instanciar
         this.recargarPreferencias()
     }
@@ -141,8 +191,9 @@ class Sesion {
         try {
             const saved = sessionStorage.getItem('escinco_preferencias')
             if (saved) {
-                const parsed = JSON.parse(saved)
-                this.preferencias = { ...this.preferencias, ...parsed }
+                // Fusion en profundidad: lo guardado puede ser parcial (solo
+                // los cambios) y no debe pisar los defaults que faltan.
+                this.preferencias = fusionarProfundo(this.preferencias, JSON.parse(saved))
             }
         } catch (e) {}
         return this.preferencias
@@ -152,8 +203,7 @@ class Sesion {
         try {
             const saved = sessionStorage.getItem('escinco_preferencias')
             if (saved) {
-                const parsed = JSON.parse(saved)
-                this.preferencias = { ...this.preferencias, ...parsed }
+                this.preferencias = fusionarProfundo(this.preferencias, JSON.parse(saved))
                 return true
             }
         } catch (e) {

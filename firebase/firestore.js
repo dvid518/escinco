@@ -9,7 +9,8 @@ import {
     updateDoc,
     deleteDoc,
     serverTimestamp,
-    writeBatch
+    writeBatch,
+    deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
@@ -241,6 +242,8 @@ export async function actualizarPreferencias(uid, preferencias) {
     const referencia = doc(db, "usuarios", uid)
 
     // Construimos un objeto con notación de punto para merge real
+    // Ejemplo: actualizarPreferencias(uid, { tema: 'dark' })
+    //          NO borra `divisaPrincipal`.
     const datosMerge = {}
     for (const [clave, valor] of Object.entries(preferencias)) {
         if (valor !== undefined) {
@@ -248,5 +251,36 @@ export async function actualizarPreferencias(uid, preferencias) {
         }
     }
 
+    return await updateDoc(referencia, datosMerge)
+}
+
+/**
+ * Guarda SOLO lo que el usuario ha cambiado de verdad.
+ *
+ * `actualizarPreferencias` hace merge y por eso no puede BORRAR: si el usuario
+ * vuelve a marcar un default, la clave se queda en Firestore con el valor por
+ * escrito. Esto la borra de verdad, de modo que un usuario recien creado tiene
+ * el documento de preferencias vacio y solo crecen las claves tocadas.
+ *
+ * @param {string} uid
+ * @param {{set?: Object, unset?: string[]}} cambios  `unset` son rutas con
+ *        notación de punto ("accesibilidad.doodles").
+ */
+export async function aplicarPreferenciasDiff(uid, { set = {}, unset = [] } = {}) {
+    const referencia = doc(db, "usuarios", uid)
+    const datosMerge = {}
+
+    for (const [clave, valor] of Object.entries(set)) {
+        if (valor !== undefined) datosMerge[`preferencias.${clave}`] = valor
+    }
+    for (const ruta of unset) {
+        if (typeof ruta === "string" && ruta.trim() !== "") {
+            datosMerge[`preferencias.${ruta}`] = deleteField()
+        }
+    }
+
+    // Sin cambios no se escribe nada: abrir y cerrar la configuracion sin tocar
+    // nada no debe crear un documentoPreferences vacio ni generar escrituras.
+    if (Object.keys(datosMerge).length === 0) return null
     return await updateDoc(referencia, datosMerge)
 }

@@ -1,7 +1,7 @@
 import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
-import { sesion } from "../core/sesion.js"
+import { sesion, PREFERENCIAS_POR_DEFECTO, fusionarProfundo, esObjetoPlano } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
-import { obtenerCuentas, obtenerPreferencias, actualizarPreferencias, actualizarCuenta } from "../../firebase/firestore.js"
+import { obtenerCuentas, obtenerPreferencias, aplicarPreferenciasDiff, actualizarCuenta } from "../../firebase/firestore.js"
 import { abrirModal, cerrarModal } from "./modal.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { VERSION } from "../../constants/version.js"
@@ -17,8 +17,10 @@ let hayCambios = false
 let temaActual = "dark"
 let lastbarModo = "hide"
 let nombrePendiente = null
-let temaPendiente = false
-let lastbarPendiente = false
+// El tema y el modo de la lastbar ya NO usan banderas "pendiente": el estado
+// del Guardar se calcula comparando la pantalla con lo guardado. Con banderas,
+// cambiar un valor y volver al original dejaba la bandera puesta y el Guardar
+// se activaba solo, que es de donde salia el aviso fantasma.
 
 const CANTIDAD_MOVIMIENTOS_DEFAULT = 5
 
@@ -467,13 +469,21 @@ function plantillaConfiguracion() {
                         tal cual y vuelven a aparecer al restaurarlas.
                     </span>
                 </div>
-                <div class="config-group danger-zone">
+<div class="config-group danger-zone">
                     <span class="config-label danger">Eliminar datos</span>
                     <button class="glass-btn danger" id="delete-data">Eliminar todos los datos</button>
                     <span class="config-hint">Esta acción no se puede deshacer</span>
                 </div>
-            </div>
                 </div>
+
+                <!-- El pie va DENTRO de .config-body, como último elemento, y no
+                     como hermano suyo en el grid. Como hermano ocupaba una fila
+                     propia cuya altura la fijaba la columna del menú, así que en
+                     una sección corta el pie caía por debajo del sidebar en vez
+                     de pegarse al final del contenido (BUG-017). Dentro del
+                     cuerpo ya no existe esa fila: es simplemente el último
+                     bloque que se recorre, y el estilo sticky de .panel-footer lo
+                     mantiene visible al llegar al final. -->
                 <footer class="panel-footer">
                     <span class="footer-brand">${VERSION.nombre}</span>
                     <span class="footer-version">v${VERSION.numero}</span>
@@ -481,6 +491,7 @@ function plantillaConfiguracion() {
                 </footer>
             </div>
         </div>
+    </div>
     </div>
     `
 }
@@ -514,8 +525,6 @@ export function abrirConfiguracion() {
 
     uid = sesion.uid
     hayCambios = false
-    temaPendiente = false
-    lastbarPendiente = false
     nombrePendiente = null
     modoActual = "panel"
     console.log("[INFO] Configuración abierta como panel para UID:", uid)
@@ -571,8 +580,6 @@ export async function init() {
     if (!sesion.uid) return
     uid = sesion.uid
     hayCambios = false
-    temaPendiente = false
-    lastbarPendiente = false
     nombrePendiente = null
     modoActual = "pagina"
     await iniciarConfiguracion()
@@ -657,7 +664,6 @@ function configurarTema() {
 
             // Aplicar visualmente sin persistir (se guarda con el botón Guardar)
             temaActual = tema
-            temaPendiente = true
             marcarCambioNuevo()
             aplicarTema(tema)
             window.dispatchEvent(new CustomEvent("tema-cambiado", { detail: { tema } }))
@@ -1017,57 +1023,69 @@ async function cargarPreferencias() {
     }
 }
 
+// El nombre se compara aparte porque vive en el doc del usuario, no en sus
+// preferencias.
+function hayCambioDeNombre() {
+    return nombrePendiente !== null &&
+        nombrePendiente !== (sesion.getUsuario()?.nombre || "Usuario").trim()
+}
+
+/**
+ * ¿Hay algo que guardar?
+ *
+ * Compara el estado que se lee de la pantalla contra el de la sesion (que ya
+ * lleva los defaults completados) con UNA sola comparacion profunda. Antes
+ * eran veinte comparaciones contra literales repetidos a mano, y cualquiera
+ * que se desincronizara activaba el aviso sin que el usuario hubiera tocado
+ * nada: por eso aparecia "hay cambios sin guardar" solo por navegar.
+ *
+ * El tipo de cambio se excluye porque lo gestiona DivisaServicio y su campo
+ * `actualizacion` cambia en cada guardado: compararlo siempre daria "cambios".
+ */
 function hayCambiosEnVivo() {
-    const base = sesion.getPreferencias() || {}
-    const basePaginas = base.paginas || {}
-    const segBase = base.seg || {}
-    const accBase = base.accesibilidad || {}
-    const tiposBase = base.tiposMovimiento || {}
-    const tc = getTipoCambio()
-    const modoTCUI = getModoTipoCambioUI()
-    const nombreBase = (sesion.getUsuario()?.nombre || "Usuario").trim()
+    if (hayCambioDeNombre()) return true
 
-    const segInactividadUI = parseInt(document.getElementById("seg-inactividad")?.value, 10)
-    const segCerrarUI = document.getElementById("seg-cerrar-pestana")?.checked
-    const accModalesUI = document.getElementById("acc-modales-persistentes")?.checked
-    const accDoodlesUI = document.getElementById("acc-doodles")?.checked
-    const accUnClickUI = document.getElementById("acc-un-click-seleccion")?.checked
-    const accResaltarUI = document.getElementById("acc-resaltar-ingreso-gasto")?.checked
-    const movRecientesUI = leerCantidadMovimientos()
+    // El modo de la lastbar vive en localStorage, no en las preferencias, asi
+    // que no entra en la comparacion profunda. Se compara con lo guardado en
+    // vez de fiarse del flag: si el usuario lo cambia y vuelve al valor que
+    // tenia, no hay nada que guardar.
+    const lastbarGuardado = localStorage.getItem("escinco_lastbar_mode") || "hide"
+    if (lastbarModo !== lastbarGuardado) return true
 
-    const tipoUI = id => document.getElementById(id)?.checked !== false
-    const tiposDifieren = [
-        ["toggle-tipo-cambio-divisa", "cambioDivisa"],
-        ["toggle-tipo-compra-activo", "compraActivo"],
-        ["toggle-tipo-venta-activo", "ventaActivo"],
-        ["toggle-tipo-pago-tarjeta", "pagoTarjeta"],
-        ["toggle-tipo-p2p-compra", "p2pCompra"],
-        ["toggle-tipo-p2p-venta", "p2pVenta"],
-        ["toggle-tipo-trade", "trade"]
-    ].some(([id, key]) => tipoUI(id) !== (tiposBase[key] !== false))
+    const enPantalla = construirPreferencias()
+    const guardadas = sesion.getPreferencias() || {}
 
-    return (
-        (nombrePendiente !== null && nombrePendiente !== nombreBase) ||
-        (Number.isFinite(segInactividadUI) && segInactividadUI !== (segBase.inactividadMinutos ?? 15)) ||
-        (segCerrarUI !== undefined && segCerrarUI !== (segBase.cerrarAlCerrarPestana !== false)) ||
-        (accModalesUI !== undefined && accModalesUI !== (accBase.modalesPersistentes === true)) ||
-        (accDoodlesUI !== undefined && accDoodlesUI !== (accBase.doodles === true)) ||
-        (accUnClickUI !== undefined && accUnClickUI !== (accBase.unClickSeleccion === true)) ||
-        (getLateralidadCuentaUI() !== (accBase.lateralidadCuentaInfo || "derecha")) ||
-        (accResaltarUI !== undefined && accResaltarUI !== (accBase.resaltarIngresoGasto !== false)) ||
-        (movRecientesUI !== null && movRecientesUI !== (base.movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT)) ||
-        (document.getElementById("toggle-dashboard")?.checked !== (basePaginas.dashboard !== false)) ||
-        (document.getElementById("toggle-movimientos")?.checked !== (basePaginas.movimientos !== false)) ||
-        (document.getElementById("toggle-inversiones")?.checked !== (basePaginas.inversiones !== false)) ||
-        (document.getElementById("toggle-trading")?.checked !== (basePaginas.trading !== false)) ||
-        tiposDifieren ||
-        (document.getElementById("divisa-principal")?.value !== getDivisaPrincipal()) ||
-        (getPeriodoEvolucionUI() !== (base.periodoEvolucion || "30d")) ||
-        (getNivelResalteUI() !== normalizarNivelResalte(base.resaltarPatrimonio)) ||
-        (getFormatoDivisaUI() !== getFormatoDivisa()) ||
-        (modoTCUI !== null && modoTCUI !== (tc.modo === "auto" ? "auto" : "manual")) ||
-        (modoTCUI !== "auto" && parseFloat(document.getElementById("tc-pen-usd")?.value) !== tc.pen_usd)
+    // El nombre no forma parte de las preferencias.
+    delete enPantalla.nombre
+
+    // Se excluyen la divisa y el tipo de cambio: los gestiona DivisaServicio y
+    // su `actualizacion` cambia en cada guardado, asi que compararlos daria
+    // siempre "cambios".
+    return !sonIgualEnProfundidad(
+        fusionarProfundo({}, enPantalla),
+        fusionarProfundo({}, guardadas),
+        ["divisaPrincipal", "tipoCambio"]
     )
+}
+
+function sonIgualEnProfundidad(a, b, ignorar = []) {
+    for (const clave of ignorar) delete a[clave]
+    for (const clave of ignorar) delete b[clave]
+
+    const clavesA = Object.keys(a)
+    const clavesB = Object.keys(b)
+    if (clavesA.length !== clavesB.length) return false
+
+    for (const clave of clavesA) {
+        const va = a[clave]
+        const vb = b[clave]
+        if (esObjetoSimple(va) && esObjetoSimple(vb)) {
+            if (!sonIgualEnProfundidad(va, vb)) return false
+            continue
+        }
+        if (!esIgual(va, vb)) return false
+    }
+    return true
 }
 
 function configurarDetectorCambios() {
@@ -1343,7 +1361,7 @@ document.addEventListener("pagina-cambiando", (event) => {
 // botón de confirmar del modal; en modo página, el item de la lastbar.
 
 function actualizarEstadoGuardar() {
-    hayCambios = temaPendiente || lastbarPendiente || hayCambiosEnVivo()
+    hayCambios = hayCambiosEnVivo()
 
     if (modoActual === "pagina") {
         document.querySelector('.lastbar .item[data-accion="guardar"]')
@@ -1444,17 +1462,14 @@ async function aplicarPreferencias(preferencias) {
             tc.modo === "auto" && tc.actualizacion ? tc.actualizacion : null
         )
 
-        await actualizarPreferencias(uid, {
-            tema: preferencias.tema,
-            periodoEvolucion: preferencias.periodoEvolucion || "30d",
-            resaltarPatrimonio: normalizarNivelResalte(preferencias.resaltarPatrimonio),
-            formatoDivisa: preferencias.formatoDivisa,
-            movimientosRecientes: preferencias.movimientosRecientes,
-            paginas: preferencias.paginas,
-            seg: preferencias.seg,
-            accesibilidad: preferencias.accesibilidad,
-            tiposMovimiento: preferencias.tiposMovimiento
-        })
+        // En Firestore solo queda lo que se aparta del default. Volver a marcar
+        // un default borra su clave en vez de reescribirla, y un usuario que
+        // nunca toco nada no tiene documento de preferencias.
+        const { set, unset } = diferenciasContraDefaults(preferencias)
+        await aplicarPreferenciasDiff(uid, { set, unset })
+
+        // En memoria si se guarda el estado completo (defaults incluidos): la
+        // app lee siempre desde ahi.
         sesion.setPreferencias(preferencias)
 
         // Aplicar de inmediato la seguridad configurada
@@ -1470,9 +1485,6 @@ async function aplicarPreferencias(preferencias) {
         localStorage.setItem("escinco_lastbar_mode", lastbarModo)
 
         actualizarNavegacion(preferencias.paginas)
-
-        temaPendiente = false
-        lastbarPendiente = false
         nombrePendiente = null
         hayCambios = false
         avisoDescartado = false
@@ -1483,6 +1495,70 @@ async function aplicarPreferencias(preferencias) {
         console.error("Error guardando preferencias:", error)
         mostrarNotificacion("error", "No se pudieron guardar las preferencias")
     }
+}
+
+// ============================================
+// PREFERENCIAS · DIFF CONTRA LOS DEFAULTS
+// ============================================
+// El documento de Firestore guarda solo lo que se aparta del default: un
+// usuario recien creado no tiene nada escrito, y volver a marcar un default
+// BORRA la clave en vez de guardar el valor por escrito.
+//
+// Se comparan contra PREFERENCIAS_POR_DEFECTO (js/core/sesion.js), que es la
+// unica fuente de verdad. Antes esta comparacion vivia aqui, con los defaults
+// repetidos a mano, y por eso la slightest desincronizacion hacia que el
+// Guardar se activara solo.
+
+// Una hoja (no un grupo): se compara con igualdad estricta.
+function esIgual(a, b) {
+    if (typeof a === "number" && typeof b === "number") {
+        return Number.isNaN(a) && Number.isNaN(b) ? true : a === b
+    }
+    return a === b
+}
+
+// Un grupo es un objeto; una hoja es un valor simple.
+function esObjetoSimple(valor) {
+    return esObjetoPlano(valor)
+}
+
+/**
+ * Calcula que hay que escribir y que hay que borrar para que Firestore guarde
+ * exactamente lo que se aparta de los defaults.
+ *
+ * No necesita saber que hay guardado ahora mismo: borrar una clave que no
+ * existe no hace nada en Firestore, asi que el resultado es idempotente y se
+ * puede reaplicar sin riesgo.
+ *
+ * @param {Object} preferencias  estado completo de la pantalla
+ * @returns {{set: Object, unset: string[]}}
+ */
+export function diferenciasContraDefaults(preferencias) {
+    const set = {}
+    const unset = []
+
+    const recorrer = (valor, porDefecto, ruta) => {
+        for (const [clave, porDefectoHijo] of Object.entries(porDefecto)) {
+            const rutaHija = ruta ? `${ruta}.${clave}` : clave
+
+            if (esObjetoSimple(porDefectoHijo)) {
+                // Se baja al grupo de la PANTALLA que corresponde a este grupo
+                // del default, no al valor padre: `valor.accesibilidad.doodles`.
+                recorrer(valor?.[clave] || {}, porDefectoHijo, rutaHija)
+                continue
+            }
+
+            // Si la pantalla no tiene el campo, no hay nada que decidir.
+            if (!valor || typeof valor !== "object" || !(clave in valor)) continue
+
+            const valorHijo = valor[clave]
+            if (esIgual(valorHijo, porDefectoHijo)) unset.push(rutaHija)
+            else set[rutaHija] = valorHijo
+        }
+    }
+
+    recorrer(preferencias, PREFERENCIAS_POR_DEFECTO, "")
+    return { set, unset: [...new Set(unset)] }
 }
 
 async function guardarPreferencias() {
@@ -1521,7 +1597,6 @@ function configurarLastbar() {
 
             // Aplicar visualmente sin persistir (se guarda con el botón Guardar)
             lastbarModo = opt.dataset.lastbar
-            lastbarPendiente = true
             marcarCambioNuevo()
             aplicarModoLastbar(lastbarModo)
 
