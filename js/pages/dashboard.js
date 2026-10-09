@@ -2,6 +2,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
+import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -264,7 +265,11 @@ function entidadDeInstancia(id) {
     const { tipo, entidadId } = entidadDeCardInstancia(id)
     if (tipo === "cuenta") {
         const cuenta = cuentas.find(item => item.id === entidadId)
-        return cuenta ? { tipo, cuenta } : null
+        // Una hija no tiene card: su dinero esta en la del padre, que muestra
+        // el total de la familia. Si alguna quedo guardada de antes, se ignora
+        // para no duplicar el patrimonio.
+        if (!cuenta || esHija(cuenta)) return null
+        return { tipo, cuenta }
     }
     const posicion = posicionesData.find(item => item.activoId === entidadId)
     return posicion ? { tipo, posicion } : null
@@ -424,6 +429,9 @@ function plantillaCardCuenta(cuenta) {
     const esCredito = cuenta.tipo === "credito"
     const prefijo = `cuenta-card-${cuenta.id}`
     const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+    // Una cuenta con subcuentas muestra el total de la familia en su card; las
+    // hijas no tienen card propia, asi que el conjunto no se ve partido.
+    const conHijas = tieneHijas(cuenta, cuentas)
 
     return `
         <div class="glass card card-navegable card-cuenta${esCredito ? " card-cuenta-credito" : ""}"
@@ -553,18 +561,25 @@ function pintarCardCuenta(cuenta, card) {
         return
     }
 
-    const saldo = Number(cuenta.saldoInicial) || 0
-    valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
-    valorEl.classList.remove("positive", "negative")
-    if (saldo > 0) valorEl.classList.add("positive")
-    else if (saldo < 0) valorEl.classList.add("negative")
+// El saldo de una cuenta con subcuentas es el total de la familia, no solo el
+// nominal de su propia divisa: si no, la card dejaria fuera el resto del dinero
+// de esa cuenta.
+const saldo = tieneHijas(cuenta, cuentas)
+    ? saldoFamilia(cuenta, cuentas)
+    : Number(cuenta.saldoInicial) || 0
+valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
+valorEl.classList.remove("positive", "negative")
+if (saldo > 0) valorEl.classList.add("positive")
+else if (saldo < 0) valorEl.classList.add("negative")
 
-    if (detalleEl) {
-        const monedaDistinta = moneda !== divisaActual
-        detalleEl.textContent = monedaDistinta
-            ? formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)
-            : "Saldo disponible"
-    }
+if (detalleEl) {
+    const monedaDistinta = moneda !== divisaActual
+    const nSub = tieneHijas(cuenta, cuentas) ? hijasDe(cuenta, cuentas).length : 0
+    const etiqueta = nSub > 0 ? `${nSub + 1} subcuentas · saldo disponible` : "Saldo disponible"
+    detalleEl.textContent = monedaDistinta
+        ? `${etiqueta} · ${formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
+        : etiqueta
+}
 
     if (estadoEl) {
         // En una cuenta no crédito el badge queda libre: el estado
@@ -957,7 +972,9 @@ function bloqueInstanciasSelector(titulo, descripcion, opciones, vacio) {
 }
 
 function opcionesInstanciasCuentas(activas) {
-    return cuentas.map(cuenta => {
+    // Las hijas no se ofrecen: su dinero ya esta en la card del padre, que
+    // muestra el total de la familia. Ofrecirlas duplicaria el patrimonio.
+    return cuentasVisibles(cuentas).map(cuenta => {
         const id = idCardCuenta(cuenta.id)
         const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
         return `
@@ -2565,7 +2582,8 @@ function plantillaMovimiento(m) {
     const monto = montoDeMovimiento(m)
     const esPositivo = esMovimientoPositivo(m)
     const signo = esPositivo ? "+" : "-"
-    const clase = esPositivo ? "positive" : "negative"
+    let clase = esPositivo ? "positive" : "negative"
+    if (m.tipo === "error") clase = "ambar"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Movimiento"
 
     return `

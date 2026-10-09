@@ -209,7 +209,28 @@
     padding: 16px 24px 20px 24px;
     border-top: 1px solid var(--border);
     color: var(--text);
+    background-color: var(--glass-frosted);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
     flex-shrink: 0;
+}
+
+/* Acciones secundarias del footer (archivar / eliminar).
+   El footer centra sus botones, así que este bloque se separa con
+   margin-right:auto para quedarse pegado al extremo izquierdo, lejos
+   del botón de Guardar. */
+.modal-footer-acciones {
+    display: flex;
+    gap: 8px;
+    margin-right: auto;
+}
+
+@media (max-width: 520px) {
+    .modal-footer-acciones {
+        margin-right: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
 }
 
 /* Botones del modal */

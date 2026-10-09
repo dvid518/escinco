@@ -497,6 +497,108 @@
 }
 
 /* --------------------------------------------
+   PANEL · TABS DE SUBCUENTAS
+   -------------------------------------------- */
+/* El padre y sus hijas son cuentas reales: las tabs no eligen "vista", eligen
+   que cuenta se esta mirando. Se pintan encima de la vista de la cuenta,
+   asi que ocupan su propia fila. */
+.subcuentas-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 0 2px 0;
+    margin-bottom: 4px;
+}
+
+.subcuenta-tab {
+    padding: 6px 16px;
+    border-radius: 50px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--textSecondary);
+    font-family: var(--font-primary);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+.subcuenta-tab:hover:not(.active) {
+    color: var(--text);
+    border-color: var(--textSecondary);
+}
+
+.subcuenta-tab.active {
+    color: var(--text);
+    border-color: var(--text);
+    background: var(--glass-frosted);
+}
+
+.subcuenta-tab:focus-visible {
+    outline: 2px solid var(--textSecondary);
+    outline-offset: 2px;
+}
+
+/* El total de la familia, a la derecha del grupo de tabs. */
+.subcuentas-total {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--textSecondary);
+    white-space: nowrap;
+}
+
+@media (max-width: 520px) {
+    .subcuentas-total {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+/* --------------------------------------------
+   MODAL · SALDO POR DIVISA (subcuentas)
+   -------------------------------------------- */
+/* Un input por divisa seleccionada. Solo se ven los de las divisas activas en
+   el toggle, asi que el alto cambia segun cuantas patas tenga la cuenta. */
+.saldo-divisas {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.saldo-divisa {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 120px;
+    min-width: 0;
+}
+
+.saldo-divisa[hidden] {
+    display: none;
+}
+
+.saldo-divisa label {
+    font-size: 13px;
+    color: var(--textSecondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    min-width: 26px;
+}
+
+.saldo-divisa .form-input {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+@media (max-width: 520px) {
+    .saldo-divisa {
+        flex: 1 1 100%;
+    }
+}
+
+/* --------------------------------------------
    MODAL · ACCIONES SECUNDARIAS
    -------------------------------------------- */
 

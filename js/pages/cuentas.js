@@ -14,7 +14,15 @@ import {
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { DIVISAS_LABELS, DIVISAS_SYMBOLS } from "../../constants/divisas.js"
-import { convertirMonto } from "../services/DivisaServicio.js"
+import { convertirMonto, presentarDivisa } from "../services/DivisaServicio.js"
+import {
+    esHija,
+    hijasDe,
+    tieneHijas,
+    familiaDe,
+    saldoFamilia,
+    cuentasVisibles
+} from "../core/familiaCuentas.js"
 import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
@@ -29,6 +37,10 @@ let cuentas = []
 // siguen en Firestore y se pueden recuperar desde Configuración › Datos.
 let cuentasArchivadas = []
 let cuentaSeleccionada = null
+// Que miembro de la familia se esta viendo en las tabs del panel. Es una
+// cuenta real, no una "vista": al cambiar de tab se repinta con el render
+// estandar de esa cuenta.
+let miembroFamiliaVisto = null
 let cuentaSolicitadaId = null
 let uid = null
 
@@ -81,6 +93,139 @@ function formatearMontoConDivisa(monto, moneda = "pen") {
 
 function iconoPorTipo(tipo) {
     return ICONOS_POR_TIPO[tipo] || "wallet"
+}
+
+// ============================================
+// MODELO DE SUBCUENTAS
+// ============================================
+// Las reglas de familia (que es una hija, quienes son las hijas, el total) viven
+// en js/core/familiaCuentas.js porque las necesita tambien el dashboard.
+// aqui queda solo lo propio de crear cuentas.
+
+// Nombre de una subcuenta: el del padre mas la divisa. Se resuelve al crear
+// y queda fijo: los nombres ya creados no cambian aunque el usuario luego
+// cambie de simbolo a codigo en Configuracion.
+function nombreSubcuenta(nombrePadre, divisa) {
+    return `${nombrePadre} ${presentarDivisa(divisa)}`
+}
+
+// Un input de saldo por divisa. Cada pata de la familia nace con su propio
+// saldo, asi que hacer dos cuentas no puede exigir dos viajes al formulario.
+// Solo se ven los de las divisas elegidas en el toggle (conectarToggleDivisas
+// sincroniza la visibilidad).
+function campoSaldosPorDivisa(divisaActiva = null) {
+    const monedas = [["pen", "S/"], ["usd", "$"], ["usdt", "₮"]]
+    return `
+        <div class="form-group full">
+            <span class="form-section-title">Saldo inicial por divisa</span>
+            <div class="saldo-divisas" id="grupo-saldos">
+                ${monedas.map(([divisa, simbolo]) => `
+                    <div class="saldo-divisa" data-divisa="${divisa}"${divisa === divisaActiva ? "" : " hidden"}>
+                        <label for="campo-saldo-${divisa}">${simbolo}</label>
+                        <input type="number" id="campo-saldo-${divisa}" class="form-input" step="0.01" min="0" value="0">
+                    </div>
+                `).join("")}
+            </div>
+            <p class="form-hint">Cada divisa seleccionada se crea como una subcuenta con su propio saldo.</p>
+        </div>
+    `
+}
+
+// Saldos introducidos, indexados por divisa, solo de las visibiles.
+function leerSaldosPorDivisa(raiz) {
+    const saldos = {}
+    raiz?.querySelectorAll(".saldo-divisa").forEach(bloque => {
+        if (bloque.hidden) return
+        const input = bloque.querySelector("input")
+        if (!input) return
+        saldos[bloque.dataset.divisa] = Number(input.value) || 0
+    })
+    return saldos
+}
+
+/**
+ * Crea la familia de cuentas de una vez: el padre con la primera divisa y una
+ * hija por cada divisa adicional.
+ *
+ * El padre ES la subcuenta de su propia divisa (no hay un contenedor con saldo
+ * 0), asi que con 3 divisas salen 3 documentos y no 4. Las hijas heredan solo
+ * lo imprescindible; los datos que pertenecen a la entidad financiera (num,
+ * cci, uid) no se copian porque son los del padre.
+ */
+async function crearCuentaConSubcuentas(uidActual, datosPadre, saldos, { esCredito = false } = {}) {
+    // `divisasExtras` es solo de paso: no forma parte del documento del padre.
+    const { divisasExtras = [], ...datosLimpios } = datosPadre
+
+    const cuentaPadre = await crearCuenta(uidActual, {
+        ...datosLimpios,
+        saldoInicial: saldos[datosLimpios.moneda] ?? 0
+    })
+
+    // Una tarjeta de crédito tiene una sola deuda y un solo limite: darle
+    // subcuentas por divisa produciría hijas sin `limite`, inservibles para
+    // el ciclo de la tarjeta. Se queda en una divisa.
+    const hijas = esCredito ? [] : divisasExtras
+
+    for (let i = 0; i < hijas.length; i++) {
+        const divisa = hijas[i]
+        await crearCuenta(uidActual, {
+            nombre: nombreSubcuenta(datosPadre.nombre, divisa),
+            tipo: datosPadre.tipo,
+            moneda: divisa,
+            saldoInicial: saldos[divisa] ?? 0,
+            padreId: cuentaPadre.id,
+            estado: "activa",
+            esPatrimonio: true,
+            orden: (datosPadre.orden ?? 0) + i + 1
+        })
+    }
+
+    return cuentaPadre
+}
+
+// ============================================
+// TOGGLE DE DIVISAS (subcuentas)
+// ============================================
+// Los `.toggle-option` del formulario de cuenta eligen en qué divisas vive
+// esa cuenta: una sola divisa deja la cuenta simple, varias crean subcuentas.
+// El marcado y la lectura del estado ya existian, pero faltaba el clic: sin
+// este listener los botones no cambiaban de estado, `divisasSeleccionadas`
+// salia siempre vacio y toda cuenta acababa en PEN sin subcuentas.
+//
+// `bloqueadas` son las divisas que ya existen en la cuenta y no se pueden
+// quitar: se mantienen encendidas y el clic no las apaga.
+function conectarToggleDivisas(raiz, bloqueadas = []) {
+    raiz?.querySelectorAll(".toggle-option").forEach(opcion => {
+        const divisa = opcion.dataset.divisa
+        const bloqueada = bloqueadas.includes(divisa)
+
+        // El input de saldo de esa divisa aparece y desaparece con el toggle:
+        // mostrar una divisa esplerla a crear una subcuenta con ese saldo.
+        const sincronizarSaldo = () => {
+            const bloque = raiz.querySelector(`.saldo-divisa[data-divisa="${divisa}"]`)
+            if (bloque) bloque.hidden = !opcion.classList.contains("active")
+        }
+        sincronizarSaldo()
+
+        if (bloqueada) {
+            opcion.classList.add("active")
+            opcion.setAttribute("aria-disabled", "true")
+            opcion.title = "Esta divisa ya existe y no se puede quitar"
+            sincronizarSaldo()
+        }
+
+        opcion.addEventListener("click", () => {
+            if (opcion.classList.contains("active")) {
+                // No se desactiva: se necesita al menos una divisa, y una
+                // divisa ya creada en la cuenta no se puede eliminar.
+                return
+            }
+            opcion.classList.add("active")
+            opcion.title = ""
+            opcion.removeAttribute("aria-disabled")
+            sincronizarSaldo()
+        })
+    })
 }
 
 // ============================================
@@ -212,7 +357,10 @@ function renderizarSidebar() {
 
     sidebar.innerHTML = ""
 
-    cuentas.forEach(cuenta => {
+    // Las hijas no se listan: se llega a ellas por las tabs del padre. Si se
+    // listaran, el sidebar repetiria "BBVA", "BBVA $" y "BBVA ₮" como tres
+    // cuentas sueltas.
+    cuentasVisibles(cuentas).forEach(cuenta => {
         const item = document.createElement("div")
         item.className = "cuenta-sidebar-item"
         item.dataset.id = cuenta.id
@@ -337,158 +485,83 @@ async function mostrarDetalleCuenta() {
         return
     }
 
-    // Verificar si la cuenta tiene subcuentas
-    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
-    const divisasSubcuentas = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
+    // La familia: el padre y sus hijas. Cada miembro es una cuenta entera, asi
+    // que las tabs no cambian "vista de subcuentas": cambian QUE CUENTA se
+    // esta viendo, y el render de abajo es el de siempre.
+    const familia = familiaDe(cuenta, cuentas)
+    const conSubcuentas = familia.length > 1
+    const visto = familia.find(c => c.id === miembroFamiliaVisto) || familia[0]
+    miembroFamiliaVisto = visto.id
 
-    if (tieneSubcuentas) {
-        // Renderizar vista de subcuentas con tabs
-        await renderizarVistaSubcuentas(panel, cuenta, movimientos)
-        panel.removeAttribute("aria-busy")
-        vincularInteraccionCardsCuenta()
-    } else {
-        const ciclo = cuenta.tipo === "credito" ? estadoCicloDe(cuenta, movimientos) : null
-        const panelInfo = cuenta.tipo === "credito"
-            ? plantillaInfoTarjeta(cuenta, ciclo)
-            : plantillaInfoNormal(cuenta)
+    const ciclo = visto.tipo === "credito" ? estadoCicloDe(visto, movimientos) : null
+    const panelInfo = visto.tipo === "credito"
+        ? plantillaInfoTarjeta(visto, ciclo)
+        : plantillaInfoNormal(visto)
 
-        panel.innerHTML = `
-            <div class="cuenta-vista ${lateralidadInfo()}">
-                <div class="cuenta-vista-movimientos">
-                    <div class="cuenta-mov-head">
-                        <div class="totales" id="totales-movimientos-cuenta"></div>
-                    </div>
-                    <div class="lista-cards" id="lista-movimientos-cuenta">
-                        ${skeletonMarkup({ rows: 3 })}
-                    </div>
+    panel.innerHTML = `
+        ${conSubcuentas ? plantillaTabsSubcuentas(cuenta, familia, visto) : ""}
+        <div class="cuenta-vista ${lateralidadInfo()}">
+            <div class="cuenta-vista-movimientos">
+                <div class="cuenta-mov-head">
+                    <div class="totales" id="totales-movimientos-cuenta"></div>
                 </div>
-                <div class="cuenta-vista-info">
-                    ${panelInfo}
+                <div class="lista-cards" id="lista-movimientos-cuenta">
+                    ${skeletonMarkup({ rows: 3 })}
                 </div>
             </div>
-        `
+            <div class="cuenta-vista-info">
+                ${panelInfo}
+            </div>
+        </div>
+    `
 
-        await cargarMovimientosDeCuenta(cuenta, movimientos)
-        panel.removeAttribute("aria-busy")
-        vincularInteraccionCardsCuenta()
+    await cargarMovimientosDeCuenta(visto, movimientos)
+    panel.removeAttribute("aria-busy")
+    vincularInteraccionCardsCuenta()
 
-        panel.querySelectorAll(".btn-copiar").forEach(btn => {
-            btn.addEventListener("click", () => {
-                const texto = btn.dataset.copiar
-                if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
-            })
+    panel.querySelectorAll(".btn-copiar").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const texto = btn.dataset.copiar
+            if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
         })
-
-        // El modal educativo de niveles de uso
-        panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
-            badge.addEventListener("click", () => abrirModalEducativoCredito(cuenta, {
-                pagadoCompleto: ciclo?.pagadoCompleto === true
-            }))
-        })
-    }
-}
-
-function calcularSaldoSubcuenta(movimientos, divisa) {
-    const movimientosDivisa = movimientos.filter(m => (m.divisa || "").toUpperCase() === divisa.toUpperCase())
-    let saldo = 0
-    movimientosDivisa.forEach(m => {
-        const monto = montoDeMovimiento(m, null)
-        if (esMovimientoPositivo(m, null)) saldo += monto
-        else saldo -= monto
-    })
-    return saldo
-}
-
-function renderizarVistaSubcuentas(panel, cuenta, movimientos) {
-    const lateral = lateralidadInfo()
-    const divisas = cuenta.subcuentas.habilitadas
-    const saldos = {}
-
-    // Calcular saldos por divisa
-    divisas.forEach(divisa => {
-        saldos[divisa] = calcularSaldoSubcuenta(movimientos, divisa)
     })
 
-    // Renderizar tabs de subcuentas
-    const tabsNav = `
-        <div class="subcuentas-tabs">
-            ${divisas.map((divisa, idx) => {
-                const saldo = saldos[divisa] || 0
-                const simbolo = DIVISAS_SYMBOLS[divisa] || divisa.toUpperCase()
-                const label = sesion.getPreferencias()?.formatoDivisa === "codigo" ? divisa.toUpperCase() : simbolo
+    // El modal educativo de niveles de uso
+    panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
+        badge.addEventListener("click", () => abrirModalEducativoCredito(visto, {
+            pagadoCompleto: ciclo?.pagadoCompleto === true
+        }))
+    })
+
+    // Cambiar de tab = mirar otra cuenta de la familia. Se repinta el panel
+    // entero con el render estandar de esa cuenta.
+    panel.querySelectorAll(".subcuenta-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            if (miembroFamiliaVisto === tab.dataset.cuentaId) return
+            miembroFamiliaVisto = tab.dataset.cuentaId
+            mostrarDetalleCuenta()
+        })
+    })
+}
+
+// Tabs de la familia: el padre primero (su propia divisa) y luego las hijas.
+function plantillaTabsSubcuentas(padre, familia, visto) {
+    const total = saldoFamilia(padre, cuentas)
+    return `
+        <div class="subcuentas-tabs" role="tablist" aria-label="Subcuentas de ${padre.nombre}">
+            ${familia.map(c => {
+                const activa = c.id === visto.id
                 return `
-                    <button class="subcuenta-tab${idx === 0 ? " active" : ""}" data-divisa="${divisa}" role="tab" aria-controls="subcuenta-${divisa}">
-                        ${cuenta.nombre} ${label}
+                    <button type="button" role="tab" aria-selected="${activa}"
+                        class="subcuenta-tab${activa ? " active" : ""}"
+                        data-cuenta-id="${c.id}" title="${c.nombre}">
+                        ${presentarDivisa(c.moneda)}
                     </button>
                 `
             }).join("")}
+            <span class="subcuentas-total">Total ${formatearMontoConDivisa(total, padre.moneda)}</span>
         </div>
     `
-
-    // Renderizar contenido de cada subcuenta
-    const tabsContent = `
-        ${divisas.map((divisa, idx) => {
-            const saldo = saldos[divisa] || 0
-            const movimientosDivisa = movimientos.filter(m => (m.divisa || "").toUpperCase() === divisa.toUpperCase())
-            const moneda = divisa.toUpperCase()
-            const simbolo = DIVISAS_SYMBOLS[divisa] || "$"
-            const esPositivo = saldo >= 0
-
-            // Totales de esta subcuenta
-            const positivos = movimientosDivisa.filter(m => esMovimientoPositivo(m, null)).reduce((sum, m) => sum + (montoDeMovimiento(m, null) || 0), 0)
-            const negativos = movimientosDivisa.filter(m => !esMovimientoPositivo(m, null)).reduce((sum, m) => sum + Math.abs(montoDeMovimiento(m, null) || 0), 0)
-
-            return `
-                <div class="subcuenta-contenido${idx === 0 ? " active" : ""}" id="subcuenta-${divisa}">
-                    <div class="subcuenta-saldo ${esPositivo ? "positive" : "negative"}">
-                        ${saldo < 0 ? "−" : ""}${simbolo} ${Math.abs(saldo).toFixed(2)}
-                    </div>
-                    <div class="subcuenta-movimientos">
-                        ${movimientosDivisa.length > 0 ? `
-                            ${movimientosDivisa.slice(0, 10).map(m => `
-                                <div class="card-item" data-id="${m.id}">
-                                    <div class="card-item-info">
-                                        <span class="card-item-titulo">${m.concepto || m.tipo || "Sin concepto"}</span>
-                                        <span class="card-item-detalle">${formatearFecha(m.fechaRealizacion)}</span>
-                                    </div>
-                                    <div class="card-item-valor ${esMovimientoPositivo(m, null) ? "positive" : "negative"}">
-                                        ${signoMovimiento(m)} ${formatearMontoConDivisa(Math.abs(montoDeMovimiento(m, null)), m.divisa || "pen")}
-                                    </div>
-                                </div>
-                            `).join("")}
-                            <p class="lista-vacia">Mostrando los 10 movimientos más recientes</p>
-                        ` : `
-                            <p class="lista-vacia">No hay movimientos en esta subcuenta aún.</p>
-                        `}
-                    </div>
-                </div>
-            `
-        }).join("")}
-    `
-
-    panel.innerHTML = `
-        <div class="cuenta-vista ${lateral}">
-            ${tabsNav}
-            <div class="subcuentas-contenido">
-                ${tabsContent}
-            </div>
-        </div>
-    `
-
-    // Vincular eventos de tabs
-    document.querySelectorAll(".subcuenta-tab").forEach(tab => {
-        tab.addEventListener("click", () => {
-            document.querySelectorAll(".subcuenta-tab").forEach(t => t.classList.remove("active"))
-            tab.classList.add("active")
-            document.querySelectorAll(".subcuenta-contenido").forEach(c => c.classList.remove("active"))
-            const targetId = tab.getAttribute("aria-controls")
-            document.getElementById(targetId).classList.add("active")
-        })
-    })
-}
-
-function signoMovimiento(m) {
-    return esMovimientoPositivo(m, null) ? "+" : "−"
 }
 
 // ============================================
@@ -636,12 +709,9 @@ function plantillaInfoTarjeta(c, ciclo) {
 export async function abrirPagarTarjeta(cuenta) {
     try {
         const { abrirFormularioMovimiento } = await import("./movimientos.js")
-        const divisa = cuenta.subcuentas && cuenta.subcuentas.habilitadas.includes(cuenta.moneda || "pen")
-            ? cuenta.moneda || "pen"
-            : cuenta.moneda || "pen"
         abrirFormularioMovimiento(TIPOS_MOVIMIENTO.PAGO_TARJETA, null, {
             alGuardar: () => cargarCuentas(),
-            valores: { tarjeta: cuenta.id, divisa }
+            valores: { tarjeta: cuenta.id, divisa: cuenta.moneda || "pen" }
         })
     } catch (error) {
         console.error("Error abriendo pago de tarjeta:", error)
@@ -667,41 +737,11 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
 
     try {
         const movimientos = movimientosCargados || await obtenerMovimientos(uid)
-        const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
-        const divisasSubcuentas = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
 
-        // Filtrar movimientos que involucran la cuenta padre
+        // Cada miembro de la familia es una cuenta, asi que sus movimientos se
+        // distinguen por su id. No hay nada que agrupar por divisa.
         const involucrados = movimientos
             .filter(m => movimientoInvolucra(m, cuenta.id))
-        
-        // Si la cuenta tiene subcuentas, agrupar movimientos por divisa
-        if (tieneSubcuentas) {
-            // Agrupar movimientos por divisa de la subcuenta
-            const movimientosPorDivisa = {}
-            divisasSubcuentas.forEach(divisa => {
-                movimientosPorDivisa[divisa] = movimientos.filter(m => {
-                    const mDivisa = (m.divisa || "").toUpperCase()
-                    return mDivisa === divisa.toUpperCase()
-                })
-            })
-            // Añadir también movimientos que no coincidan exactamente con las divisas seleccionadas
-            // pero que involucran la cuenta (para casos de migración)
-            const movimientoSinDivisa = movimientos.filter(m => !m.divisa && movimientoInvolucra(m, cuenta.id))
-            
-            // Si hay movimientos sin divisa, asignarlos a la primera divisa
-            if (movimientoSinDivisa.length > 0 && divisasSubcuentas.length > 0) {
-                movimientosPorDivisa[divisasSubcuentas[0]] = (
-                    (movimientosPorDivisa[divisasSubcuentas[0]] || []).concat(movimientoSinDivisa)
-                ).filter((m, i, arr) => arr.findIndex(x => x.id === m.id) === i)
-            }
-            
-            // Aplanar para el renderizado (usaremos la agrupación manual)
-            involucrados.length = 0 // Limpiar para no duplicar
-            
-            // Renderizar usando la agrupación por divisa
-            await renderizarMovimientosSubcuentas(contenedor, contenedorTotales, cuenta, movimientosPorDivisa, divisasSubcuentas)
-            return
-        }
 
         const involucradosOrdenados = involucrados
             .sort((a, b) => {
@@ -740,131 +780,8 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
     }
 }
 
-async function renderizarMovimientosSubcuentas(contenedor, contenedorTotales, cuenta, movimientosPorDivisa, divisasSubcuentas) {
-    // Renderizar tabs de subcuentas
-    const tabsNav = `
-        <div class="subcuentas-tabs">
-            ${divisasSubcuentas.map((divisa, idx) => {
-                const saldo = calcularSaldoSubcuentaPorDivisa(movimientosPorDivisa[divisa] || [], divisa)
-                const simbolo = DIVISAS_SYMBOLS[divisa] || divisa.toUpperCase()
-                return `
-                    <button class="subcuenta-tab${idx === 0 ? " active" : ""}" data-divisa="${divisa}" role="tab" aria-controls="subcuenta-${divisa}">
-                        ${cuenta.nombre} ${simbolo}
-                    </button>
-                `
-            }).join("")}
-        </div>
-    `
-
-    // Renderizar contenido de cada subcuenta
-    const tabsContent = `
-        ${divisasSubcuentas.map((divisa, idx) => {
-            const movimientos = movimientosPorDivisa[divisa] || []
-            const saldo = calcularSaldoSubcuentaPorDivisa(movimientos, divisa)
-            const simbolo = DIVISAS_SYMBOLS[divisa] || "$"
-            const esPositivo = saldo >= 0
-
-            const positivos = movimientos.filter(m => esMovimientoPositivo(m, null)).reduce((sum, m) => sum + (montoDeMovimiento(m, null) || 0), 0)
-            const negativos = movimientos.filter(m => !esMovimientoPositivo(m, null)).reduce((sum, m) => sum + Math.abs(montoDeMovimiento(m, null) || 0), 0)
-
-            return `
-                <div class="subcuenta-contenido${idx === 0 ? " active" : ""}" id="subcuenta-${divisa}">
-                    <div class="subcuenta-saldo ${esPositivo ? "positive" : "negative"}">
-                        ${saldo < 0 ? "−" : ""}${simbolo} ${Math.abs(saldo).toFixed(2)}
-                    </div>
-                    <div class="subcuenta-movimientos">
-                        ${movimientos.length > 0 ? `
-                            ${movimientos.slice(0, 10).map(m => `
-                                <div class="card-item" data-id="${m.id}">
-                                    <div class="card-item-info">
-                                        <span class="card-item-titulo">${m.concepto || m.tipo || "Sin concepto"}</span>
-                                        <span class="card-item-detalle">${formatearFecha(m.fechaRealizacion)}</span>
-                                    </div>
-                                    <div class="card-item-valor ${esMovimientoPositivo(m, null) ? "positive" : "negative"}">
-                                        ${signoMovimiento(m)} ${formatearMontoConDivisa(Math.abs(montoDeMovimiento(m, null)), m.divisa || "pen")}
-                                    </div>
-                                </div>
-                            `).join("")}
-                            <p class="lista-vacia">Mostrando los 10 movimientos más recientes</p>
-                        ` : `
-                            <p class="lista-vacia">No hay movimientos en esta subcuenta aún.</p>
-                        `}
-                    </div>
-                </div>
-            `
-        }).join("")}
-    `
-
-    contenedor.innerHTML = ""
-    contenedorTotales.innerHTML = ""
-    
-    // Renderizar tabs navigation
-    const navDiv = document.createElement("div")
-    navDiv.innerHTML = tabsNav
-    contenedor.parentElement?.insertBefore(navDiv, contenedor)
-    
-    // Renderizar contenido
-    const contenidoDiv = document.createElement("div")
-    contenidoDiv.innerHTML = tabsContent
-    contenedor.parentElement?.insertBefore(contenidoDiv, contenedor)
-    
-    // Mover el contenedor original después del contenido
-    contenedor.parentElement?.insertBefore(contenedor, contenidoDiv.nextSibling)
-    
-    // Vincular eventos de tabs
-    document.querySelectorAll(".subcuenta-tab").forEach(tab => {
-        tab.addEventListener("click", () => {
-            document.querySelectorAll(".subcuenta-tab").forEach(t => t.classList.remove("active"))
-            tab.classList.add("active")
-            document.querySelectorAll(".subcuenta-contenido").forEach(c => c.classList.remove("active"))
-            const targetId = tab.getAttribute("aria-controls")
-            document.getElementById(targetId).classList.add("active")
-        })
-    })
-}
-
-function calcularSaldoSubcuentaPorDivisa(movimientos, divisa) {
-    let saldo = 0
-    movimientos.forEach(m => {
-        const monto = montoDeMovimiento(m, null)
-        if (esMovimientoPositivo(m, null)) saldo += monto
-        else saldo -= monto
-    })
-    return saldo
-}
-
 // Totales adaptados a los movimientos que involucran esta cuenta.
 function renderizarTotalesCuenta(cuenta, involucrados) {
-    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
-
-    if (tieneSubcuentas) {
-        // Renderizar totales por divisa para subcuentas
-        const porDivisa = {}
-        const divisas = cuenta.subcuentas.habilitadas
-
-        involucrados.forEach(m => {
-            const divisa = (m.divisa || cuenta.moneda || "PEN").toUpperCase()
-            if (!porDivisa[divisa]) porDivisa[divisa] = { positivo: 0, negativo: 0 }
-            const monto = montoDeMovimiento(m, cuenta.id)
-            if (esMovimientoPositivo(m, cuenta.id)) porDivisa[divisa].positivo += monto
-            else porDivisa[divisa].negativo += monto
-        })
-
-        const lineas = Object.entries(porDivisa)
-            .map(([divisa, totales]) => `
-                <span class="totales-item">
-                    <span class="totales-positivo">+${formatearMontoConDivisa(totales.positivo, divisa)}</span>
-                    <span class="totales-sep">/</span>
-                    <span class="totales-negativo">−${formatearMontoConDivisa(totales.negativo, divisa)}</span>
-                </span>
-            `)
-            .join("")
-
-        return `
-            <span class="totales-count">${involucrados.length} movimientos</span>
-            ${lineas}
-        `
-    }
 
     const porDivisa = {}
 
@@ -922,8 +839,6 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 }
 
 function vincularAccionesTotales(cuenta) {
-    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
-
     if (cuenta.tipo === "credito") {
         document.getElementById("btn-gasto-tarjeta")?.addEventListener("click", () => {
             import("./movimientos.js").then(({ abrirFormularioMovimiento }) => {
@@ -935,12 +850,6 @@ function vincularAccionesTotales(cuenta) {
         })
         document.getElementById("btn-pagar-tarjeta")?.addEventListener("click", () => {
             abrirPagarTarjeta(cuenta)
-        })
-    } else if (tieneSubcuentas) {
-        document.getElementById("btn-nuevo-movimiento-cuenta")?.addEventListener("click", () => {
-            import("./movimientos.js").then(({ abrirSelectorTipoMovimiento }) => {
-                abrirSelectorTipoMovimiento(cuenta.id)
-            })
         })
     } else {
         document.getElementById("btn-nuevo-movimiento-cuenta")?.addEventListener("click", () => {
@@ -1744,23 +1653,20 @@ function _abrirModalCrearCuentaDosPasos() {
         return `
         <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
             <input type="hidden" id="campo-tipo" value="${tipo}">
-            <div class="form-group full">
+            <div class="form-group" id="grupo-nombre">
                 <label for="campo-nombre">Nombre de la cuenta</label>
                 <input type="text" id="campo-nombre" class="form-input" placeholder="Ej: BBVA, BCP..." required>
             </div>
             <div class="form-group">
                 <label>Divisa de la cuenta</label>
                 <div class="toggle-group">
-                    <span class="toggle-option" data-divisa="pen">PEN</span>
+                    <span class="toggle-option active" data-divisa="pen">PEN</span>
                     <span class="toggle-option" data-divisa="usd">USD</span>
                     <span class="toggle-option" data-divisa="usdt">USDT</span>
                 </div>
                 <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
-            <div class="form-group">
-                <label for="campo-saldo">Saldo inicial</label>
-                <input type="number" id="campo-saldo" class="form-input" step="0.01" min="0" value="0">
-            </div>
+            ${campoSaldosPorDivisa("pen")}
             <div class="form-group cuenta-only">
                 <label for="campo-num-cuenta">Número de cuenta</label>
                 <input type="text" id="campo-num-cuenta" class="form-input" placeholder="000-000000000000">
@@ -1837,6 +1743,10 @@ function _abrirModalCrearCuentaDosPasos() {
                 modalEl.querySelectorAll(".credit-only").forEach(el => { el.hidden = !esCredito })
                 modalEl.querySelectorAll(".card-only").forEach(el => { el.hidden = !esTarjeta })
                 modalEl.querySelectorAll(".cuenta-only").forEach(el => { el.hidden = !esCuenta })
+                // Se ajusta DESPUES de mostrar/ocultar los grupos condicionales:
+                // el recuento solo mira los visibles, y estos acaban de cambiar.
+                ajustarAnchoNombre(modalEl.querySelector("#form-crear-cuenta"))
+                conectarToggleDivisas(modalEl)
                 modalEl.querySelector("#cuenta-paso-atras")?.addEventListener("click", () => {
                     paso = 1
                     tipoSeleccionado = null
@@ -1862,42 +1772,43 @@ function _abrirModalCrearCuentaDosPasos() {
             const toggles = modalEl.querySelectorAll(".toggle-option")
             const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
             const numDivisasSeleccionadas = divisasSeleccionadas.length
-            const saldo = parseFloat(modalEl.querySelector("#campo-saldo")?.value) || 0
+            const saldos = leerSaldosPorDivisa(modalEl)
             if (!nombre) {
                 mostrarNotificacion("warning", "El nombre es obligatorio")
                 return false
             }
 
             let monedaCuenta
-            let subcuentasConfig
+            let conSubcuentas
 
             if (numDivisasSeleccionadas >= 2) {
-                // Multiple currencies selected: create account with subaccounts
+                // Varias divisas: el padre se queda con la primera y el resto
+                // son cuentas hijas, que se crean en el Paso 2.
                 monedaCuenta = divisasSeleccionadas[0]
-                subcuentasConfig = { habilitadas: divisasSeleccionadas }
+                conSubcuentas = true
             } else if (numDivisasSeleccionadas === 1) {
-                // Single currency selected: regular account (unique/única)
+                // Una sola divisa: cuenta simple, sin subcuentas.
                 monedaCuenta = divisasSeleccionadas[0]
-                subcuentasConfig = null
+                conSubcuentas = false
             } else {
-                // No currency selected: regular account default to PEN
                 monedaCuenta = "pen"
-                subcuentasConfig = null
+                conSubcuentas = false
             }
 
             const datos = {
                 nombre,
                 tipo,
                 moneda: monedaCuenta,
-                saldoInicial: subcuentasConfig ? 0 : saldo,
                 estado: "activa",
                 esPatrimonio: true,
-                orden: cuentas.length
+                orden: cuentas.length,
+                // No se guarda en Firestore: `crearCuentaConSubcuentas` lo usa
+                // para crear las hijas y lo descarta al escribir el padre.
+                divisasExtras: conSubcuentas ? divisasSeleccionadas.filter(d => d !== monedaCuenta) : []
             }
-
-            if (subcuentasConfig) {
-                datos.subcuentas = subcuentasConfig
-            }
+            // `conSubcuentas` no se escribe en el documento: que una cuenta
+            // tenga subcuentas no es un campo, es la existencia de hijas con
+            // `padreId` apuntando aqui.
 
             if (tipo === "credito") {
                 datos.limite = parseFloat(modalEl.querySelector("#campo-limite")?.value) || 0
@@ -1926,12 +1837,18 @@ function _abrirModalCrearCuentaDosPasos() {
             }
 
             try {
-                // Seleccionar la cuenta recién creada: sin esto el detalle sigue
-                // mostrando la cuenta anterior y hay que buscarla a mano.
-                const creada = await crearCuenta(uid, datos)
+                // Padre + una hija por cada divisa extra, en una sola operacion.
+                const creada = await crearCuentaConSubcuentas(uid, datos, saldos, {
+                    esCredito: tipo === "credito"
+                })
                 await cargarCuentas()
                 await seleccionarCuenta(creada.id)
-                mostrarNotificacion("exito", "Cuenta creada")
+                mostrarNotificacion(
+                    "exito",
+                    datos.divisasExtras.length > 0
+                        ? `Cuenta creada con ${datos.divisasExtras.length + 1} subcuentas`
+                        : "Cuenta creada"
+                )
                 return true
             } catch (error) {
                 console.error("Error creando cuenta:", error)
@@ -1967,16 +1884,13 @@ function abrirFormularioCrearCuenta(tipo) {
             <div class="form-group">
                 <label>Divisa de la cuenta</label>
                 <div class="toggle-group">
-                    <span class="toggle-option" data-divisa="pen">PEN</span>
+                    <span class="toggle-option active" data-divisa="pen">PEN</span>
                     <span class="toggle-option" data-divisa="usd">USD</span>
                     <span class="toggle-option" data-divisa="usdt">USDT</span>
                 </div>
                 <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
-            <div class="form-group">
-                <label for="campo-saldo">Saldo inicial</label>
-                <input type="number" id="campo-saldo" class="form-input" step="0.01" min="0" value="0">
-            </div>
+            ${campoSaldosPorDivisa("pen")}
             <div class="form-group cuenta-only" ${tipo === "exchange" ? "hidden" : (esCuenta ? "" : "hidden")}>
                 <label for="campo-num-cuenta">Número de cuenta</label>
                 <input type="text" id="campo-num-cuenta" class="form-input" placeholder="000-000000000000">
@@ -2051,42 +1965,43 @@ function abrirFormularioCrearCuenta(tipo) {
             const toggles = modal.querySelectorAll(".toggle-option")
             const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
             const numDivisasSeleccionadas = divisasSeleccionadas.length
-            const saldo = parseFloat(modal.querySelector("#campo-saldo")?.value) || 0
+            const saldos = leerSaldosPorDivisa(modal)
             if (!nombre) {
                 mostrarNotificacion("warning", "El nombre es obligatorio")
                 return false
             }
 
             let monedaCuenta
-            let subcuentasConfig
+            let conSubcuentas
 
             if (numDivisasSeleccionadas >= 2) {
-                // Multiple currencies selected: create account with subaccounts
+                // Varias divisas: el padre se queda con la primera y el resto
+                // son cuentas hijas, que se crean en el Paso 2.
                 monedaCuenta = divisasSeleccionadas[0]
-                subcuentasConfig = { habilitadas: divisasSeleccionadas }
+                conSubcuentas = true
             } else if (numDivisasSeleccionadas === 1) {
-                // Single currency selected: regular account (unique/única)
+                // Una sola divisa: cuenta simple, sin subcuentas.
                 monedaCuenta = divisasSeleccionadas[0]
-                subcuentasConfig = null
+                conSubcuentas = false
             } else {
-                // No currency selected: regular account default to PEN
                 monedaCuenta = "pen"
-                subcuentasConfig = null
+                conSubcuentas = false
             }
 
             const datos = {
                 nombre,
                 tipo,
                 moneda: monedaCuenta,
-                saldoInicial: subcuentasConfig ? 0 : saldo,
                 estado: "activa",
                 esPatrimonio: true,
-                orden: cuentas.length
+                orden: cuentas.length,
+                // No se guarda en Firestore: `crearCuentaConSubcuentas` lo usa
+                // para crear las hijas y lo descarta al escribir el padre.
+                divisasExtras: conSubcuentas ? divisasSeleccionadas.filter(d => d !== monedaCuenta) : []
             }
-
-            if (subcuentasConfig) {
-                datos.subcuentas = subcuentasConfig
-            }
+            // `conSubcuentas` no se escribe en el documento: que una cuenta
+            // tenga subcuentas no es un campo, es la existencia de hijas con
+            // `padreId` apuntando aqui.
             if (esCredito) {
                 datos.limite = parseFloat(modal.querySelector("#campo-limite")?.value) || 0
                 datos.deuda = 0
@@ -2126,12 +2041,17 @@ function abrirFormularioCrearCuenta(tipo) {
 
             datos.padreId = modal.querySelector("#campo-padre")?.value || null
             try {
-                // Se llega desde el paso 1 del modal de dos pasos: seleccionar
-                // la cuenta recién creada.
-                const creada = await crearCuenta(uid, datos)
+                const creada = await crearCuentaConSubcuentas(uid, datos, saldos, {
+                    esCredito: tipo === "credito"
+                })
                 await cargarCuentas()
                 await seleccionarCuenta(creada.id)
-                mostrarNotificacion("exito", "Cuenta creada")
+                mostrarNotificacion(
+                    "exito",
+                    datos.divisasExtras.length > 0
+                        ? `Cuenta creada con ${datos.divisasExtras.length + 1} subcuentas`
+                        : "Cuenta creada"
+                )
                 return true
             } catch (error) {
                 console.error("Error creando cuenta:", error)
@@ -2142,6 +2062,7 @@ function abrirFormularioCrearCuenta(tipo) {
     })
     modal.querySelector("#campo-nombre")?.focus()
     ajustarAnchoNombre(modal.querySelector("#form-crear-cuenta"))
+    conectarToggleDivisas(modal)
 }
 
 // ============================================
@@ -2153,8 +2074,10 @@ function _abrirModalEditarCuenta(cuenta) {
     const permisoMoneda = cuenta.tipo !== "credito"
     const esArchivada = cuenta.estado === "archivada"
     const saldoParaEliminar = saldoParaRegla(cuenta)
-    const tieneSubcuentas = cuenta.subcuentas && cuenta.subcuentas.habilitadas && cuenta.subcuentas.habilitadas.length > 0
-    const divisasExistentes = cuenta.subcuentas ? cuenta.subcuentas.habilitadas : []
+    const tieneHijasDeEsta = tieneHijas(cuenta, cuentas)
+    const divisasYaUsadas = tieneHijasDeEsta
+        ? familiaDe(cuenta, cuentas).map(c => (c.moneda || "pen").toLowerCase())
+        : [(cuenta.moneda || "pen").toLowerCase()]
     const partesAnualidad = String(cuenta.anualidadFecha || "").split("-").map(Number)
     const anualidadFechaInput = partesAnualidad.length === 2 && partesAnualidad.every(Number.isFinite)
         ? `${new Date().getFullYear()}-${String(partesAnualidad[0]).padStart(2, "0")}-${String(partesAnualidad[1]).padStart(2, "0")}`
@@ -2170,11 +2093,11 @@ function _abrirModalEditarCuenta(cuenta) {
                 <div class="form-group">
                     <label>Divisa de la cuenta</label>
                     <div class="toggle-group">
-                        <span class="toggle-option${divisasExistentes.includes("pen") ? " active" : ""}" data-divisa="pen">PEN</span>
-                        <span class="toggle-option${divisasExistentes.includes("usd") ? " active" : ""}" data-divisa="usd">USD</span>
-                        <span class="toggle-option${divisasExistentes.includes("usdt") ? " active" : ""}" data-divisa="usdt">USDT</span>
+                        <span class="toggle-option${divisasYaUsadas.includes("pen") ? " active" : ""}" data-divisa="pen">PEN</span>
+                        <span class="toggle-option${divisasYaUsadas.includes("usd") ? " active" : ""}" data-divisa="usd">USD</span>
+                        <span class="toggle-option${divisasYaUsadas.includes("usdt") ? " active" : ""}" data-divisa="usdt">USDT</span>
                     </div>
-                    ${tieneSubcuentas ? '<p class="form-hint">Las divisas no pueden eliminarse de una cuenta con subcuentas existentes.</p>' : '<p class="form-hint">Seleccione las divisas para las subcuentas.</p>'}
+                    ${tieneHijasDeEsta ? '<p class="form-hint">Las divisas ya creadas no pueden eliminarse de la cuenta.</p>' : '<p class="form-hint">Seleccione las divisas para las subcuentas.</p>'}
                 </div>
             ` : ""}
             ${cuenta.tipo === "credito" ? `
@@ -2249,11 +2172,6 @@ function _abrirModalEditarCuenta(cuenta) {
                     <input type="text" id="edit-cci-debito" class="form-input" value="${cuenta.cci || ""}">
                 </div>
             ` : ""}
-            <div class="cuenta-acciones-secundarias">
-                ${saldoParaEliminar === 0 ? `<button type="button" class="modal-btn modal-btn-secondary modal-btn-danger" id="btn-editar-eliminar">
-                    Eliminar
-                </button>` : ""}
-            </div>
         </form>
     `
 
@@ -2262,6 +2180,15 @@ function _abrirModalEditarCuenta(cuenta) {
         contenido: html,
         variante: "form",
         confirmText: "Guardar cambios",
+        // Las acciones destructivas salen en el footer, a la izquierda de
+        // Guardar, y no dentro del formulario: asi no se leen como un campo
+        // mas y no se desplazan al final de un formulario largo.
+        footerExtra: `
+            <div class="modal-footer-acciones">
+                ${esArchivada ? "" : `<button type="button" class="modal-btn modal-btn-secondary" id="btn-editar-estado">Archivar</button>`}
+                ${saldoParaEliminar === 0 ? `<button type="button" class="modal-btn modal-btn-secondary modal-btn-danger" id="btn-editar-eliminar">Eliminar</button>` : ""}
+            </div>
+        `,
         onConfirm: async () => {
             const nombre = document.getElementById("edit-nombre")?.value.trim()
 
@@ -2272,23 +2199,24 @@ function _abrirModalEditarCuenta(cuenta) {
 
             const datos = { nombre }
 
-            const toggles = document.querySelectorAll(".toggle-option")
+            const toggles = modalEditar.querySelectorAll(".toggle-option")
             const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
-            const numDivisasSeleccionadas = divisasSeleccionadas.length
 
-            // Si la cuenta ya tiene subcuentas, no se pueden eliminar divisas
-            if (tieneSubcuentas) {
-                // Las divisas ya están activas y no se pueden cambiar
-                // Aún así, actualizamos el nombre y guardamos
-            } else if (numDivisasSeleccionadas >= 2) {
-                // Multiple currencies selected: add subaccounts
-                datos.subcuentas = { habilitadas: divisasSeleccionadas }
-            } else if (numDivisasSeleccionadas === 1) {
-                // Single currency selected: regular account (no subaccounts needed)
-                // No agregar subcuentasConfig, la cuenta será única
-            } else {
-                // No currency selected: mantener configuración actual
-            }
+            // Editar una cuenta: se pueden anadir subcuentas en nuevas divisas,
+            // nunca quitar las que ya existen. Las que ya estan vienen
+            // bloqueadas y encendidas (conectarToggleDivisas), asi que
+            // `divisasSeleccionadas` siempre las contiene.
+            //
+            // La cuenta editada sigue siendo la subcuenta de su propia divisa:
+            // su `moneda` no se toca. Las divisas nuevas se convertiran en
+            // cuentas hijas con `padreId` en el Paso 2, no en un campo.
+            const divisaActual = (cuenta.moneda || "pen").toLowerCase()
+            const divisasExistentes = tieneHijas(cuenta, cuentas)
+                ? [divisaActual, ...hijasDe(cuenta, cuentas).map(c => (c.moneda || "pen").toLowerCase())]
+                : [divisaActual]
+            const divisasParaAnadir = divisasSeleccionadas
+                .filter(d => !divisasExistentes.includes(d))
+            // Con una sola divisa no hay nada que anadir: la cuenta sigue simple.
 
             if (permisoMoneda) {
                 const monedaNueva = document.getElementById("edit-moneda")?.value
@@ -2383,13 +2311,17 @@ function _abrirModalEditarCuenta(cuenta) {
         }
     })
 
-    // Acciones secundarias: archivar/desarchivar y eliminar
-    document.getElementById("btn-editar-estado")?.addEventListener("click", () => {
+    // Acciones secundarias: archivar y eliminar (viven en el footer)
+    modalEditar.querySelector("#btn-editar-estado")?.addEventListener("click", () => {
         cerrarModal()
         archivarCuentaSeleccionada()
     })
-    document.getElementById("btn-editar-eliminar")?.addEventListener("click", () => {
+    modalEditar.querySelector("#btn-editar-eliminar")?.addEventListener("click", () => {
         cerrarModal()
         eliminarCuentaSeleccionada()
     })
+
+    // Las divisas ya presentes en la cuenta quedan bloqueadas: se pueden
+    // añadir subcuentas en otras, pero nunca quitar las que ya existen.
+    conectarToggleDivisas(modalEditar, divisasYaUsadas)
 }
