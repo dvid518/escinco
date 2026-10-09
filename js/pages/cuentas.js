@@ -1811,6 +1811,7 @@ function _abrirModalCrearCuentaDosPasos() {
             </div>
         </form>
     `
+    }
 
     const modalEl = abrirModal({
         titulo: "Nueva cuenta",
