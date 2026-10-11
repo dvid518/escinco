@@ -19,8 +19,10 @@ export function pintarVersionPanel() {
         destino.dataset.versionPintada = "true"
         destino.classList.add(CLASE)
         destino.innerHTML = `
-            <span class="panel-version-brand">${VERSION.nombre}</span>
-            <span class="panel-version-numero">v${VERSION.numero}</span>
+            <a class="panel-version-link" href="/" aria-label="Conoce más sobre ${VERSION.nombre}">
+                <span class="panel-version-brand">${VERSION.nombre}</span>
+                <span class="panel-version-numero">v${VERSION.numero}</span>
+            </a>
         `
     }
 }

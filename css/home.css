@@ -1,9 +1,14 @@
 /* ============================================
-   LANDING · ESCUCO EN /home
+   LANDING · ESCINCO EN "/"
    ============================================ */
 /* Página pública de presentación. Comparte el sistema de color y la escala
    tipográfica de style.css: aquí solo se declara la composición (columnas,
-   rejillas, la maqueta de la captura) y los dos formatos de botón.
+   rejillas, las secciones) y los dos formatos de botón.
+
+   La maqueta del panel NO se dibuja aquí: reutiliza css/dashboard.css, que ya
+   está cargado, y solo se declara aquí lo que la landing cambia de esa hoja
+   (tamaños de cifra y el lienzo de la dona). Así, cuando una card cambie en el
+   dashboard, la maqueta cambia con ella.
 
    El cuerpo global es una columna de altura completa con overflow oculto
    (style.css:173-189). La landing sí tiene que desplazar, así que .home-scroll
@@ -42,10 +47,21 @@
    -------------------------------------------- */
 
 .home-header {
+    position: sticky;
+    top: 12px;
+    z-index: 20;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
+    padding: 10px 20px;
+    margin-top: 12px;
+    border-radius: 50px;
+    border: 1px solid var(--lightBorder, var(--border));
+    background-color: var(--glass-frosted);
+    -webkit-backdrop-filter: blur(var(--blur-frosted, 14px));
+    backdrop-filter: blur(var(--blur-frosted, 14px));
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
 .home-marca {
@@ -60,16 +76,100 @@
 }
 
 .home-marca-nombre {
+    display: inline-flex;
+    align-items: baseline;
     font-size: 20px;
     font-weight: 700;
     color: var(--text);
     letter-spacing: -0.02em;
+    /* El contenedor no se encoge con el sufijo: si lo hiciera, el título y el
+       nav se recolocarían al replegarse "inco". */
+    white-space: nowrap;
+}
+
+/* --------------------------------------------
+   MARCA · "escinco" → "esc" → hover
+   -------------------------------------------- */
+/* El sufijo se retira a los 3 s y vuelve al pasar el cursor. El recorte y el
+   desplazamiento van en dos elementos: `width: auto` no es animable, así que el
+   externo recorta con max-width y el interno se desliza con translateX. Al
+   replegarse hacia la izquierda, el texto sale "hacia afuera" en vez de
+   disolverse, que es lo que da la sensación de que se guarda. */
+
+.home-marca-sufijo {
+    display: inline-block;
+    overflow: hidden;
+    vertical-align: bottom;
+    max-width: 0;
+    opacity: 0;
+    margin-left: 0;
+    transition: max-width 0.55s cubic-bezier(0.2, 0.8, 0.2, 1),
+        opacity 0.3s ease;
+}
+
+.home-marca-desplazar {
+    display: inline-block;
+    transform: translateX(-100%);
+    transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Estado inicial: nombre completo. Lo pone la ausencia de la clase, así que
+   antes de que corra el temporizador de js/pages/index.js ya se lee entero. */
+.home-marca-nombre:not(.home-marca-replegada) .home-marca-sufijo,
+.home-marca:hover .home-marca-sufijo,
+.home-marca:focus-visible .home-marca-sufijo {
+    max-width: 6ch;
+    opacity: 1;
+    margin-left: 0;
+}
+
+.home-marca-nombre:not(.home-marca-replegada) .home-marca-desplazar,
+.home-marca:hover .home-marca-desplazar,
+.home-marca:focus-visible .home-marca-desplazar {
+    transform: translateX(0);
+}
+
+/* Sin animación: el repliegue es instantáneo, pero el sufijo sigue siendo
+   visible o no según el estado, así que la información no se pierde. */
+@media (prefers-reduced-motion: reduce) {
+    .home-marca-sufijo,
+    .home-marca-desplazar {
+        transition: none;
+    }
 }
 
 .home-nav {
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+/* Botón de tema: mismo criterio de forma que .home-btn (círculo), pero del
+   tamaño de los botones de icono de la app. */
+.home-tema {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    background-color: transparent;
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.home-tema:hover {
+    background-color: var(--lightHover);
+    border-color: var(--text);
+    color: var(--text);
+}
+
+.home-tema-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* --------------------------------------------
@@ -156,119 +256,250 @@
     margin-top: 8px;
 }
 
-/* --------------------------------------------
-   CAPTURA DEL DASHBOARD
-   -------------------------------------------- */
-/* No hay imagen del panel en el repositorio, así que la captura se construye
-   con markup y color de tema: una maqueta de la navbar, la cifra de patrimonio
-   y la rejilla de cards. Al vivir en el CSS, no hay peso de imagen y la maqueta
-   se ve igual de bien en oscuro que en claro. */
+/* Franja de condiciones bajo los CTA: responde las tres objeciones de entrada
+   (¿es gratis?, ¿pide tarjeta?, ¿me encierran?) antes de que se hagan. */
+.home-garantias {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px 18px;
+    margin: 4px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: 12px;
+    color: var(--textSecondary);
+}
 
+.home-garantia {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* El punto delata que es una lista de checks sin icono, como los badges de la
+   lastbar, sin robarle peso al titular. */
+.home-garantia::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--positive);
+    flex-shrink: 0;
+}
+
+/* --------------------------------------------
+   MAQUETA DEL PANEL
+   -------------------------------------------- */
+/* No hay imagen del panel en el repositorio, así que la maqueta se construye
+   con el markup y el color de tema reales: un .dashboard con las mismas cards,
+   dentro de un marco con la navbar. No hay peso de imagen y se ve igual de bien
+   en oscuro que en claro.
+
+   Las columnas las trae dashboard.css (.dashboard-column). Solo se ajusta el
+   gap, que en la app está pensado para una pantalla a pantalla completa y aquí
+   va dentro de un marco. */
 .home-captura {
+    position: relative;
+    isolation: isolate;
     width: 100%;
     margin: 28px 0 0;
+}
+
+/* HERO · La maqueta se levanta sobre un halo para que el marco se lea como una
+   pieza destacada y no como otro bloque de texto. El halo es un degradado
+   radial detrás del marco, con los mismos colores del tema para que también
+   cambie a claro sin reescribir nada. */
+.home-captura::before {
+    content: "";
+    position: absolute;
+    inset: -14% -8% -6%;
+    z-index: -1;
+    border-radius: 50%;
+    background: radial-gradient(ellipse at center,
+            color-mix(in srgb, var(--positive) 16%, transparent) 0%,
+            color-mix(in srgb, var(--positive) 6%, transparent) 45%,
+            transparent 72%);
+    filter: blur(18px);
+    pointer-events: none;
 }
 
 .home-captura-frame {
     display: flex;
     flex-direction: column;
     gap: 20px;
-    padding: 20px;
+    padding: 24px;
     border: 1px solid var(--border);
-    border-radius: 25px;
+    border-radius: 28px;
     background-color: var(--background);
+    box-shadow: 0 24px 60px -24px var(--shadow);
 }
 
-.home-captura-navbar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    border-radius: 25px;
-    background-color: var(--background);
+/* Navbar de la maqueta: es la de la app (css/navegacion.css), pero dentro de
+   un marco no puede ocupar el 90% del viewport ni alejarse 30px del borde. Se
+   corrigen esas dos cosas y se anula el hover que agranda los tabs, que en una
+   maqueta estática solo haría que la imagen "respirara" al pasar el ratón. */
+.home-maqueta-nav {
+    width: 100%;
+    margin: 0;
+}
+
+.home-maqueta-nav .nav-container {
+    /* Los tabs no cambian de ancho al pasar el ratón. En la app ese grow de 5px
+       al hacer hover es una pista de que son pulsables; en una maqueta estática
+       solo provocaría un salto de layout que hace temblar el marco entero. El
+       color del hover sí se conserva, porque es lo que marca "activo". */
     overflow: hidden;
 }
 
-.home-captura-logo {
-    width: 24px;
-    height: 24px;
-    flex: 0 0 24px;
-    border-radius: 8px;
-    background-color: var(--border);
+/* Se anula solo el hover, no el estado activo: en la app el tab activo ya
+   viene con su propio padding y su escala, y esa diferencia es justo lo que
+   hace legible cuál está marcado. Lo que se quita es el crecimiento de 5px al
+   pasar el ratón, que en una maqueta estática solo haría temblar el marco. */
+.home-maqueta-nav .nav-container a,
+.home-maqueta-nav .nav-container a:hover {
+    padding: 0 20px;
+    transform: none;
+    cursor: default;
 }
 
-.home-pill {
-    padding: 6px 14px;
+.home-maqueta-nav .logo-container:hover,
+.home-maqueta-nav .logo-container:hover svg {
+    transform: none;
+}
+
+@media (max-width: 768px) {
+    .home-maqueta-nav {
+        width: 100%;
+        margin-top: 0;
+    }
+}
+
+/* Tres columnas, no las cuatro del dashboard. La maqueta muestra seis cards y
+   a cuatro columnas quedarían dos arriba y cuatro abajo, que es una rejilla
+   irregular y no lo que se quiere enseñar. Las tres columnas se reparten dos
+   cards por columna. */
+.home-maqueta {
+    --gap-card: 14px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* En la app las columnas las reparte un masonry en JS y siempre son las que
+   caben en el ancho. Aquí son tres fijas en el markup, así que al bajar a dos
+   o una, la tercera se quedaría sola en una fila. Con display:contents las
+   tres dejan de ser cajas y todas sus cards pasan a ser elementos directos de
+   la rejilla, que ya trae su propio gap y sus propios breakpoints. */
+@media (max-width: 899px) {
+    .home-maqueta .dashboard-column {
+        display: contents;
+    }
+}
+
+@media (max-width: 899px) and (min-width: 600px) {
+    .home-maqueta .metas-card,
+    .home-maqueta .pendientes-card {
+        display: none;
+    }
+}
+
+@media (max-width: 599px) {
+    .home-maqueta .card-cuenta,
+    .home-maqueta .distribucion-activos-card,
+    .home-maqueta .metas-card,
+    .home-maqueta .pendientes-card {
+        display: none;
+    }
+}
+
+/* La maqueta enseña, no se usa: sin cursor de puntero ni zoom al pasar por
+   encima, que es lo que haría pensar que esas cards se pueden pulsar.
+   iconos.css ya anula el glow de .movimiento-item y .meta-item; aquí se quita
+   el resto del feedback de hover de las cards. */
+.home-maqueta .dashboard .card {
+    cursor: default;
+}
+
+.home-maqueta .dashboard .card:hover {
+    transform: none;
+    border-color: var(--lightBorder);
+    box-shadow: none;
+}
+
+/* Las cifras de la app miden 32px porque ocupan media pantalla; dentro del
+   marco, a cuatro columnas, serían ilegibles. Es el único ajuste de tamaño. */
+.home-card-valor-medio {
+    font-size: 20px;
+}
+
+/* El toggle de periodos de la card del gráfico usa .toggle-group y
+   .toggle-option, cuya base vive en configuracion.css: una hoja entera de la
+   página de ajustes que la landing no carga y no necesita. Se copian aquí solo
+   esas cuatro reglas, con el mismo criterio que usa dashboard.css para
+   .grafico-periodos, que ya espera esta base. */
+.home-maqueta .toggle-group {
+    display: flex;
+    gap: 4px;
+    padding: 3px;
     border-radius: 50px;
-    background-color: var(--surface);
-    font-size: 12px;
-    font-weight: 500;
-    color: var(--textSecondary);
-    white-space: nowrap;
+    background: var(--background);
 }
 
-.home-pill-act {
-    background-color: var(--text);
+.home-maqueta .toggle-option {
+    padding: 4px 16px;
+    border-radius: 50px;
+    font-family: var(--font-primary);
+    font-size: 13px;
+    color: var(--textSecondary);
+    cursor: default;
+}
+
+.home-maqueta .toggle-option.active {
+    background: var(--border);
     color: var(--background);
+    font-weight: 500;
 }
 
-.home-captura-cuerpo {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+/* El select de divisa real es un <select> con flecha propia; en la maqueta es un
+   span y solo conserva la forma de la píldora. */
+.home-divisa-select {
+    display: inline-flex;
+    align-items: center;
+    padding-right: 14px;
+    background-image: none;
+    cursor: default;
 }
 
-.home-captura-rejilla {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 16px;
+/* --------------------------------------------
+   GRÁFICOS DE LA MAQUETA
+   -------------------------------------------- */
+
+/* La card del gráfico es la de la app, con su altura fija de 200px. El lienzo
+   se estira a ese contenedor igual que en el dashboard. */
+.home-maqueta .grafico-patrimonio-card .grafico-container-dashboard {
+    flex-basis: 180px;
+    height: 180px;
+    min-height: 180px;
+    max-height: 180px;
 }
 
-.home-card {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 16px;
-    border: 1px solid var(--lightBorder);
-    border-radius: 20px;
-    background-color: var(--surface);
-    text-align: left;
+.home-maqueta .grafico-patrimonio-card canvas {
+    width: 100% !important;
+    height: 100% !important;
 }
 
-.home-card-patrimonio {
-    border-color: var(--border);
+/* La dona no existe en la app: no hay una card con anillo, así que su lienzo
+   se dimensiona aquí. Debajo van las mismas barras de la card real. */
+.home-dona {
+    position: relative;
+    width: 100%;
+    height: 160px;
+    min-height: 160px;
+    max-height: 160px;
+    margin-bottom: 12px;
 }
 
-.home-card-rotulo {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--textSecondary);
-}
-
-.home-card-cifra {
-    font-family: var(--font-secondary);
-    font-size: 28px;
-    font-weight: 700;
-    line-height: 1.2;
-    letter-spacing: -0.05em;
-    color: var(--text);
-}
-
-.home-card-cifra-menor {
-    font-size: 15px;
-    letter-spacing: -0.02em;
-}
-
-.home-cifra-negativa {
-    color: var(--negative);
-}
-
-.home-card-delta {
-    font-family: var(--font-secondary);
-    font-size: 12px;
-    color: var(--positive);
+.home-dona canvas {
+    width: 100% !important;
+    height: 100% !important;
 }
 
 /* --------------------------------------------
@@ -277,9 +508,9 @@
 
 .home-features {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
-    padding: 64px 0;
+    padding: 64px 0 0;
 }
 
 .home-feature {
@@ -318,6 +549,225 @@
 }
 
 /* --------------------------------------------
+   TÍTULOS DE SECCIÓN
+   -------------------------------------------- */
+/* Un solo criterio para los tres bloques de abajo (pasos, confianza, FAQ): la
+   caja y el título van centrados, el contenido se alinea a la izquierda. */
+
+.home-pasos,
+.home-confianza,
+.home-faq,
+.home-cierre {
+    padding: 72px 0 0;
+}
+
+.home-seccion-titulo {
+    margin: 0;
+    font-size: clamp(22px, 3.2vw, 30px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text);
+    text-align: center;
+}
+
+/* --------------------------------------------
+   PASOS
+   -------------------------------------------- */
+
+.home-pasos-lista {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: paso;
+}
+
+.home-paso {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px 20px;
+    border: 1px solid var(--lightBorder);
+    border-radius: 25px;
+    background-color: var(--surface);
+}
+
+/* El número va en la fuente de las cifras, como los badges de la app. */
+.home-paso-numero {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    font-family: var(--font-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.home-paso-titulo {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.home-paso-texto {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+}
+
+/* --------------------------------------------
+   CONFIANZA
+   -------------------------------------------- */
+
+.home-confianza-lista {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.home-confianza-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 24px 20px;
+    border: 1px solid var(--lightBorder);
+    border-radius: 25px;
+    background-color: var(--surface);
+    color: var(--positive);
+}
+
+.home-confianza-titulo {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.home-confianza-texto {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+}
+
+.home-confianza-texto code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background-color: var(--background);
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--text);
+}
+
+/* --------------------------------------------
+   PREGUNTAS FRECUENTES
+   -------------------------------------------- */
+/* <details> nativo: accesible y sin una línea de JS. El marcador se sustituye
+   por el mismo chevron que usa la app, para que no rompa la estética. */
+.home-faq-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-width: 760px;
+    margin: 28px auto 0;
+}
+
+.home-faq-item {
+    border: 1px solid var(--lightBorder);
+    border-radius: 20px;
+    background-color: var(--surface);
+    overflow: hidden;
+}
+
+.home-faq-pregunta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    list-style: none;
+}
+
+.home-faq-pregunta::-webkit-details-marker {
+    display: none;
+}
+
+.home-faq-pregunta::after {
+    content: "";
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid var(--textSecondary);
+    border-bottom: 2px solid var(--textSecondary);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.3s ease;
+}
+
+.home-faq-item[open] .home-faq-pregunta::after {
+    transform: rotate(-135deg) translate(-2px, -2px);
+}
+
+/* La respuesta es la caja que se anima y no lleva relleno: si lo tuviera, al
+   colapsar a 0 de alto el padding de abajo seguiría dejando un hueco. El
+   relleno va en el span interior, que es lo que aporta el contenido. */
+.home-faq-respuesta {
+    margin: 0;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--textSecondary);
+}
+
+.home-faq-respuesta > span {
+    display: block;
+    padding: 0 20px 18px;
+}
+
+.home-faq-respuesta code {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background-color: var(--background);
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--text);
+}
+
+/* --------------------------------------------
+   CIERRE
+   -------------------------------------------- */
+
+.home-cierre {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    text-align: center;
+}
+
+.home-cierre-texto {
+    margin: 0;
+    max-width: 44ch;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--textSecondary);
+}
+
+/* --------------------------------------------
    PIE
    -------------------------------------------- */
 
@@ -327,6 +777,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+    margin-top: 72px;
     border-top: 1px solid var(--borderAlt);
 }
 
@@ -336,17 +787,47 @@
     color: var(--textSecondary);
 }
 
+.home-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 14px;
+}
+
+.home-footer-link {
+    font-size: 12px;
+    color: var(--textSecondary);
+}
+
+/* Privacidad y términos aún no existen. Se muestran sin destino y con
+   aria-disabled para que un lector de pantalla no los anuncie como enlaces,
+   pero sin pointer-events para que el rótulo "pendiente" sea clicable. */
+.home-footer-link-inactivo {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    opacity: 0.6;
+}
+
+.home-footer-version {
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--textSecondary);
+    opacity: 0.6;
+}
+
 /* --------------------------------------------
    RESPONSIVE
    -------------------------------------------- */
 
 @media (max-width: 900px) {
-    .home-features {
+    .home-features,
+    .home-pasos-lista {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .home-captura-rejilla {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+    .home-confianza-lista {
+        grid-template-columns: minmax(0, 1fr);
     }
 }
 
@@ -362,16 +843,31 @@
         padding-top: 48px;
     }
 
-    .home-features {
+    .home-features,
+    .home-pasos-lista {
         grid-template-columns: minmax(0, 1fr);
-        padding: 48px 0;
+        padding: 48px 0 0;
     }
 
-    .home-captura-rejilla {
-        grid-template-columns: minmax(0, 1fr);
+    .home-pasos,
+    .home-confianza,
+    .home-faq,
+    .home-cierre {
+        padding: 48px 0 0;
     }
 
-    .home-captura-navbar {
-        flex-wrap: wrap;
+    .home-captura-frame {
+        padding: 14px;
+        border-radius: 20px;
+    }
+
+    /* A una columna las cards de la maqueta se apilan: bajan un poco el
+       tamaño de la cifra para que el patrimonio no se salga del ancho. */
+    .home-card-valor-medio {
+        font-size: 18px;
+    }
+
+    .home-footer {
+        justify-content: center;
     }
 }

@@ -74,6 +74,26 @@ const ITEM_METAS = `
     </div>
 `
 
+const ITEM_BUSCAR = `
+    <div class="item glass" data-accion="buscar" role="button" tabindex="0">
+        <span class="glass">Buscar</span>
+        <svg id="icon-search" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="m21 21-4.3-4.3"/>
+        </svg>
+    </div>
+`
+
+const ITEM_NOTIFICACIONES = `
+    <div class="item glass" data-accion="notificaciones" role="button" tabindex="0">
+        <span class="glass">Notificaciones</span>
+        <svg id="icon-bell" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.268 21a2 2 0 0 0 3.464 0"/>
+            <path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>
+        </svg>
+    </div>
+`
+
 const ITEM_CERRAR_SESION = `
     <div class="item glass" data-accion="cerrar-sesion" role="button" tabindex="0">
         <span class="glass">Cerrar sesión</span>
@@ -89,7 +109,7 @@ const ITEM_CERRAR_SESION = `
 // MAPAS DE ACCIONES (barra y pendientes)
 // ============================================
 
-const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}</div>`
+const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_BUSCAR}${ITEM_NOTIFICACIONES}</div>`
 
 // Mapa de lastbars por página.
 // El botón de tema SOLO aparece en el dashboard.
@@ -365,6 +385,16 @@ const MAPA_ACCIONES = {
     "metas": async () => {
         const { mostrarMetas } = await import("../ui/metas.js")
         await mostrarMetas()
+    },
+
+    "buscar": async () => {
+        const { abrirBuscadorGlobal } = await import("./atajos.js")
+        await abrirBuscadorGlobal()
+    },
+
+    "notificaciones": async () => {
+        const { abrirCentroNotificaciones } = await import("../ui/notificaciones.js")
+        await abrirCentroNotificaciones()
     },
 
     "cerrar-sesion": async () => {

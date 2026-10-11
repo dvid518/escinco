@@ -11,6 +11,7 @@ import { aplicarTema, setTemaLocal } from "../core/tema.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { accionExportar } from "./exportar.js"
 import { skeletonMarkup, skeletonText } from "./skeletons.js"
+import { envolverSidebar } from "./colapsoSidebar.js"
 
 let uid = null
 let hayCambios = false
@@ -21,6 +22,11 @@ let nombrePendiente = null
 // del Guardar se calcula comparando la pantalla con lo guardado. Con banderas,
 // cambiar un valor y volver al original dejaba la bandera puesta y el Guardar
 // se activaba solo, que es de donde salia el aviso fantasma.
+
+// Fotografía de las preferencias tal como quedaron al abrir la pantalla. Es la
+// referencia contra la que se compara para saber si hay algo que guardar: si
+// el usuario cambia un valor y vuelve al anterior, deja de haber cambios.
+let lineaBase = null
 
 const CANTIDAD_MOVIMIENTOS_DEFAULT = 5
 
@@ -75,12 +81,16 @@ function plantillaConfiguracion() {
                             ${icono(seccion.icono, 18)}<span>${seccion.label}</span>
                         </button>
                     `).join("")}
+                    <div class="config-nav-pie">
+                        <span class="footer-brand">${VERSION.nombre}</span>
+                        <span class="footer-version">v${VERSION.numero}</span>
+                        <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
+                    </div>
                 </nav>
                 <div class="config-body">
 
             <!-- APARIENCIA -->
             <div class="panel-section hidden-section" id="section-apariencia">
-                <h2>Apariencia</h2>
 
                 <div class="config-group">
                     <span class="config-label">Tema</span>
@@ -211,7 +221,6 @@ function plantillaConfiguracion() {
 
             <!-- MONEDA -->
             <div class="panel-section hidden-section" id="section-moneda">
-                <h2>Moneda</h2>
 
                 <div class="config-group">
                     <span class="config-label">Divisa principal</span>
@@ -219,6 +228,7 @@ function plantillaConfiguracion() {
                         <option value="pen">PEN (S/)</option>
                         <option value="usd">USD ($)</option>
                         <option value="usdt">USDT (₮)</option>
+                        <option value="eur">EUR (€)</option>
                     </select>
                 </div>
 
@@ -255,6 +265,11 @@ function plantillaConfiguracion() {
                             <input type="number" id="tc-pen-usd" class="form-input" step="0.01" min="0.01" placeholder="${TIPO_CAMBIO_DEFAULT.pen_usd}">
                             <span>PEN</span>
                         </div>
+                        <div class="exchange-input">
+                            <label>1 USD =</label>
+                            <input type="number" id="tc-eur-usd" class="form-input" step="0.01" min="0.01" placeholder="${TIPO_CAMBIO_DEFAULT.eur_usd}">
+                            <span>EUR</span>
+                        </div>
                     </div>
 
                     <div class="tc-auto-box" id="tc-input-auto" hidden>
@@ -270,11 +285,20 @@ function plantillaConfiguracion() {
                         </div>
                     </div>
                 </div>
+                <div class="config-group">
+                    <span class="config-label">Precios de activos</span>
+                    <div class="toggle-row">
+                        <span>Actualizar automáticamente al entrar a Inversiones</span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-precios-auto">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
             </div>
 
             <!-- CUENTA -->
             <div class="panel-section" id="section-cuenta">
-                <h2>Cuenta</h2>
 
                 <div class="config-group">
                     <span class="config-label">Usuario</span>
@@ -302,7 +326,6 @@ function plantillaConfiguracion() {
 
             <!-- SEGURIDAD -->
             <div class="panel-section hidden-section" id="section-seguridad">
-                <h2>Seguridad</h2>
 
                 <div class="config-group">
                     <span class="config-label">Cerrar sesión por inactividad</span>
@@ -347,7 +370,6 @@ function plantillaConfiguracion() {
 
             <!-- ACCESIBILIDAD -->
             <div class="panel-section hidden-section" id="section-accesibilidad">
-                <h2>Accesibilidad</h2>
 
                 <div class="config-group">
                     <span class="config-label">Configuración como</span>
@@ -450,7 +472,6 @@ function plantillaConfiguracion() {
 
             <!-- DATOS -->
             <div class="panel-section hidden-section" id="section-datos">
-                <h2>Datos</h2>
                 <div class="config-group">
                     <span class="config-label">Exportar respaldo</span>
                     <button class="glass-btn" id="export-dvid">Exportar .dvid</button>
@@ -479,24 +500,10 @@ function plantillaConfiguracion() {
                 </div>
             </div>
 
-            <!-- El pie va FUERA de .config-layout, no dentro de .config-body.
-                 Dentro ocupaba solo el ancho de la columna de contenido, y el
-                 panel es un grid de menú + cuerpo: el pie quedaba a media
-                 anchura. Como hermano del grid ocupa TODO el ancho del panel y,
-                 con position sticky, queda fijo al hacer scroll.
-                 El botón Guardar se replica aquí porque en modo Panel (la ruta
-                 /configuración) no hay modal que ponga su propio pie. -->
-            <footer class="panel-footer config-panel-footer">
-                <div class="config-footer-info">
-                    <span class="footer-brand">${VERSION.nombre}</span>
-                    <span class="footer-version">v${VERSION.numero}</span>
-                    <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
-                </div>
-                <div class="config-footer-acciones">
-                    <button type="button" class="modal-btn modal-btn-secondary" id="config-cerrar">Cerrar</button>
-                    <button type="button" class="modal-btn modal-btn-primary" id="config-guardar">Guardar</button>
-                </div>
-            </footer>
+            <!-- La versión vive en el pie del menú lateral (.config-nav-pie),
+                 para que quede alineada con la columna de secciones y no como
+                 una barra de ancho completo. El Guardar está en la lastbar y el
+                 Cerrar es el propio navegador (o el engranaje). -->
     </div>
     </div>
     `
@@ -534,6 +541,7 @@ export function abrirConfiguracion() {
     uid = sesion.uid
     hayCambios = false
     nombrePendiente = null
+    lineaBase = null
     modoActual = "modal"
     console.log("[INFO] Configuración abierta como modal para UID:", uid)
 
@@ -580,8 +588,18 @@ export function abrirConfiguracion() {
 // El router llama a render() para pintar el HTML y luego a init(). Se apoya
 // en la misma plantilla y el mismo iniciarConfiguracion() que el panel.
 
+// En modo Panel la configuración es una página del router como las demás:
+// tiene su propio sidebar y su panel, por separado. El #panel no incluye el
+// sidebar: el nav vive en #sidebar y el cuerpo en #panel.
 export function render() {
-    return `<div class="config-pagina">${plantillaConfiguracion()}</div>`
+    return `
+        ${envolverSidebar(`
+            <section id="sidebar" aria-label="Secciones de configuración"></section>
+        `)}
+        <section id="panel" class="glass config-pagina">
+            ${plantillaConfiguracion()}
+        </section>
+    `
 }
 
 export async function init() {
@@ -589,8 +607,30 @@ export async function init() {
     uid = sesion.uid
     hayCambios = false
     nombrePendiente = null
+    lineaBase = null
     modoActual = "ruta"
+    separarSidebarDePanel()
     await iniciarConfiguracion()
+}
+
+// Mueve el nav de configuración a #sidebar y el pie de versión al final del
+// #panel a todo el ancho. En modal se quedan donde están.
+function separarSidebarDePanel() {
+    const panel = document.getElementById("panel")
+    const sidebar = document.getElementById("sidebar")
+    if (!panel || !sidebar) return
+    const nav = panel.querySelector(".config-nav")
+    if (nav && nav.parentElement !== sidebar) {
+        sidebar.prepend(nav)
+    }
+    const pie = sidebar.querySelector(".config-nav-pie") || panel.querySelector(".config-nav-pie")
+    if (pie && pie.parentElement !== panel) {
+        pie.classList.add("config-pie-pagina")
+        panel.appendChild(pie)
+    } else if (pie) {
+        pie.classList.add("config-pie-pagina")
+        panel.appendChild(pie)
+    }
 }
 
 // Botón "Guardar" de la lastbar (solo en modo página).
@@ -626,41 +666,13 @@ async function iniciarConfiguracion() {
     configurarPeriodoEvolucion()
     configurarResaltarPatrimonio()
     refrescarContadorArchivadas()
-    configurarPieConfiguracion()
-}
 
-// Botones del pie que van dentro del panel. Solo tienen sentido en modo Panel
-// (la ruta /configuración): en modo Modal el modal-xl ya pone su propio pie con
-// Guardar y Cerrar, y duplicarlos sería confuso.
-function configurarPieConfiguracion() {
-    const acciones = document.querySelector(".config-footer-acciones")
-    if (modoActual !== "ruta") {
-        if (acciones) acciones.hidden = true
-        return
-    }
-
-    const guardar = document.getElementById("config-guardar")
-    const cerrar = document.getElementById("config-cerrar")
-
-    guardar?.addEventListener("click", async () => {
-        if (!hayCambios) return
-        await guardarPreferencias()
-    })
-
-    cerrar?.addEventListener("click", () => {
-        if (!hayCambios) { navegarFueraDeConfiguracion(); return }
-        const preferenciasPendientes = construirPreferencias()
-        mostrarNotificacion("warning", "Hay cambios sin guardar", 0, [
-            { texto: "Guardar", primaria: true, alClick: () => aplicarPreferencias(preferenciasPendientes) },
-            { texto: "Descartar", clase: "cancel", alClick: () => navegarFueraDeConfiguracion() }
-        ], () => navegarFueraDeConfiguracion())
-    })
-}
-
-// Vuelve al panel principal tras guardar o descartar.
-async function navegarFueraDeConfiguracion() {
-    const { navigateTo } = await import("../core/router.js")
-    navigateTo("/dashboard")
+    // Referencia para detectar cambios: se toma DESPUÉS de que todos los
+    // controles estén conectados y con los valores guardados ya pintados, así
+    // que abrir la pantalla y no tocar nada da "sin cambios" con certeza.
+    lineaBase = construirPreferencias()
+    hayCambios = false
+    actualizarEstadoGuardar()
 }
 
 // ============================================
@@ -1020,6 +1032,12 @@ async function cargarPreferencias() {
             accResaltar.checked = acc.resaltarIngresoGasto !== false
         }
 
+        // Precios de activos
+        const preciosAuto = document.getElementById("toggle-precios-auto")
+        if (preciosAuto) {
+            preciosAuto.checked = prefs?.precios?.autoActualizar === true
+        }
+
         // Tipos de movimiento en el selector (Apariencia)
         const tipos = prefs?.tiposMovimiento || {}
         const marcarTipo = (id, valor) => {
@@ -1076,39 +1094,52 @@ function hayCambioDeNombre() {
 /**
  * ¿Hay algo que guardar?
  *
- * Compara el estado que se lee de la pantalla contra el de la sesion (que ya
- * lleva los defaults completados) con UNA sola comparacion profunda. Antes
- * eran veinte comparaciones contra literales repetidos a mano, y cualquiera
- * que se desincronizara activaba el aviso sin que el usuario hubiera tocado
- * nada: por eso aparecia "hay cambios sin guardar" solo por navegar.
+ * Compara el estado que se lee de la pantalla contra una FOTOGRAFÍA de cómo
+ * estaba al abrirse (lineaBase), no contra `sesion.getPreferencias()`.
+ * Comparar con la sesión era lo que producía el aviso fantasma: el tema, por
+ * ejemplo, se escribe en localStorage cuando se cambia desde la lastbar y en
+ * las preferencias cuando se guarda desde aquí, así que las dos fuentes
+ * divergen solas y la pantalla aparecía "modificada" sin haber tocado nada.
  *
- * El tipo de cambio se excluye porque lo gestiona DivisaServicio y su campo
- * `actualizacion` cambia en cada guardado: compararlo siempre daria "cambios".
+ * La foto se toma al terminar de cargar, con la pantalla ya pintada con los
+ * valores guardados: a partir de ahí, "cambios" significa exactamente "el
+ * usuario tocó algo", y volver al valor original deja de contarlo.
+ *
+ * Se excluye el tipo de cambio porque lo gestiona DivisaServicio y su campo
+ * `actualizacion` cambia en cada guardado: compararlo siempre daría "cambios".
  */
 function hayCambiosEnVivo() {
     if (hayCambioDeNombre()) return true
 
-    // El modo de la lastbar vive en localStorage, no en las preferencias, asi
-    // que no entra en la comparacion profunda. Se compara con lo guardado en
+    // El modo de la lastbar vive en localStorage, no en las preferencias, así
+    // que no entra en la comparación profunda. Se compara con lo guardado en
     // vez de fiarse del flag: si el usuario lo cambia y vuelve al valor que
-    // tenia, no hay nada que guardar.
+    // tenía, no hay nada que guardar.
     const lastbarGuardado = localStorage.getItem("escinco_lastbar_mode") || "hide"
     if (lastbarModo !== lastbarGuardado) return true
 
+    if (!lineaBase) return false
+
     const enPantalla = construirPreferencias()
-    const guardadas = sesion.getPreferencias() || {}
 
     // El nombre no forma parte de las preferencias.
     delete enPantalla.nombre
 
-    // Se excluyen la divisa y el tipo de cambio: los gestiona DivisaServicio y
-    // su `actualizacion` cambia en cada guardado, asi que compararlos daria
-    // siempre "cambios".
+    // La divisa y el tipo de cambio SÍ cuentan como cambio (antes se excluían y
+    // el Guardar nunca se habilitaba al tocarlos). Lo único que se ignora es el
+    // sello `actualizacion`, que `construirPreferencias()` renueva en cada
+    // llamada y haría ver siempre "cambios".
     return !sonIgualEnProfundidad(
-        fusionarProfundo({}, enPantalla),
-        fusionarProfundo({}, guardadas),
-        ["divisaPrincipal", "tipoCambio"]
+        sinSelloActualizacion(enPantalla),
+        sinSelloActualizacion(lineaBase)
     )
+}
+
+// Copia profunda de las preferencias sin el sello temporal del tipo de cambio.
+function sinSelloActualizacion(preferencias) {
+    const copia = fusionarProfundo({}, preferencias)
+    if (copia.tipoCambio) delete copia.tipoCambio.actualizacion
+    return copia
 }
 
 function sonIgualEnProfundidad(a, b, ignorar = []) {
@@ -1146,12 +1177,14 @@ function configurarDetectorCambios() {
         "toggle-tipo-trade",
         "divisa-principal",
         "tc-pen-usd",
+        "tc-eur-usd",
         "seg-inactividad",
         "seg-cerrar-pestana",
         "acc-modales-persistentes",
         "acc-doodles",
         "acc-un-click-seleccion",
-        "acc-resaltar-ingreso-gasto"
+        "acc-resaltar-ingreso-gasto",
+        "toggle-precios-auto"
     ]
 
     ids.forEach(id => {
@@ -1256,10 +1289,12 @@ function refrescarModoTipoCambio(modo = null) {
     const inputManual = document.getElementById("tc-input-manual")
     const inputAuto = document.getElementById("tc-input-auto")
     const tcUSD = document.getElementById("tc-pen-usd")
+    const tcEUR = document.getElementById("tc-eur-usd")
 
     if (inputManual) inputManual.hidden = esAuto
     if (inputAuto) inputAuto.hidden = !esAuto
     if (tcUSD) tcUSD.disabled = esAuto
+    if (tcEUR) tcEUR.disabled = esAuto
 
     actualizarInfoAuto()
 }
@@ -1267,10 +1302,11 @@ function refrescarModoTipoCambio(modo = null) {
 function actualizarInfoAuto() {
     const tc = getTipoCambio()
     const penUSD = tc.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
+    const eurUSD = tc.eur_usd || TIPO_CAMBIO_DEFAULT.eur_usd
 
     const valorAuto = document.getElementById("tc-valor-auto")
     if (valorAuto) {
-        valorAuto.textContent = `1 USD = ${Number(penUSD).toFixed(2)} PEN`
+        valorAuto.textContent = `1 USD = ${Number(penUSD).toFixed(2)} PEN · ${Number(eurUSD).toFixed(2)} EUR`
     }
 
     const fechaAuto = document.getElementById("tc-fecha-auto")
@@ -1409,12 +1445,6 @@ function actualizarEstadoGuardar() {
     if (modoActual === "ruta") {
         document.querySelector('.lastbar .item[data-accion="guardar"]')
             ?.classList.toggle("desact", !hayCambios)
-        const botonPie = document.getElementById("config-guardar")
-        if (botonPie) {
-            botonPie.classList.toggle("desact", !hayCambios)
-            if (hayCambios) botonPie.removeAttribute("disabled")
-            else botonPie.setAttribute("disabled", "true")
-        }
         return
     }
 
@@ -1435,8 +1465,14 @@ function construirPreferencias() {
         ? tcActual.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
         : parseFloat(document.getElementById("tc-pen-usd")?.value) || TIPO_CAMBIO_DEFAULT.pen_usd
 
+    const eurUSD = modoTCUI === "auto"
+        ? tcActual.eur_usd || TIPO_CAMBIO_DEFAULT.eur_usd
+        : parseFloat(document.getElementById("tc-eur-usd")?.value) || TIPO_CAMBIO_DEFAULT.eur_usd
+
     const tipoCambio = {
         pen_usd: penUSD,
+        eur_usd: eurUSD,
+        usdt_usd: tcActual.usdt_usd || TIPO_CAMBIO_DEFAULT.usdt_usd,
         modo: modoTCUI,
         actualizacion: modoTCUI === "auto"
             ? tcActual.actualizacion || new Date().toISOString()
@@ -1468,6 +1504,10 @@ function construirPreferencias() {
         trade: document.getElementById("toggle-tipo-trade")?.checked !== false
     }
 
+    const precios = {
+        autoActualizar: document.getElementById("toggle-precios-auto")?.checked === true
+    }
+
     return {
         tema: temaActual,
         periodoEvolucion: getPeriodoEvolucionUI(),
@@ -1486,7 +1526,8 @@ function construirPreferencias() {
         tipoCambio,
         seg,
         accesibilidad,
-        tiposMovimiento
+        tiposMovimiento,
+        precios
     }
 }
 
@@ -1508,7 +1549,8 @@ async function aplicarPreferencias(preferencias) {
             uid,
             tc.pen_usd,
             tc.modo,
-            tc.modo === "auto" && tc.actualizacion ? tc.actualizacion : null
+            tc.modo === "auto" && tc.actualizacion ? tc.actualizacion : null,
+            { eur_usd: tc.eur_usd, usdt_usd: tc.usdt_usd }
         )
 
         // En Firestore solo queda lo que se aparta del default. Volver a marcar
@@ -1537,6 +1579,9 @@ async function aplicarPreferencias(preferencias) {
         nombrePendiente = null
         hayCambios = false
         avisoDescartado = false
+        // Lo recién guardado pasa a ser la nueva referencia: a partir de aquí
+        // solo cuenta como cambio lo que se toque después.
+        lineaBase = construirPreferencias()
         actualizarEstadoGuardar()
 
         mostrarNotificacion("exito", "Cambios guardados")

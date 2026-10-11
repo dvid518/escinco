@@ -16,7 +16,7 @@ import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
-import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
+import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 
 let movimientos = []
 let cuentas = []
@@ -115,13 +115,17 @@ export function render() {
                     </button>
                 </div>
                 <select id="filtro-cuenta" class="filtro-select" aria-label="Cuenta">
-                    <option value="">Todas las cuentas</option>
+                    <option value="">Cuentas</option>
                 </select>
                 <select id="filtro-divisa" class="filtro-select" aria-label="Divisa">
-                    <option value="">Todas las divisas</option>
+                    <option value="">Divisas</option>
                     <option value="PEN">PEN</option>
                     <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
                     <option value="USDT">USDT</option>
+                </select>
+                <select id="filtro-etiqueta" class="filtro-select" aria-label="Etiqueta">
+                    <option value="">Etiquetas</option>
                 </select>
                 <button type="button" class="btn-icon filtro-limpiar" id="filtro-limpiar" title="Limpiar filtros" aria-label="Limpiar filtros">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom preview-icon">
@@ -182,7 +186,7 @@ async function cargarCuentas() {
             select.disabled = true
             select.setAttribute("aria-busy", "true")
             select.innerHTML = `<option value="">Cargando cuentas...</option>`
-            select.innerHTML = `<option value="">Todas las cuentas</option>` +
+            select.innerHTML = `<option value="">Cuentas</option>` +
                 cuentas
                     .map(c => `<option value="${c.id}">${c.nombre}</option>`)
                     .join("")
@@ -198,6 +202,25 @@ async function cargarCuentas() {
     }
 }
 
+// Reconstruye las opciones del filtro de etiquetas con las que existen en los
+// movimientos cargados. Conserva la selección si esa etiqueta sigue existiendo.
+function actualizarOpcionesEtiquetas() {
+    const select = document.getElementById("filtro-etiqueta")
+    if (!select) return
+
+    const seleccionada = select.value
+    const etiquetas = new Set()
+    movimientos.forEach(m => (m.etiquetas || []).forEach(e => etiquetas.add(e)))
+
+    const ordenadas = [...etiquetas].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
+    select.innerHTML = `<option value="">Todas las etiquetas</option>` +
+        ordenadas.map(e => `<option value="${e}">${e}</option>`).join("")
+
+    if (seleccionada) {
+        select.value = ordenadas.includes(seleccionada) ? seleccionada : ""
+    }
+}
+
 async function cargarMovimientos() {
     const container = document.getElementById("lista-movimientos")
     const totales = document.getElementById("totales-movimientos")
@@ -207,12 +230,9 @@ async function cargarMovimientos() {
     if (totales) totales.innerHTML = skeletonMarkup({ rows: 1, className: "skeleton-totals" })
     try {
         movimientos = await obtenerMovimientos(uid)
-        movimientos.sort((a, b) => {
-            const fa = (fechaDeMovimiento(a)?.getTime?.()) || 0
-            const fb = (fechaDeMovimiento(b)?.getTime?.()) || 0
-            return fb - fa
-        })
+        movimientos.sort(compararMovimientosPorFecha)
         limpiarSeleccion()
+        actualizarOpcionesEtiquetas()
         aplicarFiltro()
     } catch (error) {
         console.error("Error cargando movimientos:", error)
@@ -253,18 +273,25 @@ function plantillaMovimiento(m, cuentaId = null) {
     const monto = montoDeMovimiento(m, cuentaId)
     const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "-"
-    const clase = esPositivo ? "positive" : "negative"
+    let clase = esPositivo ? "positive" : "negative"
+    if (m.tipo === "error") clase = "ambar"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
     const seleccionada = seleccionados.has(m.id) ? " seleccionado" : ""
+    const etiquetas = (m.etiquetas || []).filter(Boolean)
 
     return `
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || m.tipo || "Sin concepto"}</span>
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}</span>
                     <span class="card-item-detalle">${[fecha, tipoNombre, cuenta].filter(Boolean).join(" · ")}</span>
+                    ${etiquetas.length ? `
+                        <span class="card-item-etiquetas">
+                            ${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}
+                        </span>
+                    ` : ""}
                 </div>
                 <div class="card-item-valor-wrap">
                     <span class="card-item-valor ${clase}">
@@ -318,6 +345,7 @@ function configurarEventos() {
     const hasta = document.getElementById("filtro-hasta")
     const cuenta = document.getElementById("filtro-cuenta")
     const divisa = document.getElementById("filtro-divisa")
+    const etiqueta = document.getElementById("filtro-etiqueta")
     const buscar = document.getElementById("filtro-buscar")
     const buscarLimpiar = document.getElementById("filtro-buscar-limpiar")
     const limpiar = document.getElementById("filtro-limpiar")
@@ -326,6 +354,7 @@ function configurarEventos() {
     hasta?.addEventListener("change", aplicarFiltro)
     cuenta?.addEventListener("change", aplicarFiltro)
     divisa?.addEventListener("change", aplicarFiltro)
+    etiqueta?.addEventListener("change", aplicarFiltro)
 
     buscar?.addEventListener("input", () => {
         if (buscarLimpiar) buscarLimpiar.hidden = !buscar.value.trim()
@@ -342,6 +371,7 @@ function configurarEventos() {
         if (hasta) hasta.value = ""
         if (cuenta) cuenta.value = ""
         if (divisa) divisa.value = ""
+        if (etiqueta) etiqueta.value = ""
         if (buscar) buscar.value = ""
         if (buscarLimpiar) buscarLimpiar.hidden = true
         aplicarFiltro()
@@ -605,6 +635,7 @@ function aplicarFiltro() {
     const hasta = document.getElementById("filtro-hasta")?.value
     const cuentaId = document.getElementById("filtro-cuenta")?.value
     const divisa = document.getElementById("filtro-divisa")?.value
+    const etiqueta = document.getElementById("filtro-etiqueta")?.value
     const busqueda = document.getElementById("filtro-buscar")?.value
 
     let filtrados = movimientos
@@ -644,6 +675,13 @@ function aplicarFiltro() {
         filtrados = filtrados.filter(m => (m.divisa || "").toUpperCase() === divisaUpper)
     }
 
+    if (etiqueta) {
+        const objetivo = etiqueta.toLowerCase()
+        filtrados = filtrados.filter(m =>
+            (m.etiquetas || []).some(e => String(e).toLowerCase() === objetivo)
+        )
+    }
+
     if (busqueda) {
         const q = busqueda.trim().toLowerCase()
         filtrados = filtrados.filter(m => {
@@ -654,7 +692,8 @@ function aplicarFiltro() {
                 m.nombreVendedor,
                 m.nombreComprador,
                 m.cuentaPago,
-                m.cuentaCobro
+                m.cuentaCobro,
+                ...(m.etiquetas || [])
             ]
                 .filter(Boolean)
                 .join(" ")
@@ -683,6 +722,10 @@ function aplicarFiltro() {
 function renderizarTotales(filtrados, cuentaId = null) {
     const contenedor = document.getElementById("totales-movimientos")
     if (!contenedor) return
+    void pintarTotales(contenedor, filtrados, cuentaId)
+}
+
+async function pintarTotales(contenedor, filtrados, cuentaId = null) {
 
     const porDivisa = {}
 
@@ -711,9 +754,37 @@ function renderizarTotales(filtrados, cuentaId = null) {
         .join("")
 
     const totalMovimientos = filtrados.length
+    // Ganancia total de los cambios de divisa en pantalla: destino menos
+    // origen, convertido a la divisa principal.
+    let lineaGanancia = ""
+    try {
+        const { convertirMonto, getDivisaPrincipal } = await import("../services/DivisaServicio.js")
+        const { obtenerCuentas } = await import("../../firebase/firestore.js")
+        const { sesion } = await import("../core/sesion.js")
+        const principal = getDivisaPrincipal()
+        const cuentas = await obtenerCuentas(sesion.uid).catch(() => [])
+        const monedaDe = new Map((cuentas || []).map(c => [c.id, (c.moneda || "pen").toLowerCase()]))
+        let ganancia = 0
+        let hayCambios = false
+        filtrados.forEach(m => {
+            if (m.tipo !== "cambioDivisa") return
+            if (m.montoOrigen == null || m.montoDestino == null) return
+            hayCambios = true
+            const divOrigen = monedaDe.get(m.cuentaOrigen) || m.divisa || "pen"
+            const divDestino = monedaDe.get(m.cuentaDestino) || m.divisa || "pen"
+            const origen = convertirMonto(Number(m.montoOrigen) || 0, divOrigen, principal)
+            const destino = convertirMonto(Number(m.montoDestino) || 0, divDestino, principal)
+            ganancia += destino - origen
+        })
+        if (hayCambios) {
+            const signo = ganancia >= 0 ? "+" : "−"
+            lineaGanancia = `<span class="totales-item"><span class="totales-ganancia">Ganancia ${signo}${Math.abs(ganancia).toFixed(2)}</span><span class="totales-divisa">${String(principal).toUpperCase()}</span></span>`
+        }
+    } catch { /* sin ganancia si falla la conversión */ }
     contenedor.innerHTML = `
         <span class="totales-count">${totalMovimientos} movimientos</span>
         ${lineas}
+        ${lineaGanancia}
         <div class="totales-acciones">
             <button type="button" class="totales-btn" id="btn-nuevo-movimiento" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus-circle", 16)}</button>
         </div>
@@ -992,8 +1063,12 @@ function filtrarCuentasPagoTarjeta() {
             if (indice === 0) return
             const tipo = opcion.dataset.tipo
             const compatible = tipo !== "credito" && (!moneda || opcion.dataset.moneda === moneda)
-            opcion.hidden = !compatible
-            opcion.disabled = !compatible
+            opcion.dataset.disponible = compatible ? "1" : "0"
+        })
+        if (origen._aplicarBusqueda) origen._aplicarBusqueda()
+        else Array.from(origen.options).forEach((opcion, indice) => {
+            if (indice === 0) return
+            opcion.hidden = opcion.disabled = opcion.dataset.disponible === "0"
         })
         if (origen.selectedOptions[0]?.disabled) origen.value = ""
     }
@@ -1019,8 +1094,15 @@ function filtrarCuentasDestinoTransferencia() {
         Array.from(destino.options).forEach((opcion, indice) => {
             if (indice === 0) return
             const compatible = !moneda || opcion.dataset.moneda === moneda
-            opcion.hidden = !compatible
-            opcion.disabled = !compatible
+            opcion.dataset.disponible = compatible ? "1" : "0"
+        })
+        // Al cambiar la divisa del origen, reiniciamos la búsqueda en destino
+        // para que el texto viejo no siga filtrando con la nueva disponibilidad.
+        destino.value = ""
+        if (destino._aplicarBusqueda) destino._aplicarBusqueda()
+        else Array.from(destino.options).forEach((opcion, indice) => {
+            if (indice === 0) return
+            opcion.hidden = opcion.disabled = opcion.dataset.disponible === "0"
         })
         if (destino.selectedOptions[0]?.disabled) destino.value = ""
     }
@@ -1051,6 +1133,11 @@ function rellenarFormulario(tipo, m) {
     const comisionInput = document.getElementById("campo-comision")
     if (comisionInput && m.comision !== undefined && m.comision !== null) {
         comisionInput.value = m.comision
+    }
+
+    const etiquetasInput = document.getElementById("campo-etiquetas")
+    if (etiquetasInput) {
+        etiquetasInput.value = (m.etiquetas || []).join(", ")
     }
 }
 
@@ -1357,21 +1444,18 @@ export async function exportarExtractoCSV() {
 
         const filas = movimientos
             .slice()
-            .sort((a, b) => {
-                const fa = (fechaDeMovimiento(a)?.getTime?.()) || 0
-                const fb = (fechaDeMovimiento(b)?.getTime?.()) || 0
-                return fb - fa
-            })
+            .sort(compararMovimientosPorFecha)
             .map(m => [
                 formatearFecha(m.fechaRealizacion),
                 CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido",
                 m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
                 nombreCuentaDeMovimiento(m),
                 `${esMovimientoPositivo(m) ? "+" : "-"}${Math.abs(montoDeMovimiento(m)).toFixed(2)}`,
-                (m.divisa || "PEN").toUpperCase()
+                (m.divisa || "PEN").toUpperCase(),
+                (m.etiquetas || []).filter(Boolean).join(", ")
             ])
 
-        const cabecera = ["Fecha", "Tipo", "Concepto", "Cuenta", "Monto", "Divisa"]
+        const cabecera = ["Fecha", "Tipo", "Concepto", "Cuenta", "Monto", "Divisa", "Etiquetas"]
         const csv = [cabecera, ...filas]
             .map(fila => fila.map(valor => escaparCSV(valor)).join(","))
             .join("\r\n")

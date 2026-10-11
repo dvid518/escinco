@@ -2,7 +2,6 @@ import { getLastbar, activarTooltipsLastbar } from "./lastbar.js"
 import { sesion } from "./sesion.js"
 
 const routes = {
-    '/': 'dashboard',
     '/dashboard': 'dashboard',
     '/cuentas': 'cuentas',
     '/movimientos': 'movimientos',
@@ -186,7 +185,7 @@ export async function loadPage(page) {
     if (page !== 'dashboard' && paginasVisibles[page] === false) {
         console.warn(`[WARN] Página "${page}" desactivada por el usuario → redirigiendo a dashboard`)
         finalizarCargaNavegacion(id)
-        navigateTo('/')
+        navigateTo('/dashboard')
         return
     }
 
@@ -358,7 +357,7 @@ async function renderPage(page) {
         currentPage = page
         updateActiveNav(page)
 
-        const path = page === 'dashboard' ? '/' : `/${page}`
+        const path = `/${page}`
         if (window.location.pathname !== path) {
             window.history.pushState({ page }, '', path)
         }
@@ -442,7 +441,7 @@ function setupNavigation() {
         const page = link.dataset.page || 'dashboard'
         evento.preventDefault()
         console.log("[INFO] Link clickeado:", page)
-        navigateTo(page === 'dashboard' ? '/' : `/${page}`)
+        navigateTo(`/${page}`)
     })
 
     const preloadLink = link => precargarPagina(link?.dataset?.page || 'dashboard')
@@ -461,12 +460,12 @@ window.addEventListener('popstate', (event) => {
     // La configuración nunca estuvo en el historial como ventana: si vuelve
     // por popstate es porque estaba en modo página.
     if (page === 'configuracion' && !configuracionComoPagina()) {
-        window.history.replaceState({ page: currentPage }, '', currentPage === 'dashboard' ? '/' : `/${currentPage}`)
+        window.history.replaceState({ page: currentPage }, '', `/${currentPage}`)
         abrirConfiguracionComoPanel()
         return
     }
     if (avisarCambioDePagina(page)) {
-        const path = currentPage === 'dashboard' ? '/' : `/${currentPage}`
+        const path = `/${currentPage}`
         window.history.replaceState({ page: currentPage }, '', path)
         return
     }
@@ -481,7 +480,7 @@ export function initRouter(initialPage = 'dashboard') {
     if (path === RUTA_CONFIGURACION && !configuracionComoPagina()) {
         // Enlace profundo con la configuración como panel: se pinta la página
         // inicial y la ventana se abre encima.
-        window.history.replaceState({ page: initialPage }, "", initialPage === 'dashboard' ? '/' : `/${initialPage}`)
+        window.history.replaceState({ page: initialPage }, "", `/${initialPage}`)
         loadPage(initialPage)
         abrirConfiguracionComoPanel()
         return

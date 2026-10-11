@@ -60,30 +60,6 @@ button:disabled {
 }
 
 /* --------------------------------------------
-   PIE · ENLACE A LA LANDING
-   -------------------------------------------- */
-/* Vive fuera de los cuatro estados, así que se ve en todos sin duplicarlo.
-   Sirve de salida a quien llega al login sin contexto: quien instaló la PWA y
-   perdió la sesión, o quien llega por un enlace compartido. */
-.auth-pie {
-    margin: 0;
-    font-size: 13px;
-    color: var(--textSecondary);
-    text-align: center;
-    opacity: 0.7;
-}
-
-.auth-pie a {
-    color: var(--textSecondary);
-    cursor: pointer;
-    transition: color 0.3s ease;
-}
-
-.auth-pie a:hover {
-    color: var(--positive);
-}
-
-/* --------------------------------------------
    MENSAJES
    -------------------------------------------- */
 
@@ -96,6 +72,7 @@ button:disabled {
     line-height: 1.5;
     color: var(--textSecondary);
     text-align: center;
+    transition: color 0.3s ease;
 }
 
 .auth-mensaje {
@@ -105,11 +82,13 @@ button:disabled {
     line-height: 1.6;
     color: var(--textSecondary);
     text-align: center;
+    transition: color 0.3s ease;
 }
 
 .auth-mensaje #verificacion_email {
     color: var(--text);
     font-weight: 600;
+    transition: color 0.3s ease;
 }
 
 /* --------------------------------------------
@@ -125,19 +104,23 @@ button:disabled {
     font-family: var(--font-primary);
     font-size: 14px;
     font-weight: 500;
+    color: var(--text);
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
 .auth-texto-btn:hover {
     border-color: var(--border);
-    box-shadow: 0 0 15px var(--shadow);
+    box-shadow: inset 0 0 15px var(--shadow);
 }
 
 /* Botón con forma de enlace: acción secundaria dentro del mismo estado. */
 .auth-enlace-btn {
     padding: 8px 12px;
     background-color: transparent;
+    color: var(--textSecondary);
     font-size: 14px;
     font-weight: 600;
+    transition: color 0.3s ease;
 }
 
 .auth-enlace-btn:hover {

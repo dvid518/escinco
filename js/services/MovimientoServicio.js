@@ -1,7 +1,9 @@
 import { sesion } from "../core/sesion.js"
 import {
     crearMovimiento,
+    crearCuenta,
     obtenerCuenta,
+    obtenerCuentas,
     actualizarCuenta,
     obtenerMovimientos,
     actualizarMovimientoDoc,
@@ -92,11 +94,71 @@ export async function registrarMovimiento(uid, tipo, datos) {
     return movimiento
 }
 
+// ============================================
+// SUBCUENTAS CRIPTO EN EXCHANGES
+// ============================================
+// Un exchange funciona así: la cuenta nace en USDT y cada criptomoneda que se
+// compra crea una pestaña propia. Aquí "pestaña" es una subcuenta real con
+// `moneda` = símbolo (BTC, ETH...) que guarda SU cantidad. La cuenta sigue en
+// USDT, sin tocar su saldo ni su número/CCI/vigencia; las pestañas se ven como
+// pills en el panel de la cuenta y no son patrimoniales (la posición se valora
+// por separado). El movimiento de efectivo (idr la cantidad x precio al saldo
+// USDT) lo hace actualizarSaldos como siempre.
+
+// ¿Qué se cuenta como cripto? Todo símbolo que no sea una de las tres divisas
+// base: el modelo del exchange no tiene por qué conocer cada token de antemano.
+function esCriptoParaExchange(simbolo) {
+    return !["PEN", "USD", "USDT"].includes(simbolo)
+}
+
+async function sincronizarSubcuentaExchange(uid, tipo, datos) {
+    if (!datos?.cuenta || !datos?.activo) return
+    const esCompra = tipo === TIPOS_MOVIMIENTO.COMPRA_ACTIVO || tipo === TIPOS_MOVIMIENTO.P2P_COMPRA
+    const esVenta = tipo === TIPOS_MOVIMIENTO.VENTA_ACTIVO || tipo === TIPOS_MOVIMIENTO.P2P_VENTA
+    if (!esCompra && !esVenta) return
+
+    const simbolo = String(datos.activo).trim().toUpperCase()
+    if (!esCriptoParaExchange(simbolo)) return
+
+    const cuenta = await obtenerCuenta(uid, datos.cuenta)
+    if (!cuenta || cuenta.tipo !== "exchange") return
+
+    const cantidad = Number(datos.cantidad) || 0
+    if (cantidad <= 0) return
+
+    const hermanas = (await obtenerCuentas(uid)).filter(c => c.padreId === cuenta.id)
+    const pestana = hermanas.find(c => (c.moneda || "").toUpperCase() === simbolo)
+
+    if (pestana) {
+        const delta = esCompra ? cantidad : -cantidad
+        await actualizarCuenta(uid, pestana.id, {
+            saldoInicial: Math.max(0, (pestana.saldoInicial || 0) + delta)
+        })
+        return
+    }
+
+    // No hay pestaña para esa cripto: se crea al comprar. Una venta sin
+    // pestaña previa no tiene sentido y no crea nada.
+    if (esVenta) return
+    await crearCuenta(uid, {
+        tipo: "exchange",
+        moneda: simbolo,
+        saldoInicial: cantidad,
+        padreId: cuenta.id,
+        estado: "activa",
+        esPatrimonio: false,
+        orden: (cuenta.orden ?? 0) + hermanas.length + 1
+    })
+}
+
 /**
  * Aplica el efecto de un movimiento de activo a la posición.
  * Se reutiliza tras crear, al revertir y al volver a aplicar en ediciones.
  */
 async function aplicarPosicion(uid, tipo, datos) {
+    // Las pestañas cripto de un exchange se crean/actualizan junto a la
+    // posición; revertirPosicion la llama con el tipo inverso y deshace.
+    await sincronizarSubcuentaExchange(uid, tipo, datos)
     const { actualizarPosicionPorMovimiento } = await import("./PosicionServicio.js")
     await actualizarPosicionPorMovimiento(uid, {
         tipo,
@@ -474,6 +536,10 @@ async function actualizarSaldos(uid, tipo, datos) {
             break
 
         case TIPOS_MOVIMIENTO.COMPRA_ACTIVO: {
+            // La cuenta es opcional (una compra puede no salir de ninguna
+            // cuenta: un regalo, una aportación). Sin cuenta solo se registra
+            // la posición, sin tocar saldos.
+            if (!datos.cuenta) break
             const totalCompra = (datos.cantidad * datos.precio) + (datos.comision || 0)
             const cuenta = await obtenerCuenta(uid, datos.cuenta)
             if (cuenta?.tipo === "credito") await actualizarDeudaTarjeta(uid, datos.cuenta, totalCompra, "aumentar")
@@ -483,6 +549,7 @@ async function actualizarSaldos(uid, tipo, datos) {
 
         case TIPOS_MOVIMIENTO.VENTA_ACTIVO: {
             // ✅ Comisión descontada del saldo recibido
+            if (!datos.cuenta) break
             const totalVenta = (datos.cantidad * datos.precio) - (datos.comision || 0)
             await actualizarSaldoCuenta(uid, datos.cuenta, totalVenta, "sumar")
             break
@@ -556,6 +623,7 @@ async function revertirSaldos(uid, tipo, datos) {
 
         case TIPOS_MOVIMIENTO.COMPRA_ACTIVO:
         case TIPOS_MOVIMIENTO.P2P_COMPRA: {
+            if (tipo === TIPOS_MOVIMIENTO.COMPRA_ACTIVO && !datos.cuenta) break
             const total = (datos.cantidad * datos.precio) + (datos.comision || 0)
             const cuenta = await obtenerCuenta(uid, datos.cuenta)
             if (cuenta?.tipo === "credito") await actualizarDeudaTarjeta(uid, datos.cuenta, total, "reducir")
@@ -565,6 +633,7 @@ async function revertirSaldos(uid, tipo, datos) {
 
         case TIPOS_MOVIMIENTO.VENTA_ACTIVO:
         case TIPOS_MOVIMIENTO.P2P_VENTA: {
+            if (tipo === TIPOS_MOVIMIENTO.VENTA_ACTIVO && !datos.cuenta) break
             const total = (datos.cantidad * datos.precio) - (datos.comision || 0)
             await actualizarSaldoCuenta(uid, datos.cuenta, total, "restar")
             break

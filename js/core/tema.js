@@ -1,4 +1,15 @@
-import { db, doc, updateDoc } from "../../firebase/firestore.js"
+// Firestore se carga en caliente: no hay ningún `import` de él en la cabecera.
+//
+// Motivo: este módulo lo importa la landing (js/pages/index.js) solo para
+// aplicar el tema guardado y evitar el destello. Con el import estático,
+// cualquier visitante anónimo de la página pública arrastraba el SDK de
+// Firebase entero —el cliente de Firestore y el de Auth— sin llegar a
+// autenticarse nunca. La carga ocurre dentro de guardarTemaFirestore(), que solo
+// se llama con sesión, así que el SDK se paga únicamente donde se usa.
+//
+// La única función de este módulo que habla con Firestore es esa, de modo que
+// el resto (aplicarTema, getTemaLocal, setTemaLocal, ciclarTema…) sigue siendo
+// sin dependencias.
 
 // ============================================
 // TEMA
@@ -142,6 +153,8 @@ export async function guardarTemaFirestore(uid, tema) {
         throw new Error(`Tema inválido: ${tema}`)
     }
 
+    // Ver la nota de la cabecera: el SDK entra aquí y no antes.
+    const { db, doc, updateDoc } = await import("../../firebase/firestore.js")
     const referencia = doc(db, "usuarios", uid)
     await updateDoc(referencia, {
         "preferencias.tema": tema

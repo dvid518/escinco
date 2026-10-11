@@ -12,7 +12,15 @@ const selectoresScroll = [
     ".cuenta-detalle",
     ".lista-posiciones",
     ".pendientes-lista",
-    ".vencimientos-lista"
+    ".vencimientos-lista",
+    // El sidebar de cuentas (y el de las demás páginas, que comparten
+    // estructura) también scrollea, y sin esto la lista se cortaba en seco
+    // contra el botón de colapsar. Se mete aquí y no en una regla propia para
+    // que herede el mismo fade y los mismos estados de "hay más".
+    ".sidebar-wrap #sidebar",
+    // El panel de cada página y el de la configuración: son los contenedores
+    // que cortan su contenido contra el borde inferior del panel.
+    "#panel"
 ].join(", ")
 
 const elementosRegistrados = new Set()

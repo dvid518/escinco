@@ -1,5 +1,5 @@
 import { actualizarPreferencias } from "../../firebase/firestore.js"
-import { DIVISAS, DIVISAS_LABELS, DIVISAS_SYMBOLS, TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
+import { DIVISAS, DIVISAS_LABELS, DIVISAS_SYMBOLS, DIVISAS_PALABRAS, TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
 import { sesion } from "../core/sesion.js"
 
 // ============================================
@@ -35,7 +35,24 @@ export function presentarDivisa(moneda) {
     if (getFormatoDivisa() === "codigo") {
         return DIVISAS_LABELS[clave] ? DIVISAS_LABELS[clave].toUpperCase() : String(clave).toUpperCase()
     }
-    return DIVISAS_SYMBOLS[clave] || "S/"
+    // Monedas fuera de las tres base (un cripto "BTC", una divisa libre...):
+    // nunca "S/" por defecto, que confundiría; se muestra el código en
+    // mayúsculas, que es el mejor símbolo que puede tener una moneda sin uno.
+    return DIVISAS_SYMBOLS[clave] || String(clave).toUpperCase()
+}
+
+/**
+ * Etiqueta de subcuenta según el formato elegido por el usuario:
+ *   simbolo → "SOLES" / "DÓLARES" / "USDT" (palabra, nunca solo "$")
+ *   codigo  → "PEN" / "USD" / "USDT"
+ * Vale para cualquier divisa: fuera de la lista usa el código en mayúsculas.
+ */
+export function etiquetaDivisa(moneda) {
+    const clave = String(moneda || getDivisaPrincipal()).toLowerCase()
+    if (getFormatoDivisa() === "codigo") {
+        return DIVISAS_LABELS[clave] ? DIVISAS_LABELS[clave].toUpperCase() : String(clave).toUpperCase()
+    }
+    return DIVISAS_PALABRAS[clave] || DIVISAS_LABELS[clave]?.toUpperCase() || String(clave).toUpperCase()
 }
 
 /**
@@ -59,32 +76,39 @@ export function getTipoCambio() {
 // --------------------------------------------
 // CONVERSIÓN
 // --------------------------------------------
+// Cada tasa se guarda como "unidades de la divisa por 1 USD". USDT ya NO se
+// normaliza a USD: es una divisa propia (por defecto 1 USDT = 1 USD, ajustable).
+
+function numeroPositivo(valor, respaldo) {
+    const n = Number(valor)
+    return Number.isFinite(n) && n > 0 ? n : respaldo
+}
+
+/** Devuelve las unidades por 1 USD de una divisa, o null si no es fiat conocida. */
+export function getTasaCambio(divisa) {
+    const tc = getTipoCambio()
+    const d = String(divisa || "").toLowerCase()
+
+    if (d === DIVISAS.USD) return 1
+    if (d === DIVISAS.PEN) return numeroPositivo(tc.pen_usd, TIPO_CAMBIO_DEFAULT.pen_usd)
+    if (d === DIVISAS.EUR) return numeroPositivo(tc.eur_usd, TIPO_CAMBIO_DEFAULT.eur_usd)
+    if (d === DIVISAS.USDT) return numeroPositivo(tc.usdt_usd, TIPO_CAMBIO_DEFAULT.usdt_usd)
+
+    // Cripto o divisa libre: sin tasa. No se convierte.
+    return null
+}
 
 export function convertirMonto(monto, desde, hacia) {
     if (desde === hacia) return monto
 
-    const tc = getTipoCambio()
-    const penUSD = tc.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
+    const tasaDesde = getTasaCambio(desde)
+    const tasaHacia = getTasaCambio(hacia)
 
-    // USDT = USD siempre
-    const normalizar = (div) => (div === DIVISAS.USDT ? DIVISAS.USD : div)
+    // Sin tasa conocida en alguno de los lados, se devuelve el monto tal cual.
+    if (tasaDesde == null || tasaHacia == null) return monto
 
-    const desdeNorm = normalizar(desde)
-    const haciaNorm = normalizar(hacia)
-
-    if (desdeNorm === haciaNorm) return monto
-
-    // Convertir a PEN primero
-    let montoPEN = monto
-    if (desdeNorm === DIVISAS.USD) {
-        montoPEN = monto * penUSD
-    }
-
-    // Convertir de PEN a destino
-    if (haciaNorm === DIVISAS.PEN) return montoPEN
-    if (haciaNorm === DIVISAS.USD) return montoPEN / penUSD
-
-    return monto
+    // Normalizar a USD y volver a la divisa destino.
+    return (monto / tasaDesde) * tasaHacia
 }
 
 // --------------------------------------------
@@ -116,7 +140,7 @@ export function formatearMontoEnPrincipal(monto, divisaOrigen) {
  * Usa dot notation para no pisar otras preferencias.
  */
 export async function guardarDivisaPrincipal(uid, divisa) {
-    if (!["pen", "usd", "usdt"].includes(divisa)) {
+    if (!["pen", "usd", "usdt", "eur"].includes(divisa)) {
         throw new Error(`Divisa inválida: ${divisa}`)
     }
 
@@ -131,10 +155,14 @@ export async function guardarDivisaPrincipal(uid, divisa) {
  * `actualizacion` refleja cuándo se actualizó el TC: si la persona guarda
  * las preferencias con la moneda en modo "auto" y ya hay una fecha previa,
  * se conserva (el TC no cambió); si se pasa null se sella ahora.
+ * `extras` permite adjuntar las tasas de EUR/USDT (unidades por 1 USD).
  */
-export async function guardarTipoCambio(uid, penUSD, modo = "manual", actualizacion = null) {
+export async function guardarTipoCambio(uid, penUSD, modo = "manual", actualizacion = null, extras = {}) {
+    const previo = getTipoCambio()
     const tipoCambio = {
         pen_usd: penUSD,
+        eur_usd: numeroPositivo(extras.eur_usd, numeroPositivo(previo.eur_usd, TIPO_CAMBIO_DEFAULT.eur_usd)),
+        usdt_usd: numeroPositivo(extras.usdt_usd, numeroPositivo(previo.usdt_usd, TIPO_CAMBIO_DEFAULT.usdt_usd)),
         modo,
         actualizacion: actualizacion || new Date().toISOString()
     }
@@ -170,12 +198,15 @@ export async function actualizarTipoCambioAuto(uid) {
 
         const datos = await respuesta.json()
         const penUSD = datos?.result === "success" ? Number(datos.rates?.PEN) : null
+        const eurUSD = datos?.result === "success" ? Number(datos.rates?.EUR) : null
 
         if (!penUSD || penUSD <= 0) {
             throw new Error("La API no devolvió el tipo de cambio PEN")
         }
 
-        await guardarTipoCambio(uid, penUSD, "auto")
+        await guardarTipoCambio(uid, penUSD, "auto", null, {
+            eur_usd: eurUSD > 0 ? eurUSD : undefined
+        })
         return penUSD
     } catch (error) {
         console.error("Error actualizando tipo de cambio automático:", error)

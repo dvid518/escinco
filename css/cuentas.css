@@ -72,7 +72,6 @@
 }
 
 .cuenta-vista-info .cuenta-perfil,
-.cuenta-vista-info .cuenta-saldo-grande,
 .cuenta-vista-info .credito-resumen,
 .cuenta-vista-info .credito-uso {
     flex-shrink: 0;
@@ -185,25 +184,21 @@
     border-color: var(--negative);
 }
 
-/* --------------------------------------------
-   SALDO GRANDE
-   -------------------------------------------- */
-
-.cuenta-saldo-grande {
-    font-family: var(--font-secondary);
-    font-size: 36px;
-    font-weight: 600;
-    text-align: left;
-    padding: 8px 0;
-    line-height: 1.1;
-}
-
-.cuenta-saldo-grande.positive {
+/* Vigencia de la tarjeta (Activa / Caduca este mes / Caducada). No es
+   pulsable como el estado de nivel, así que no lleva cursor ni hover. */
+.cuenta-badge.tarjeta-estado.positiva {
     color: var(--positive);
+    border-color: var(--positive);
 }
 
-.cuenta-saldo-grande.negative {
+.cuenta-badge.tarjeta-estado.ambar {
+    color: var(--ambar);
+    border-color: var(--ambar);
+}
+
+.cuenta-badge.tarjeta-estado.negativa {
     color: var(--negative);
+    border-color: var(--negative);
 }
 
 .cuenta-saldo-moneda {
@@ -381,16 +376,6 @@
    MANEJO DEL DINERO · MODAL EDUCATIVO
    -------------------------------------------- */
 
-.form-section-title {
-    font-size: 12px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--textSecondary);
-    border-bottom: 1px solid var(--border);
-    padding: 12px 0 6px;
-}
-
 .credito-educativo {
     display: flex;
     flex-direction: column;
@@ -497,63 +482,65 @@
 }
 
 /* --------------------------------------------
-   PANEL · TABS DE SUBCUENTAS
+   PANEL · PILLS DE SUBCUENTAS
    -------------------------------------------- */
-/* El padre y sus hijas son cuentas reales: las tabs no eligen "vista", eligen
-   que cuenta se esta mirando. Se pintan encima de la vista de la cuenta,
-   asi que ocupan su propia fila. */
-.subcuentas-tabs {
+/* El padre y sus hijas son cuentas reales: las pills no eligen "vista",
+   eligen QUE cuenta se esta mirando. Viven dentro de los badges del perfil
+   (junto a "Efectivo", "Débito"...), como chips compactos, en vez de ocupar
+   su propia fila aparte que partía la vista del panel. */
+.subcuentas-pills {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
     flex-wrap: wrap;
-    padding: 8px 0 2px 0;
-    margin-bottom: 4px;
+    justify-content: flex-end;
 }
 
-.subcuenta-tab {
-    padding: 6px 16px;
+.subcuenta-pill {
+    padding: 2px 10px;
     border-radius: 50px;
     border: 1px solid var(--border);
-    background: var(--surface);
+    background: transparent;
     color: var(--textSecondary);
     font-family: var(--font-primary);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
     cursor: pointer;
     transition: all 0.3s ease;
     white-space: nowrap;
 }
 
-.subcuenta-tab:hover:not(.active) {
+.subcuenta-pill:hover:not(.active) {
     color: var(--text);
     border-color: var(--textSecondary);
 }
 
-.subcuenta-tab.active {
+.subcuenta-pill.active {
     color: var(--text);
     border-color: var(--text);
     background: var(--glass-frosted);
 }
 
-.subcuenta-tab:focus-visible {
+.subcuenta-pill:focus-visible {
     outline: 2px solid var(--textSecondary);
     outline-offset: 2px;
 }
 
-/* El total de la familia, a la derecha del grupo de tabs. */
-.subcuentas-total {
-    margin-left: auto;
-    font-size: 13px;
-    color: var(--textSecondary);
-    white-space: nowrap;
+/* Cuenta excluida del patrimonio (esPatrimonio = false). */
+.cuenta-badge.no-patrimonial {
+    color: var(--textTertiary, var(--textSecondary));
+    border-style: dashed;
 }
 
-@media (max-width: 520px) {
-    .subcuentas-total {
-        margin-left: 0;
-        width: 100%;
-    }
+/* "% del patrimonio": item compacto bajo el saldo de cada cuenta. */
+.resumen-sub {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    color: var(--textSecondary);
 }
 
 /* --------------------------------------------
@@ -561,17 +548,44 @@
    -------------------------------------------- */
 /* Un input por divisa seleccionada. Solo se ven los de las divisas activas en
    el toggle, asi que el alto cambia segun cuantas patas tenga la cuenta. */
-.saldo-divisas {
+/* Una columna por divisa, ocupando la celda entera de la rejilla: los inputs
+   van justo debajo del toggle en lugar de repartirse en fila. */
+/* --------------------------------------------
+   MODAL · VENCIMIENTO (mes / año)
+   -------------------------------------------- */
+/* Dos campos con la "/" entre ellos, dibujada por el control: el usuario
+   teclea "1227" y ve "12/27" sin tener que escribir el separador. */
+.vence-inputs {
     display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
 }
 
+.vence-inputs .form-input {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+}
+
+.vence-sep {
+    flex-shrink: 0;
+    color: var(--textSecondary);
+    font-size: 14px;
+}
+
+.saldo-divisas {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 12px;
+    width: 100%;
+}
+
+/* El símbolo (S/, $, ₮) se alinea con el campo: es su etiqueta, no un título
+   de sección. */
 .saldo-divisa {
     display: flex;
     align-items: center;
     gap: 8px;
-    flex: 1 1 120px;
     min-width: 0;
 }
 
@@ -593,8 +607,8 @@
 }
 
 @media (max-width: 520px) {
-    .saldo-divisa {
-        flex: 1 1 100%;
+    .saldo-divisas {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -630,14 +644,41 @@
     position: relative;
     width: 100%;
     flex-shrink: 0;
+    transition: transform 0.22s ease, opacity 0.22s ease;
 }
 
 .cuenta-sidebar-item.arrastrando {
     opacity: 0.45;
 }
 
+.cuenta-insercion {
+    height: 3px;
+    border-radius: 999px;
+    background: var(--accent, #4f8cff);
+    margin: 4px 8px;
+    opacity: 0;
+    transform: scaleY(0.4);
+    animation: insercion-entra 0.22s ease forwards;
+}
+
 .cuenta-sidebar-btn {
     width: 100%;
+}
+
+/* La cuenta que se está viendo: mismo tratamiento que el hover de los
+   botones de navegación, para que se lea como "estás aquí" y no como un
+   elemento pulsado. El borde mantiene el aspecto de .glass. */
+.sidebar-wrap:not(.sidebar-colapsado) .cuenta-sidebar-btn.en-vista,
+.sidebar-wrap:not(.sidebar-colapsado) #sidebar .cuenta-sidebar-btn.en-vista {
+    background: var(--lightHover);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+/* Colapsado solo hay sitio para el ícono: el fondo basta para marcarlo. */
+.sidebar-wrap.sidebar-colapsado .cuenta-sidebar-btn.en-vista,
+.sidebar-wrap.sidebar-colapsado #sidebar .cuenta-sidebar-btn.en-vista {
+    background: var(--lightHover);
 }
 
 .cuenta-pasos {
@@ -714,7 +755,7 @@
     transform: rotate(-45deg);
     border-color: var(--text);
     background: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .totales-btn.pagar-tarjeta-btn {
@@ -741,3 +782,15 @@
         text-align: center;
     }
 }
+.cuenta-modal-cuerpo { display: flex; flex-direction: column; gap: 12px; }
+.crypto-add { display: flex; gap: 8px; }
+.crypto-add .form-input { flex: 1; }
+@keyframes insercion-entra { to { opacity: 1; transform: scaleY(1); } }
+.edit-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.edit-tab { padding: 6px 16px; border-radius: 50px; font-size: 13px; cursor: pointer; color: var(--textSecondary); background: var(--background); border: 1px solid transparent; font-family: var(--font-primary); transition: background 0.2s ease, color 0.2s ease; }
+.edit-tab:hover:not(.active) { background: var(--lightHover); }
+.edit-tab.active { background: var(--border); color: var(--background); font-weight: 500; }
+.cuenta-modal-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.cuenta-modal-tab { padding: 6px 16px; border-radius: 50px; font-size: 13px; cursor: pointer; color: var(--textSecondary); background: var(--background); border: 1px solid transparent; font-family: var(--font-primary); transition: background 0.2s ease, color 0.2s ease; }
+.cuenta-modal-tab.active { background: var(--border); color: var(--background); font-weight: 500; }
+.cuenta-modal-flechas { display: flex; justify-content: space-between; margin-top: 12px; }

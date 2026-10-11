@@ -39,6 +39,13 @@ service cloud.firestore {
     function esTimestamp(v)     { return v is timestamp; }
     function esMapa(v)          { return v is map; }
 
+    // Etiquetas: lista de textos, hasta 20 por movimiento, longitud total acotada
+    // (cada una se limita a 24 caracteres en el cliente). Las reglas no permiten
+    // iterar listas, así que se valida tamaño de la lista y longitud agregada.
+    function esListaEtiquetas(v) {
+      return v is list && v.size() <= 20 && v.join('').size() <= 480;
+    }
+
     // Tipo O nulo (para campos opcionales)
     function esNumeroONulo(v)   { return v == null || esNumero(v); }
     function esTextoONulo(v)    { return v == null || esTexto(v); }
@@ -73,6 +80,7 @@ service cloud.firestore {
     function ifPresenteBool(data, campo)     { return !(campo in data) || esBool(data[campo]); }
     function ifPresenteTimestamp(data, campo){ return !(campo in data) || esTimestamp(data[campo]); }
     function ifPresenteTextoONulo(data, campo)    { return !(campo in data) || esTextoONulo(data[campo]); }
+    function ifPresenteEtiquetas(data)            { return !('etiquetas' in data) || esListaEtiquetas(data.etiquetas); }
     function ifPresenteNumeroONulo(data, campo)   { return !(campo in data) || esNumeroONulo(data[campo]); }
     function ifPresenteTimestampONulo(data, campo){ return !(campo in data) || esTimestampONulo(data[campo]); }
 
@@ -107,10 +115,15 @@ service cloud.firestore {
             // "Missing or insufficient permissions".
             'numeroCuenta', 'padreId', 'uid',
             // Subcuentas por divisa: { habilitadas: [ ... ] }
-            'subcuentas'
+            'subcuentas',
+            // Padre abstracto: clase base sin divisa ni saldo propios.
+            'esAbstracta'
           ])
-          && request.resource.data.keys().hasAll(['nombre', 'tipo', 'moneda', 'saldoInicial', 'estado', 'esPatrimonio', 'orden'])
-          && esTexto(request.resource.data.nombre)
+          && request.resource.data.keys().hasAll(['tipo', 'moneda', 'saldoInicial', 'estado', 'esPatrimonio', 'orden'])
+          // `nombre` es opcional: una subcuenta puede nacer sin nombre y
+          // mostrarse con el derivado del padre (resolverNombresCuentas), o
+          // venderlo con deleteField. Si llega, tiene que ser texto.
+          && (('nombre' in request.resource.data) ? esTexto(request.resource.data.nombre) : true)
           && esTexto(request.resource.data.tipo)
           && esTexto(request.resource.data.moneda)
           && esNumero(request.resource.data.saldoInicial)
@@ -130,7 +143,8 @@ service cloud.firestore {
           && (('padreId' in request.resource.data) ? request.resource.data.padreId == null || esTexto(request.resource.data.padreId) : true)
           && (('uid' in request.resource.data) ? esTexto(request.resource.data.uid) : true)
           // `subcuentas` es opcional: solo lo traen las cuentas con subcuentas.
-          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true);
+          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true)
+          && (('esAbstracta' in request.resource.data) ? esBool(request.resource.data.esAbstracta) : true);
 
         allow update: if esPropietario(uid)
           && ifPresenteTexto(request.resource.data, 'nombre')
@@ -156,7 +170,8 @@ service cloud.firestore {
           && ifPresenteTextoONulo(request.resource.data, 'vence')
           && ifPresenteTimestampONulo(request.resource.data, 'fechaCreacion')
           // Editar una cuenta puede anadir subcuentas en otra divisa.
-          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true);
+          && (('subcuentas' in request.resource.data) ? esMapa(request.resource.data.subcuentas) : true)
+          && ifPresenteBool(request.resource.data, 'esAbstracta');
 
         allow delete: if esPropietario(uid);
       }
@@ -173,7 +188,7 @@ service cloud.firestore {
             'fechaRegistro', 'cuentaOrigen', 'cuentaDestino', 'montoOrigen', 'montoDestino',
             'tasa', 'activo', 'cantidad', 'precio', 'comision', 'exchange',
             'nombreVendedor', 'nombreComprador', 'cuentaPago', 'cuentaCobro', 'tarjeta',
-            'metaId', 'operacion'
+            'metaId', 'operacion', 'etiquetas'
           ])
           && request.resource.data.keys().hasAll(['tipo', 'fechaRegistro'])
           && esTexto(request.resource.data.tipo)
@@ -186,7 +201,8 @@ service cloud.firestore {
           && (('montoDestino' in request.resource.data) ? esNumero(request.resource.data.montoDestino) : true)
           && (('tasa' in request.resource.data) ? esNumero(request.resource.data.tasa) : true)
           && (('metaId' in request.resource.data) ? esTexto(request.resource.data.metaId) : true)
-          && (('operacion' in request.resource.data) ? esTexto(request.resource.data.operacion) : true);
+          && (('operacion' in request.resource.data) ? esTexto(request.resource.data.operacion) : true)
+          && (('etiquetas' in request.resource.data) ? esListaEtiquetas(request.resource.data.etiquetas) : true);
 
         allow update: if esPropietario(uid)
           && ifPresenteTexto(request.resource.data, 'tipo')
@@ -212,7 +228,8 @@ service cloud.firestore {
           && ifPresenteTextoONulo(request.resource.data, 'cuentaCobro')
           && ifPresenteTextoONulo(request.resource.data, 'tarjeta')
           && ifPresenteTextoONulo(request.resource.data, 'metaId')
-          && ifPresenteTextoONulo(request.resource.data, 'operacion');
+          && ifPresenteTextoONulo(request.resource.data, 'operacion')
+          && ifPresenteEtiquetas(request.resource.data);
 
         allow delete: if esPropietario(uid);
       }

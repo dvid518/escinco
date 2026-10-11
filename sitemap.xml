@@ -3,7 +3,7 @@
     <!-- La landing es la única página pública: el resto de rutas son la app con
          sesión y no tienen nada que indexar (ver robots.txt). -->
     <url>
-        <loc>https://escinco.web.app/home</loc>
+        <loc>https://escinco.web.app/</loc>
         <changefreq>monthly</changefreq>
         <priority>1.0</priority>
     </url>

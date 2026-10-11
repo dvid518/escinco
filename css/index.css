@@ -61,7 +61,7 @@
 
 .login-form input:hover {
     background-color: var(--lightHover);
-    box-shadow: 0 0 15px var(--shadow);
+    box-shadow: inset 0 0 15px var(--shadow);
     border-color: var(--border);
     transform: scale(1.02);
 }
@@ -75,9 +75,9 @@
 }
 
 .login-form button.submit:hover {
-    box-shadow: 0 0 15px var(--shadow);
+    box-shadow: inset 0 0 15px var(--shadow);
     border-color: var(--border);
-    width: 60px;
+    transform: scale(1.08);
 }
 
 .login-form button.submit svg {
@@ -136,7 +136,7 @@
 
 .google-btn:hover {
     background: var(--lightHover);
-    box-shadow: 0 0 15px var(--shadow);
+    box-shadow: inset 0 0 15px var(--shadow);
     border-color: var(--border);
     transform: scale(1.02);
 }
@@ -147,7 +147,7 @@
 
 .google-btn.destacado {
     border-color: var(--positive);
-    box-shadow: 0 0 0 3px rgba(0, 230, 149, 0.15);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 15%, transparent);
     animation: pulso 1.2s ease-in-out infinite;
 }
 
@@ -200,6 +200,21 @@
 .panel-version-brand {
     font-weight: 600;
     color: var(--text);
+}
+
+/* El nombre y la versión son la única salida a la landing en las páginas de
+   acceso: sustituyen al enlace de pie. Sin esto heredaría el subrayado global
+   de los <a>. */
+.panel-version-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.panel-version-link:hover .panel-version-brand {
+    color: var(--positive);
 }
 
 .panel-version-numero {

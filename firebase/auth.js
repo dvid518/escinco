@@ -159,6 +159,24 @@ export async function aplicarCodigoDeAccion(oobCode) {
 }
 
 /**
+ * Marca en localStorage que este navegador ya usó escinco.
+ *
+ * La landing se sirve también en "/" (ver firebase.json) y usa esta marca para
+ * decidir: si está, manda al usuario a /dashboard en vez de mostrarle la página
+ * de presentación. Es una marca local sin nada sensible dentro, y a propósito
+ * NO se borra al cerrar sesión: la landing solo pregunta "este navegador ya
+ * conoce la app", y de eso la respuesta sigue siendo que sí aunque la sesión
+ * haya caducado. Del resto se encarga el dashboard, que devuelve a /login.
+ */
+export function marcarSesionGuardada() {
+    try {
+        localStorage.setItem("escinco_sesion_registrada", "1")
+    } catch (e) {
+        // Sin storage la landing se mostrará siempre: es un mal menor.
+    }
+}
+
+/**
  * Refresca el usuario de la sesión para leer emailVerified al día.
  * @returns {object|null}
  */

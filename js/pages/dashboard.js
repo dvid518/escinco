@@ -2,7 +2,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija } from "../core/familiaCuentas.js"
+import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -11,7 +11,8 @@ import {
 } from "../services/SnapshotServicio.js"
 import {
     crearGraficoPatrimonio,
-    destruirGraficoPatrimonio
+    destruirGraficoPatrimonio,
+    crearGraficoDistribucion
 } from "../ui/graficos.js"
 import {
     getDivisaPrincipal,
@@ -23,7 +24,7 @@ import {
 } from "../services/DivisaServicio.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import { estadoCicloDe, nivelUsoDe, proximaAnualidad } from "../services/CreditoServicio.js"
-import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
+import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { obtenerPendientes } from "../repositories/PendienteRepositorio.js"
 import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
@@ -66,7 +67,7 @@ const DIAS_VENCIMIENTO = 7
 // migración. Una tanda solo se aplica si su marca sigue sin poner: así el
 // usuario que ya quitó a mano una card de una tanda anterior no la ve
 // reaparecer, y las tandas nuevas sí llegan a todo el mundo.
-const NUEVAS_CARDS_V1 = ["flujo-caja", "deudas", "ahorro", "distribucion", "programados", "alertas"]
+const NUEVAS_CARDS_V1 = ["flujo-caja", "deudas", "distribucion", "programados", "alertas"]
 const NUEVAS_CARDS_V2 = ["gastos-periodo", "ingresos-periodo", "balance-periodo"]
 const NUEVAS_CARDS_V3 = ["distribucion-activos", "patrimonio-divisa"]
 const DASHBOARD_CARDS = [
@@ -85,7 +86,6 @@ const DASHBOARD_CARDS = [
     { id: "ingresos-periodo", label: "Ingresado" },
     { id: "balance-periodo", label: "Balance" },
     { id: "deudas", label: "Deudas" },
-    { id: "ahorro", label: "Ahorro" },
     { id: "distribucion", label: "Distribución patrimonial" },
     { id: "distribucion-activos", label: "Distribución por tipo de activo" },
     { id: "patrimonio-divisa", label: "Patrimonio por divisa" },
@@ -574,8 +574,9 @@ else if (saldo < 0) valorEl.classList.add("negative")
 
 if (detalleEl) {
     const monedaDistinta = moneda !== divisaActual
-    const nSub = tieneHijas(cuenta, cuentas) ? hijasDe(cuenta, cuentas).length : 0
-    const etiqueta = nSub > 0 ? `${nSub + 1} subcuentas · saldo disponible` : "Saldo disponible"
+    const nHijas = tieneHijas(cuenta, cuentas) ? hijasDe(cuenta, cuentas).length : 0
+    const nSub = esAbstracta(cuenta) ? nHijas : nHijas + 1
+    const etiqueta = nHijas > 0 ? `${nSub} subcuentas · saldo disponible` : "Saldo disponible"
     detalleEl.textContent = monedaDistinta
         ? `${etiqueta} · ${formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
         : etiqueta
@@ -762,15 +763,193 @@ function configurarLayoutDashboard() {
     })
 }
 
-function reordenarCardDashboard(idOrigen, idDestino) {
-    if (!idOrigen || !idDestino || idOrigen === idDestino || idOrigen === "patrimonio" || idDestino === "patrimonio") return
+// ============================================
+// ARRASTRAR A CUALQUIER POSICIÓN
+// ============================================
+// El grid es un masonry de N columnas, así que "soltar sobre una card" no
+// basta: entre dos columnas, o debajo de la última, hay una posición tan
+// válida como cualquier card. Por eso el destino se calcula con las
+// coordenadas del puntero sobre la lista ORDEN de cards visibles, y se marca
+// con una línea de inserción entre dos cards.
+//
+// El orden guardado (`cardsOrdenDashboard`) es una lista plana que reparte
+// luego en columnas; insertar por índice de esa lista plana es exactamente lo
+// que "dejar la card en ese hueco" significa, sin importar en qué columna
+// caiga.
+
+let lineaInsercion = null
+
+/** Último hueco donde se pintó la línea. Solo se reposiciona cuando cambia:
+    reinsertarla en cada `dragover` en el mismo hueco parpadeaba. */
+let posicionInsercionActual = -1
+
+/** Cards visibles, en el orden en que se leen (izquierda a derecha, de arriba abajo). */
+function cardsVisiblesEnOrden() {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return []
+
+    return cardsOrdenDashboard
+        .filter(id => {
+            const card = grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
+            return card && !card.hidden && card.isConnected
+        })
+        .map(id => grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`))
+        .filter(Boolean)
+}
+
+/**
+ * Índice de inserción para la posición del puntero: el número de cards
+ * visibles que quedan por delante.
+ *
+ * Dos formas de resolver el hueco:
+ *  1. Final de columna: hay un espacio "muerto" debajo de la última card de
+ *     cada columna (de distinta altura en el masonry). Si el puntero cae ahí,
+ *     la card va justo después de esa card, no al final del grid entero.
+ *  2. Entre cards: orden de lectura, cuenta en cuántas cards queda el
+ *     puntero por delante.
+ * @returns {number} de 0 (antes de la primera) a n (al final)
+ */
+function posicionDeInsercion(evento) {
+    const grid = document.querySelector(".dashboard")
+    const cards = cardsVisiblesEnOrden()
+    if (cards.length === 0) return 0
+
+    const x = evento.clientX
+    const y = evento.clientY
+
+    if (grid) {
+        for (const columna of grid.querySelectorAll(".dashboard-column")) {
+            const banda = columna.getBoundingClientRect()
+            if (x < banda.left || x > banda.right + 1) continue
+
+            const visiblesDeColumna = [...columna.querySelectorAll("[data-dashboard-card]")]
+                .filter(card => !card.hidden && card.isConnected)
+            const ultima = visiblesDeColumna[visiblesDeColumna.length - 1]
+            if (!ultima) continue
+
+            const fin = ultima.getBoundingClientRect()
+            const posUltima = cards.indexOf(ultima)
+            if (posUltima >= 0 && y > fin.bottom + 4) {
+                // Dentro del ancho de la columna y debajo de su última card:
+                // solo cuenta si no hay otra card solapando el punto.
+                const sobreCard = cards.some(card => {
+                    const b = card.getBoundingClientRect()
+                    return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom
+                })
+                if (!sobreCard) return posUltima + 1
+            }
+        }
+    }
+
+    let insertar = cards.length
+    for (let i = 0; i < cards.length; i++) {
+        const caja = cards[i].getBoundingClientRect()
+        // Hueco entre cards: el puntero está encima de esta sin tocar la
+        // anterior → va ANTES de esta (activa el espacio entre las dos).
+        if (y < caja.top) {
+            insertar = i
+            break
+        }
+        if (y >= caja.top && y <= caja.bottom) {
+            // Dentro de la card: la mitad vertical y la horizontal deciden.
+            const mitadX = caja.left + caja.width / 2
+            const mitadY = caja.top + caja.height / 2
+            if (x < mitadX || y < mitadY) {
+                insertar = i
+                break
+            }
+            // Mitad inferior derecha: va después, se sigue buscando.
+            continue
+        }
+    }
+    return insertar
+}
+
+/** Línea de inserción entre dos cards, para que se vea dónde va a caer. */
+function marcarDestinoInsercion(evento) {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return
+
+    const posicion = posicionDeInsercion(evento)
+    const cards = cardsVisiblesEnOrden()
+
+    // La card de patrimonio es la primera y fija: nunca se admite un hueco
+    // delante de ella. "Permitir la primera columna" es poder soltar a partir
+    // del segundo hueco, no mover lo que no se puede mover.
+    if (cards[0]?.dataset.dashboardCard === "patrimonio" && posicion < 1) {
+        limpiarDestinoInsercion()
+        return
+    }
+
+    if (posicion === posicionInsercionActual && lineaInsercion?.isConnected) return
+
+    const antes = cards[posicion] || null
+
+    if (!lineaInsercion) {
+        lineaInsercion = document.createElement("div")
+        lineaInsercion.className = "dashboard-card-insercion"
+        lineaInsercion.setAttribute("aria-hidden", "true")
+    }
+
+    if (antes) {
+        antes.parentElement.insertBefore(lineaInsercion, antes)
+    } else {
+        // Al final: se va detrás de la última card visible.
+        const ultima = cards[cards.length - 1]
+        if (!ultima) return
+        ultima.parentElement.insertBefore(lineaInsercion, ultima.nextSibling)
+    }
+    posicionInsercionActual = posicion
+}
+
+function limpiarDestinoInsercion() {
+    if (!lineaInsercion) return
+    lineaInsercion.remove()
+    lineaInsercion = null
+    posicionInsercionActual = -1
+}
+
+/** Mueve `idOrigen` al hueco `posicion` del orden visible. */
+function insertarCardDashboard(idOrigen, posicion) {
+    if (!idOrigen || idOrigen === "patrimonio") return
+
     const origen = cardsOrdenDashboard.indexOf(idOrigen)
-    const destino = cardsOrdenDashboard.indexOf(idDestino)
-    if (origen < 0 || destino < 0) return
+    if (origen < 0) return
+
+    // El índice hay que traducirlo de "cards visibles" a "cardsOrdenDashboard":
+    // la lista plana incluye cards ocultas que no cuentan para el hueco, pero
+    // sí ocupan posición en el array.
+    const visiblesAntes = cardsVisiblesEnOrden()
+        .slice(0, posicion)
+        .map(card => card.dataset.dashboardCard)
+
     cardsOrdenDashboard.splice(origen, 1)
+
+    let destino = cardsOrdenDashboard.length
+    if (visiblesAntes.length > 0) {
+        const ultimaVisible = visiblesAntes[visiblesAntes.length - 1]
+        const indiceUltima = cardsOrdenDashboard.indexOf(ultimaVisible)
+        if (indiceUltima >= 0) destino = indiceUltima + 1
+        else {
+            // La primera card visible no es la primera de la lista (hay
+            // ocultas delante): se inserta justo antes de ella.
+            const primeraVisible = cardsVisiblesEnOrden()[0]
+            if (primeraVisible) {
+                destino = cardsOrdenDashboard.indexOf(primeraVisible.dataset.dashboardCard)
+                if (destino < 0) destino = 0
+            }
+        }
+    } else {
+        const primeraVisible = cardsVisiblesEnOrden()[0]
+        if (primeraVisible) {
+            destino = cardsOrdenDashboard.indexOf(primeraVisible.dataset.dashboardCard)
+            if (destino < 0) destino = 0
+        }
+    }
+
     cardsOrdenDashboard.splice(destino, 0, idOrigen)
     cambiosPendientesDashboard = true
-    aplicarLayoutDashboard()
+    aplicarLayoutDashboard(true)
 }
 
 function moverCardDashboard(id, direccion) {
@@ -834,24 +1013,50 @@ function configurarEventosReordenamientoDashboard() {
         document.body.classList.add("dashboard-card-dragging")
     })
 
-    grid.addEventListener("dragover", (evento) => {
-        const card = evento.target.closest("[data-dashboard-card]")
-        if (!modoEdicionDashboard || !card || card.dataset.dashboardCard === "patrimonio") return
+grid.addEventListener("dragover", (evento) => {
+        // El destino puede ser cualquier punto del grid, no solo una card: el
+        // hueco entre dos columnas es tan válido como la card de al lado. Por
+        // eso se calcula la posición de inserción desde las coordenadas del
+        // puntero y no desde `closest("[data-dashboard-card]")`. Pasar sobre
+        // patrimonio no se evita aquí: `marcarDestinoInsercion` descarta los
+        // huecos previos a la primera card.
+        if (!modoEdicionDashboard) return
         evento.preventDefault()
         if (evento.dataTransfer) evento.dataTransfer.dropEffect = "move"
+        marcarDestinoInsercion(evento)
     })
 
-    grid.addEventListener("drop", (evento) => {
-        const destino = evento.target.closest("[data-dashboard-card]")
-        if (!modoEdicionDashboard || !destino || destino.dataset.dashboardCard === "patrimonio") return
+grid.addEventListener("dragleave", (evento) => {
+        // Solo se limpia al salir del grid entero: `dragleave` también salta
+        // entre hijos (y entre las columnas), y limpiar ahí parpadeaba la
+        // marca de inserción.
+        if (evento.relatedTarget && grid.contains(evento.relatedTarget)) return
+        limpiarDestinoInsercion()
+    })
+
+grid.addEventListener("drop", (evento) => {
+        if (!modoEdicionDashboard) return
         evento.preventDefault()
         const origen = evento.dataTransfer?.getData("text/plain")
-        reordenarCardDashboard(origen, destino.dataset.dashboardCard)
+        limpiarDestinoInsercion()
+
+        if (!origen || origen === "patrimonio") return
+
+        const destino = posicionDeInsercion(evento)
+        if (destino == null) return
+
+        // Mismo límite que la línea: patrimonio es fija y primera, así que el
+        // hueco 0 (delante de ella) nunca es un destino válido.
+        const primera = cardsVisiblesEnOrden()[0]
+        if (primera?.dataset.dashboardCard === "patrimonio" && destino < 1) return
+
+        insertarCardDashboard(origen, destino)
     })
 
-    grid.addEventListener("dragend", (evento) => {
+grid.addEventListener("dragend", (evento) => {
         evento.target.closest("[data-dashboard-card]")?.classList.remove("dashboard-card-arrastrando")
         document.body.classList.remove("dashboard-card-dragging")
+        limpiarDestinoInsercion()
     })
 
     grid.addEventListener("click", (evento) => {
@@ -946,7 +1151,7 @@ function manejarCambioPaginaDashboard(evento) {
             alClick: async () => {
                 if (!await guardarOrdenDashboard()) return
                 salirModoEdicionDashboard(true)
-                navigateTo(hacia === "dashboard" ? "/" : `/${hacia}`)
+                navigateTo(`/${hacia}`)
             }
         },
         {
@@ -974,12 +1179,25 @@ function bloqueInstanciasSelector(titulo, descripcion, opciones, vacio) {
 function opcionesInstanciasCuentas(activas) {
     // Las hijas no se ofrecen: su dinero ya esta en la card del padre, que
     // muestra el total de la familia. Ofrecirlas duplicaria el patrimonio.
-    return cuentasVisibles(cuentas).map(cuenta => {
+    const lista = cuentasVisibles(cuentas)
+
+    // Una sola card de cuenta a la vez. Con varias, el masonry reparte las
+    // columnas por altura y la lista de cuentas se convierte en un muro de
+    // importes iguales sin contexto: nadie distingue "mi saldo" de "el saldo
+    // de una tarjeta". Cuando se pueda elegir bien (una card que agrupe, o un
+    // selector con la foto y el nombre grande), se levanta el tope.
+    const yaHay = lista.some(cuenta => activas.has(idCardCuenta(cuenta.id)))
+
+    return lista.map(cuenta => {
         const id = idCardCuenta(cuenta.id)
         const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+        const activa = activas.has(id)
+        const bloqueada = !activa && yaHay
+
         return `
-            <label class="dashboard-card-opcion">
-                <input type="checkbox" value="${id}" ${activas.has(id) ? "checked" : ""}>
+            <label class="dashboard-card-opcion${bloqueada ? " bloqueada" : ""}">
+                <input type="checkbox" value="${id}" ${activa ? "checked" : ""}
+                    ${bloqueada ? "disabled" : ""}>
                 <span>
                     ${cuenta.nombre || "Cuenta"}
                     <small>${etiqueta}</small>
@@ -990,12 +1208,19 @@ function opcionesInstanciasCuentas(activas) {
 }
 
 function opcionesInstanciasActivos(activas) {
+    // Mismo tope que en las cuentas: una sola card de activo.
+    const yaHay = posicionesData.some(posicion => activas.has(idCardActivo(posicion.activoId)))
+
     return posicionesData.map(posicion => {
         const id = idCardActivo(posicion.activoId)
         const activo = posicion.activo || {}
+        const activa = activas.has(id)
+        const bloqueada = !activa && yaHay
+
         return `
-            <label class="dashboard-card-opcion">
-                <input type="checkbox" value="${id}" ${activas.has(id) ? "checked" : ""}>
+            <label class="dashboard-card-opcion${bloqueada ? " bloqueada" : ""}">
+                <input type="checkbox" value="${id}" ${activa ? "checked" : ""}
+                    ${bloqueada ? "disabled" : ""}>
                 <span>
                     ${activo.simbolo || activo.nombre || "Activo"}
                     <small>${ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"}</small>
@@ -1010,21 +1235,21 @@ function abrirSelectorCardsDashboard() {
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
     const activas = new Set(cardsVisiblesDashboard)
     const opciones = cards.map(card => `
-        <label class="dashboard-card-opcion">
+        <label class="dashboard-card-opcion" data-card="${card.id}">
             <input type="checkbox" value="${card.id}" ${activas.has(card.id) ? "checked" : ""}>
             <span>${card.label}</span>
         </label>
     `).join("")
 
     const cuentasBloque = bloqueInstanciasSelector(
-        "Tus cuentas",
-        "Una card por cuenta, con su saldo. Las tarjetas de crédito muestran además línea de crédito, uso y ciclo de facturación.",
+        "Tu cuenta en el dashboard",
+        "Solo una: una card por cuenta llenaba el dashboard de cifras iguales sin contexto. Cambia de cuenta quitando esta y eligiendo otra.",
         opcionesInstanciasCuentas(activas),
         "Todavía no tienes cuentas."
     )
     const activosBloque = bloqueInstanciasSelector(
-        "Tus activos",
-        "Una card por activo en el que tengas una posición abierta.",
+        "Tu activo en el dashboard",
+        "Solo uno, por el mismo motivo que en las cuentas.",
         opcionesInstanciasActivos(activas),
         "No tienes posiciones abiertas todavía."
     )
@@ -1099,14 +1324,15 @@ const PERIODO_POR_DEFECTO = "30d"
 
 let periodoGrafico = PERIODO_POR_DEFECTO
 
-// Ventana deslizante de las cards Gastado / Ingresado / Balance. A diferencia
-// de PERIODOS_GRAFICO no necesita "1A" ni "Todo": son cifras de flujo, y un
-// histórico completo no aporta contexto. El toggle vive en la card "Gastado"
-// y gobierna las tres.
+// Ventana deslizante de las cards Gastado / Ingresado / Balance / Ahorro. Usa
+// los mismos cinco periodos que el gráfico de patrimonio para que el toggle se
+// lea igual en todas partes y el usuario no tenga que aprender dos escalas.
 const PERIODOS_FLUJO = [
     { id: "7d", etiqueta: "7D", dias: 7, sub: "Últimos 7 días" },
     { id: "30d", etiqueta: "30D", dias: 30, sub: "Últimos 30 días" },
-    { id: "90d", etiqueta: "90D", dias: 90, sub: "Últimos 90 días" }
+    { id: "90d", etiqueta: "90D", dias: 90, sub: "Últimos 90 días" },
+    { id: "1a", etiqueta: "1A", dias: 365, sub: "Último año" },
+    { id: "todo", etiqueta: "Todo", dias: 3650, sub: "Histórico completo" }
 ]
 const PERIODO_FLUJO_POR_DEFECTO = "30d"
 
@@ -1248,18 +1474,25 @@ export function render() {
             <div class="glass card card-navegable metric-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Ver movimientos">
                 <div class="card-header">
                     <span class="card-title">Gastado</span>
-                </div>
-                <div class="toggle-group grafico-periodos" id="periodo-flujo" role="group" aria-label="Periodo del flujo de caja">
-                    ${PERIODOS_FLUJO.map(p => `
-                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
-                    `).join('')}
+                    <div class="toggle-group grafico-periodos" id="periodo-flujo-gastos" role="group" aria-label="Periodo de las cifras de gasto">
+                        ${PERIODOS_FLUJO.map(p => `
+                            <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                        `).join('')}
+                    </div>
                 </div>
                 <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
                 <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
             </div>
 
             <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-title">Ingresado</div>
+                <div class="card-header">
+                    <span class="card-title">Ingresado</span>
+                    <div class="toggle-group grafico-periodos" id="periodo-flujo-ingresos" role="group" aria-label="Periodo del ingreso">
+                        ${PERIODOS_FLUJO.map(p => `
+                            <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                        `).join('')}
+                    </div>
+                </div>
                 <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
                 <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
             </div>
@@ -1276,16 +1509,11 @@ export function render() {
                 <div class="card-sub" id="deudas-detalle">${skeletonText()}</div>
             </div>
 
-            <div class="glass card card-navegable metric-card" id="card-ahorro" data-dashboard-card="ahorro" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-title">Ahorro</div>
-                <div class="card-value" id="ahorro-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="ahorro-detalle">${skeletonText()}</div>
-            </div>
-
             <div class="glass card card-navegable distribucion-card" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Ver cuentas">
                 <div class="card-header">
                     <span class="card-title">Distribución patrimonial</span>
                 </div>
+                <div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
                 <div class="distribucion-lista" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
             </div>
 
@@ -1357,13 +1585,13 @@ const LISTAS_DASHBOARD = [
 
 const VALORES_DASHBOARD = [
     "patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
-    "flujo-caja-valor", "deudas-valor", "ahorro-valor",
+    "flujo-caja-valor", "deudas-valor",
     "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"
 ]
 
 const DETALLES_DASHBOARD = [
     "patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
-    "deudas-detalle", "ahorro-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle",
+    "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle",
     "balance-periodo-detalle", "ordenes-detalle"
 ]
 
@@ -1379,6 +1607,8 @@ function mostrarEsqueletosDashboard() {
         const lista = document.getElementById(id)
         if (lista) lista.innerHTML = skeletonMarkup({ rows: filas, className: clase || "skeleton-dashboard-list" })
     })
+    const dona = document.getElementById("distribucion-dona-placeholder")
+    if (dona) dona.innerHTML = `<div class="dona-esqueleto" aria-hidden="true"></div>`
     VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
         if (valor) valor.innerHTML = skeletonText("skeleton-value")
@@ -1673,7 +1903,7 @@ function construirAnaliticaDashboard(movimientos) {
     }
 
     const balance = ingresos - gastos
-    const tarjetas = cuentas.filter(cuenta => cuenta.tipo === "credito" && cuenta.estado !== "archivada")
+    const tarjetas = cuentas.filter(cuenta => cuenta.tipo === "credito" && cuenta.estado !== "archivada" && cuenta.esPatrimonio !== false)
     const deudas = tarjetas.reduce((total, cuenta) => {
         return total + convertirMonto(Math.max(0, Number(cuenta.deuda) || 0), cuenta.moneda || "pen", divisaActual)
     }, 0)
@@ -1785,11 +2015,7 @@ async function cargarMovimientos() {
         const lista = await obtenerMovimientos(uid)
         return lista
             .slice()
-            .sort((a, b) => {
-                const fa = (fechaDeMovimiento(a)?.getTime?.()) || 0
-                const fb = (fechaDeMovimiento(b)?.getTime?.()) || 0
-                return fb - fa
-            })
+            .sort(compararMovimientosPorFecha)
     } catch (error) {
         console.error("Error cargando movimientos:", error)
         return []
@@ -1969,7 +2195,6 @@ async function actualizarUI() {
     actualizarFlujoCaja()
     actualizarFlujoPeriodo()
     actualizarDeudas()
-    actualizarAhorro()
     actualizarDistribucion()
     actualizarProgramados()
     actualizarAlertas()
@@ -2313,20 +2538,58 @@ function actualizarDeudas() {
     cardEl?.classList.toggle("negative", analiticaData.deudas > 0)
 }
 
-function actualizarAhorro() {
-    const valorEl = document.getElementById("ahorro-valor")
-    const detalleEl = document.getElementById("ahorro-detalle")
-    const cardEl = document.getElementById("card-ahorro")
-    if (!valorEl || !analiticaData) return
+// Misma paleta que las barras de `.distribucion-barra`: el anillo y las
+// barras deben contar con los mismos colores. Los valores son nombres de
+// variable CSS ("--positive", …) que `crearGraficoDistribucion` resuelve
+// contra el tema activo.
+const COLORES_DISTRIBUCION = {
+    liquidez: "--neutral",
+    inversiones: "--positive",
+    deudas: "--negative",
+    accion: "--positive",
+    etf: "--positiveAlt",
+    cripto: "--ambar",
+    bono: "--border",
+    otros: "--border",
+    pen: "--positive",
+    usd: "--positiveAlt",
+    usdt: "--ambar"
+}
 
-    valorEl.textContent = formatearMontoConDivisa(analiticaData.balance, divisaActual)
-    if (detalleEl) {
-        detalleEl.textContent = analiticaData.tasaAhorro === null
-            ? "Sin ingresos registrados este mes"
-            : `${analiticaData.tasaAhorro.toFixed(0)}% de los ingresos`
+// La dona solo se recrea si cambió la composición: comparar huellas evita
+// redibujar en cada refresco del dashboard cuando el reparto no varió.
+let ultimaDonaDistribucion = ""
+
+async function dibujarDonaDistribucion(items) {
+    const contenedor = document.getElementById("distribucion-dona-placeholder")
+    if (!contenedor) return
+    if (!items || items.length === 0) {
+        contenedor.innerHTML = ""
+        return
     }
-    cardEl?.classList.toggle("positive", analiticaData.balance > 0)
-    cardEl?.classList.toggle("negative", analiticaData.balance < 0)
+
+    const huella = items.map(item => `${item.clase}:${item.valor}`).join("|")
+    if (huella === ultimaDonaDistribucion && contenedor.querySelector("canvas")) return
+    ultimaDonaDistribucion = huella
+
+    let canvas = contenedor.querySelector("canvas")
+    if (!canvas) {
+        // Quitar el esqueleto antes de pintar: si no, dona y esqueleto se
+        // superponen en el mismo contenedor.
+        contenedor.innerHTML = ""
+        canvas = document.createElement("canvas")
+        canvas.id = "distribucion-dona"
+        contenedor.appendChild(canvas)
+    }
+
+    await crearGraficoDistribucion("distribucion-dona", {
+        labels: items.map(item => item.label),
+        data: items.map(item => item.valor),
+        colores: items.map(item => COLORES_DISTRIBUCION[item.clase] || "--neutral")
+    }, {
+        chartKey: "distribucion-dashboard",
+        formatear: monto => formatearMontoConDivisa(monto, divisaActual)
+    })
 }
 
 function actualizarDistribucion() {
@@ -2347,6 +2610,8 @@ function actualizarDistribucion() {
             <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, divisaActual)}</span>
         </div>
     `).join("")
+
+    dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
 }
 
 // ============================================
@@ -2432,10 +2697,14 @@ function actualizarDistribucionActivos() {
 // peso tiene cada una. calcularPatrimonio() ya devuelve los tres totales
 // convertidos, así que no hace falta ninguna consulta extra.
 
+// `calcularPatrimonio()` devuelve los tres totales en campos con nombre de
+// variable (patrimonioPEN/USD/USDT): el campo NO es la clave de divisa en
+// minúscula que usaba antes, y leer patrimonioStats["pen"] daba siempre 0
+// (BUG-029). El campo y la clave van por separado a propósito.
 const DIVISAS_PATRIMONIO = [
-    { clave: "pen", etiqueta: "Soles" },
-    { clave: "usd", etiqueta: "Dólares" },
-    { clave: "usdt", etiqueta: "USDT" }
+    { clave: "pen", campo: "patrimonioPEN", etiqueta: "Soles" },
+    { clave: "usd", campo: "patrimonioUSD", etiqueta: "Dólares" },
+    { clave: "usdt", campo: "patrimonioUSDT", etiqueta: "USDT" }
 ]
 
 function actualizarPatrimonioDivisa() {
@@ -2449,10 +2718,10 @@ function actualizarPatrimonioDivisa() {
 
     // Cada cifra va en su propia moneda (no en la del selector): el objeto de
     // la card es ver cuánto hay de cada divisa, no cuánto vale en total.
-    const items = DIVISAS_PATRIMONIO.map(({ clave, etiqueta }) => ({
+    const items = DIVISAS_PATRIMONIO.map(({ clave, campo, etiqueta }) => ({
         etiqueta,
         clave,
-        valor: Number(patrimonioStats[clave]) || 0
+        valor: Number(patrimonioStats[campo]) || 0
     }))
 
     // El peso de cada divisa se mide sobre el total convertido a una moneda
@@ -2641,7 +2910,6 @@ function configurarCardsNavegacion() {
     bindNavegacion("card-ingresos-periodo", "/movimientos")
     bindNavegacion("card-balance-periodo", "/movimientos")
     bindNavegacion("card-deudas", "/cuentas")
-    bindNavegacion("card-ahorro", "/movimientos")
     bindNavegacion("card-distribucion", "/cuentas")
     bindNavegacion("card-distribucion-activos", "/inversiones")
     bindNavegacion("card-patrimonio-divisa", "/cuentas")
@@ -3140,7 +3408,6 @@ function configurarDivisa() {
         actualizarFlujoCaja()
         actualizarFlujoPeriodo()
         actualizarDeudas()
-        actualizarAhorro()
         actualizarDistribucion()
         actualizarProgramados()
         actualizarAlertas()
@@ -3187,39 +3454,44 @@ function configurarPeriodos(contenedor = document.getElementById("grafico-period
     marcarActivo()
 }
 
-// Toggle compartido por las cards Gastado / Ingresado / Balance. Solo
-// redibuja texto: los totales de cada ventana ya vienen calculados en
+// Toggle compartido por las cards Gastado / Ingresado / Balance, y ahora
+// también el de Ingresado: cada card con métricas lleva su propio grupo con
+// `data-periodo-flujo`, porque todas comparten el MISMO `periodoFlujo`.
+// Solo redibuja texto: los totales de cada ventana ya vienen calculados en
 // `analiticaData.flujoPorPeriodo`, así que no hace falta releer Firestore.
 function configurarPeriodoFlujoDashboard() {
-    const contenedor = document.getElementById("periodo-flujo")
-    if (!contenedor || contenedor.dataset.eventosListos === "1") return
-    contenedor.dataset.eventosListos = "1"
+    const contenedores = document.querySelectorAll("#periodo-flujo-gastos, #periodo-flujo-ingresos")
 
-    const opciones = contenedor.querySelectorAll(".toggle-option")
+    contenedores.forEach(contenedor => {
+        if (!contenedor || contenedor.dataset.eventosListos === "1") return
+        contenedor.dataset.eventosListos = "1"
 
-    const marcarActivo = () => {
+        const opciones = contenedor.querySelectorAll(".toggle-option")
+
+        const marcarActivo = () => {
+            opciones.forEach(opt => {
+                opt.classList.toggle("active", opt.dataset.periodoFlujo === periodoFlujo)
+            })
+        }
+
         opciones.forEach(opt => {
-            opt.classList.toggle("active", opt.dataset.periodoFlujo === periodoFlujo)
-        })
-    }
-
-    opciones.forEach(opt => {
-        opt.addEventListener("click", event => {
-            // La card es clicable y navega a /movimientos: sin esto, el
-            // toggle se dispararía y la navegación también.
-            event.stopPropagation()
-            if (opt.dataset.periodoFlujo === periodoFlujo) return
-            periodoFlujo = opt.dataset.periodoFlujo
-            marcarActivo()
-            actualizarFlujoPeriodo()
-            sesion.setPreferencias({ periodoFlujo })
-            actualizarPreferencias(uid, { periodoFlujo }).catch(error => {
-                console.warn("No se pudo guardar el periodo del flujo:", error)
+            opt.addEventListener("click", event => {
+                // La card es clicable y navega a /movimientos: sin esto, el
+                // toggle se dispararía y la navegación también.
+                event.stopPropagation()
+                if (opt.dataset.periodoFlujo === periodoFlujo) return
+                periodoFlujo = opt.dataset.periodoFlujo
+                marcarActivo()
+                actualizarFlujoPeriodo()
+                sesion.setPreferencias({ periodoFlujo })
+                actualizarPreferencias(uid, { periodoFlujo }).catch(error => {
+                    console.warn("No se pudo guardar el periodo del flujo:", error)
+                })
             })
         })
-    })
 
-    marcarActivo()
+        marcarActivo()
+    })
 }
 
 // ============================================
@@ -3228,10 +3500,11 @@ function configurarPeriodoFlujoDashboard() {
 
 async function actualizarGraficoPatrimonio() {
     if (!document.querySelector('[data-dashboard-card="grafico"]')?.isConnected) return
+    if (!uid) return
     try {
         await registrarSnapshot(uid)
     } catch (error) {
-        console.warn("No se pudo registrar snapshot:", error)
+        console.warn("No se pudo registrar snapshot:", error?.code, error?.message)
     }
     return cargarGraficoPatrimonio()
 }

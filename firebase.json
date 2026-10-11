@@ -22,13 +22,12 @@
       "docs/**"
     ],
     "rewrites": [
-      { "source": "/home", "destination": "/home.html" },
       { "source": "/login", "destination": "/auth.html" },
       { "source": "/register", "destination": "/auth.html" },
       { "source": "/reset-password", "destination": "/reset-password.html" },
       { "source": "/privacidad", "destination": "/privacidad.html" },
       { "source": "/terminos", "destination": "/terminos.html" },
-      { "source": "/", "destination": "/home.html" },
+      { "source": "/", "destination": "/index.html" },
       { "source": "/app", "destination": "/dashboard.html" },
       { "source": "/dashboard", "destination": "/dashboard.html" },
       { "source": "/cuentas", "destination": "/dashboard.html" },

@@ -1,9 +1,23 @@
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { obtenerCuentas } from "../../firebase/firestore.js"
+import { cuentasOperables } from "../core/familiaCuentas.js"
+import { obtenerActivos } from "../repositories/ActivoRepositorio.js"
 import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { mostrarNotificacion } from "./notificaciones.js"
-import { presentarDivisa, formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { etiquetaDivisa, formatearMontoConDivisa, getDivisaPrincipal } from "../services/DivisaServicio.js"
+
+// Activos del usuario cargados al abrir el formulario, indexados por símbolo
+// en mayúsculas. La página no mantiene el modelo a mano: se rellena cada vez.
+let activosPorSimbolo = new Map()
+
+function escaparAtributo(valor) {
+    return String(valor ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+}
 
 // ============================================
 // GENERAR FORMULARIO SEGÚN TIPO
@@ -14,7 +28,8 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
     const config = CONFIG_MOVIMIENTOS[tipo]
     const cuentas = await obtenerCuentas(uid)
 
-    const cuentasActivas = cuentas.filter(c => c.estado !== "archivada")
+    // Un padre abstracto no es operable: se ofrecen sus hijas.
+    const cuentasActivas = cuentasOperables(cuentas).filter(c => c.estado !== "archivada")
 
     // Al crear un movimiento con divisa predefinida (p. ej. al consolidar un
     // pendiente), solo se ofrecen cuentas de esa divisa que puedan aportar
@@ -42,7 +57,7 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
         : cuentasActivas
 
     const cuentasOptions = cuentasElegibles
-        .map(c => `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}" data-tipo="${c.tipo || "otro"}">${c.nombre} (${presentarDivisa(c.moneda || "pen")})</option>`)
+        .map(c => `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}" data-tipo="${c.tipo || "otro"}">${c.nombre} (${etiquetaDivisa(c.moneda || "pen")})</option>`)
         .join("")
 
     // Las tarjetas solo se filtran por divisa (siguen disponibles para pagar
@@ -59,16 +74,83 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
     const opcionales = config.camposOpcionales || []
     const campos = [...new Set([...obligatorios, ...opcionales])]
 
+    // El selector de activo ofrece en un datalist los símbolos que ya existen,
+    // mostrando su nombre como descripción.
+    let activosDatalist = ""
+    if (campos.includes("activo")) {
+        activosDatalist = await cargarActivosDatalist(uid)
+    }
+
     let html = `
         <form id="form-movimiento" class="form-movimiento form-movimiento-grid">
     `
 
     for (const campo of campos) {
-        html += generarCampo(campo, { cuentasOptions, tarjetasOptions, hoy }, !obligatorios.includes(campo))
+        html += generarCampo(campo, { cuentasOptions, tarjetasOptions, activosDatalist, hoy }, !obligatorios.includes(campo))
     }
+
+    // Las etiquetas valen para cualquier tipo de movimiento: van siempre, no
+    // dentro de `campos` (que es lo que el servicio valida como obligatorio).
+    html += `
+        <div class="form-group span-full">
+            <label for="campo-etiquetas">Etiquetas</label>
+            <input type="text" id="campo-etiquetas" class="form-input" placeholder="Ej: viaje, comida" autocomplete="off">
+            <span class="form-hint">Sepáralas con comas. Sirven para filtrar la lista.</span>
+        </div>
+    `
 
     html += `</form>`
     return html
+}
+
+/**
+ * Carga los activos del usuario y devuelve el HTML del datalist. Deja también
+ * el índice símbolo→nombre en `activosPorSimbolo` para el nombre bloqueado.
+ */
+async function cargarActivosDatalist(uid) {
+    try {
+        const activos = await obtenerActivos(uid)
+        activosPorSimbolo = new Map()
+        activos.forEach(activo => {
+            const simbolo = (activo.simbolo || "").toUpperCase()
+            if (!simbolo) return
+            activosPorSimbolo.set(simbolo, activo.nombre || activo.simbolo)
+        })
+        return [...activosPorSimbolo.entries()]
+            .map(([simbolo, nombre]) =>
+                `<option value="${escaparAtributo(simbolo)}" label="${escaparAtributo(nombre)}"></option>`
+            )
+            .join("")
+    } catch (error) {
+        console.warn("No se pudieron cargar los activos para el selector:", error)
+        activosPorSimbolo = new Map()
+        return ""
+    }
+}
+
+// ============================================
+// ETIQUETAS
+// ============================================
+
+export const MAX_ETIQUETAS = 20
+export const MAX_LARGO_ETIQUETA = 24
+
+/** Convierte "viaje, comida, viaje" en ["viaje", "comida"]: sin vacíos, sin
+    duplicados (comparando sin distinguir mayúsculas) y recortada cada una. */
+export function normalizarEtiquetas(valor) {
+    const partes = Array.isArray(valor) ? valor : String(valor || "").split(",")
+    const vistas = new Set()
+    const resultado = []
+    for (const parte of partes) {
+        const etiqueta = String(parte || "").trim().slice(0, MAX_LARGO_ETIQUETA)
+        if (!etiqueta) continue
+        const clave = etiqueta.toLowerCase()
+        if (vistas.has(clave)) continue
+        vistas.add(clave)
+        resultado.push(etiqueta)
+        if (resultado.length >= MAX_ETIQUETAS) break
+    }
+    return resultado
 }
 
 // ============================================
@@ -96,57 +178,71 @@ function claseAncho(campo) {
     return CAMPOS_ANCHO_COMPLETO.includes(campo) ? " span-full" : ""
 }
 
+// Select con buscador: un input de texto filtra las opciones del <select>, que
+// sigue siendo la fuente del id. Así todos los lectores actuales
+// (.selectedOptions) siguen funcionando sin cambios.
+function plantillaSelectBuscable({ id, etiqueta, opciones, req, placeholderSelect, placeholderBuscar }) {
+    return `
+        <div class="form-group span-full">
+            <label for="${id}">${etiqueta}</label>
+            <input type="text" class="form-input form-buscador" data-select="${id}" placeholder="${placeholderBuscar}" autocomplete="off" spellcheck="false">
+            <select id="${id}" class="form-input"${req}>
+                <option value="">${placeholderSelect}</option>
+                ${opciones}
+            </select>
+        </div>
+    `
+}
+
 function generarCampo(campo, contexto, opcional) {
-    const { cuentasOptions, tarjetasOptions, hoy } = contexto
+    const { cuentasOptions, tarjetasOptions, activosDatalist, hoy } = contexto
     const ancho = claseAncho(campo)
     const req = opcional ? "" : " required"
 
     switch (campo) {
         case "cuenta":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cuenta">Cuenta</label>
-                    <select id="campo-cuenta" class="form-input"${req}>
-                        <option value="">Seleccionar cuenta</option>
-                        ${cuentasOptions}
-                    </select>
-                </div>
-            `
+            return plantillaSelectBuscable({
+                id: "campo-cuenta",
+                etiqueta: "Cuenta",
+                opciones: cuentasOptions,
+                req,
+                placeholderSelect: "Seleccionar cuenta",
+                placeholderBuscar: "Buscar cuenta..."
+            })
         case "cuentaOrigen":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cuentaOrigen">Cuenta origen</label>
-                    <select id="campo-cuentaOrigen" class="form-input"${req}>
-                        <option value="">Seleccionar cuenta</option>
-                        ${cuentasOptions}
-                    </select>
-                </div>
-            `
+            return plantillaSelectBuscable({
+                id: "campo-cuentaOrigen",
+                etiqueta: "Cuenta origen",
+                opciones: cuentasOptions,
+                req,
+                placeholderSelect: "Seleccionar cuenta",
+                placeholderBuscar: "Buscar cuenta..."
+            })
         case "cuentaDestino":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cuentaDestino">Cuenta destino</label>
-                    <select id="campo-cuentaDestino" class="form-input"${req}>
-                        <option value="">Seleccionar cuenta</option>
-                        ${cuentasOptions}
-                    </select>
-                </div>
-            `
+            return plantillaSelectBuscable({
+                id: "campo-cuentaDestino",
+                etiqueta: "Cuenta destino",
+                opciones: cuentasOptions,
+                req,
+                placeholderSelect: "Seleccionar cuenta",
+                placeholderBuscar: "Buscar cuenta..."
+            })
         case "tarjeta":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-tarjeta">Tarjeta de crédito</label>
-                    <select id="campo-tarjeta" class="form-input"${req}>
-                        <option value="">Seleccionar tarjeta</option>
-                        ${tarjetasOptions}
-                    </select>
-                </div>
-            `
+            return plantillaSelectBuscable({
+                id: "campo-tarjeta",
+                etiqueta: "Tarjeta de crédito",
+                opciones: tarjetasOptions,
+                req,
+                placeholderSelect: "Seleccionar tarjeta",
+                placeholderBuscar: "Buscar tarjeta..."
+            })
         case "activo":
             return `
                 <div class="form-group${ancho}">
                     <label for="campo-activo">Activo</label>
-                    <input type="text" id="campo-activo" class="form-input" placeholder="Ej: VOO, BTC..."${req}>
+                    <input type="text" id="campo-activo" class="form-input" list="lista-activos" placeholder="Ej: VOO, BTC..." autocomplete="off" spellcheck="false"${req}>
+                    <datalist id="lista-activos">${activosDatalist || ""}</datalist>
+                    <input type="text" id="campo-activo-nombre" class="form-input form-input-bloqueado" placeholder="Nombre del activo" readonly tabindex="-1">
                 </div>
             `
         case "concepto":
@@ -290,7 +386,7 @@ function generarCampo(campo, contexto, opcional) {
 // SÍMBOLO DE DIVISA SEGÚN CUENTA
 // ============================================
 
-const SIMBOLO_MONEDA = { pen: "S/", usd: "$", usdt: "$" }
+const SIMBOLO_MONEDA = { pen: "S/", usd: "$", usdt: "₮", eur: "€" }
 
 // Para cada tipo, qué select de cuenta define la divisa del movimiento.
 const CUENTA_FUENTE_DIVISA = {
@@ -307,10 +403,126 @@ const CUENTA_FUENTE_DIVISA = {
 }
 
 /**
+ * Normaliza texto para buscar sin acentos ni mayúsculas.
+ */
+function normalizarBusqueda(valor) {
+    return (valor || "")
+        .toString()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .trim()
+}
+
+/**
+ * Obtiene solo el nombre de la cuenta del texto de la opción (ej. "BCP"
+ * de "BCP (S/ 1234)"). Si no hay paréntesis, devuelve el texto completo.
+ */
+function obtenerNombreCuenta(textoOpcion) {
+    const match = textoOpcion?.match(/^(.+?)\s*\(/);
+    return match ? match[1].trim() : (textoOpcion || "").trim()
+}
+
+/**
+ * Activa los buscadores de los <select> de cuenta/tarjeta. El input filtra las
+ * opciones por texto combinándolo con la disponibilidad (`data-disponible`) que
+ * marcan los filtros de compatibilidad (pago de tarjeta, transferencias).
+ * El <select> sigue siendo la fuente del id elegido.
+ */
+export function activarSelectsBuscables(raiz = document) {
+    raiz.querySelectorAll(".form-buscador[data-select]").forEach(entrada => {
+        if (entrada.dataset.buscableListo === "1") return
+        entrada.dataset.buscableListo = "1"
+
+        const select = document.getElementById(entrada.dataset.select)
+        if (!select) return
+
+        const aplicar = () => {
+            const texto = normalizarBusqueda(entrada.value)
+            Array.from(select.options).forEach((opcion, indice) => {
+                if (indice === 0) return
+                const disponible = opcion.dataset.disponible !== "0"
+                const coincide = !texto || normalizarBusqueda(opcion.textContent).includes(texto)
+                const visible = disponible && coincide
+                opcion.hidden = !visible
+                opcion.disabled = !visible
+            })
+            // Si la opción seleccionada se volvió invisible/deshabilitada,
+            // elegimos "Todas las cuentas" en lugar de borrar en silencio.
+            if (select.selectedOptions[0] && select.selectedOptions[0].disabled) {
+                select.value = ""
+            }
+        }
+
+        // Los filtros de compatibilidad llaman a esto tras marcar disponibilidad.
+        select._aplicarBusqueda = aplicar
+
+        const sincronizarEntrada = () => {
+            const elegida = select.selectedOptions[0]
+            // Mostrar solo el nombre de la cuenta, sin "(S/ ...)" ni "(deuda: ...)"
+            if (elegida && elegida.value) {
+                entrada.value = obtenerNombreCuenta(elegida.textContent)
+            } else {
+                entrada.value = ""
+            }
+        }
+
+        entrada.addEventListener("input", () => {
+            aplicar()
+            const visibles = Array.from(select.options).filter((o, i) => i > 0 && !o.hidden)
+            if (normalizarBusqueda(entrada.value) && visibles.length === 1) {
+                select.value = visibles[0].value
+            }
+            // Si no hay opciones visibles, no borrar la selección en silencio:
+            // el usuario puede borrar el texto manualmente para elegir "Todas".
+        })
+
+        entrada.addEventListener("keydown", evento => {
+            if (evento.key === "Enter") {
+                evento.preventDefault()
+                select.focus()
+            }
+        })
+
+        select.addEventListener("change", sincronizarEntrada)
+
+        // Estado inicial coherente (incluye el caso de edición, donde el select
+        // ya viene con un valor puesto por rellenarFormulario).
+        aplicar()
+        sincronizarEntrada()
+    })
+}
+
+/**
+ * Sincroniza el nombre bloqueado del activo con el símbolo escrito. Si ya
+ * existe se muestra su nombre; si no, se anuncia que se creará.
+ */
+export function vincularSelectActivo() {
+    const entrada = document.getElementById("campo-activo")
+    const nombre = document.getElementById("campo-activo-nombre")
+    if (!entrada || !nombre) return
+
+    const actualizar = () => {
+        const simbolo = (entrada.value || "").trim().toUpperCase()
+        if (!simbolo) {
+            nombre.value = ""
+            return
+        }
+        nombre.value = activosPorSimbolo.get(simbolo) || `Nuevo activo (${simbolo})`
+    }
+
+    entrada.addEventListener("input", actualizar)
+    actualizar()
+}
+
+/**
  * Vincula el cambio de cuenta con el símbolo que acompaña al label Monto
  * y actualiza la divisa guardada. Llamar justo después de abrir el modal.
+ * También activa los buscadores de los selectores de cuenta.
  */
 export function vincularSimboloDivisa() {
+    activarSelectsBuscables()
+    vincularSelectActivo()
     const ids = [...new Set(Object.values(CUENTA_FUENTE_DIVISA))]
 
     const actualizar = () => {
@@ -371,12 +583,22 @@ export function recogerDatosFormulario(tipo) {
         datos.comision = parseFloat(comisionInput.value) || 0
     }
 
+    // Las etiquetas van siempre (aunque quede lista vacía): así un movimiento
+    // editado puede quedarse sin ninguna.
+    datos.etiquetas = normalizarEtiquetas(document.getElementById("campo-etiquetas")?.value)
+
     // La divisa no se elige: se deriva de la cuenta seleccionada.
     const idFuente = CUENTA_FUENTE_DIVISA[tipo]
     if (idFuente) {
         const selectCuenta = document.getElementById(idFuente)
         const moneda = selectCuenta?.selectedOptions?.[0]?.dataset?.moneda
         if (moneda) datos.divisa = moneda
+    }
+
+    // Compra/venta de activo sin cuenta (regalo, aportación): no hay moneda de
+    // la que derivarla, así que se usa la divisa principal del usuario.
+    if (!datos.divisa && (tipo === TIPOS_MOVIMIENTO.COMPRA_ACTIVO || tipo === TIPOS_MOVIMIENTO.VENTA_ACTIVO)) {
+        datos.divisa = getDivisaPrincipal()
     }
 
     if (errores.length > 0) {

@@ -10,25 +10,26 @@ import {
     normalizarOrdenCuentas,
     reordenarCuentas,
     restaurarDocumento,
-    actualizarMovimientoDoc
+    actualizarMovimientoDoc,
+    deleteField
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { DIVISAS_LABELS, DIVISAS_SYMBOLS } from "../../constants/divisas.js"
-import { convertirMonto, presentarDivisa } from "../services/DivisaServicio.js"
+import { convertirMonto, etiquetaDivisa } from "../services/DivisaServicio.js"
+import { calcularPatrimonio } from "../services/SnapshotServicio.js"
 import {
     esHija,
-    hijasDe,
-    tieneHijas,
     familiaDe,
-    saldoFamilia,
-    cuentasVisibles
+    cuentasVisibles,
+    esAbstracta,
+    normalizarNombre
 } from "../core/familiaCuentas.js"
 import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoServicio.js"
 import { abrirModalEducativoCredito, estadoCicloDe, nivelUsoDe, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
-import { esMovimientoPositivo, montoDeMovimiento } from "../core/movimientos.js"
+import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 
@@ -70,6 +71,8 @@ let supresorClickCuenta = false
 let supresorClickTimerCuenta = null
 let eventosCardsCuentaListos = false
 let eventosRefreshCuentaListos = false
+// Última vista para el modal temporal (duplica sin quitar del sidebar).
+let ultimaVistaCuenta = null
 
 // ============================================
 // ÍCONOS POR TIPO DE CUENTA
@@ -91,6 +94,19 @@ function formatearMontoConDivisa(monto, moneda = "pen") {
     return `${DIVISAS_SYMBOLS[clave] || "S/"} ${importe}`
 }
 
+// Solo dígitos: números de cuenta, CCI y tarjetas se guardan sin guiones,
+// espacios ni letras.
+function soloDigitos(valor) {
+    return String(valor || "").replace(/\D/g, "")
+}
+
+// Muestra un número de tarjeta en grupos de 4 ("12345678" → "1234 5678").
+// El dato en Firestore queda unido; solo se separa al pintar.
+function agruparTarjeta(valor) {
+    const digitos = soloDigitos(valor)
+    return digitos.replace(/(\d{4})(?=\d)/g, "$1 ")
+}
+
 function iconoPorTipo(tipo) {
     return ICONOS_POR_TIPO[tipo] || "wallet"
 }
@@ -102,22 +118,20 @@ function iconoPorTipo(tipo) {
 // en js/core/familiaCuentas.js porque las necesita tambien el dashboard.
 // aqui queda solo lo propio de crear cuentas.
 
-// Nombre de una subcuenta: el del padre mas la divisa. Se resuelve al crear
-// y queda fijo: los nombres ya creados no cambian aunque el usuario luego
-// cambie de simbolo a codigo en Configuracion.
-function nombreSubcuenta(nombrePadre, divisa) {
-    return `${nombrePadre} ${presentarDivisa(divisa)}`
-}
+// Las subcuentas se crean SIN nombre: el nombre se deriva del padre + la
+// divisa (familiaCuentas.nombrePorDefectoSubcuenta) en el punto de lectura, y
+// el usuario puede escribir uno propio al editarlas. Asi los nombres no se
+// petrifican si el padre cambia de nombre.
 
 // Un input de saldo por divisa. Cada pata de la familia nace con su propio
 // saldo, asi que hacer dos cuentas no puede exigir dos viajes al formulario.
 // Solo se ven los de las divisas elegidas en el toggle (conectarToggleDivisas
-// sincroniza la visibilidad).
+// sincroniza la visibilidad). Sin subtítulo: el modal de crear cuenta es una
+// sola rejilla de dos columnas, sin secciones que la partan.
 function campoSaldosPorDivisa(divisaActiva = null) {
-    const monedas = [["pen", "S/"], ["usd", "$"], ["usdt", "₮"]]
+    const monedas = [["pen", "S/"], ["usd", "$"], ["eur", "€"], ["usdt", "₮"]]
     return `
         <div class="form-group full">
-            <span class="form-section-title">Saldo inicial por divisa</span>
             <div class="saldo-divisas" id="grupo-saldos">
                 ${monedas.map(([divisa, simbolo]) => `
                     <div class="saldo-divisa" data-divisa="${divisa}"${divisa === divisaActiva ? "" : " hidden"}>
@@ -126,7 +140,6 @@ function campoSaldosPorDivisa(divisaActiva = null) {
                     </div>
                 `).join("")}
             </div>
-            <p class="form-hint">Cada divisa seleccionada se crea como una subcuenta con su propio saldo.</p>
         </div>
     `
 }
@@ -144,43 +157,205 @@ function leerSaldosPorDivisa(raiz) {
 }
 
 /**
- * Crea la familia de cuentas de una vez: el padre con la primera divisa y una
- * hija por cada divisa adicional.
+ * Crea la familia de cuentas de una vez.
  *
- * El padre ES la subcuenta de su propia divisa (no hay un contenedor con saldo
- * 0), asi que con 3 divisas salen 3 documentos y no 4. Las hijas heredan solo
- * lo imprescindible; los datos que pertenecen a la entidad financiera (num,
- * cci, uid) no se copian porque son los del padre.
+ * El padre es una clase abstracta: no tiene divisa propia ni saldo, solo
+ * sostiene a sus hijas. Las instancias son las subcuentas, cada una con su
+ * `moneda`, `saldoInicial`, número y CCI propios.
+ *
+ * Con N divisas salen N+1 documentos (1 padre abstracto + N hijas). Las
+ * familias legacy (padre con su propia moneda y saldo) siguen leyéndose igual.
+ * Si el padre no es patrimonial, las hijas tampoco lo son.
  */
 async function crearCuentaConSubcuentas(uidActual, datosPadre, saldos, { esCredito = false } = {}) {
     // `divisasExtras` es solo de paso: no forma parte del documento del padre.
     const { divisasExtras = [], ...datosLimpios } = datosPadre
+    const esPatrimonial = datosPadre.esPatrimonio !== false
 
+    // Cuenta simple o tarjeta: sin familia, el documento es la instancia.
+    const todasDivisas = [datosLimpios.moneda, ...divisasExtras]
+    if (esCredito || divisasExtras.length === 0) {
+        return crearCuenta(uidActual, {
+            ...datosLimpios,
+            nombre: normalizarNombre(datosLimpios.nombre),
+            saldoInicial: saldos[datosLimpios.moneda] ?? 0,
+            esPatrimonio: esPatrimonial
+        })
+    }
+
+    // Familia: padre abstracto sin saldo ni divisa operativa.
     const cuentaPadre = await crearCuenta(uidActual, {
         ...datosLimpios,
-        saldoInicial: saldos[datosLimpios.moneda] ?? 0
+        nombre: normalizarNombre(datosLimpios.nombre),
+        moneda: todasDivisas[0],
+        saldoInicial: 0,
+        esAbstracta: true,
+        esPatrimonio: esPatrimonial
     })
 
-    // Una tarjeta de crédito tiene una sola deuda y un solo limite: darle
-    // subcuentas por divisa produciría hijas sin `limite`, inservibles para
-    // el ciclo de la tarjeta. Se queda en una divisa.
-    const hijas = esCredito ? [] : divisasExtras
-
-    for (let i = 0; i < hijas.length; i++) {
-        const divisa = hijas[i]
+    for (let i = 0; i < todasDivisas.length; i++) {
+        const divisa = todasDivisas[i]
         await crearCuenta(uidActual, {
-            nombre: nombreSubcuenta(datosPadre.nombre, divisa),
+            // Sin `nombre`: se deriva del padre al leer (resolverNombresCuentas).
             tipo: datosPadre.tipo,
             moneda: divisa,
             saldoInicial: saldos[divisa] ?? 0,
             padreId: cuentaPadre.id,
             estado: "activa",
-            esPatrimonio: true,
+            esPatrimonio: esPatrimonial,
             orden: (datosPadre.orden ?? 0) + i + 1
         })
     }
 
     return cuentaPadre
+}
+
+/**
+ * Mueve todas las referencias de una cuenta a otra: movimientos (cuenta,
+ * origen y destino), estrategias, trades y órdenes. Sin esto, convertir una
+ * cuenta simple en familia huérfana su historial: los movimientos seguirían
+ * apuntando al padre abstracto y la subcuenta se vería vacía.
+ */
+async function migrarReferenciasCuenta(uidActual, origenId, destinoId) {
+    const movimientos = await obtenerMovimientos(uidActual).catch(() => [])
+    for (const m of movimientos) {
+        const parcial = {}
+        if (m.cuenta === origenId) parcial.cuenta = destinoId
+        if (m.cuentaOrigen === origenId) parcial.cuentaOrigen = destinoId
+        if (m.cuentaDestino === origenId) parcial.cuentaDestino = destinoId
+        if (Object.keys(parcial).length > 0) {
+            await actualizarMovimientoDoc(uidActual, m.id, parcial)
+        }
+    }
+    try {
+        const { obtenerEstrategias, actualizarEstrategia } = await import("../repositories/EstrategiaRepositorio.js")
+        for (const e of await obtenerEstrategias(uidActual).catch(() => [])) {
+            if (e.cuentaId === origenId) await actualizarEstrategia(uidActual, e.id, { cuentaId: destinoId })
+        }
+    } catch { /* sin estrategias que migrar */ }
+    try {
+        const { obtenerTrades, actualizarTrade } = await import("../repositories/TradeRepositorio.js")
+        for (const t of await obtenerTrades(uidActual).catch(() => [])) {
+            if (t.cuenta === origenId) await actualizarTrade(uidActual, t.id, { cuenta: destinoId })
+        }
+    } catch { /* sin trades que migrar */ }
+    try {
+        const { obtenerOrdenes, actualizarOrden } = await import("../repositories/OrdenRepositorio.js")
+        for (const o of await obtenerOrdenes(uidActual).catch(() => [])) {
+            if (o.cuenta === origenId) await actualizarOrden(uidActual, o.id, { cuenta: destinoId })
+        }
+    } catch { /* sin órdenes que migrar */ }
+}
+
+/**
+ * Convierte una cuenta simple en padre abstracto: crea la hija de su propia
+ * divisa con su saldo, número y CCI, le traspasa todo el historial y vacía
+ * al padre. Devuelve la hija creada.
+ */
+async function migrarPadreASubcuenta(uidActual, cuenta, ordenBase = 0) {
+    const hija = await crearCuenta(uidActual, {
+        tipo: cuenta.tipo,
+        moneda: (cuenta.moneda || "pen").toLowerCase(),
+        saldoInicial: cuenta.saldoInicial || 0,
+        numeroCuenta: cuenta.numeroCuenta || cuenta.num || "",
+        cci: cuenta.cci || "",
+        padreId: cuenta.id,
+        estado: "activa",
+        esPatrimonio: cuenta.esPatrimonio !== false,
+        orden: ordenBase
+    })
+    await migrarReferenciasCuenta(uidActual, cuenta.id, hija.id)
+    await actualizarCuenta(uidActual, cuenta.id, {
+        esAbstracta: true,
+        saldoInicial: 0,
+        num: "",
+        numeroCuenta: "",
+        cci: ""
+    })
+    return hija
+}
+
+// ============================================
+// VENCIMIENTO DE TARJETA · MES Y AÑO
+// ============================================
+// Dos campos en vez de un "MM/AA" de texto libre: el mes se rellena solo al
+// llegar a 2 dígitos y el foco salta al año, y la "/" del medio la pone el
+// propio control. Así nadie tiene que acordarse de escribirla.
+//
+// El valor guardado sigue siendo "MM/AA": esto solo cambia cómo se teclea.
+
+/** Divide un "MM/AA" guardado en las partes de los dos inputs. */
+function partesVencimiento(valor) {
+    const m = /^(\d{2})\/(\d{2})$/.exec(String(valor || "").trim())
+    return m ? { mes: m[1], anio: m[2] } : { mes: "", anio: "" }
+}
+
+
+
+/** Lee el par de inputs y devuelve "MM/AA", o "" si falta alguna parte. */
+function leerVencimiento(raiz, prefijo) {
+    const mes = raiz?.querySelector(`#${prefijo}-mes`)?.value.trim() || ""
+    const anio = raiz?.querySelector(`#${prefijo}-anio`)?.value.trim() || ""
+    if (!mes || !anio) return ""
+    return `${mes}/${anio}`
+}
+
+/**
+ * Conecta el par mes/año: solo dígitos, máximo 2 por campo, salto automático
+ * del foco al año al llenar el mes, y borrado del campo completo al pulsar
+ * Backspace sobre un campo ya vacío.
+ * @param {Element} raiz - el modal o el formulario
+ * @param {string} prefijo - "campo" o "edit"
+ */
+function conectarVencimiento(raiz, prefijo) {
+    const inputMes = raiz?.querySelector(`#${prefijo}-mes`)
+    const inputAnio = raiz?.querySelector(`#${prefijo}-anio`)
+    if (!inputMes || !inputAnio) return
+
+    const soloDigitos = evento => {
+        evento.target.value = evento.target.value.replace(/\D/g, "").slice(0, 2)
+    }
+
+    inputMes.addEventListener("input", evento => {
+        soloDigitos(evento)
+        // Al completar el mes el foco salta al año: no hace falta tabular ni
+        // hacer clic para seguir escribiendo.
+        if (inputMes.value.length === 2) inputAnio.focus()
+    })
+
+    inputAnio.addEventListener("input", soloDigitos)
+
+    // Backspace sobre un campo vacío borra el anterior: es lo que se espera
+    // al corregir el mes sin tener que volver a seleccionar.
+    inputAnio.addEventListener("keydown", evento => {
+        if (evento.key !== "Backspace" || inputAnio.value) return
+        evento.preventDefault()
+        inputMes.focus()
+        inputMes.value = ""
+    })
+
+    inputMes.addEventListener("keydown", evento => {
+        if (evento.key !== "Backspace" || inputMes.value) return
+        evento.preventDefault()
+        inputMes.value = ""
+    })
+}
+
+/** Markup del par mes/año con la "/" dibujada entre los dos. */
+function campoVencimiento(prefijo, valor = "") {
+    const { mes, anio } = partesVencimiento(valor)
+    return `
+        <div class="form-group">
+            <label for="${prefijo}-mes">Vencimiento</label>
+            <div class="vence-inputs">
+                <input type="text" id="${prefijo}-mes" class="form-input" inputmode="numeric"
+                    placeholder="MM" maxlength="2" value="${mes}" aria-label="Mes de vencimiento">
+                <span class="vence-sep" aria-hidden="true">/</span>
+                <input type="text" id="${prefijo}-anio" class="form-input" inputmode="numeric"
+                    placeholder="AA" maxlength="2" value="${anio}" aria-label="Año de vencimiento">
+            </div>
+        </div>
+    `
 }
 
 // ============================================
@@ -212,14 +387,25 @@ function conectarToggleDivisas(raiz, bloqueadas = []) {
             opcion.setAttribute("aria-disabled", "true")
             opcion.title = "Esta divisa ya existe y no se puede quitar"
             sincronizarSaldo()
+            return
         }
 
         opcion.addEventListener("click", () => {
+            const opciones = [...raiz.querySelectorAll(".toggle-option")]
+
             if (opcion.classList.contains("active")) {
-                // No se desactiva: se necesita al menos una divisa, y una
-                // divisa ya creada en la cuenta no se puede eliminar.
+                // Tocar de nuevo deselecciona. Solo queda bloqueado el último
+                // caso: una cuenta sin ninguna divisa no se puede crear, así que
+                // la última activa no se apaga (si es la única, avisa).
+                if (opciones.filter(o => o.classList.contains("active")).length === 1) {
+                    mostrarNotificacion("info", "La cuenta necesita al menos una divisa")
+                    return
+                }
+                opcion.classList.remove("active")
+                sincronizarSaldo()
                 return
             }
+
             opcion.classList.add("active")
             opcion.title = ""
             opcion.removeAttribute("aria-disabled")
@@ -357,10 +543,35 @@ function renderizarSidebar() {
 
     sidebar.innerHTML = ""
 
-    // Las hijas no se listan: se llega a ellas por las tabs del padre. Si se
-    // listaran, el sidebar repetiria "BBVA", "BBVA $" y "BBVA ₮" como tres
-    // cuentas sueltas.
-    cuentasVisibles(cuentas).forEach(cuenta => {
+    // Las hijas no se listan: se llega a ellas por las tabs del padre.
+    const visibles = cuentasVisibles(cuentas)
+    let idArrastrado = null
+    let destinoInsercion = null
+
+    const limpiarInsercion = () => {
+        sidebar.querySelectorAll(".cuenta-insercion").forEach(el => el.remove())
+        destinoInsercion = null
+    }
+
+    const moverCuenta = (origenId, indiceDestino) => {
+        const ordenadas = [...cuentas]
+        const desde = ordenadas.findIndex(c => c.id === origenId)
+        if (desde < 0) return
+        const [origen] = ordenadas.splice(desde, 1)
+        // Solo cuentan las visibles para el índice de destino.
+        const visiblesOrden = ordenadas.filter(c => !esHija(c))
+        const destino = visiblesOrden[indiceDestino]
+        const hasta = destino ? ordenadas.findIndex(c => c.id === destino.id) : ordenadas.length
+        ordenadas.splice(hasta, 0, origen)
+        reordenarCuentas(uid, ordenadas)
+            .then(() => aplicarOrdenEnMemoria(ordenadas))
+            .catch(error => {
+                console.error("Error reordenando cuentas:", error)
+                aplicarOrdenEnMemoria(ordenadas)
+            })
+    }
+
+    visibles.forEach((cuenta, indice) => {
         const item = document.createElement("div")
         item.className = "cuenta-sidebar-item"
         item.dataset.id = cuenta.id
@@ -381,34 +592,55 @@ function renderizarSidebar() {
         item.addEventListener("dragstart", evento => {
             evento.dataTransfer.effectAllowed = "move"
             evento.dataTransfer.setData("text/plain", cuenta.id)
+            idArrastrado = cuenta.id
             item.classList.add("arrastrando")
         })
-        item.addEventListener("dragend", () => item.classList.remove("arrastrando"))
-        item.addEventListener("dragover", evento => evento.preventDefault())
+        item.addEventListener("dragend", () => {
+            item.classList.remove("arrastrando")
+            idArrastrado = null
+            limpiarInsercion()
+        })
+        item.addEventListener("dragover", evento => {
+            evento.preventDefault()
+            if (!idArrastrado || idArrastrado === cuenta.id) return
+            const rect = item.getBoundingClientRect()
+            const antes = (evento.clientY - rect.top) < rect.height / 2
+            const destino = antes ? indice : indice + 1
+            if (destino === destinoInsercion) return
+            limpiarInsercion()
+            destinoInsercion = destino
+            const marca = document.createElement("div")
+            marca.className = "cuenta-insercion"
+            if (antes) item.before(marca)
+            else item.after(marca)
+        })
         item.addEventListener("drop", evento => {
             evento.preventDefault()
-            const origenId = evento.dataTransfer.getData("text/plain")
-            if (!origenId || origenId === cuenta.id) return
-            const origen = cuentas.find(c => c.id === origenId)
-            if (!origen) return
-            const ordenadas = [...cuentas]
-            const desde = ordenadas.findIndex(c => c.id === origenId)
-            const hasta = ordenadas.findIndex(c => c.id === cuenta.id)
-            ordenadas.splice(desde, 1)
-            ordenadas.splice(hasta, 0, origen)
-            reordenarCuentas(uid, ordenadas)
-                .then(() => aplicarOrdenEnMemoria(ordenadas))
-                .catch(error => {
-                    console.error("Error reordenando cuentas:", error)
-                    // En caso de error, conservamos el orden en memoria (lo que el usuario hizo)
-                    // y no mostramos notificación para no interrumpir el flow.
-                    aplicarOrdenEnMemoria(ordenadas)
-                })
+            const origenId = evento.dataTransfer.getData("text/plain") || idArrastrado
+            const destino = destinoInsercion ?? indice
+            limpiarInsercion()
+            if (!origenId) return
+            moverCuenta(origenId, destino > indice ? destino - 0 : destino)
         })
 
         item.append(btn)
         sidebar.appendChild(item)
     })
+
+    sidebar.ondragover = evento => evento.preventDefault()
+    sidebar.ondrop = evento => {
+        // Soltar al final de la lista.
+        if ([...sidebar.querySelectorAll(".cuenta-sidebar-item")].some(el => el.contains(evento.target) && evento.target.closest(".cuenta-sidebar-item"))) return
+        evento.preventDefault()
+        const origenId = evento.dataTransfer.getData("text/plain") || idArrastrado
+        limpiarInsercion()
+        if (!origenId) return
+        moverCuenta(origenId, visibles.length)
+    }
+
+    // El sidebar se repinta en cada carga: sin esto la cuenta en vista perdía
+    // el resaltado al recargar la lista (registrar movimientos,etc.).
+    marcarCuentaEnVista()
 }
 
 /**
@@ -447,6 +679,7 @@ async function seleccionarCuenta(id) {
     // y no cerrar el panel (mostrar detalle de la cuenta)
     if (cuentaSeleccionada && cuentaSeleccionada.id === id) {
         // Ya está seleccionada, no hacer toggle off, mantener vista detalle
+        marcarCuentaEnVista()
         actualizarLastbar()
         return
     }
@@ -454,8 +687,30 @@ async function seleccionarCuenta(id) {
     cuentaSeleccionada = cuentas.find(c => c.id === id)
     if (!cuentaSeleccionada) return
 
+    // Al cambiar de cuenta se vuelve a la primera subcuenta de su familia.
+    miembroFamiliaVisto = null
+    marcarCuentaEnVista()
     await mostrarDetalleCuenta()
     actualizarLastbar()
+}
+
+/**
+ * Marca en el sidebar la cuenta que se está viendo ahora.
+ *
+ * El resaltado va en la FILA (.cuenta-sidebar-btn), no en el .cuenta-sidebar-item
+ * que la envuelve: ese es un contenedor sin fondo, y el fondo se lo pone el
+ * botón. Se usa `en-vista` y no `selected` porque `selected` ya la usa el
+ * gesto de mantener pulsado (el "arrastrar para reordenar") y se quita al
+ * soltar; mezclar ambos hacía que el resaltado de "la que estoy viendo"
+ * parpadeara al pulsar.
+ */
+function marcarCuentaEnVista() {
+    const enVista = cuentaSeleccionada?.id
+    document.querySelectorAll(".cuenta-sidebar-btn").forEach(btn => {
+        btn.classList.toggle("en-vista", btn.dataset.id === enVista)
+        if (btn.dataset.id === enVista) btn.setAttribute("aria-current", "true")
+        else btn.removeAttribute("aria-current")
+    })
 }
 
 // ============================================
@@ -486,20 +741,39 @@ async function mostrarDetalleCuenta() {
     }
 
     // La familia: el padre y sus hijas. Cada miembro es una cuenta entera, asi
-    // que las tabs no cambian "vista de subcuentas": cambian QUE CUENTA se
+    // que las pills no cambian "vista de subcuentas": cambian QUE CUENTA se
     // esta viendo, y el render de abajo es el de siempre.
     const familia = familiaDe(cuenta, cuentas)
     const conSubcuentas = familia.length > 1
-    const visto = familia.find(c => c.id === miembroFamiliaVisto) || familia[0]
+    let visto = familia.find(c => c.id === miembroFamiliaVisto) || familia[0]
     miembroFamiliaVisto = visto.id
 
+    // Numero y vencimiento de una subcuenta: la entidad financiera es el padre
+    // (una tarjeta, una cuenta bancaria), asi que una hija sin los suyos
+    // muestra los del padre en vez de un hueco.
+    if (esHija(visto)) {
+        const referencia = familia.find(c => c.id === (visto.padreId || cuenta.id)) || cuenta
+        visto = {
+            ...visto,
+            num: visto.num || visto.numeroCuenta || referencia.num || "",
+            vence: visto.vence || referencia.vence || ""
+        }
+    }
+
     const ciclo = visto.tipo === "credito" ? estadoCicloDe(visto, movimientos) : null
+    // % del patrimonio de cada subcuenta. El calculo ya respeta el flag
+    // `esPatrimonio` del resto de la familia.
+    let patrimonioTotal = null
+    try {
+        patrimonioTotal = (await calcularPatrimonio(uid)).patrimonioPEN
+    } catch (error) {
+        console.warn("[WARN] No se pudo calcular el patrimonio para el %:", error)
+    }
     const panelInfo = visto.tipo === "credito"
         ? plantillaInfoTarjeta(visto, ciclo)
-        : plantillaInfoNormal(visto)
+        : plantillaInfoNormal(visto, { laFamilia: familia, patrimonioTotal })
 
     panel.innerHTML = `
-        ${conSubcuentas ? plantillaTabsSubcuentas(cuenta, familia, visto) : ""}
         <div class="cuenta-vista ${lateralidadInfo()}">
             <div class="cuenta-vista-movimientos">
                 <div class="cuenta-mov-head">
@@ -519,6 +793,8 @@ async function mostrarDetalleCuenta() {
     panel.removeAttribute("aria-busy")
     vincularInteraccionCardsCuenta()
 
+    ultimaVistaCuenta = { cuentaId: cuenta.id, vistoId: visto.id, patrimonioTotal }
+
     panel.querySelectorAll(".btn-copiar").forEach(btn => {
         btn.addEventListener("click", () => {
             const texto = btn.dataset.copiar
@@ -533,33 +809,156 @@ async function mostrarDetalleCuenta() {
         }))
     })
 
-    // Cambiar de tab = mirar otra cuenta de la familia. Se repinta el panel
+    // Cambiar de pill = mirar otra cuenta de la familia. Se repinta el panel
     // entero con el render estandar de esa cuenta.
-    panel.querySelectorAll(".subcuenta-tab").forEach(tab => {
-        tab.addEventListener("click", () => {
-            if (miembroFamiliaVisto === tab.dataset.cuentaId) return
-            miembroFamiliaVisto = tab.dataset.cuentaId
+    panel.querySelectorAll(".subcuenta-pill").forEach(pill => {
+        pill.addEventListener("click", () => {
+            if (miembroFamiliaVisto === pill.dataset.cuentaId) return
+            miembroFamiliaVisto = pill.dataset.cuentaId
             mostrarDetalleCuenta()
         })
     })
 }
 
-// Tabs de la familia: el padre primero (su propia divisa) y luego las hijas.
-function plantillaTabsSubcuentas(padre, familia, visto) {
-    const total = saldoFamilia(padre, cuentas)
+// Duplica la vista actual de la cuenta en un modal temporal, sin quitarla del
+// sidebar ni cambiar la navegación. Solo disponible con modales persistentes.
+export async function modalizarCuentaActual() {
+    if (sesion.getPreferencias()?.accesibilidad?.modalesPersistentes !== true) {
+        mostrarNotificacion("info", "Activa los modales persistentes para ver la cuenta en modal")
+        return
+    }
+    const ctx = ultimaVistaCuenta
+    const cuenta = cuentas.find(c => c.id === ctx?.cuentaId) || cuentaSeleccionada
+    if (!cuenta) return
+    const familia = familiaDe(cuenta, cuentas)
+    let vistoId = ctx?.vistoId || miembroFamiliaVisto || familia[0]?.id
+    let movimientos = []
+    try {
+        movimientos = await obtenerMovimientos(uid)
+    } catch { movimientos = [] }
+
+    const pintar = async (modalEl) => {
+        const vistoBase = familia.find(c => c.id === vistoId) || familia[0]
+        if (!vistoBase) return
+        let visto = vistoBase
+        if (esHija(visto)) {
+            const referencia = familia.find(c => c.id === (visto.padreId || cuenta.id)) || cuenta
+            visto = { ...visto, num: visto.num || visto.numeroCuenta || referencia.num || "", vence: visto.vence || referencia.vence || "" }
+        }
+        let patrimonioTotal = ctx?.patrimonioTotal ?? null
+        try {
+            patrimonioTotal = (await calcularPatrimonio(uid)).patrimonioPEN
+        } catch { /* conserva el anterior */ }
+        const ciclo = visto.tipo === "credito" ? estadoCicloDe(visto, movimientos) : null
+        const info = visto.tipo === "credito"
+            ? plantillaInfoTarjeta(visto, ciclo)
+            : plantillaInfoNormal(visto, { laFamilia: familia, patrimonioTotal })
+        const movs = movimientos
+            .filter(m => movimientoInvolucra(m, visto.id))
+            .sort(compararMovimientosPorFecha)
+            .slice(0, 20)
+        const cuerpo = modalEl.querySelector(".cuenta-modal-cuerpo")
+        if (cuerpo) {
+            cuerpo.innerHTML = `
+                <div class="cuenta-modal-vista" data-vista="info">${info}</div>
+                <div class="cuenta-modal-vista" data-vista="movimientos" hidden>
+                    <div class="lista-cards">${movs.length ? movs.map(m => plantillaMovimiento(m, visto.id)).join("") : `<p class="lista-vacia">Sin movimientos.</p>`}</div>
+                </div>`
+        }
+        mostrarVistaModal(modalEl, modalEl.querySelector(".cuenta-modal-tabs .cuenta-modal-tab.active")?.dataset.vista || "info")
+        modalEl.querySelectorAll(".subcuenta-pill").forEach(pill => {
+            pill.addEventListener("click", () => {
+                if (vistoId === pill.dataset.cuentaId) return
+                vistoId = pill.dataset.cuentaId
+                pintar(modalEl)
+            })
+        })
+        modalEl.querySelectorAll(".btn-copiar").forEach(btn => {
+            btn.addEventListener("click", () => {
+                const texto = btn.dataset.copiar
+                if (texto) copiarTexto(texto, btn.title?.replace("Copiar ", "") || "Texto")
+            })
+        })
+    }
+
+    const modalEl = abrirModal({
+        titulo: `Cuenta · ${cuenta.nombre}`,
+        contenido: `
+            <div class="cuenta-modal-tabs" role="tablist" aria-label="Vista de la cuenta">
+                <button type="button" role="tab" class="cuenta-modal-tab active" data-vista="info">Información</button>
+                <button type="button" role="tab" class="cuenta-modal-tab" data-vista="movimientos">Movimientos</button>
+            </div>
+            <div class="cuenta-modal-cuerpo"></div>
+            <div class="cuenta-modal-flechas">
+                <button type="button" class="glass-btn cuenta-modal-ant" aria-label="Anterior">${icono("chevron-left", 16)}</button>
+                <button type="button" class="glass-btn cuenta-modal-sig" aria-label="Siguiente">${icono("chevron-right", 16)}</button>
+            </div>`,
+        variante: "wide",
+        confirmText: "Cerrar",
+        cancelText: null
+    })
+    modalEl.querySelectorAll(".cuenta-modal-tab").forEach(tab => {
+        tab.addEventListener("click", () => mostrarVistaModal(modalEl, tab.dataset.vista))
+    })
+    modalEl.querySelector(".cuenta-modal-ant")?.addEventListener("click", () => mostrarVistaModal(modalEl, "info"))
+    modalEl.querySelector(".cuenta-modal-sig")?.addEventListener("click", () => mostrarVistaModal(modalEl, "movimientos"))
+    // Swipe horizontal en táctil: el equivalente en computadora son las
+    // flechas y las tabs de arriba.
+    let tactoX = null
+    modalEl.querySelector(".cuenta-modal-cuerpo")?.addEventListener("touchstart", (e) => {
+        tactoX = e.touches[0]?.clientX ?? null
+    }, { passive: true })
+    modalEl.querySelector(".cuenta-modal-cuerpo")?.addEventListener("touchend", (e) => {
+        if (tactoX == null) return
+        const dx = (e.changedTouches[0]?.clientX ?? tactoX) - tactoX
+        tactoX = null
+        if (Math.abs(dx) < 60) return
+        mostrarVistaModal(modalEl, dx < 0 ? "movimientos" : "info")
+    }, { passive: true })
+    pintar(modalEl)
+}
+
+function mostrarVistaModal(modalEl, vista) {
+    modalEl.querySelectorAll(".cuenta-modal-tab").forEach(tab => {
+        const activa = tab.dataset.vista === vista
+        tab.classList.toggle("active", activa)
+        tab.setAttribute("aria-selected", activa ? "true" : "false")
+    })
+    modalEl.querySelectorAll(".cuenta-modal-vista").forEach(panel => {
+        panel.hidden = panel.dataset.vista !== vista
+    })
+}
+
+// Pills de la familia: una por subcuenta. La etiqueta respeta el formato del
+// usuario (SOLES/DÓLARES con símbolo, PEN/USD con código), nunca solo "$".
+function plantillaTabsSubcuentas(familia, visto) {
     return `
-        <div class="subcuentas-tabs" role="tablist" aria-label="Subcuentas de ${padre.nombre}">
+        <span class="subcuentas-pills" role="tablist" aria-label="Subcuentas de la familia">
             ${familia.map(c => {
                 const activa = c.id === visto.id
                 return `
                     <button type="button" role="tab" aria-selected="${activa}"
-                        class="subcuenta-tab${activa ? " active" : ""}"
+                        class="subcuenta-pill${activa ? " active" : ""}"
                         data-cuenta-id="${c.id}" title="${c.nombre}">
-                        ${presentarDivisa(c.moneda)}
+                        ${etiquetaDivisa(c.moneda)}
                     </button>
                 `
             }).join("")}
-            <span class="subcuentas-total">Total ${formatearMontoConDivisa(total, padre.moneda)}</span>
+        </span>
+    `
+}
+
+// "% del patrimonio" como item resumen propio, junto al saldo, con el mismo
+// estilo y en color normal.
+function tarjetaPorcentajePatrimonio(c, patrimonioTotal) {
+    if (patrimonioTotal == null || patrimonioTotal <= 0) return ""
+    const enPEN = convertirMonto(c.saldoInicial || 0, c.moneda, "pen")
+    if (enPEN <= 0) return ""
+    const porcentaje = (enPEN / patrimonioTotal) * 100
+    return `
+        <div class="resumen-card">
+            <div class="resumen-label">Patrimonio</div>
+            <div class="resumen-valor">${porcentaje.toFixed(porcentaje < 10 ? 1 : 0)}%</div>
         </div>
     `
 }
@@ -568,9 +967,44 @@ function plantillaTabsSubcuentas(padre, familia, visto) {
 // INFO · CUENTA NORMAL
 // ============================================
 
-function plantillaInfoNormal(c) {
+/**
+ * Estado de una tarjeta a partir de su vencimiento "MM/AA".
+ *
+ * ElStored "MM/AA" no dice el día, así que se toma el día 1 del mes como
+ * referencia: ámbar durante todo el mes en que caduca (que es cuando aún hay
+ * margen para cambiarla) y negativa a partir del mes siguiente.
+ *
+ * @param {string} vence - "MM/AA"
+ * @returns {string} badge con clase de color, o "" si no hay vencimiento
+ */
+function badgeVencimiento(vence) {
+    const partes = /^(\d{2})\/(\d{2})$/.exec(String(vence || "").trim())
+    if (!partes) return ""
+
+    const mes = Number(partes[1])
+    const anio = 2000 + Number(partes[2])
+    if (mes < 1 || mes > 12) return ""
+
+    const hoy = new Date()
+    const finDeVigencia = new Date(anio, mes, 0) // último día del mes
+
+    if (hoy > finDeVigencia) {
+        return '<span class="cuenta-badge tarjeta-estado negativa">Caducada</span>'
+    }
+
+    if (hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes) {
+        return '<span class="cuenta-badge tarjeta-estado ambar">Caduca este mes</span>'
+    }
+
+    return '<span class="cuenta-badge tarjeta-estado positiva">Vigente</span>'
+}
+
+function plantillaInfoNormal(c, opciones = {}) {
     const saldo = c.saldoInicial || 0
     const esPositivo = saldo >= 0
+    const laFamilia = opciones.laFamilia || null
+    const numero = c.num || c.numeroCuenta || ""
+    const esSubcuenta = esHija(c)
 
     return `
         <div class="cuenta-perfil">
@@ -580,11 +1014,9 @@ function plantillaInfoNormal(c) {
             </div>
             <div class="cuenta-perfil-badges">
                 <span class="cuenta-badge">${nombreTipo(c.tipo)}</span>
+                ${badgeVencimiento(c.vence)}
+                ${laFamilia && laFamilia.length > 1 ? plantillaTabsSubcuentas(laFamilia, c) : ""}
             </div>
-        </div>
-
-        <div class="cuenta-saldo-grande ${esPositivo ? "positive" : "negative"}">
-            ${saldo < 0 ? "−" : ""}${formatearMontoConDivisa(Math.abs(saldo), c.moneda)}
         </div>
 
         <div class="credito-resumen">
@@ -592,9 +1024,11 @@ function plantillaInfoNormal(c) {
                 <div class="resumen-label">Saldo actual</div>
                 <div class="resumen-valor ${esPositivo ? "positive" : "negative"}">${formatearMontoConDivisa(saldo, c.moneda)}</div>
             </div>
+            ${tarjetaPorcentajePatrimonio(c, opciones.patrimonioTotal)}
         </div>
 
         <div class="cuenta-detalle">
+            ${esSubcuenta ? `<div class="field"><span class="label">Subcuenta</span><span class="value">${etiquetaDivisa(c.moneda)}</span></div>` : ""}
             <div class="field">
                 <span class="label">Tipo</span>
                 <span class="value">${nombreTipo(c.tipo)}</span>
@@ -603,9 +1037,13 @@ function plantillaInfoNormal(c) {
                 <span class="label">Moneda</span>
                 <span class="value">${(c.moneda || "PEN").toUpperCase()}</span>
             </div>
-            ${c.num || c.numeroCuenta ? `<div class="field"><span class="label">Número</span><span class="value">${c.num || c.numeroCuenta} <button type="button" class="btn-copiar" data-copiar="${c.num || c.numeroCuenta}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
+            ${numero ? `<div class="field"><span class="label">Número</span><span class="value">${numero} <button type="button" class="btn-copiar" data-copiar="${numero}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
             ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
             ${c.cci ? `<div class="field"><span class="label">CCI</span><span class="value">${c.cci} <button type="button" class="btn-copiar" data-copiar="${c.cci}" title="Copiar CCI">${icono("copy", 14)}</button></span></div>` : ""}
+            <div class="field">
+                <span class="label">Patrimonio</span>
+                <span class="value">${c.esPatrimonio === false ? "No" : "Sí"}</span>
+            </div>
         </div>
     `
 }
@@ -646,6 +1084,7 @@ function plantillaInfoTarjeta(c, ciclo) {
             <div class="cuenta-perfil-badges">
                 <span class="cuenta-badge">Tarjeta de crédito</span>
                 <button type="button" class="cuenta-badge estado ${claseBadge}" title="¿Qué significa este estado?">${nivelTexto}</button>
+                ${badgeVencimiento(c.vence)}
             </div>
         </div>
 
@@ -653,10 +1092,6 @@ function plantillaInfoTarjeta(c, ciclo) {
             <div class="resumen-card">
                 <div class="resumen-label">Crédito disponible</div>
                 <div class="resumen-valor ${disponible > 0 ? "positive" : "negative"}">${formatearMontoConDivisa(disponible, c.moneda)}</div>
-            </div>
-            <div class="resumen-card">
-                <div class="resumen-label">Deuda total</div>
-                <div class="resumen-valor ${deuda > 0 ? "negative" : ""}">${formatearMontoConDivisa(deuda, c.moneda)}</div>
             </div>
             <div class="resumen-card">
                 <div class="resumen-label">Consumos del ciclo</div>
@@ -678,8 +1113,9 @@ function plantillaInfoTarjeta(c, ciclo) {
         </div>
 
         <div class="cuenta-detalle">
+            ${esHija(c) ? `<div class="field"><span class="label">Subcuenta</span><span class="value">${etiquetaDivisa(c.moneda)}</span></div>` : ""}
             <div class="field">
-                <span class="label">Límite</span>
+                <span class="label">Línea de crédito</span>
                 <span class="value">${formatearMontoConDivisa(limite, c.moneda)}</span>
             </div>
             <div class="field">
@@ -699,8 +1135,12 @@ function plantillaInfoTarjeta(c, ciclo) {
                 <span class="value">${c.desgravamen || "0"}%</span>
             </div>
             ${c.anualidad ? `<div class="field"><span class="label">Anualidad</span><span class="value">${formatearMontoConDivisa(c.anualidad, c.moneda)}${anualidad ? ` · ${anualidad.fecha.toLocaleDateString("es-PE")}` : ""}</span></div>` : ""}
-            ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${c.num} <button type="button" class="btn-copiar" data-copiar="${c.num}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
+            ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${agruparTarjeta(c.num)} <button type="button" class="btn-copiar" data-copiar="${soloDigitos(c.num)}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
             ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
+            <div class="field">
+                <span class="label">Patrimonio</span>
+                <span class="value">${c.esPatrimonio === false ? "No" : "Sí"}</span>
+            </div>
         </div>
     `
 }
@@ -744,14 +1184,7 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
             .filter(m => movimientoInvolucra(m, cuenta.id))
 
         const involucradosOrdenados = involucrados
-            .sort((a, b) => {
-                const fa = (fechaDeMovimiento(a)?.getTime?.()) || 0
-                const fb = (fechaDeMovimiento(b)?.getTime?.()) || 0
-                if (fa !== fb) return fb - fa
-                const ra = a.fechaRegistro?.toDate?.()?.getTime?.() || a.fechaRegistro?.seconds || 0
-                const rb = b.fechaRegistro?.toDate?.()?.getTime?.() || b.fechaRegistro?.seconds || 0
-                return rb - ra
-            })
+            .sort(compararMovimientosPorFecha)
 
         if (contenedorTotales) {
             contenedorTotales.innerHTML = renderizarTotalesCuenta(cuenta, involucradosOrdenados)
@@ -822,11 +1255,13 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 
     const acciones = cuenta.estado === "archivada" ? "" : cuenta.tipo === "credito" ? `
             <div class="totales-acciones">
+                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("eye", 16)}</button>
                 <button type="button" class="totales-btn" id="btn-gasto-tarjeta" title="Registrar gasto" aria-label="Registrar gasto">${icono("arrow-up-right", 16)}</button>
                 ${puedePagarTarjeta ? `<button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>` : ""}
             </div>
         ` : `
             <div class="totales-acciones">
+                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("eye", 16)}</button>
                 <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus", 16)}</button>
             </div>
         `
@@ -839,6 +1274,9 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 }
 
 function vincularAccionesTotales(cuenta) {
+    document.getElementById("btn-ver-modal-cuenta")?.addEventListener("click", () => {
+        modalizarCuentaActual()
+    })
     if (cuenta.tipo === "credito") {
         document.getElementById("btn-gasto-tarjeta")?.addEventListener("click", () => {
             import("./movimientos.js").then(({ abrirFormularioMovimiento }) => {
@@ -885,7 +1323,7 @@ function plantillaMovimiento(m, cuentaId = null) {
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || m.tipo || "Sin concepto"}</span>
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}</span>
                     <span class="card-item-detalle">${fecha} · ${tipoNombre}</span>
                 </div>
                 <div class="card-item-valor-wrap">
@@ -1228,18 +1666,6 @@ function abrirModalEliminarMovimientoCuenta(m) {
     })
 }
 
-function fechaDeMovimiento(m) {
-    const valor = m.fechaRealizacion || m.fechaRegistro
-    if (!valor) return null
-    if (typeof valor === "string" && /^\d{4}-\d{2}-\d{2}/.test(valor)) {
-        const [anio, mes, dia] = valor.split("-").map(Number)
-        return new Date(anio, mes - 1, dia)
-    }
-    if (valor?.toDate) return valor.toDate()
-    if (valor?.seconds) return new Date(valor.seconds * 1000)
-    return new Date(valor)
-}
-
 function formatearFecha(valor) {
     if (!valor) return "—"
     try {
@@ -1315,11 +1741,11 @@ export function abrirModalCrearCuenta() {
 }
 
 export function editarCuentaSeleccionada() {
-    if (cuentaSeleccionada) {
-        _abrirModalEditarCuenta(cuentaSeleccionada)
-    } else {
+    if (!cuentaSeleccionada) {
         mostrarNotificacion("info", "Selecciona una cuenta primero")
+        return
     }
+    _abrirModalEditarCuenta(cuentaSeleccionada)
 }
 
 export function archivarCuentaSeleccionada() {
@@ -1345,16 +1771,6 @@ export function archivarCuentaSeleccionada() {
                             ? "La tarjeta <strong>" + cuenta.nombre + "</strong> tiene una deuda pendiente."
                             : "La cuenta <strong>" + cuenta.nombre + "</strong> tiene un saldo distinto de 0."
                         }
-                    </p>
-                    <p class="modal-message-hint">
-                        Para archivar en cero primero debes dejar el saldo en 0
-                        creando los movimientos de ajuste necesarios.
-                    </p>
-                    <p class="modal-message-warn">
-                        Puedes <strong>forzar el archivo</strong>. Tus movimientos
-                        <strong>no se borran</strong>, pero la cuenta dejará de aparecer
-                        en los selectores y en el dashboard, y los movimientos que la
-                        usan quedarán sin cuenta asociada.
                     </p>
                 </div>
             `,
@@ -1404,6 +1820,13 @@ function saldoParaRegla(cuenta) {
 async function cambiarEstadoCuenta(id, estado) {
     try {
         await actualizarCuenta(uid, id, { estado })
+        // Archivar el padre archiva también a sus hijas.
+        const raiz = cuentas.find(c => c.id === id)
+        if (raiz) {
+            for (const h of familiaDe(raiz, cuentas).filter(c => c.id !== id)) {
+                await actualizarCuenta(uid, h.id, { estado })
+            }
+        }
         await cargarCuentas()
         mostrarNotificacion("exito", estado === "activa" ? "Cuenta desarchivada" : "Cuenta archivada")
     } catch (error) {
@@ -1418,6 +1841,11 @@ export function eliminarCuentaSeleccionada() {
         return
     }
     const cuenta = cuentaSeleccionada
+    // Eliminar se bloquea si tiene hijas: primero las subcuentas.
+    if (familiaDe(cuenta, cuentas).some(c => c.id !== cuenta.id)) {
+        mostrarNotificacion("warning", "Elimina primero las subcuentas de esta cuenta")
+        return
+    }
     const saldo = saldoParaRegla(cuenta)
     if (saldo !== 0) {
         mostrarNotificacion(
@@ -1435,16 +1863,6 @@ export function eliminarCuentaSeleccionada() {
             <div class="modal-message">
                 <p class="modal-message-desc">
                     ¿Eliminar definitivamente la cuenta <strong>${cuenta.nombre}</strong>?
-                </p>
-                <p class="modal-message-hint">
-                    Tus <strong>movimientos se conservan</strong>: no se borra ninguno.
-                    Lo que desaparece es la cuenta, así que esos movimientos quedarán
-                    sin cuenta asociada y se mostrarán como
-                    <strong>"Cuenta eliminada"</strong>.
-                </p>
-                <p class="modal-message-hint">
-                    Si solo quieres ocultarla sin perder nada, <strong>archívala</strong>:
-                    podrás recuperarla desde Configuración › Datos.
                 </p>
             </div>
         `,
@@ -1500,57 +1918,17 @@ function mostrarVacio() {
 }
 
 // ============================================
-// EVENTOS (hold / dblclick)
+// EVENTOS (doble clic para editar)
 // ============================================
 
 function configurarEventos() {
     const sidebar = document.getElementById("sidebar")
-    const HOLD_DURATION = 400
-    const holdState = {}
-
-    sidebar?.addEventListener("mousedown", (event) => {
-        const btn = event.target.closest('button[name="cta"]')
-        if (!btn) return
-        const btnId = btn.dataset.id
-
-        holdState[btnId] = { isHolding: false, timer: null }
-        holdState[btnId].timer = setTimeout(() => {
-            holdState[btnId].isHolding = true
-            btn.classList.add("selected")
-        }, HOLD_DURATION)
-    })
-
-    sidebar?.addEventListener("mouseup", (event) => {
-        const btn = event.target.closest('button[name="cta"]')
-        if (!btn) return
-        const btnId = btn.dataset.id
-        if (!holdState[btnId]) return
-
-        clearTimeout(holdState[btnId].timer)
-        btn.classList.remove("selected")
-
-        // La selección la gestiona UN SOLO evento (click en el botón):
-        // dispararla aquí también causaba doble toggle en un tap (bug #1).
-        delete holdState[btnId]
-    })
-
-    sidebar?.addEventListener("mouseleave", (event) => {
-        const btn = event.target.closest('button[name="cta"]')
-        if (!btn) return
-        const btnId = btn.dataset.id
-        if (holdState[btnId]) {
-            clearTimeout(holdState[btnId].timer)
-            btn.classList.remove("selected")
-            delete holdState[btnId]
-        }
-    })
 
     sidebar?.addEventListener("dblclick", (event) => {
         const btn = event.target.closest('button[name="cta"]')
         if (!btn) return
         const btnId = btn.dataset.id
 
-        // Abrir el editor directamente, sin togglear la selección
         const cuenta = cuentas.find(c => c.id === btnId)
         if (cuenta) {
             _abrirModalEditarCuenta(cuenta)
@@ -1662,29 +2040,25 @@ function _abrirModalCrearCuentaDosPasos() {
                 <div class="toggle-group">
                     <span class="toggle-option active" data-divisa="pen">PEN</span>
                     <span class="toggle-option" data-divisa="usd">USD</span>
+                    <span class="toggle-option" data-divisa="eur">EUR</span>
                     <span class="toggle-option" data-divisa="usdt">USDT</span>
                 </div>
-                <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
-            ${campoSaldosPorDivisa("pen")}
-            <div class="form-group cuenta-only">
-                <label for="campo-num-cuenta">Número de cuenta</label>
-                <input type="text" id="campo-num-cuenta" class="form-input" placeholder="000-000000000000">
-            </div>
-            <div class="form-group cuenta-only">
-                <label for="campo-cci">CCI</label>
-                <input type="text" id="campo-cci" class="form-input" placeholder="000000000000000000000000">
+            ${tipo === "credito" ? "" : campoSaldosPorDivisa("pen")}
+            <div class="form-group">
+                <label for="campo-esPatrimonio">Incluir en mi patrimonio</label>
+                <label class="switch">
+                    <input type="checkbox" id="campo-esPatrimonio"${tipo === "credito" ? "" : " checked"}>
+                    <span class="slider"></span>
+                </label>
             </div>
             <div class="form-group card-only" hidden>
                 <label for="campo-num-tarjeta">Número de tarjeta</label>
                 <input type="text" id="campo-num-tarjeta" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19">
             </div>
-            <div class="form-group card-only" hidden>
-                <label for="campo-vence">Fecha de vencimiento</label>
-                <input type="text" id="campo-vence" class="form-input" placeholder="MM/AA" maxlength="5">
-            </div>
+            <div class="card-only" hidden>${campoVencimiento("campo")}</div>
             <div class="form-group credit-only" hidden>
-                <label for="campo-limite">Límite de crédito</label>
+                <label for="campo-limite">Línea de crédito</label>
                 <input type="number" id="campo-limite" class="form-input" step="0.01" min="0" value="0">
             </div>
             <div class="form-group credit-only" hidden>
@@ -1739,14 +2113,13 @@ function _abrirModalCrearCuentaDosPasos() {
                 if (confirmar) confirmar.textContent = "Crear cuenta"
                 const esCredito = tipoSeleccionado === "credito"
                 const esTarjeta = esCredito || tipoSeleccionado === "debito"
-                const esCuenta = tipoSeleccionado === "broker" || tipoSeleccionado === "exchange"
                 modalEl.querySelectorAll(".credit-only").forEach(el => { el.hidden = !esCredito })
                 modalEl.querySelectorAll(".card-only").forEach(el => { el.hidden = !esTarjeta })
-                modalEl.querySelectorAll(".cuenta-only").forEach(el => { el.hidden = !esCuenta })
                 // Se ajusta DESPUES de mostrar/ocultar los grupos condicionales:
                 // el recuento solo mira los visibles, y estos acaban de cambiar.
                 ajustarAnchoNombre(modalEl.querySelector("#form-crear-cuenta"))
                 conectarToggleDivisas(modalEl)
+                conectarVencimiento(modalEl, "campo")
                 modalEl.querySelector("#cuenta-paso-atras")?.addEventListener("click", () => {
                     paso = 1
                     tipoSeleccionado = null
@@ -1781,26 +2154,26 @@ function _abrirModalCrearCuentaDosPasos() {
             let monedaCuenta
             let conSubcuentas
 
-            if (numDivisasSeleccionadas >= 2) {
-                // Varias divisas: el padre se queda con la primera y el resto
-                // son cuentas hijas, que se crean en el Paso 2.
+            if (tipo === "exchange") {
+                monedaCuenta = "usdt"
+                conSubcuentas = divisasSeleccionadas.filter(d => d !== "usdt").length > 0
+            } else if (numDivisasSeleccionadas >= 2) {
                 monedaCuenta = divisasSeleccionadas[0]
                 conSubcuentas = true
             } else if (numDivisasSeleccionadas === 1) {
-                // Una sola divisa: cuenta simple, sin subcuentas.
                 monedaCuenta = divisasSeleccionadas[0]
                 conSubcuentas = false
             } else {
-                monedaCuenta = "pen"
+                monedaCuenta = tipo === "exchange" ? "usdt" : "pen"
                 conSubcuentas = false
             }
 
             const datos = {
-                nombre,
+                nombre: normalizarNombre(nombre),
                 tipo,
                 moneda: monedaCuenta,
                 estado: "activa",
-                esPatrimonio: true,
+                esPatrimonio: modalEl.querySelector("#campo-esPatrimonio")?.checked === true,
                 orden: cuentas.length,
                 // No se guarda en Firestore: `crearCuentaConSubcuentas` lo usa
                 // para crear las hijas y lo descarta al escribir el padre.
@@ -1829,11 +2202,8 @@ function _abrirModalCrearCuentaDosPasos() {
             }
 
             if (esTipoTarjeta(tipo)) {
-                datos.num = modalEl.querySelector("#campo-num-tarjeta")?.value.trim() || ""
-                datos.vence = modalEl.querySelector("#campo-vence")?.value.trim() || ""
-            } else if (tipo === "broker" || tipo === "exchange") {
-                datos.num = modalEl.querySelector("#campo-num-cuenta")?.value.trim() || ""
-                datos.cci = modalEl.querySelector("#campo-cci")?.value.trim() || ""
+                datos.num = soloDigitos(modalEl.querySelector("#campo-num-tarjeta")?.value) || ""
+                datos.vence = leerVencimiento(modalEl, "campo")
             }
 
             try {
@@ -1868,12 +2238,7 @@ function _abrirModalCrearCuentaDosPasos() {
 
 function abrirFormularioCrearCuenta(tipo) {
     const esCredito = tipo === "credito"
-    const esDebito = tipo === "debito"
-    const esTarjeta = esCredito || esDebito
-    // Una tarjeta de débito también se abre como cuenta bancaria: tiene su
-    // número de cuenta y su CCI, además del número de tarjeta. Por eso
-    // comparte los campos de cuenta con broker y exchange.
-    const esCuenta = tipo === "broker" || tipo === "exchange" || esDebito
+    const esTarjeta = esCredito || tipo === "debito"
     const contenido = `
         <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
             <input type="hidden" id="campo-tipo" value="${tipo}">
@@ -1882,44 +2247,33 @@ function abrirFormularioCrearCuenta(tipo) {
                 <input type="text" id="campo-nombre" class="form-input" placeholder="${PLACEHOLDER_NOMBRE_POR_TIPO[tipo] || PLACEHOLDER_NOMBRE_POR_TIPO.broker}" required>
             </div>
             <div class="form-group">
-                <label>Divisa de la cuenta</label>
+                <label>Divisa</label>
                 <div class="toggle-group">
                     <span class="toggle-option active" data-divisa="pen">PEN</span>
                     <span class="toggle-option" data-divisa="usd">USD</span>
+                    <span class="toggle-option" data-divisa="eur">EUR</span>
                     <span class="toggle-option" data-divisa="usdt">USDT</span>
                 </div>
-                <p class="form-hint">Seleccione la divisa principal de la cuenta. Si selecciona más de una, se crearán subcuentas en las divisas adicionales.</p>
             </div>
-            ${campoSaldosPorDivisa("pen")}
-            <div class="form-group cuenta-only" ${tipo === "exchange" ? "hidden" : (esCuenta ? "" : "hidden")}>
-                <label for="campo-num-cuenta">Número de cuenta</label>
-                <input type="text" id="campo-num-cuenta" class="form-input" placeholder="000-000000000000">
-            </div>
-            <div class="form-group cuenta-only" ${tipo === "exchange" ? "hidden" : (esCuenta ? "" : "hidden")}>
-                <label for="campo-cci">CCI</label>
-                <input type="text" id="campo-cci" class="form-input" placeholder="000000000000000000000000">
+            ${tipo === "credito" ? "" : campoSaldosPorDivisa("pen")}
+            <div class="form-group">
+                <label for="campo-esPatrimonio">Incluir en mi patrimonio</label>
+                <label class="switch">
+                    <input type="checkbox" id="campo-esPatrimonio"${tipo === "credito" ? "" : " checked"}>
+                    <span class="slider"></span>
+                </label>
             </div>
             <div class="form-group" ${tipo === "exchange" ? "" : "hidden"}>
                 <label for="campo-uid">UID</label>
                 <input type="text" id="campo-uid" class="form-input" placeholder="UID del exchange">
             </div>
-            <div class="form-group">
-                <label for="campo-padre">Cuenta padre (opcional)</label>
-                <select id="campo-padre" class="form-input">
-                    <option value="">Ninguna</option>
-                    ${cuentas.map(c => `<option value="${c.id}">${c.nombre} · ${(c.moneda || "").toUpperCase()}</option>`).join("")}
-                </select>
-            </div>
             <div class="form-group card-only" ${esTarjeta ? "" : "hidden"}>
                 <label for="campo-num-tarjeta">Número de tarjeta</label>
                 <input type="text" id="campo-num-tarjeta" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19">
             </div>
-            <div class="form-group card-only" ${esTarjeta ? "" : "hidden"}>
-                <label for="campo-vence">Fecha de vencimiento</label>
-                <input type="text" id="campo-vence" class="form-input" placeholder="MM/AA" maxlength="5">
-            </div>
+            <div class="card-only" ${esTarjeta ? "" : "hidden"}>${campoVencimiento("campo")}</div>
             <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-limite">Límite de crédito</label>
+                <label for="campo-limite">Línea de crédito</label>
                 <input type="number" id="campo-limite" class="form-input" step="0.01" min="0" value="0">
             </div>
             <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
@@ -1961,7 +2315,6 @@ function abrirFormularioCrearCuenta(tipo) {
         cancelText: "Cancelar",
         onConfirm: async () => {
             const nombre = modal.querySelector("#campo-nombre")?.value.trim()
-            const tipo = tipo
             const toggles = modal.querySelectorAll(".toggle-option")
             const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
             const numDivisasSeleccionadas = divisasSeleccionadas.length
@@ -1974,26 +2327,26 @@ function abrirFormularioCrearCuenta(tipo) {
             let monedaCuenta
             let conSubcuentas
 
-            if (numDivisasSeleccionadas >= 2) {
-                // Varias divisas: el padre se queda con la primera y el resto
-                // son cuentas hijas, que se crean en el Paso 2.
+            if (tipo === "exchange") {
+                monedaCuenta = "usdt"
+                conSubcuentas = divisasSeleccionadas.filter(d => d !== "usdt").length > 0
+            } else if (numDivisasSeleccionadas >= 2) {
                 monedaCuenta = divisasSeleccionadas[0]
                 conSubcuentas = true
             } else if (numDivisasSeleccionadas === 1) {
-                // Una sola divisa: cuenta simple, sin subcuentas.
                 monedaCuenta = divisasSeleccionadas[0]
                 conSubcuentas = false
             } else {
-                monedaCuenta = "pen"
+                monedaCuenta = tipo === "exchange" ? "usdt" : "pen"
                 conSubcuentas = false
             }
 
             const datos = {
-                nombre,
+                nombre: normalizarNombre(nombre),
                 tipo,
                 moneda: monedaCuenta,
                 estado: "activa",
-                esPatrimonio: true,
+                esPatrimonio: modal.querySelector("#campo-esPatrimonio")?.checked === true,
                 orden: cuentas.length,
                 // No se guarda en Firestore: `crearCuentaConSubcuentas` lo usa
                 // para crear las hijas y lo descarta al escribir el padre.
@@ -2020,26 +2373,18 @@ function abrirFormularioCrearCuenta(tipo) {
                 datos.avisoCriticoEnviado = false
             }
             if (esTarjeta) {
-                datos.num = modal.querySelector("#campo-num-tarjeta")?.value.trim() || ""
-                datos.vence = modal.querySelector("#campo-vence")?.value.trim() || ""
+                datos.num = soloDigitos(modal.querySelector("#campo-num-tarjeta")?.value) || ""
+                datos.vence = leerVencimiento(modal, "campo")
             }
-            if (esCuenta) {
-                if (tipo === "exchange") {
-                    // Exchange solo guarda su UID: no hay número de cuenta ni CCI.
-                    datos.uid = modal.querySelector("#campo-uid")?.value.trim() || ""
-                    datos.num = ""
-                    datos.cci = ""
-                } else {
-                    if (esDebito) {
-                        datos.numeroCuenta = modal.querySelector("#campo-num-cuenta")?.value.trim() || ""
-                    } else {
-                        datos.num = modal.querySelector("#campo-num-cuenta")?.value.trim() || ""
-                    }
-                    datos.cci = modal.querySelector("#campo-cci")?.value.trim() || ""
-                }
+            if (tipo === "exchange") {
+                datos.uid = modal.querySelector("#campo-uid")?.value.trim() || ""
             }
 
-            datos.padreId = modal.querySelector("#campo-padre")?.value || null
+            // Número de cuenta y CCI NO se piden aquí. Una cuenta con varias
+            // divisas genera una subcuenta por divisa, y cada una tiene el
+            // suyo: meter aquí un solo campo obligaría a elegir a cuál de las
+            // hijas pertenecía. Se rellenan en la configuración de cada
+            // subcuenta, una vez creadas todas.
             try {
                 const creada = await crearCuentaConSubcuentas(uid, datos, saldos, {
                     esCredito: tipo === "credito"
@@ -2063,6 +2408,7 @@ function abrirFormularioCrearCuenta(tipo) {
     modal.querySelector("#campo-nombre")?.focus()
     ajustarAnchoNombre(modal.querySelector("#form-crear-cuenta"))
     conectarToggleDivisas(modal)
+    conectarVencimiento(modal, "campo")
 }
 
 // ============================================
@@ -2070,39 +2416,137 @@ function abrirFormularioCrearCuenta(tipo) {
 // ============================================
 
 function _abrirModalEditarCuenta(cuenta) {
-    const moneda = (cuenta.moneda || "pen").toLowerCase()
-    const permisoMoneda = cuenta.tipo !== "credito"
+    const esExchange = cuenta.tipo === "exchange"
+    const esCredito = cuenta.tipo === "credito"
+    const esDebito = cuenta.tipo === "debito"
+    const esBroker = cuenta.tipo === "broker"
+    const permisoMoneda = !esCredito && !esExchange
     const esArchivada = cuenta.estado === "archivada"
     const saldoParaEliminar = saldoParaRegla(cuenta)
-    const tieneHijasDeEsta = tieneHijas(cuenta, cuentas)
-    const divisasYaUsadas = tieneHijasDeEsta
-        ? familiaDe(cuenta, cuentas).map(c => (c.moneda || "pen").toLowerCase())
+    const familia = familiaDe(cuenta, cuentas)
+    const abstracta = esAbstracta(cuenta)
+    const conFamilia = familia.length > 1 || abstracta
+    // Miembros editables como subcuenta: en familia abstracta son las hijas;
+    // en legacy, el padre (primero) más las hijas. En cuenta simple no hay.
+    const miembros = !conFamilia ? [] : familia
+    const divisasYaUsadas = conFamilia
+        ? familia.map(c => (c.moneda || "pen").toLowerCase())
         : [(cuenta.moneda || "pen").toLowerCase()]
     const partesAnualidad = String(cuenta.anualidadFecha || "").split("-").map(Number)
     const anualidadFechaInput = partesAnualidad.length === 2 && partesAnualidad.every(Number.isFinite)
         ? `${new Date().getFullYear()}-${String(partesAnualidad[0]).padStart(2, "0")}-${String(partesAnualidad[1]).padStart(2, "0")}`
         : ""
 
+    const tabs = [
+        { id: "general", etiqueta: "Cuenta" },
+        ...miembros.map(m => ({ id: m.id, etiqueta: etiquetaDivisa(m.moneda) }))
+    ]
+
+    // Campos de número/CCI de una instancia según el tipo.
+    const camposNumeroInstancia = (m, prefijo) => {
+        if (esBroker) return `
+            <div class="form-group">
+                <label for="${prefijo}-num">Número de cuenta</label>
+                <input type="text" id="${prefijo}-num" class="form-input" inputmode="numeric" value="${m.num || ""}">
+            </div>
+            <div class="form-group">
+                <label for="${prefijo}-cci">CCI</label>
+                <input type="text" id="${prefijo}-cci" class="form-input" inputmode="numeric" value="${m.cci || ""}">
+            </div>`
+        if (esDebito) return `
+            <div class="form-group">
+                <label for="${prefijo}-numcuenta">Número de cuenta</label>
+                <input type="text" id="${prefijo}-numcuenta" class="form-input" inputmode="numeric" value="${m.numeroCuenta || ""}">
+            </div>
+            <div class="form-group">
+                <label for="${prefijo}-cci">CCI</label>
+                <input type="text" id="${prefijo}-cci" class="form-input" inputmode="numeric" value="${m.cci || ""}">
+            </div>`
+        return ""
+    }
+
+    // Panel de una subcuenta: nombre propio (vacío = derivado), saldo,
+    // número/CCI y patrimonio, todo propio de la instancia.
+    const panelMiembro = (m) => {
+        const esPadre = m.id === cuenta.id
+        const etiqueta = etiquetaDivisa(m.moneda)
+        const prefijo = `esub-${m.id}`
+        return `
+        <div class="edit-panel" data-panel="${m.id}" hidden>
+            <div class="form-movimiento form-movimiento-grid">
+            ${esPadre ? "" : `
+                <div class="form-group">
+                    <label for="${prefijo}-nombre">Nombre</label>
+                    <input type="text" id="${prefijo}-nombre" class="form-input"
+                        value="${(m.tieneNombrePropio ? m.nombre : "")}"
+                        placeholder="${cuenta.nombre} ${etiqueta}">
+                </div>`}
+                <div class="form-group">
+                    <label for="${prefijo}-saldo">Saldo inicial</label>
+                    <input type="number" id="${prefijo}-saldo" class="form-input" step="0.01" value="${m.saldoInicial || 0}">
+                </div>
+                ${camposNumeroInstancia(m, prefijo)}
+                <div class="form-group">
+                    <label for="${prefijo}-patrimonio">Incluir en mi patrimonio</label>
+                    <label class="switch">
+                        <input type="checkbox" id="${prefijo}-patrimonio" ${m.esPatrimonio === false ? "" : "checked"}>
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>`
+    }
+
     const html = `
-        <form id="form-editar-cuenta" class="form-movimiento form-movimiento-grid">
+        <div class="edit-tabs" role="tablist" aria-label="Secciones de la cuenta">
+            ${tabs.map((t, i) => `
+                <button type="button" role="tab" aria-selected="${i === 0}"
+                    class="edit-tab${i === 0 ? " active" : ""}" data-tab="${t.id}">${t.etiqueta}</button>
+            `).join("")}
+        </div>
+        <form id="form-editar-cuenta" class="form-movimiento">
+        <div class="edit-panel" data-panel="general">
+            <div class="form-movimiento form-movimiento-grid">
             <div class="form-group">
                 <label for="edit-nombre">Nombre</label>
                 <input type="text" id="edit-nombre" class="form-input" value="${cuenta.nombre || ""}" required>
             </div>
+            <div class="form-group">
+                <label for="edit-esPatrimonio">Incluir en mi patrimonio</label>
+                <label class="switch">
+                    <input type="checkbox" id="edit-esPatrimonio" ${cuenta.esPatrimonio === false ? "" : "checked"}>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            ${!conFamilia ? `
+                <div class="form-group">
+                    <label for="edit-saldo">Saldo inicial</label>
+                    <input type="number" id="edit-saldo" class="form-input" step="0.01" value="${cuenta.saldoInicial || 0}">
+                </div>
+            ` : ""}
             ${permisoMoneda ? `
                 <div class="form-group">
                     <label>Divisa de la cuenta</label>
                     <div class="toggle-group">
                         <span class="toggle-option${divisasYaUsadas.includes("pen") ? " active" : ""}" data-divisa="pen">PEN</span>
                         <span class="toggle-option${divisasYaUsadas.includes("usd") ? " active" : ""}" data-divisa="usd">USD</span>
+                        <span class="toggle-option${divisasYaUsadas.includes("eur") ? " active" : ""}" data-divisa="eur">EUR</span>
                         <span class="toggle-option${divisasYaUsadas.includes("usdt") ? " active" : ""}" data-divisa="usdt">USDT</span>
                     </div>
-                    ${tieneHijasDeEsta ? '<p class="form-hint">Las divisas ya creadas no pueden eliminarse de la cuenta.</p>' : '<p class="form-hint">Seleccione las divisas para las subcuentas.</p>'}
+                </div>
+            ` : ""}
+            ${esExchange ? `
+                <div class="form-group full">
+                    <label for="edit-crypto-nueva">Añadir criptomoneda</label>
+                    <div class="crypto-add">
+                        <input type="text" id="edit-crypto-nueva" class="form-input" placeholder="BTC" maxlength="12" style="text-transform:uppercase">
+                        <button type="button" class="glass-btn" id="btn-crypto-anadir">Añadir</button>
+                    </div>
                 </div>
             ` : ""}
             ${cuenta.tipo === "credito" ? `
                 <div class="form-group">
-                    <label for="edit-limite">Límite de crédito</label>
+                    <label for="edit-limite">Línea de crédito</label>
                     <input type="number" id="edit-limite" class="form-input" step="0.01" value="${cuenta.limite || 0}">
                 </div>
                 <div class="form-group">
@@ -2125,7 +2569,6 @@ function _abrirModalEditarCuenta(cuenta) {
                     <label for="edit-anualidad-fecha">Fecha de anualidad</label>
                     ${campoFechaAnualidad("edit-anualidad-fecha", anualidadFechaInput)}
                 </div>
-                <span class="form-section-title">Manejo del dinero</span>
                 <div class="form-group">
                     <label for="edit-umbralAviso">Umbral de advertencia (%)</label>
                     <input type="number" id="edit-umbralAviso" class="form-input" min="1" max="99" step="1" value="${cuenta.umbralAviso || 30}">
@@ -2138,21 +2581,18 @@ function _abrirModalEditarCuenta(cuenta) {
             ${cuenta.tipo === "credito" || cuenta.tipo === "debito" ? `
                 <div class="form-group">
                     <label for="edit-num-tarjeta">Número de tarjeta</label>
-                    <input type="text" id="edit-num-tarjeta" class="form-input" maxlength="19" placeholder="0000 0000 0000 0000" value="${cuenta.num || ""}">
+                    <input type="text" id="edit-num-tarjeta" class="form-input" maxlength="19" placeholder="0000 0000 0000 0000" value="${agruparTarjeta(cuenta.num || "")}">
                 </div>
-                <div class="form-group">
-                    <label for="edit-vence">Fecha de vencimiento</label>
-                    <input type="text" id="edit-vence" class="form-input" maxlength="5" placeholder="MM/AA" value="${cuenta.vence || ""}">
-                </div>
+                ${campoVencimiento("edit", cuenta.vence || "")}
             ` : ""}
-            ${cuenta.tipo === "broker" ? `
+            ${cuenta.tipo === "broker" && !conFamilia ? `
                 <div class="form-group">
                     <label for="edit-num">Número de cuenta</label>
-                    <input type="text" id="edit-num" class="form-input" value="${cuenta.num || ""}">
+                    <input type="text" id="edit-num" class="form-input" inputmode="numeric" value="${cuenta.num || ""}">
                 </div>
                 <div class="form-group">
                     <label for="edit-cci">CCI</label>
-                    <input type="text" id="edit-cci" class="form-input" value="${cuenta.cci || ""}">
+                    <input type="text" id="edit-cci" class="form-input" inputmode="numeric" value="${cuenta.cci || ""}">
                 </div>
             ` : ""}
             ${cuenta.tipo === "exchange" ? `
@@ -2161,17 +2601,19 @@ function _abrirModalEditarCuenta(cuenta) {
                     <input type="text" id="edit-uid" class="form-input" value="${cuenta.uid || ""}">
                 </div>
             ` : ""}
-            ${cuenta.tipo === "debito" ? `
-                <span class="form-section-title">Cuenta bancaria</span>
+            ${cuenta.tipo === "debito" && !conFamilia ? `
                 <div class="form-group">
                     <label for="edit-num-cuenta">Número de cuenta</label>
-                    <input type="text" id="edit-num-cuenta" class="form-input" value="${cuenta.numeroCuenta || ""}">
+                    <input type="text" id="edit-num-cuenta" class="form-input" inputmode="numeric" value="${cuenta.numeroCuenta || ""}">
                 </div>
                 <div class="form-group">
                     <label for="edit-cci-debito">CCI</label>
-                    <input type="text" id="edit-cci-debito" class="form-input" value="${cuenta.cci || ""}">
+                    <input type="text" id="edit-cci-debito" class="form-input" inputmode="numeric" value="${cuenta.cci || ""}">
                 </div>
             ` : ""}
+            </div>
+        </div>
+        ${miembros.map(panelMiembro).join("")}
         </form>
     `
 
@@ -2190,83 +2632,37 @@ function _abrirModalEditarCuenta(cuenta) {
             </div>
         `,
         onConfirm: async () => {
-            const nombre = document.getElementById("edit-nombre")?.value.trim()
+            const nombre = modalEditar.querySelector("#edit-nombre")?.value.trim()
 
             if (!nombre) {
                 mostrarNotificacion("warning", "El nombre es obligatorio")
                 return false
             }
 
-            const datos = { nombre }
+            const datos = { nombre: normalizarNombre(nombre) }
+
+            // Muestra la actualidad: lee el switch del propio modal.
+            datos.esPatrimonio = modalEditar.querySelector("#edit-esPatrimonio")?.checked === true
 
             const toggles = modalEditar.querySelectorAll(".toggle-option")
             const divisasSeleccionadas = Array.from(toggles).filter(t => t.classList.contains("active")).map(t => t.dataset.divisa)
 
-            // Editar una cuenta: se pueden anadir subcuentas en nuevas divisas,
-            // nunca quitar las que ya existen. Las que ya estan vienen
-            // bloqueadas y encendidas (conectarToggleDivisas), asi que
-            // `divisasSeleccionadas` siempre las contiene.
-            //
-            // La cuenta editada sigue siendo la subcuenta de su propia divisa:
-            // su `moneda` no se toca. Las divisas nuevas se convertiran en
-            // cuentas hijas con `padreId` en el Paso 2, no en un campo.
             const divisaActual = (cuenta.moneda || "pen").toLowerCase()
-            const divisasExistentes = tieneHijas(cuenta, cuentas)
-                ? [divisaActual, ...hijasDe(cuenta, cuentas).map(c => (c.moneda || "pen").toLowerCase())]
+            const divisasExistentes = conFamilia
+                ? familia.map(c => (c.moneda || "pen").toLowerCase())
                 : [divisaActual]
-            const divisasParaAnadir = divisasSeleccionadas
+            const divisasParaAnadir = (permisoMoneda ? divisasSeleccionadas : [])
                 .filter(d => !divisasExistentes.includes(d))
-            // Con una sola divisa no hay nada que anadir: la cuenta sigue simple.
 
-            if (permisoMoneda) {
-                const monedaNueva = document.getElementById("edit-moneda")?.value
-                if (monedaNueva && monedaNueva !== moneda) {
-                    datos.moneda = monedaNueva
-                    // El saldo inicial estaba en la moneda anterior: no se
-                    // trata de "mismo valor en otra moneda", se convierte.
-                    if (!cuenta.tipo || cuenta.tipo === "efectivo" || cuenta.tipo === "broker" || cuenta.tipo === "exchange" || cuenta.tipo === "debito") {
-                        datos.saldoInicial = convertirMonto(cuenta.saldoInicial || 0, moneda, monedaNueva)
-                    }
-                    // Los movimientos históricos se expresan en la divisa del
-                    // registro; al cambiar la moneda de la cuenta se convierten
-                    // para que el nominal siga siendo el mismo valor económico.
-                    try {
-                        const todos = await obtenerMovimientos(sesion.uid)
-                        const deCuenta = todos.filter(m =>
-                            m.cuenta === cuenta.id ||
-                            m.cuentaOrigen === cuenta.id ||
-                            m.cuentaDestino === cuenta.id ||
-                            m.tarjeta === cuenta.id
-                        )
-                        for (const m of deCuenta) {
-                            if (!m.divisa || m.divisa === monedaNueva) continue
-                            const actualizado = { divisa: monedaNueva }
-                            if (typeof m.monto === "number" || (m.monto !== undefined && m.monto !== null && m.monto !== "")) {
-                                actualizado.monto = convertirMonto(Number(m.monto), m.divisa, monedaNueva)
-                            }
-                            if (m.montoOrigen !== undefined && m.montoOrigen !== null && m.montoOrigen !== "") {
-                                actualizado.montoOrigen = convertirMonto(Number(m.montoOrigen), m.divisa, monedaNueva)
-                            }
-                            if (m.montoDestino !== undefined && m.montoDestino !== null && m.montoDestino !== "") {
-                                actualizado.montoDestino = convertirMonto(Number(m.montoDestino), m.divisa, monedaNueva)
-                            }
-                            await actualizarMovimientoDoc(sesion.uid, m.id, actualizado)
-                        }
-                    } catch (error) {
-                        console.warn("[WARN] No se pudieron convertir movimientos de la cuenta:", error)
-                    }
-                }
-            }
-
-            if (cuenta.tipo === "credito") {
-                datos.limite = parseFloat(document.getElementById("edit-limite")?.value) || 0
-                datos.desgravamen = parseFloat(document.getElementById("edit-desgravamen")?.value) || 0.34
-                datos.diaCorte = parseInt(document.getElementById("edit-diaCorte")?.value) || 10
-                datos.diaPago = parseInt(document.getElementById("edit-diaPago")?.value) || 6
-                datos.umbralAviso = parseInt(document.getElementById("edit-umbralAviso")?.value) || 30
-                datos.umbralCritico = parseInt(document.getElementById("edit-umbralCritico")?.value) || 70
-                datos.anualidad = parseFloat(document.getElementById("edit-anualidad")?.value) || 0
-                const anualidadFecha = document.getElementById("edit-anualidad-fecha")?.value
+            if (esCredito) {
+                datos.limite = parseFloat(modalEditar.querySelector("#edit-limite")?.value) || 0
+                datos.desgravamen = parseFloat(modalEditar.querySelector("#edit-desgravamen")?.value) || 0.34
+                datos.diaCorte = parseInt(modalEditar.querySelector("#edit-diaCorte")?.value) || 10
+                datos.diaPago = parseInt(modalEditar.querySelector("#edit-diaPago")?.value) || 6
+                datos.umbralAviso = parseInt(modalEditar.querySelector("#edit-umbralAviso")?.value) || 30
+                datos.umbralCritico = parseInt(modalEditar.querySelector("#edit-umbralCritico")?.value) || 70
+                datos.anualidad = parseFloat(modalEditar.querySelector("#edit-anualidad")?.value) || 0
+                const anualidadFecha = modalEditar.querySelector("#edit-anualidad-fecha")?.value
                 if (datos.anualidad > 0 && anualidadFecha) {
                     const [, mes, dia] = anualidadFecha.split("-").map(Number)
                     datos.anualidadFecha = `${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`
@@ -2275,31 +2671,85 @@ function _abrirModalEditarCuenta(cuenta) {
                 }
             }
 
-            if (cuenta.tipo === "credito" || cuenta.tipo === "debito") {
-                datos.num = document.getElementById("edit-num-tarjeta")?.value.trim() || ""
-                datos.vence = document.getElementById("edit-vence")?.value.trim() || ""
+            if (esCredito || esDebito) {
+                datos.num = soloDigitos(modalEditar.querySelector("#edit-num-tarjeta")?.value) || ""
+                datos.vence = leerVencimiento(modalEditar, "edit")
             }
 
-            if (cuenta.tipo === "broker") {
-                datos.num = document.getElementById("edit-num")?.value.trim() || ""
-                datos.cci = document.getElementById("edit-cci")?.value.trim() || ""
-            }
-
-            if (cuenta.tipo === "exchange") {
-                datos.uid = document.getElementById("edit-uid")?.value.trim() || ""
+            if (esExchange) {
+                datos.uid = modalEditar.querySelector("#edit-uid")?.value.trim() || ""
                 datos.num = ""
                 datos.cci = ""
             }
 
-            if (cuenta.tipo === "debito") {
-                // Igual que al crear: el número de la tarjeta sigue en `num` y
-                // el de la cuenta bancaria va en `numeroCuenta`.
-                datos.numeroCuenta = document.getElementById("edit-num-cuenta")?.value.trim() || ""
-                datos.cci = document.getElementById("edit-cci-debito")?.value.trim() || ""
+            // Cuenta simple: saldo y número/CCI viven en el propio documento.
+            if (!conFamilia) {
+                if (!esCredito) {
+                    datos.saldoInicial = Number(modalEditar.querySelector("#edit-saldo")?.value) || 0
+                }
+                if (esBroker) {
+                    datos.num = soloDigitos(modalEditar.querySelector("#edit-num")?.value) || ""
+                    datos.cci = soloDigitos(modalEditar.querySelector("#edit-cci")?.value) || ""
+                }
+                if (esDebito) {
+                    datos.numeroCuenta = soloDigitos(modalEditar.querySelector("#edit-num-cuenta")?.value) || ""
+                    datos.cci = soloDigitos(modalEditar.querySelector("#edit-cci-debito")?.value) || ""
+                }
             }
 
             try {
                 await actualizarCuenta(uid, cuenta.id, datos)
+                Object.assign(cuenta, datos)
+                // Simple que gana divisas: migra a abstracta conservando el
+                // saldo, número e historial en una hija de su divisa.
+                if (divisasParaAnadir.length > 0 && !conFamilia) {
+                    await migrarPadreASubcuenta(uid, cuenta, cuentas.length)
+                    for (let i = 0; i < divisasParaAnadir.length; i++) {
+                        await crearCuenta(uid, {
+                            tipo: cuenta.tipo,
+                            moneda: divisasParaAnadir[i],
+                            saldoInicial: 0,
+                            padreId: cuenta.id,
+                            estado: "activa",
+                            esPatrimonio: datos.esPatrimonio,
+                            orden: cuentas.length + i + 1
+                        })
+                    }
+                } else {
+                    for (let i = 0; i < divisasParaAnadir.length; i++) {
+                        await crearCuenta(uid, {
+                            tipo: cuenta.tipo,
+                            moneda: divisasParaAnadir[i],
+                            saldoInicial: 0,
+                            padreId: cuenta.id,
+                            estado: "activa",
+                            esPatrimonio: datos.esPatrimonio,
+                            orden: cuentas.length + i
+                        })
+                    }
+                }
+                // Subcuentas: cada tab guarda su propia instancia.
+                for (const m of miembros) {
+                    const prefijo = `esub-${m.id}`
+                    const parcial = {}
+                    const esPadreMiembro = m.id === cuenta.id
+                    if (!esPadreMiembro) {
+                        const nombreSub = modalEditar.querySelector(`#${prefijo}-nombre`)?.value.trim() || ""
+                        parcial.nombre = nombreSub ? normalizarNombre(nombreSub) : deleteField()
+                    }
+                    const saldoSub = modalEditar.querySelector(`#${prefijo}-saldo`)
+                    if (saldoSub) parcial.saldoInicial = Number(saldoSub.value) || 0
+                    parcial.esPatrimonio = modalEditar.querySelector(`#${prefijo}-patrimonio`)?.checked === true
+                    if (esBroker) {
+                        parcial.num = soloDigitos(modalEditar.querySelector(`#${prefijo}-num`)?.value) || ""
+                        parcial.cci = soloDigitos(modalEditar.querySelector(`#${prefijo}-cci`)?.value) || ""
+                    }
+                    if (esDebito) {
+                        parcial.numeroCuenta = soloDigitos(modalEditar.querySelector(`#${prefijo}-numcuenta`)?.value) || ""
+                        parcial.cci = soloDigitos(modalEditar.querySelector(`#${prefijo}-cci`)?.value) || ""
+                    }
+                    await actualizarCuenta(uid, m.id, parcial)
+                }
                 await cargarCuentas()
                 mostrarNotificacion("exito", "Cuenta actualizada")
                 return true
@@ -2321,7 +2771,59 @@ function _abrirModalEditarCuenta(cuenta) {
         eliminarCuentaSeleccionada()
     })
 
+    // Exchange: añadir subcuenta cripto al momento (símbolo libre, p. ej. BTC).
+    modalEditar.querySelector("#btn-crypto-anadir")?.addEventListener("click", async () => {
+        const input = modalEditar.querySelector("#edit-crypto-nueva")
+        const simbolo = String(input?.value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 12)
+        if (!simbolo) {
+            mostrarNotificacion("warning", "Escribe el símbolo de la cripto")
+            return
+        }
+        const usadas = familiaDe(cuenta, cuentas).map(c => String(c.moneda || "").toUpperCase())
+        if (usadas.includes(simbolo)) {
+            mostrarNotificacion("info", "Esa cripto ya existe en la cuenta")
+            return
+        }
+        try {
+            const esSimple = !esAbstracta(cuenta) && !familiaDe(cuenta, cuentas).some(c => c.id !== cuenta.id)
+            if (esSimple) {
+                await migrarPadreASubcuenta(uid, cuenta, cuentas.length)
+            }
+            await crearCuenta(uid, {
+                tipo: cuenta.tipo,
+                moneda: simbolo.toLowerCase(),
+                saldoInicial: 0,
+                padreId: cuenta.id,
+                estado: "activa",
+                esPatrimonio: cuenta.esPatrimonio !== false,
+                orden: cuentas.length + 1
+            })
+            await cargarCuentas()
+            mostrarNotificacion("exito", `Subcuenta ${simbolo} creada`)
+            cerrarModal()
+            _abrirModalEditarCuenta(cuentas.find(c => c.id === cuenta.id) || cuenta)
+        } catch (error) {
+            console.error("Error creando subcuenta cripto:", error)
+            mostrarNotificacion("error", `No se pudo crear: ${error.message}`)
+        }
+    })
+
     // Las divisas ya presentes en la cuenta quedan bloqueadas: se pueden
     // añadir subcuentas en otras, pero nunca quitar las que ya existen.
     conectarToggleDivisas(modalEditar, divisasYaUsadas)
+    conectarVencimiento(modalEditar, "edit")
+
+    // Tabs del editor: Cuenta + una por subcuenta.
+    modalEditar.querySelectorAll(".edit-tab").forEach(tab => {
+        tab.addEventListener("click", () => {
+            modalEditar.querySelectorAll(".edit-tab").forEach(otra => {
+                const activa = otra === tab
+                otra.classList.toggle("active", activa)
+                otra.setAttribute("aria-selected", activa ? "true" : "false")
+            })
+            modalEditar.querySelectorAll(".edit-panel").forEach(panel => {
+                panel.hidden = panel.dataset.panel !== tab.dataset.tab
+            })
+        })
+    })
 }

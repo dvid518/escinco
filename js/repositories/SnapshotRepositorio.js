@@ -24,6 +24,17 @@ const TTL_SNAPSHOTS = 45 * 1000
 // ============================================
 
 export async function guardarSnapshotDelDia(uid, datos) {
+    if (!uid) throw new Error("uid vacío al guardar snapshot")
+    const numero = valor => {
+        const n = Number(valor)
+        return Number.isFinite(n) ? n : 0
+    }
+    // Solo las claves permitidas por las reglas: cualquier extra deniega.
+    const limpio = {
+        patrimonioPEN: numero(datos?.patrimonioPEN),
+        patrimonioUSD: numero(datos?.patrimonioUSD)
+    }
+    if (datos?.patrimonioUSDT !== undefined) limpio.patrimonioUSDT = numero(datos.patrimonioUSDT)
     const fecha = getFechaHoy()
     const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
     
@@ -32,15 +43,15 @@ export async function guardarSnapshotDelDia(uid, datos) {
     if (existente.exists()) {
         const actuales = existente.data()
         const totalesSinCambios = ["patrimonioPEN", "patrimonioUSD"]
-            .every(campo => Number(actuales[campo] ?? 0) === Number(datos[campo] ?? 0))
+            .every(campo => Number(actuales[campo] ?? 0) === Number(limpio[campo] ?? 0))
         if (totalesSinCambios) return false
         await setDoc(referencia, {
-            ...datos,
+            ...limpio,
             actualizacion: serverTimestamp()
         }, { merge: true })
     } else {
         await setDoc(referencia, {
-            ...datos,
+            ...limpio,
             cerrado: false,
             actualizacion: serverTimestamp()
         })

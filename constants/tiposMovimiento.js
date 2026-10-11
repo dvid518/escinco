@@ -63,12 +63,12 @@ export const CONFIG_MOVIMIENTOS = {
         nombre: "Compra de activo",
         camposObligatorios: [
             "activo",
-            "cuenta",
             "cantidad",
             "precio",
             "fechaRealizacion"
         ],
         camposOpcionales: [
+            "cuenta",
             "comision"
         ]
     },
@@ -77,12 +77,12 @@ export const CONFIG_MOVIMIENTOS = {
         nombre: "Venta de activo",
         camposObligatorios: [
             "activo",
-            "cuenta",
             "cantidad",
             "precio",
             "fechaRealizacion"
         ],
         camposOpcionales: [
+            "cuenta",
             "comision"
         ]
     },

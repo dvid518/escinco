@@ -1234,3 +1234,26 @@ primera en prevenirse con un módulo compartido). La deuda que queda es
 **DEUDA-021**: sin `lint` ni `test` que detecten un export duplicado o una
 ficha desincronizada, esta clase de hallazgo depende de que alguien lea el
 código entero.
+
+---
+
+## Sesión 1.0.0-beta.22
+
+Correcciones de esta sesión, sin identificador propio todavía (el trabajo está
+sin commitear, así que no hay hash asociado). Se numeran `S-` para no colisionar
+con las series `R-` y `BUG-`.
+
+| ID | Título | Módulo | Severidad | Detalle |
+|----|--------|--------|-----------|---------|
+| S-01 | El grid de filtros de Movimientos no contemplaba el filtro de etiqueta | `css/movimientos.css` | Media | El layout pasa de 4 a 5 columnas; en móvil `#filtro-etiqueta` ocupa fila propia (`grid-row: 4`) y el botón limpiar se recoloca a `grid-row: 2`. El hover de los `select` usa sombra interior (`inset`). |
+| S-02 | Buscador de cuenta: etiqueta verbosa, borrado silencioso y filtro en transferencias | `js/ui/formularioMovimiento.js` | Media | El input muestra solo el nombre de la cuenta (`obtenerNombreCuenta`, sin `(S/ …)` ni `(deuda: …)`); si la opción elegida pierde disponibilidad se vuelve a «Todas las cuentas» en vez de vaciar en silencio; el texto combina con `data-disponible` que marcan los filtros de compatibilidad. |
+| S-03 | La caché del service worker servía `home.html` y rutas obsoletas | `sw.js`, `constants/version.js` | Media | Precaché actualizado (`index.html`, legales, `robots.txt`, `sitemap.xml`, `legal.css`, `index.js`, `legal.js`); respaldo offline según ruta pública (`htmlRespaldo`); versión a `1.0.0-beta.22`. |
+| S-04 | F5.2/F5.3 dejaban la aplicación sin arrancar | `js/core/atajos.js`, `js/core/lastbar.js` | **Crítica** | `atajos.js` importaba un export inexistente (`navegar` en vez de `navigateTo`) y usaba símbolos sin importar (`sesion`, `CONFIG_MOVIMIENTOS`, `cerrarModal`) además de sombrear `icono`; `lastbar.js` referenciaba `ITEM_BUSCAR`/`ITEM_NOTIFICACIONES` no definidos. Corregido: imports válidos, buscador reescrito y exportado, ítems definidos y manejadores `buscar`/`notificaciones` añadidos. Detectado en la verificación `node --check` + resolución de imports, no por el propio `--check` (que no valida enlaces). |
+
+### Lección para la verificación
+
+`node --check` valida la **sintaxis**, no los **enlaces de módulo** ni los
+símbolos libres. S-04 pasó el `--check` de los 29 archivos sin marcar error pese
+a romper el arranque. La comprobación mínima que lo habría cazado es resolver
+cada `import` contra los `export` del módulo destino y buscar identificadores
+usados sin declarar.

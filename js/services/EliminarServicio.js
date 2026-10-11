@@ -17,6 +17,7 @@ import { exportarDVID } from "./ExportarServicio.js"
 /**
  * Elimina todas las colecciones del usuario.
  * NO borra el documento raíz `usuarios/{uid}` (lo borra `deleteUser` de Firebase Auth).
+ * Preserva la cuenta de efectivo-inicial ya que todo usuario debe tenerla.
  */
 export async function eliminarTodosLosDatos(uid) {
     console.log("[INFO] Eliminando todos los datos del usuario:", uid)
@@ -38,9 +39,19 @@ export async function eliminarTodosLosDatos(uid) {
 
     for (const coleccionNombre of colecciones) {
         try {
-            const eliminados = await vaciarColeccion(uid, coleccionNombre)
-            resultado[coleccionNombre] = eliminados
-            console.log(`[INFO] ${coleccionNombre}: ${eliminados} eliminados`)
+            // Para la colección de cuentas, preservamos la cuenta de efectivo-inicial
+            // ya que todo usuario debe tener al menos una cuenta de efectivo.
+            if (coleccionNombre === "cuentas") {
+                const snapshot = await getDocs(collection(db, "usuarios", uid, "cuentas"))
+                // Filtrar out la cuenta de efectivo-inicial
+                const docsToDelete = snapshot.docs.filter(
+                    doc => doc.id !== "efectivo-inicial"
+                )
+                resultado[coleccionNombre] = await vaciarColeccionSeleccionada(uid, coleccionNombre, docsToDelete)
+            } else {
+                resultado[coleccionNombre] = await vaciarColeccion(uid, coleccionNombre)
+            }
+            console.log(`[INFO] ${coleccionNombre}: ${resultado[coleccionNombre]} eliminados`)
         } catch (error) {
             console.error(`Error eliminando ${coleccionNombre}:`, error)
             resultado[coleccionNombre] = 0
@@ -53,6 +64,19 @@ export async function eliminarTodosLosDatos(uid) {
     cacheCapa.limpiar(uid)
 
     return resultado
+}
+
+/**
+ * Vacía una colección seleccionada del usuario (usando solo los documentos especificados).
+ * Útil para preservar documentos específicos como la cuenta de efectivo-inicial.
+ */
+async function vaciarColeccionSeleccionada(uid, coleccionNombre, docsToDelete) {
+    let eliminados = 0
+    for (const documento of docsToDelete) {
+        await deleteDoc(doc(db, "usuarios", uid, coleccionNombre, documento.id))
+        eliminados++
+    }
+    return eliminados
 }
 
 /**

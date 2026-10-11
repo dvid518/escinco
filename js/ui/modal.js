@@ -83,13 +83,18 @@ export function abrirModal(opciones) {
     const textoConfirmar = confirmText == null || String(confirmText).trim().toLowerCase() === "null"
         ? "Aceptar"
         : String(confirmText)
-    const mostrarCancelar = typeof onCancel === "function" && textoCancelar.trim() !== ""
+    // Un botón de pie que solo dice "Cerrar" duplica la X de la esquina, así que
+    // no se pinta: cerrar queda en la X, ESC y el clic fuera. Las etiquetas con
+    // intención propia ("Cancelar", "Archivar en su lugar"…) sí se conservan.
+    const mostrarCancelar = typeof onCancel === "function" &&
+        textoCancelar.trim() !== "" &&
+        textoCancelar.trim().toLowerCase() !== "cerrar"
     const mostrarConfirmar = typeof onConfirm === "function" && textoConfirmar.trim() !== ""
     const soloCerrar = mostrarConfirmar && !mostrarCancelar && textoFooterExtra === "" && textoConfirmar.trim().toLowerCase() === "cerrar"
     const mostrarFooter = !soloCerrar && (mostrarCancelar || mostrarConfirmar || !!textoFooterExtra)
 
     overlay.innerHTML = `
-        <div class="modal modal-${variante}" role="dialog" aria-modal="true" tabindex="-1">
+        <div class="modal glass modal-${variante}" role="dialog" aria-modal="true" tabindex="-1">
             <div class="modal-header">
                 <h2 class="modal-title">${textoTitulo}</h2>
                 <div class="modal-header-controls">

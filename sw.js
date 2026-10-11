@@ -7,13 +7,21 @@ const CACHE_SHELL = `${VERSION_APP}-shell`
 const CACHE_RUNTIME = `${VERSION_APP}-runtime`
 
 // Assets que se precargan al instalar el SW
+// "/" está porque es la raíz pública y su copia deprecada serviría de respaldo
+// si index.html no llegara a cachearse.
 const SHELL_ASSETS = [
     "/",
-    "/home.html",
+    "/index.html",
     "/dashboard.html",
     "/auth.html",
     "/reset-password.html",
+    "/privacidad.html",
+    "/terminos.html",
     "/manifest.webmanifest",
+
+    // SEO
+    "/robots.txt",
+    "/sitemap.xml",
 
     // CSS
     "/css/style.css",
@@ -31,6 +39,7 @@ const SHELL_ASSETS = [
     "/css/modal.css",
     "/css/componentes.css",
     "/css/iconos.css",
+    "/css/legal.css",
 
     // JS core
     "/js/core/app.js",
@@ -44,11 +53,13 @@ const SHELL_ASSETS = [
     "/js/core/fechas.js",
     "/js/core/movimientos.js",
     "/js/core/familiaCuentas.js",
+    "/js/core/atajos.js",
 
     // JS pages
-    "/js/pages/home.js",
+    "/js/pages/index.js",
     "/js/pages/auth.js",
     "/js/pages/reset-password.js",
+    "/js/pages/legal.js",
     "/js/pages/dashboard.js",
     "/js/pages/cuentas.js",
     "/js/pages/movimientos.js",
@@ -203,7 +214,7 @@ self.addEventListener("fetch", (event) => {
 
     // 3. Navegación (documentos HTML) → network-first
     if (request.mode === "navigate") {
-        event.respondWith(networkFirst(request, CACHE_RUNTIME, "/dashboard.html"))
+        event.respondWith(networkFirst(request, CACHE_RUNTIME, htmlRespaldo(url.pathname)))
         return
     }
 
@@ -235,6 +246,23 @@ function esFirebaseOGoogle(url) {
 
 function esFuente(url) {
     return /\.(ttf|otf|woff|woff2)$/i.test(url.pathname)
+}
+
+// ============================================
+// HTML DE RESPALDO SIN CONEXIÓN
+// ============================================
+// Cuando una navegación falla y no hay nada en caché, se sirve una página HTML
+// precacheada. Antes era siempre dashboard.html, porque era la única que
+// necesitaba estar disponible sin red. Con "/" sirviendo la landing, un visitante
+// sin conexión tiene que ver la landing y no el panel de la app: si no, la
+// página_cacheada de la app lo tiraría a /login.
+//
+// Las rutas que no son públicas (/app, /dashboard, /cuentas…) siguen cayendo en
+// dashboard.html, que es justo lo que necesitan: son la app, y la app con la
+// caché de por sí ya funciona sin red.
+function htmlRespaldo(ruta) {
+    const publica = ruta === "/" || ruta === "/index.html"
+    return publica ? "/index.html" : "/dashboard.html"
 }
 
 // ============================================

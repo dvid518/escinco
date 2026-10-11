@@ -35,18 +35,29 @@
     max-height: 90vh;
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--border);
-    /* Superficie congelada: sin fondo propio, el difuminado del overlay es lo
-       que da cuerpo a la ventana. Aquí sí hay contenido real detrás (la app),
-       a diferencia de una card. */
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    /* El difuminado y el velo vienen de .glass (css/style.css): el modal es
+       una superficie congelada como cualquier otra. Antes los declaraba aquí
+       a 5px, mientras su propio pie iba a 14px, y el escalón se notaba al
+       pasar del cuerpo al pie de la misma ventana. */
+    --blur-frosted: 10px;
     animation: slideUp 0.3s ease;
-    --glow: 0 0 20px var(--shadow);
+    /* El glow y el borde solo aparecen al hacer hover: el modal en reposo no
+       necesita encenderse. El glow (inset) va en el ::after de abajo. */
+    --glow: none;
+    outline: 1px solid transparent;
+    outline-offset: -1px;
 
     /* Posición dinámica del drag */
     transform: translate(var(--modal-x, 0), var(--modal-y, 0));
-    transition: transform 0.05s linear;
+    transition: transform 0.05s linear, outline-color 0.3s ease, border-color 0.3s ease;
+}
+
+@media (hover: hover) {
+    .modal:hover {
+        --glow: inset 0 0 20px var(--shadow);
+        outline-color: var(--lightBorder);
+        border-color: var(--border);
+    }
 }
 
 /* El glow va en un pseudo-elemento porque `backdrop-filter` recorta el
@@ -161,7 +172,7 @@
 
 .modal-header-btn:hover {
     background: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .modal-header-btn.danger:hover {
@@ -173,7 +184,7 @@
 .modal-close:hover {
     background: var(--lightHover);
     transform: rotate(90deg);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 /* --------------------------------------------
@@ -202,16 +213,17 @@
     border-radius: 10px;
 }
 
+/* El pie es una barra limpia: sin superficie propia. La separación con el
+   cuerpo la da el borde superior, no un fondo más tupido que "cortara" la
+   ventana en dos tramos de distinto frost. */
 .modal-footer {
     display: flex;
     justify-content: center;
     gap: 12px;
     padding: 16px 24px 20px 24px;
     border-top: 1px solid var(--border);
+    background: transparent;
     color: var(--text);
-    background-color: var(--glass-frosted);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
     flex-shrink: 0;
 }
 
@@ -252,7 +264,7 @@
 
 .modal-btn-primary:hover {
     transform: scale(1.02);
-    box-shadow: 0 0 20px var(--shadow);
+    box-shadow: inset 0 0 20px var(--shadow);
     color: var(--textSecondary);
 }
 
@@ -274,7 +286,7 @@
 .modal-btn-danger:hover {
     background: var(--negative);
     color: var(--onyx);
-    box-shadow: 0 0 14px var(--shadow);
+    box-shadow: inset 0 0 14px var(--shadow);
 }
 
 /* ============================================
@@ -300,6 +312,12 @@
 }
 
 .form-group .form-input {
+    /* Sin esto los inputs no llenan la celda de la rejilla: un input es
+       inline-block y se ajusta a su atributo `size`, así que en un formulario
+       de dos columnas cada campo quedaba con un ancho distinto según su
+       contenido en vez de ocupar media pantalla. */
+    width: 100%;
+    box-sizing: border-box;
     padding: 10px 14px;
     border-radius: 40px;
     background: var(--surface);
@@ -319,6 +337,33 @@
 .form-group .form-input::placeholder {
     color: var(--textSecondary);
     opacity: 0.5;
+}
+
+/* Buscador que filtra las opciones de un <select> (datos de cuenta/tarjeta).
+   Va encima del select y es más compacto, a modo de caja de filtro. */
+.form-group .form-buscador {
+    border-radius: 40px;
+    font-size: 13px;
+    padding: 6px 14px 6px 34px;
+    margin-bottom: 2px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23999999' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: 12px center;
+    background-size: 14px;
+}
+
+/* Campo informativo no editable (p. ej. el nombre del activo, que se deriva
+   del símbolo): se muestra atenuado y con cursor por defecto. */
+.form-group .form-input-bloqueado {
+    background: var(--backgroundAlt);
+    color: var(--textSecondary);
+    border-style: dashed;
+    cursor: default;
+}
+
+.form-group .form-input-bloqueado:hover {
+    border-color: var(--border);
+    background-color: var(--backgroundAlt);
 }
 
 .form-group .form-textarea {

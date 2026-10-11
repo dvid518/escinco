@@ -31,7 +31,7 @@
     transition: all 0.3s ease;
 }
 
-#logo {
+.logo-container #logo {
     height: 30px;
 }
 
@@ -92,7 +92,7 @@
 }
 
 .nav-section .tab:hover {
-    --glow: 0 0 24px var(--shadow);
+    --glow: inset 0 0 24px var(--shadow);
     border-color: var(--border);
 }
 
@@ -154,11 +154,7 @@
     gap: 6px;
     flex-shrink: 0;
     max-height: 100%;
-    transition: all 0.3s ease;
-}
-
-#sidebar:hover {
-    gap: 10px;
+    transition: width 0.3s ease, min-width 0.3s ease;
 }
 
 #sidebar button {
@@ -171,7 +167,7 @@
     font-size: 14px;
     cursor: pointer;
     flex-shrink: 0;
-    transition: all 0.3s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 #sidebar button:hover, #sidebar button.act {
@@ -180,9 +176,13 @@
 }
 
 #sidebar button:hover {
-    padding-top: 14px;
-    padding-bottom: 14px;
-    --glow: 0 0 24px var(--shadow);
+    --glow: inset 0 0 24px var(--shadow);
+    border-color: var(--border);
+}
+
+#sidebar button:active {
+    color: var(--border);
+    background-color: var(--lightHover);
     border-color: var(--border);
 }
 
@@ -220,26 +220,45 @@
     max-height: 100%;
     --sidebar-btn: 44px;
     transition: width 0.3s ease, min-width 0.3s ease;
+    position: relative;
 }
 
 .sidebar-wrap #sidebar {
     width: 100%;
     min-width: 0;
     flex: 1;
+    /* min-height: 0 es lo que permite que la lista scrollee en vez de crecer:
+       sin él, un flex item no baja de su altura de contenido y se sale de la
+       caja en lugar deOverflow. Con esto, el scroll termina justo encima del
+       botón de colapsar, que es un hermano más abajo del mismo .sidebar-wrap. */
     min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    /* padding: 2px 0 da sitio a la máscara del desvanecido, que recorta por el
+       borde del padding box: sin él la lista se cortaría en seco en el borde.
+       El lateral lo traen ya los items. */
+    padding: 2px 0;
 }
 
 .sidebar-wrap #sidebar button {
     min-height: var(--sidebar-btn);
     gap: 10px;
-    transition: all 0.3s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 /* Padding-left SOLO cuando el sidebar está extendido.
-   Ojo: .sidebar-colapsado vive en el .sidebar-wrap, no en el botón. */
-.sidebar-wrap:not(.sidebar-colapsado) #sidebar button:hover,
+   Ojo: .sidebar-colapsado vive en el .sidebar-wrap, no en el botón.
+   Sin transición de padding: el cambio de geometría en hover producía un
+   salto con la sombra del ::after entrecortada al hacer clic. */
 .sidebar-wrap:not(.sidebar-colapsado) #sidebar button.act {
     padding-left: 20px;
+}
+
+/* Espacio inferior para que el scroll termine antes que el botón de colapsar.
+   El `padding: 2px 0` original ya dejaba espacio para la máscara de desvanecimiento,
+   pero añadimos más para garantizar separación con el botón. */
+.sidebar-wrap:not(.sidebar-colapsado) #sidebar {
+    padding-bottom: 46px;
 }
 
 .sidebar-wrap #sidebar button span {
@@ -270,7 +289,7 @@
     color: var(--text);
     background-color: var(--lightHover);
     transform: scale(1.02);
-    --glow: 0 0 24px var(--shadow);
+    --glow: inset 0 0 24px var(--shadow);
     border-color: var(--border);
 }
 
@@ -289,9 +308,11 @@
 }
 
 .sidebar-wrap.sidebar-colapsado #sidebar {
-    padding: 0;
     align-items: center;
-    overflow: visible;
+    /* El riel de iconos también scrollea, y con el mismo desvanecido. Aquí
+       antes ponía `overflow: visible`, que sacaba las cuentas de la caja y
+       dejaba el botón de expandir tapando la última. */
+    overflow-y: auto;
 }
 
 .sidebar-wrap.sidebar-colapsado #sidebar button {
@@ -341,7 +362,7 @@
 }
 
 #panel:hover {
-    box-shadow: 0 0 24px var(--shadow);
+    box-shadow: inset 0 0 24px var(--shadow);
     border-color: var(--border);
 }
 
@@ -441,7 +462,7 @@
 .lastbar .item:hover {
     background-color: var(--lightHover);
     width: 45px;
-    --glow: 0 0 10px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
     border-color: var(--border);
     transform: scale(1.05);
 }
@@ -455,12 +476,14 @@
     border-radius: 30px;
     color: var(--text);
     border: 1px solid var(--lightBorder);
-    --glow: 0 0 10px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
     /* Mismo criterio que .notificacion: flota sobre la app sin capa detrás,
-       así que lleva velo + difuminado. Gana a .glass por orden de carga. */
+       así que lleva velo + difuminado. Los aporta .glass; aquí va el nivel,
+       más tupido porque es texto pequeño sobre contenido borroso. */
+    --blur-frosted: 14px;
     background-color: var(--glass-frosted);
-    backdrop-filter: blur(5px);
-    -webkit-backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(var(--blur-frosted));
+    backdrop-filter: blur(var(--blur-frosted));
     font-size: 15px;
     white-space: nowrap;
     pointer-events: none;
@@ -770,4 +793,213 @@
     .nav-container a.act {
         padding: 0 9px;
     }
+}
+
+/* ---- desde style.css ---- */
+
+#app-content {
+    position: relative;
+    view-transition-name: app-content;
+}
+
+@view-transition {
+    navigation: auto;
+}
+
+::view-transition-old(app-content),
+::view-transition-new(app-content) {
+    animation-duration: 220ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(app-content) {
+    animation-name: page-out;
+}
+
+::view-transition-new(app-content) {
+    animation-name: page-in;
+}
+
+@keyframes page-out {
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
+/* ============================================
+   TRANSICIÓN ENTRE DOCUMENTOS (login → dashboard)
+   ============================================
+   style.css lo cargan auth.html, reset-password.html, index.html y
+   dashboard.html, y todos optan por @view-transition { navigation: auto }. El
+   logo existe en los dos con el mismo id, así que darle un nombre lo convierte
+   en el elemento compartido: en vez de fundir dos páginas enteras, el logo
+   viaja del centro de la pantalla a la navbar y el resto se funde alrededor. */
+#logo {
+    view-transition-name: logo;
+}
+
+::view-transition-group(logo) {
+    animation-duration: 420ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(root) {
+    animation: root-out 200ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+
+::view-transition-new(root) {
+    animation: root-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes root-out {
+    to {
+        opacity: 0;
+    }
+}
+
+@keyframes root-in {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes page-in {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+/* ============================================
+   LASTRAR · TRANSICIÓN ENTRE PÁGINAS
+   ============================================
+   Cada página monta una lastbar distinta y router.js la reconstruye con
+   innerHTML. Sin nombre propio, #app-footer cae dentro del snapshot `root`
+   y los botones viejos y nuevos se cruzan en un cross-fade difuso: se ve
+   el doble de íconos durante 220 ms. Nombrándolo, sale del snapshot root,
+   el grupo anima tamaño/posición (la barra se recentra sola) y cada estado
+   se funde por separado. */
+#app-footer {
+    view-transition-name: app-footer;
+}
+
+::view-transition-group(app-footer) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+::view-transition-old(app-footer),
+::view-transition-new(app-footer) {
+    animation-duration: 340ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    height: 100%;
+    overflow: clip;
+}
+
+/* Los items vienen colapsados a 12px y se abren a 40px. Encoger la imagen
+   vieja hacia el centro en vez de dejarla al tamaño final evita el escalón
+   visible cuando la página nueva tiene menos botones. */
+::view-transition-old(app-footer) {
+    animation-name: lastbar-out;
+}
+
+::view-transition-new(app-footer) {
+    animation-name: lastbar-in;
+}
+
+@keyframes lastbar-out {
+    to {
+        opacity: 0;
+        transform: scaleX(0.86);
+    }
+}
+
+@keyframes lastbar-in {
+    from {
+        opacity: 0;
+        transform: scaleX(0.86);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-line,
+    .skeleton-circle,
+    .skeleton-pill,
+    .skeleton-text,
+    .skeleton-sidebar-icon,
+    .skeleton-grafico-bloque {
+        animation: none;
+        background-image: none;
+    }
+
+    ::view-transition-old(app-content),
+    ::view-transition-new(app-content) {
+        animation: none;
+    }
+
+    ::view-transition-group(app-footer),
+    ::view-transition-old(app-footer),
+    ::view-transition-new(app-footer) {
+        animation: none;
+    }
+}
+
+.dashboard .movimientos-lista.scroll-fade,
+.dashboard .favoritos-lista.scroll-fade,
+.dashboard .metas-lista.scroll-fade,
+.dashboard .pendientes-lista.scroll-fade,
+.dashboard .ordenes-lista.scroll-fade,
+.dashboard .estrategias-lista.scroll-fade,
+.dashboard .distribucion-lista.scroll-fade,
+.dashboard .programados-lista.scroll-fade,
+.dashboard .alertas-lista.scroll-fade,
+.lista-cards.scroll-fade,
+.cuenta-detalle.scroll-fade,
+.lista-posiciones.scroll-fade,
+.pendientes-lista.scroll-fade,
+.vencimientos-lista.scroll-fade,
+.sidebar-wrap #sidebar.scroll-fade,
+#panel.scroll-fade {
+    --scroll-fade-top: 0px;
+    --scroll-fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+}
+.dashboard .movimientos-lista.scroll-fade.scroll-fade-top,
+.dashboard .favoritos-lista.scroll-fade.scroll-fade-top,
+.dashboard .metas-lista.scroll-fade.scroll-fade-top,
+.dashboard .pendientes-lista.scroll-fade.scroll-fade-top,
+.dashboard .ordenes-lista.scroll-fade.scroll-fade-top,
+.dashboard .estrategias-lista.scroll-fade.scroll-fade-top,
+.dashboard .distribucion-lista.scroll-fade.scroll-fade-top,
+.dashboard .programados-lista.scroll-fade.scroll-fade-top,
+.dashboard .alertas-lista.scroll-fade.scroll-fade-top,
+.lista-cards.scroll-fade.scroll-fade-top,
+.cuenta-detalle.scroll-fade.scroll-fade-top,
+.lista-posiciones.scroll-fade.scroll-fade-top,
+.pendientes-lista.scroll-fade.scroll-fade-top,
+.vencimientos-lista.scroll-fade.scroll-fade-top,
+.sidebar-wrap #sidebar.scroll-fade.scroll-fade-top,
+#panel.scroll-fade.scroll-fade-top {
+    --scroll-fade-top: 18px;
+}
+
+.dashboard .movimientos-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .favoritos-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .metas-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .pendientes-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .ordenes-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .estrategias-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .distribucion-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .programados-lista.scroll-fade.scroll-fade-bottom,
+.dashboard .alertas-lista.scroll-fade.scroll-fade-bottom,
+.lista-cards.scroll-fade.scroll-fade-bottom,
+.cuenta-detalle.scroll-fade.scroll-fade-bottom,
+.lista-posiciones.scroll-fade.scroll-fade-bottom,
+.pendientes-lista.scroll-fade.scroll-fade-bottom,
+.vencimientos-lista.scroll-fade.scroll-fade-bottom,
+.sidebar-wrap #sidebar.scroll-fade.scroll-fade-bottom,
+#panel.scroll-fade.scroll-fade-bottom {
+    --scroll-fade-bottom: 18px;
 }

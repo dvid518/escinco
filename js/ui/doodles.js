@@ -8,8 +8,8 @@ import { mostrarNotificacion } from "./notificaciones.js"
 // Pequeños easter eggs ocultos. Funcionan SIEMPRE (independientemente de la
 // preferencia "Habilitar escindos doodles", que se registra en accesibilidad).
 //
-//  · Tap con 5 dedos → alterna entre tema claro y oscuro.
-//  · Clic en el logotipo "cinco" (login / register) → clase .spin (toggle).
+//  · Tap con 5 dedos o clic en el logotipo (login / register) → alterna tema claro/oscuro.
+//    La notificación indica el modo al que cambia, no solo "cambiar tema".
 // ============================================
 
 let inicializado = false
@@ -61,8 +61,8 @@ async function ciclarTemaDoodle() {
     try {
         const actual = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark"
         const siguiente = actual === "light" ? "dark" : "light"
-        const tema = await cambiarTema(sesion.uid, siguiente)
-        mostrarNotificacion("exito", nombreModoTema(tema))
+        await cambiarTema(sesion.uid, siguiente)
+        mostrarNotificacion("exito", nombreModoTema(siguiente))
     } catch (error) {
         console.error("[ERROR] No se pudo cambiar el tema con el doodle:", error)
         mostrarNotificacion("error", "No se pudo cambiar el tema")
@@ -70,15 +70,14 @@ async function ciclarTemaDoodle() {
 }
 
 // --------------------------------------------
-// DOODLE · LOGOTIPO "CINCO" → CLASE .spin
+// DOODLE · CLIC EN EL LOGOTIPO → CAMBIAR TEMA
 // --------------------------------------------
-// Clic en el logo (login / register): aplica .spin. Clic de nuevo: la quita.
+// Clic en el logo (login / register): alterna claro/oscuro, igual que el tap
+// de 5 dedos.
 
 function activarDoodleGiroLogo() {
     const logo = document.getElementById("logo")
     if (!logo) return
 
-    logo.addEventListener("click", () => {
-        logo.classList.toggle("spin")
-    })
+    logo.addEventListener("click", ciclarTemaDoodle)
 }

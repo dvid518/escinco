@@ -5,6 +5,8 @@ import {
 } from "../repositories/SnapshotRepositorio.js"
 import { convertirMonto, getDivisaPrincipal } from "./DivisaServicio.js"
 import { obtenerCuentas } from "../../firebase/firestore.js"
+import { obtenerPosiciones } from "../repositories/PosicionRepositorio.js"
+import { obtenerPrecioHistorialDeHoy } from "./HistorialServicio.js"
 
 // ============================================
 // SNAPSHOT SERVICIO
@@ -12,7 +14,10 @@ import { obtenerCuentas } from "../../firebase/firestore.js"
 
 /**
  * Calcula el patrimonio actual del usuario en las 3 divisas base.
- * No usa precios de posiciones (eso se valora en otro sitio).
+ *
+ * Incluye las posiciones de inversión: cada posición pesa su cantidad × el
+ * último precio del activo, en la divisa de la posición. Si el activo no tiene
+ * precio cargado se cae al precio de hoy del historial; si tampoco, no pesa.
  */
 export async function calcularPatrimonio(uid) {
     const cuentas = await obtenerCuentas(uid)
@@ -26,6 +31,8 @@ export async function calcularPatrimonio(uid) {
 
     cuentas.forEach(c => {
         if (c.estado === "archivada") return
+        // Padre abstracto: clase base sin saldo; pesan sus hijas.
+        if (c.esAbstracta === true) return
 
         totalCuentas++
 
@@ -55,6 +62,34 @@ export async function calcularPatrimonio(uid) {
         patrimonioUSDT += convertirMonto(saldo, divisa, "usd")
     })
 
+    // Inversiones: posiciones en su divisa. No fallan no por que una posición
+    // corrompida (activo borrado) no pueda tumbar el patrimonio del día.
+    try {
+        const posiciones = await obtenerPosiciones(uid)
+        for (const posicion of posiciones) {
+            const activo = posicion?.activo
+            if (!activo) continue
+
+            let precio = Number(activo.ultimoPrecio) || 0
+            if (precio <= 0) {
+                precio = Number(await obtenerPrecioHistorialDeHoy(uid, activo.id)) || 0
+            }
+            if (precio <= 0) continue
+
+            const valor = (Number(posicion.cantidad) || 0) * precio
+            if (valor <= 0) continue
+
+            const divisaPosicion = (posicion.divisa || "usd").toLowerCase()
+            const pen = convertirMonto(valor, divisaPosicion, "pen")
+            totalActivos += pen
+            patrimonioPEN += pen
+            patrimonioUSD += convertirMonto(valor, divisaPosicion, "usd")
+            patrimonioUSDT += convertirMonto(valor, divisaPosicion, "usd")
+        }
+    } catch (error) {
+        console.warn("[WARN] No se pudieron valorar las posiciones para el patrimonio:", error)
+    }
+
     return {
         patrimonioPEN,
         patrimonioUSD,
@@ -72,11 +107,16 @@ export async function calcularPatrimonio(uid) {
  */
 export async function registrarSnapshot(uid) {
     try {
+        if (!uid) throw new Error("uid vacío: la escritura se intentó antes de autenticar")
         const patrimonio = await calcularPatrimonio(uid)
+        const numero = valor => {
+            const n = Number(valor)
+            return Number.isFinite(n) ? n : 0
+        }
 
         await guardarSnapshotDelDia(uid, {
-            patrimonioPEN: patrimonio.patrimonioPEN,
-            patrimonioUSD: patrimonio.patrimonioUSD
+            patrimonioPEN: numero(patrimonio.patrimonioPEN),
+            patrimonioUSD: numero(patrimonio.patrimonioUSD)
             // `patrimonioUSDT` no se persiste: era idéntico a
             // `patrimonioUSD` (el servicio normaliza USDT = USD), así que solo
             // ocupaba espacio en cada documento y en cada .dvid. Los snapshots
@@ -88,7 +128,7 @@ export async function registrarSnapshot(uid) {
         console.log("[INFO] Snapshot registrado:", patrimonio)
         return patrimonio
     } catch (error) {
-        console.error("Error registrando snapshot:", error)
+        console.error("Error registrando snapshot:", error?.code, error?.message, error?.customData || "")
         throw error
     }
 }

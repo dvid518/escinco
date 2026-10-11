@@ -8,7 +8,8 @@ import {
     enviarVerificacion,
     recargarUsuario,
     enviarRecuperacion,
-    aplicarCodigoDeAccion
+    aplicarCodigoDeAccion,
+    marcarSesionGuardada
 } from "../../firebase/auth.js"
 import { initTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
@@ -63,6 +64,13 @@ const BOTON_GOOGLE = {
 // salvavidas que js/core/app.js:30: una red lenta no puede dejar la pantalla en
 // negro con el login dentro.
 const ESPERA_MAXIMA_MS = 5000
+
+// Espera entre dos envíos de correo seguidos (recuperación y reenvío de
+// verificación). No protege de verdad: un atacante que misuse el formulario
+// seguiría agile, porque el contador vive en la pestaña. Es para que un doble
+// clic o un dedo impaciente no quemen la cuota de Firebase, que responde
+// auth/too-many-requests y bloquea el envío a esa dirección un buen rato.
+const ESPERA_ENVIO_S = 60
 
 function seccion(nombre) {
     return document.getElementById(`estado_${nombre}`)
@@ -148,6 +156,11 @@ async function irAVerificacion(user) {
  * @param {object} user
  */
 async function trasAutenticar(user) {
+    // A partir de aquí hay una cuenta creada en este navegador, verificada o
+    // no. La landing usa esa marca para no volvérsele a enseñar a quien ya la
+    // vio una vez (ver firebase/auth.js: marcarSesionGuardada).
+    marcarSesionGuardada()
+
     if (user.emailVerified) {
         await trasPintar()
         irAlDashboard()
@@ -205,12 +218,50 @@ async function crearCuenta() {
 }
 
 // ============================================
+// ESPERA ENTRE ENVÍOS DE CORREO
+// ============================================
+
+/**
+ * Deja un botón deshabilitado durante `segundos`, mostrando en su texto
+ * cuántos quedan. El texto original se guarda en el propio botón para poder
+ * restaurarlo, así que se puede encadenar varias esperas sin perderlo.
+ * @param {HTMLButtonElement} boton
+ * @param {number} segundos
+ */
+function esperarAntesDeReintentar(boton, segundos = ESPERA_ENVIO_S) {
+    if (!boton) return
+
+    const original = boton.dataset.textoOriginal || boton.textContent.trim()
+    boton.dataset.textoOriginal = original
+
+    let restante = segundos
+    boton.disabled = true
+    boton.textContent = `Reintentar en ${restante} s`
+
+    const intervalo = setInterval(() => {
+        restante -= 1
+        if (restante > 0) {
+            boton.textContent = `Reintentar en ${restante} s`
+            return
+        }
+        clearInterval(intervalo)
+        boton.disabled = false
+        boton.textContent = original
+    }, 1000)
+}
+
+// ============================================
 // RECUPERACIÓN DE CONTRASEÑA
 // ============================================
 
 async function recuperarClave() {
     const email = document.getElementById("recuperar_email").value.trim()
     const aviso = document.getElementById("recuperar_aviso")
+    const boton = document.getElementById("recuperar_submit")
+
+    // El Enter del campo llega aquí aunque el botón esté deshabilitado por la
+    // espera: sin esta comprobación se saltaría la cuenta atrás.
+    if (boton?.disabled) return
 
     if (!email) {
         aviso.textContent = "Escribe tu correo electrónico."
@@ -219,6 +270,7 @@ async function recuperarClave() {
 
     try {
         await enviarRecuperacion(email)
+        esperarAntesDeReintentar(boton)
         // El mismo texto exista o no la cuenta: confirmarlo sería filtrar qué
         // correos están registrados.
         aviso.textContent = "Si ese correo tiene una cuenta, te enviamos un enlace para cambiar la contraseña."
@@ -252,8 +304,12 @@ async function comprobarVerificacion() {
 }
 
 async function reenviarVerificacion() {
+    const boton = document.getElementById("verificacion_reenviar")
+    if (boton?.disabled) return
+
     try {
         const enviado = await enviarVerificacion()
+        if (enviado) esperarAntesDeReintentar(boton)
         mostrarNotificacion(
             enviado ? "info" : "warning",
             enviado ? "Enlace reenviado. Revisa tu correo." : "Ese correo ya está verificado."

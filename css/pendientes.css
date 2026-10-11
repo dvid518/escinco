@@ -22,7 +22,7 @@
 }
 
 .pendiente-crear-btn:hover {
-    --glow: 0 0 10px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
 }
 
 /* --------------------------------------------
@@ -309,7 +309,7 @@
     color: var(--text);
     border-color: var(--text);
     transform: rotate(-45deg);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .tipo-movimiento-btn.tipo-principal .tipo-texto {
@@ -318,7 +318,7 @@
 }
 
 .tipo-movimiento-btn.tipo-secundario:hover {
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
     background: var(--lightHover);
     transform: scale(1.02);
 }

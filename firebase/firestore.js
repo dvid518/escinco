@@ -14,12 +14,14 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
+import { sesion } from "../js/core/sesion.js"
+import { resolverNombresCuentas } from "../js/core/familiaCuentas.js"
 
 const db = getFirestore(app)
 
 // Re-exportamos utilidades de Firestore para que el resto de la app
 // no importe desde la CDN directamente (punto único de acceso).
-export { db, doc, updateDoc }
+export { db, doc, updateDoc, deleteField }
 
 // ============================================
 // USUARIO
@@ -126,10 +128,15 @@ export async function obtenerCuentas(uid) {
     return cacheCapa.obtener(uid, "cuentas", async () => {
         const referencia = collection(db, "usuarios", uid, "cuentas")
         const resultado = await getDocs(referencia)
-        return resultado.docs.map(documento => ({
+        // Los nombres se resuelven (mayúsculas + nombre derivado para hijas
+        // sin nombre) en el punto de lectura único, para que todas las vistas
+        // muestren lo mismo. El formato (SOLES frente a PEN) sale de la
+        // preferencia del usuario.
+        const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
+        return resolverNombresCuentas(resultado.docs.map(documento => ({
             id: documento.id,
             ...documento.data()
-        }))
+        })), formato)
     })
 }
 

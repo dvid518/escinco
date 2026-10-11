@@ -300,3 +300,10 @@ Actualmente:
 - El botón de última barra para editar dashboard ya existe y puede reutilizarse como punto de entrada.
 - El contenido interno de las cards no necesita modificarse en las fases de layout; sus funciones de carga, actualización y navegación están separadas de la estructura visual.
 - El modal de información del patrimonio no se debe añadir todavía: la tarea de esta fase es únicamente auditoría.
+
+## Nota de alcance (1.0.0-beta.22)
+
+Los cambios de esta sesión (filtros de Movimientos, buscador global, lastbar,
+centro de notificaciones, etiquetas en el CSV y limpieza de `fechaDeMovimiento`)
+**no modifican** la arquitectura de cards del dashboard descrita en este
+documento. La auditoría de la Fase 2 sigue vigente sin cambios.

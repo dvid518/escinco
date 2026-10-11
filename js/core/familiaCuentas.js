@@ -18,16 +18,20 @@
 // pagina de cuentas como el dashboard, y duplicar estas reglas en dos sitios
 // es como se desincroniza el saldo entre panels.
 
+import { DIVISAS_LABELS, DIVISAS_PALABRAS, compararDivisas } from "../../constants/divisas.js"
+
 // Una cuenta es hija si tiene `padreId`.
 export function esHija(cuenta) {
     return !!cuenta?.padreId
 }
 
-// Hijas de una cuenta, en el orden en que se crearon. Las archivadas no
-// cuentan: una familia con la USD archivada muestra solo PEN y USDT.
+// Hijas de una cuenta, en orden absoluto de divisas (PEN, USD, EUR, USDT).
+// Las archivadas no cuentan.
 export function hijasDe(cuenta, lista = []) {
     if (!cuenta?.id) return []
-    return lista.filter(c => c.padreId === cuenta.id && c.estado !== "archivada")
+    return lista
+        .filter(c => c.padreId === cuenta.id && c.estado !== "archivada")
+        .sort((a, b) => compararDivisas(a.moneda, b.moneda))
 }
 
 // Una cuenta "es padre" si tiene al menos una hija. Sin esto no hay forma de
@@ -37,12 +41,15 @@ export function tieneHijas(cuenta, lista = []) {
     return hijasDe(cuenta, lista).length > 0
 }
 
-// La familia completa: el padre primero (su propia divisa) y despues las
-// hijas. Es la lista que se dibuja como tabs en el panel.
+// La familia completa: si el padre es abstracto solo las hijas (el padre no
+// es instancia y no tiene tab propia); si es legacy, el padre primero (su
+// propia divisa) y despues las hijas.
 export function familiaDe(cuenta, lista = []) {
     if (!cuenta) return []
     if (esHija(cuenta)) return [cuenta]
-    return [cuenta, ...hijasDe(cuenta, lista)]
+    const hijas = hijasDe(cuenta, lista)
+    if (esAbstracta(cuenta)) return [...hijas]
+    return [cuenta, ...hijas]
 }
 
 // Saldo total de la familia, TODO en la divisa del padre. Sirve para la card
@@ -60,4 +67,68 @@ export function saldoFamilia(cuenta, lista = []) {
 // del dashboard: los padres, nunca las hijas (que se alcanzan por las tabs).
 export function cuentasVisibles(lista = []) {
     return lista.filter(c => !esHija(c))
+}
+
+// ============================================
+// NOMBRES DE SUBCUENTAS
+// ============================================
+// El nombre de una hija se genera por defecto a partir del del padre y puede
+// borrarse: una hija sin `nombre` en Firestore se muestra aquí con el nombre
+// derivado, pero el campo no se escribe para no petrificar el texto.
+
+// Un padre abstracto (clase base) no es una instancia: no tiene divisa propia
+// ni saldo, solo sostiene a sus hijas. Las instancias son las subcuentas.
+export function esAbstracta(cuenta) {
+    return cuenta?.esAbstracta === true
+}
+
+// Nombre por defecto de una hija: "Padre SOLES/PEN" según el formato.
+// formato "simbolo" → palabra (SOLES, DÓLARES), "codigo" → código (PEN, USD).
+export function nombrePorDefectoSubcuenta(nombrePadre, moneda, formato = "simbolo") {
+    const clave = String(moneda || "").toLowerCase()
+    const palabra = formato === "codigo"
+        ? (DIVISAS_LABELS[clave]?.toUpperCase() || String(clave).toUpperCase())
+        : (DIVISAS_PALABRAS[clave] || DIVISAS_LABELS[clave]?.toUpperCase() || String(clave).toUpperCase())
+    return `${normalizarNombre(nombrePadre)} ${palabra}`
+}
+
+// Nombres de cuenta normalizados: en mayúsculas. Se aplica al guardar y al
+// mostrar, para que los datos viejos escritos en minúscula se vean iguales.
+export function normalizarNombre(nombre) {
+    return String(nombre || "").trim().toUpperCase()
+}
+
+// Rellena los huecos de nombre en memoria: una hija sin `nombre` muestra el
+// derivado del padre y el resto se normaliza a mayúsculas. No escribe nada.
+// `formato` es "simbolo" o "codigo" y decide SOLES/DÓLARES frente a PEN/USD.
+export function resolverNombresCuentas(lista = [], formato = "simbolo") {
+    const porId = new Map(lista.map(c => [c.id, c]))
+    return lista.map(cuenta => {
+        const copia = { ...cuenta }
+        if (esHija(copia)) {
+            const padre = porId.get(copia.padreId)
+            const base = normalizarNombre(padre?.nombre) || normalizarNombre(copia.nombre)
+            copia.nombre = normalizarNombre(copia.nombre) || nombrePorDefectoSubcuenta(base, copia.moneda, formato)
+            copia.tieneNombrePropio = Boolean(String(cuenta.nombre || "").trim())
+        } else {
+            copia.nombre = normalizarNombre(copia.nombre)
+        }
+        return copia
+    })
+}
+
+// Cuentas operables en selectores de movimientos: un padre abstracto no se
+// ofrece (no es instancia); se ofrecen sus hijas. Los padres legacy (con su
+// propia moneda y saldo) sí se ofrecen.
+export function cuentasOperables(lista = []) {
+    const salida = []
+    for (const c of lista) {
+        if (esHija(c)) continue
+        if (esAbstracta(c)) {
+            salida.push(...hijasDe(c, lista))
+        } else {
+            salida.push(c)
+        }
+    }
+    return salida
 }

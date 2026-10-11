@@ -84,10 +84,34 @@ function manejarActualizacion() {
 
     nuevoSW.addEventListener("statechange", () => {
         if (nuevoSW.state === "installed" && navigator.serviceWorker.controller) {
-            console.log("[PWA] Nueva versión disponible")
-            mostrarAvisoActualizacion()
+            console.log("[PWA] Nueva versión instalada: aplicando automáticamente")
+            aplicarActualizacion()
         }
     })
+}
+
+// Aplica la versión nueva sin pedir nada al usuario: manda `skipWaiting` al SW
+// en espera y recarga cuando el nuevo controla la página, de modo que los
+// cambios guardados/publicados se vean en el momento.
+function aplicarActualizacion() {
+    const swEnEspera = registroSW?.waiting
+
+    // Sin SW en espera → recargar directamente.
+    if (!swEnEspera) {
+        window.location.reload()
+        return
+    }
+
+    // Escuchar el cambio de control ANTES de pedir el skipWaiting, así la
+    // recarga se hace con el SW nuevo ya al mando.
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        window.location.reload()
+    }, { once: true })
+
+    // Red de seguridad por si no llega a dispararse controllerchange.
+    setTimeout(() => window.location.reload(), 5000)
+
+    swEnEspera.postMessage({ tipo: "SKIP_WAITING" })
 }
 
 function mostrarAvisoActualizacion() {
@@ -96,26 +120,7 @@ function mostrarAvisoActualizacion() {
 
     mostrarNotificacion("info", "Hay una nueva versión disponible", 0, {
         texto: "Actualizar",
-        alClick: () => {
-            const swEnEspera = registroSW?.waiting
-
-            // Sin SW en espera → recargar directamente
-            if (!swEnEspera) {
-                window.location.reload()
-                return
-            }
-
-            // Escuchar el cambio de control ANTES de pedir el skipWaiting,
-            // así la recarga se hace con el SW nuevo ya al mando
-            navigator.serviceWorker.addEventListener("controllerchange", () => {
-                window.location.reload()
-            }, { once: true })
-
-            // Red de seguridad por si no llega a dispararse controllerchange
-            setTimeout(() => window.location.reload(), 5000)
-
-            swEnEspera.postMessage({ tipo: "SKIP_WAITING" })
-        }
+        alClick: () => aplicarActualizacion()
     })
 }
 

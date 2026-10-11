@@ -2275,3 +2275,26 @@ En orden de criticidad para un informe académico formal:
 
 *Fin del documento de levantamiento.*
 
+---
+
+## Anexo · Cambios de la sesión 1.0.0-beta.22
+
+Novedades posteriores al levantamiento original:
+
+- **Nuevo módulo** `js/core/atajos.js`: buscador global y atajos Alt+K/P/M/N;
+  instalado desde `js/core/app.js` (`initAtajos`, `app.js:95`).
+- `js/core/lastbar.js`: el bloque global pasa a **4 ítems** (Pendientes, Metas,
+  Buscar, Notificaciones) y gana los manejadores `buscar`/`notificaciones` en
+  `MAPA_ACCIONES`.
+- `js/ui/notificaciones.js`: centro de notificaciones con historial persistido
+  en `localStorage` por usuario (`escinco:notificaciones:{uid}`).
+- `js/pages/movimientos.js`: columna «Etiquetas» en el CSV de extracto
+  (`movimientos.js:1425`) y filtro por etiqueta (`#filtro-etiqueta`).
+- `js/ui/formularioMovimiento.js`: buscador de cuenta (plantilla
+  `plantillaSelectBuscable`, `normalizarEtiquetas`, `activarSelectsBuscables`).
+- `js/pages/cuentas.js`: eliminada la copia local sin uso de `fechaDeMovimiento`.
+- `constants/version.js`: `1.0.0-beta.22`; precaché de `sw.js` actualizado.
+
+> Las citas de versión de las secciones 1.4 y 18.5 (`1.0.0-beta.15`) quedan
+> desactualizadas: la versión real es `1.0.0-beta.22` (`constants/version.js:2`).
+

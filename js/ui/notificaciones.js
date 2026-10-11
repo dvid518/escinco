@@ -1,4 +1,5 @@
 import { icono } from "../core/iconos.js"
+import { sesion } from "../core/sesion.js"
 
 // ============================================
 // NOTIFICACIONES
@@ -14,8 +15,166 @@ const TIPOS = {
     warning: { icono: "alert-triangle", clase: "warning" }
 }
 
+// Clave de localStorage para persistir el historial de notificaciones.
+// Incluye el uid del usuario para tener datos aislados por cuenta.
+const CLAVE_HISTORIAL_LOCAL = () => `escinco:notificaciones:${sesion.uid || "anon"}`
+
 let contenedorInyectado = false
 const activas = new Map()
+
+// ============================================
+// HISTORIAL · CENTRO DE NOTIFICACIONES
+// ============================================
+// Cada notificación mostrada se guarda (tope 50) para poder revisarla luego
+// desde el centro. Se marca leída al abrir el centro.
+// Carga perezosa: el historial se lee de localStorage al primer uso
+// (al abrir el centro o al suscribirse a cambios), no al módulo inicializar.
+
+let historialCargado = false
+const HISTORIAL = []
+const MAX_HISTORIAL = 50
+let noLeidas = 0
+const oyentesHistorial = new Set()
+
+function cargarHistorialLocalStorage() {
+    if (historialCargado) return
+    historialCargado = true
+    try {
+        const clave = CLAVE_HISTORIAL_LOCAL()
+        const texto = localStorage.getItem(clave)
+        if (texto) {
+            const datos = JSON.parse(texto)
+            // Convertir fechas ISO a objetos Date
+            datos.forEach(item => {
+                if (item.fecha && typeof item.fecha === "string") {
+                    item.fecha = new Date(item.fecha)
+                }
+            })
+            // Mantener el tope 50 y fusionar con el actual (el nuevo sobrante se descarta)
+            const fusionado = [...datos, ...HISTORIAL]
+                .sort((a, b) => (b.fecha || a.fecha) - (a.fecha || b.fecha))
+            HISTORIAL.splice(0, MAX_HISTORIAL, ...fusionado.slice(0, MAX_HISTORIAL))
+        }
+    } catch (error) {
+        console.warn("[WARN] Error cargando historial de notificaciones localStorage:", error)
+    }
+}
+
+function guardarHistorialLocalStorage() {
+    try {
+        const clave = CLAVE_HISTORIAL_LOCAL()
+        // Serializar fechas a strings ISO para localStorage
+        const datos = HISTORIAL.slice(0, MAX_HISTORIAL).map(item => ({
+            id: item.id,
+            tipo: item.tipo,
+            mensaje: item.mensaje,
+            fecha: item.fecha instanceof Date ? item.fecha.toISOString() : item.fecha
+        }))
+        localStorage.setItem(clave, JSON.stringify(datos))
+    } catch (error) {
+        console.warn("[WARN] Error guardando historial de notificaciones localStorage:", error)
+    }
+}
+
+function notificarCambioHistorial() {
+    for (const oyente of oyentesHistorial) {
+        try {
+            oyente(noLeidas)
+        } catch (error) {
+            console.warn("[WARN] Oyente de notificaciones falló:", error)
+        }
+    }
+}
+
+function registrarEnHistorial(tipo, mensaje) {
+    if (!mensaje) return
+    // Asegurar que el historial está cargado desde localStorage
+    cargarHistorialLocalStorage()
+    HISTORIAL.unshift({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        tipo,
+        mensaje,
+        fecha: new Date()
+    })
+    if (HISTORIAL.length > MAX_HISTORIAL) HISTORIAL.pop()
+    noLeidas++
+    guardarHistorialLocalStorage()
+    notificarCambioHistorial()
+}
+
+/** Suscribe una función a los cambios del historial. Devuelve un desuscriptor. */
+export function alCambiarNotificaciones(oyente) {
+    oyentesHistorial.add(oyente)
+    // Cargar historial desde localStorage si aún no se ha cargado
+    if (!historialCargado) cargarHistorialLocalStorage()
+    oyente(noLeidas)
+    return () => oyentesHistorial.delete(oyente)
+}
+
+export function contarNotificacionesNoLeidas() {
+    return noLeidas
+}
+
+export function obtenerHistorialNotificaciones() {
+    return [...HISTORIAL]
+}
+
+export function marcarNotificacionesLeidas() {
+    if (noLeidas === 0) return
+    noLeidas = 0
+    guardarHistorialLocalStorage()
+    notificarCambioHistorial()
+}
+
+/** Abre el centro de notificaciones (historial de las últimas mostradas). */
+export async function abrirCentroNotificaciones() {
+    const { abrirModal } = await import("./modal.js")
+
+    // Cargar historial desde localStorage si aún no se ha cargado
+    // (carga perezosa: solo cuando se solicita el centro)
+    if (!historialCargado) cargarHistorialLocalStorage()
+
+    marcarNotificacionesLeidas()
+
+    const contenido = HISTORIAL.length
+        ? `<div class="centro-notificaciones">
+            ${HISTORIAL.map(item => `
+                <div class="centro-notificacion centro-notificacion-${TIPOS[item.tipo]?.clase || "info"}">
+                    <span class="centro-notificacion-icono">${icono(TIPOS[item.tipo]?.icono || "info", 18)}</span>
+                    <span class="centro-notificacion-cuerpo">
+                        <span class="centro-notificacion-mensaje"></span>
+                        <span class="centro-notificacion-fecha">${formatearFechaNotificacion(item.fecha)}</span>
+                    </span>
+                </div>
+            `).join("")}
+        </div>`
+        : `<p class="centro-notificaciones-vacio">No hay notificaciones.</p>`
+
+    const modalEl = abrirModal({
+        titulo: "Notificaciones",
+        contenido,
+        variante: "narrow",
+        confirmText: null,
+        cancelText: "Cerrar"
+    })
+
+    // Los mensajes se insertan como texto para no interpretar HTML del usuario.
+    const mensajes = modalEl.querySelectorAll(".centro-notificacion-mensaje")
+    HISTORIAL.forEach((item, i) => {
+        if (mensajes[i]) mensajes[i].textContent = item.mensaje
+    })
+}
+
+function formatearFechaNotificacion(fecha) {
+    try {
+        return fecha.toLocaleString("es-PE", {
+            day: "2-digit", month: "2-digit", year: "numeric",
+            hour: "2-digit", minute: "2-digit"
+        })
+    } catch {
+        return ""
+    }
+}
 
 export function cerrarNotificacionMasAntigua() {
     const primera = activas.values().next().value
@@ -65,6 +224,8 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
     const config = TIPOS[tipo] || TIPOS.info
     const contenedor = obtenerContenedor()
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+
+    registrarEnHistorial(tipo, mensaje)
 
     const acciones = (Array.isArray(accion) ? accion : (accion ? [accion] : []))
         .filter(Boolean)

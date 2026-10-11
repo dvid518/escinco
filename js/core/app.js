@@ -5,6 +5,7 @@ import { obtenerPreferencias, asegurarCuentaEfectivoInicial } from "../../fireba
 import { initTemaLocal, sincronizarTemaFirestore } from "./tema.js"
 import { initPWA } from "./pwa.js"
 import { initDoodles } from "../ui/doodles.js"
+import { initAtajos } from "./atajos.js"
 import { configurarDelegacionLastbar } from "./lastbar.js"
 import { configurarColapsoSidebar } from "../ui/colapsoSidebar.js"
 import { iniciarDesvanecidoScrolls } from "../ui/scrollEdges.js"
@@ -40,6 +41,9 @@ export async function initApp() {
         // por la copia del SW en caché, no solo desde auth.js.
         if (!user || !user.emailVerified) {
             quitarCarga()
+            // El dashboard exige sesión: sin ella se va a /login. La landing
+            // pública vive en "/" y no redirige, así que mandar aquí a "/"
+            // mostraría la presentación en vez del panel.
             window.location.replace("/login")
             return
         }
@@ -88,6 +92,7 @@ export async function initApp() {
                 startInactivityTimer()
                 configurarDelegacionLastbar()
                 configurarColapsoSidebar()
+                initAtajos()
             }
 
             await new Promise(resolve => setTimeout(resolve, 50))

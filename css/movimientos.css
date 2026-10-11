@@ -21,11 +21,11 @@
    -------------------------------------------- */
 
 /* Base (<720px): búsqueda a todo el ancho en fila propia y debajo
-   los 4 campos + limpiar en una sola fila. */
+   los 5 campos + limpiar en una sola fila. */
 #panel .filtros {
     --filtro-height: 40px;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
     gap: 12px;
     align-items: stretch;
     width: 100%;
@@ -89,7 +89,7 @@
 #panel .filtros select:hover {
     border-color: var(--text);
     background-color: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 #panel .filtros input:focus,
@@ -119,24 +119,28 @@
         grid-column: 2;
         grid-row: 3;
     }
+    #panel .filtros select#filtro-etiqueta {
+        grid-column: 2;
+        grid-row: 4;
+    }
     #panel .filtros .btn-icon.filtro-limpiar {
         grid-column: 3;
-        grid-row: 2 / span 2;
+        grid-row: 2;
         justify-self: end;
         align-self: center;
     }
 }
 
-/* Filas enteras (≥720px): búsqueda + 4 campos + limpiar en UNA fila. */
+/* Filas enteras (≥720px): búsqueda + 5 campos + limpiar en UNA fila. */
 @container movimientos-panel (min-width: 720px) {
     #panel .filtros {
-        grid-template-columns: minmax(0, 1fr) repeat(4, minmax(0, 1fr)) auto;
+        grid-template-columns: minmax(0, 1fr) repeat(5, minmax(0, 1fr)) auto;
     }
     #panel .filtros .campo-buscar {
-        grid-column: auto;
+        grid-column: 1;
     }
     #panel .filtros .btn-icon.filtro-limpiar {
-        grid-column: auto;
+        grid-column: 7;
         justify-self: end;
         align-self: center;
         width: var(--filtro-height);
@@ -320,7 +324,7 @@
     color: var(--text);
     border-color: var(--text);
     background-color: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 /* --------------------------------------------

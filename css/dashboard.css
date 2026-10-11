@@ -102,6 +102,33 @@
     opacity: 0.5;
 }
 
+/* Las cards se desplazan con transición al reordenar: el masonry las
+   reubica por appendChild y sin transición el salto es brusco. */
+.dashboard-column [data-dashboard-card] {
+    transition: transform 0.22s ease, opacity 0.22s ease;
+}
+
+/* Línea que marca en qué hueco caerá la card que se arrastra. Va como hermano
+   dentro de la columna del masonry, con el ancho de la columna, para que se
+   lea como "aquí" y no como un borde pegado a una card. Aparece con
+   transición en vez de golpe seco. */
+.dashboard-card-insercion {
+    display: block;
+    height: 3px;
+    margin: 2px 0;
+    border-radius: 999px;
+    background: var(--positive);
+    box-shadow: 0 0 10px var(--positive);
+    pointer-events: none;
+    opacity: 0;
+    transform: scaleY(0.4);
+    animation: insercion-entra 0.22s ease forwards;
+}
+
+@keyframes insercion-entra {
+    to { opacity: 1; transform: scaleY(1); }
+}
+
 body.dashboard-card-dragging,
 body.dashboard-card-dragging * {
     cursor: grabbing !important;
@@ -167,7 +194,7 @@ body.dashboard-card-dragging * {
 .dashboard .card:hover {
     transform: scale(1.01);
     border-color: var(--border);
-    --glow: 0 0 10px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
 }
 
 .dashboard .card:hover::before {
@@ -381,8 +408,13 @@ body.dashboard-card-dragging * {
     color: var(--border);
 }
 
+/* En claro, el fondo del resaltado es `--border` (gris) y las líneas/glow que
+   lo rodean cogen `--lightBorder`/`--shadow`: aquí se fuerzan a las versiones
+   tenues de la propia paleta para que el borde no compita con la superficie. */
 .patrimonio-card.resaltado-2 {
     background-color: var(--border);
+    --lightBorder: var(--lightGraphite);
+    --shadow: var(--lightSlateGrey);
 }
 
 .patrimonio-card.resaltado-2 .card-title {
@@ -442,7 +474,7 @@ body.dashboard-card-dragging * {
     border-color: var(--text);
     background-color: var(--lightHover);
     color: var(--textSecondary);
-    box-shadow: 0 0 5px var(--shadow);
+    box-shadow: inset 0 0 5px var(--shadow);
 }
 
 .divisa-select option {
@@ -571,10 +603,12 @@ body.dashboard-card-dragging * {
     box-sizing: border-box;
     flex: 0 0 auto;
     width: 100%;
+    max-width: 100%;
     flex-wrap: nowrap;
     justify-content: stretch;
-    margin-top: 12px;
-    margin-left: 0;
+    /* Sin `margin-top`: el grupo se coloca dentro de la cabecera (que ya tiene
+       su propio `gap`), y un margen aquí lo separaba del título. */
+    margin: 0;
 }
 
 .grafico-periodos .toggle-option {
@@ -583,38 +617,53 @@ body.dashboard-card-dragging * {
     text-align: center;
 }
 
-.grafico-periodos .toggle-option:hover {
+/* El hover ya no ensancha la píldora (ver .toggle-option en
+   configuracion.css): aquí se reafirma para que las cards del dashboard no
+   dependan del orden de carga de las hojas. */
+.grafico-periodos .toggle-option:hover,
+.grafico-periodos .toggle-option:hover:not(.active) {
     padding: 4px 8px;
 }
 
-/* El toggle de las cards Gastado/Ingresado/Balance vive dentro de una card
-   metric-card, cuyo .card-sub usa margin-top: auto. Sin esto, el toggle
-   empuja el valor y el padding de 24px lo deja separado del título. */
-.metric-card .grafico-periodos {
-    align-self: flex-start;
-    margin: -8px 0 4px;
-}
+/* El toggle de las cards Gastado/Ingresado/Balance/Ahorro va DENTRO de la
+   cabecera, debajo del título, a todo el ancho de la card y por encima del
+   valor.
 
-/* 12px en vez de los 16px globales: la card es estrecha y el toggle
-   compartido tiene que caber sin empujar el valor hacia abajo. */
-.metric-card .grafico-periodos .toggle-option {
-    padding: 4px 10px;
-    font-size: 12px;
-}
-
-.metric-card .grafico-periodos .toggle-option:hover {
-    padding: 4px 12px;
-}
-
+   Antes era un hermano del `.card-header` en `align-self: flex-start` con
+   márgenes negativos: al comprimirse la card quedaba montado sobre la cifra y
+   además separado del título. Como cabecera es una columna (título + toggle),
+   la posición depende solo del orden de los elementos. */
 .metric-card .card-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
 }
 
 .metric-card .card-header .card-title {
     margin-bottom: 0;
+}
+
+/* El grupo dentro de la cabecera manda sobre el ancho de la regla general
+   `.grafico-periodos { width: 100% }`: aquí es el ancho de la card menos el
+   padding, que es justo lo que se busca. */
+.metric-card .card-header .grafico-periodos {
+    margin: 0;
+}
+
+/* 12px y 6px de padding lateral: la card es estrecha y ahora son CINCO
+   opciones ("7D 30D 90D 1A Todo"), que con el padding de 16px se montaban en
+   dos filas. El hover no cambia el padding (ver .toggle-option en
+   configuracion.css): reafirma aquí para que las cards no dependan del orden
+   de carga de las hojas. */
+.metric-card .grafico-periodos .toggle-option {
+    padding: 4px 6px;
+    min-width: 0;
+    font-size: 12px;
+}
+
+.metric-card .grafico-periodos .toggle-option:hover,
+.metric-card .grafico-periodos .toggle-option:hover:not(.active) {
+    padding: 4px 6px;
 }
 
 .grafico-estado {
@@ -734,6 +783,38 @@ body.dashboard-card-dragging * {
     padding-right: 4px;
 }
 
+/* Dona de "Distribución patrimonial": cima de la card, centrada y compacta,
+   con el listado de barras debajo. Al ser una card estrecha, la dona se apila
+   y no compite en ancho con las barras. */
+.distribucion-dona {
+    position: relative;
+    width: 100%;
+    max-width: 220px;
+    height: 170px;
+    margin: 0 auto 14px;
+}
+
+.distribucion-dona canvas {
+    position: relative;
+    z-index: 1;
+}
+
+.dona-esqueleto {
+    width: 94px;
+    height: 94px;
+    margin: 10px auto;
+    border-radius: 50%;
+    border: 28px solid var(--lightHover);
+    box-sizing: content-box;
+    opacity: 0.7;
+    animation: pulse-esqueleto 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse-esqueleto {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 0.8; }
+}
+
 .distribucion-lista,
 .divisa-lista {
     display: flex;
@@ -842,11 +923,11 @@ body.dashboard-card-dragging * {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--positive);
+    background: var(--neutral);
 }
 
 .distribucion-barra span.inversiones {
-    background: var(--positiveAlt);
+    background: var(--positive);
 }
 
 .distribucion-barra span.deudas {
@@ -996,7 +1077,7 @@ body.dashboard-card-dragging * {
 
 .favorito-item:hover {
     background-color: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .favorito-info {
@@ -1081,6 +1162,12 @@ body.dashboard-card-dragging * {
     gap: 10px;
 }
 
+/* La card de evolución va a todo el ancho del editor: responde a una serie
+   larga de puntos y en media card no se lee el periodo completo. */
+.dashboard-editor-grid .dashboard-card-opcion[data-card="grafico"] {
+    grid-column: 1 / -1;
+}
+
 .dashboard-card-opcion input[type="checkbox"] {
     appearance: none;
     -webkit-appearance: none;
@@ -1133,6 +1220,18 @@ body.dashboard-card-dragging * {
     background: var(--lightHover);
 }
 
+/* Opción que no se puede marcar ahora mismo (ya hay una card de ese tipo):
+   se atenúa y no admite clic, para que quede claro que el límite existe y no
+   que el control esté roto. */
+.dashboard-card-opcion.bloqueada {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.dashboard-card-opcion.bloqueada:hover {
+    background: var(--surface);
+}
+
 .movimientos-lista .movimiento-item {
     display: flex;
     justify-content: space-between;
@@ -1147,7 +1246,7 @@ body.dashboard-card-dragging * {
 }
 
 .movimientos-lista .movimiento-item:hover {
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
     background-color: var(--lightHover);
 }
 
@@ -1186,6 +1285,10 @@ body.dashboard-card-dragging * {
     color: var(--negative);
 }
 
+.movimiento-monto.ambar {
+    color: var(--ambar);
+}
+
 /* ============================================
    CARD DE METAS DE AHORRO
    ============================================ */
@@ -1210,7 +1313,7 @@ body.dashboard-card-dragging * {
 
 .meta-item:hover {
     background-color: var(--lightHover);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .meta-item.pausada {

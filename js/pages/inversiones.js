@@ -112,6 +112,14 @@ export async function init() {
     configurarToggleVista()
 
     await Promise.all([cargarPosiciones(), cargarEstrategias()])
+
+    // Precios automáticos al entrar, solo si el usuario lo activó en
+    // Configuración › Moneda. No bloquea la vista: corre en segundo plano.
+    if (sesion.getPreferencias()?.precios?.autoActualizar === true) {
+        actualizarPrecios().catch(error => {
+            console.warn("[WARN] No se pudieron auto-actualizar precios:", error)
+        })
+    }
 }
 
 // ============================================
@@ -1419,6 +1427,17 @@ export function abrirModalCompra() {
                 </select>
             </div>
             <div class="form-group">
+                <label for="compra-fuente">Precio (solo si es nuevo)</label>
+                <select id="compra-fuente" class="form-input">
+                    <option value="manual">Manual</option>
+                    <option value="api">Automático (Binance/Yahoo)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="compra-apisimbolo">Símbolo API (solo si es nuevo)</label>
+                <input type="text" id="compra-apisimbolo" class="form-input" placeholder="Vacío = mismo símbolo">
+            </div>
+            <div class="form-group">
                 <label for="compra-cantidad">Cantidad *</label>
                 <input type="number" id="compra-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
             </div>
@@ -1484,11 +1503,15 @@ export function abrirModalCompra() {
                 let activo = await buscarActivoPorSimbolo(uid, simbolo)
                 if (!activo) {
                     if (!nombre) { mostrarNotificacion("error", "El nombre del activo es obligatorio para activos nuevos"); return false }
+                    const fuente = document.getElementById("compra-fuente")?.value || "manual"
+                    const apiSimbolo = document.getElementById("compra-apisimbolo")?.value.trim().toUpperCase() || null
                     await crearActivo(uid, {
                         nombre,
                         simbolo,
                         tipo,
-                        ultimoPrecio: precio
+                        ultimoPrecio: precio,
+                        fuente,
+                        apiSimbolo
                     })
                     activo = await buscarActivoPorSimbolo(uid, simbolo)
                 }

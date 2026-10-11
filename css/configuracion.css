@@ -82,6 +82,18 @@
     align-items: start;
 }
 
+/* En modo ventana (`modal-xl`) el menú ocupa el alto visible del cuerpo y su
+   pie (versión) cae al fondo de la columna. Se ancla a `.modal-xl` para no
+   tocar el modo página, que reutiliza `.config-modal` dentro de `.config-pagina`. */
+.modal-xl .config-modal .config-nav {
+    height: calc(88vh - 200px);
+    overflow-y: auto;
+}
+
+.modal-xl .config-modal .config-nav-pie {
+    margin-top: auto;
+}
+
 /* El pie ya no es un ítem del grid: es el último hijo de .config-body (ver
    plantillaConfiguracion en js/ui/configuracion.js). No hay ninguna regla que
    lo coloque en una fila propia, así que ya no puede caer bajo la columna del
@@ -127,6 +139,15 @@
         justify-content: center;
         text-align: center;
     }
+
+    /* El pie del menú pasa a ocupar toda la franja, debajo de los botones. */
+    .config-nav-pie {
+        flex-basis: 100%;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+    }
 }
 
 /* ========================================
@@ -138,19 +159,17 @@
    es su última fila y se mantiene visible con el mismo `sticky` que en modo
    ventana. */
 
+/* El #panel de la configuración ES el contenedor de scroll (hereda `overflow-y:
+   auto` y el padding de #panel en css/navegacion.css). Aquí solo se le quita
+   el padding de página: dentro del panel los ajustes van de borde a borde. */
 .config-pagina {
-    box-sizing: border-box;
-    display: flex;
-    width: 100%;
-    min-width: 0;
-    min-height: 0;
-    padding: 24px 0;
-    /* `clip` en lugar de `hidden`: hace falta para contener la cadena de
-       alturas, pero no crea contenedor de scroll y con `overflow-clip-margin`
-       el glow de 24px de los botones del menú no se corta en el borde. */
-    overflow: hidden;
-    overflow: clip;
-    overflow-clip-margin: 28px;
+    gap: 0;
+}
+
+/* En modo página el layout es de una sola columna: el sidebar vive en
+   #sidebar, no dentro del #panel. */
+.config-pagina .config-layout {
+    display: block;
 }
 
 .config-pagina .config-modal {
@@ -158,89 +177,55 @@
     min-height: 0;
 }
 
-.config-pagina .config-layout {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    align-content: start;
-    padding-right: 10px;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
+/* Nav de configuración cuando vive en el sidebar de la página. */
+#sidebar .config-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
 }
 
-.config-pagina .config-layout::-webkit-scrollbar {
-    width: 6px;
+/* Pie de versión en modo página: a todo el ancho del panel y al final,
+   en línea horizontal. En modal sigue dentro de la columna del nav. */
+.config-pagina .config-pie-pagina {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: center;
+    text-align: center;
+    column-gap: 10px;
+    row-gap: 4px;
+    margin-top: 24px;
+    padding: 16px 4px 4px;
+    border-top: 1px solid var(--border);
+    font-size: 12px;
 }
 
-.config-pagina .config-layout::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 10px;
-}
-
+/* El menú es la columna fija del grid. `position: sticky` para que siga
+   visible al recorrer una sección larga, anclado al #panel (el contenedor de
+   scroll). */
 .config-pagina .config-nav {
     align-self: start;
     max-height: calc(100vh - 220px);
     overflow-y: auto;
 }
 
-/* En modo página el contenedor que scrollea es `.config-layout`, así que el
-   pie sigue usando `sticky` para no viajar con el contenido. Ya no hace falta
-   sacarlo de flujo como antes, cuando era hermano del grid y por eso ocupaba
-   el ancho entero (BUG-017). */
-.config-pagina .panel-footer {
-    margin: 16px 0 0;
-    background: none;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-}
-
-/* El pie del panel va FUERA de `.config-layout`, así que ocupa todo el ancho
-   del panel (menú + cuerpo) en vez de solo la columna del contenido. Y como
-   el scroll lo hace `.config-layout`, `sticky` dentro de él no serviría: se
-   ancla al contenedor de scroll más cercano. */
-.config-panel-footer {
-    position: sticky;
-    bottom: 0;
-    z-index: 5;
+/* Pie del menú lateral: la versión queda bajo la columna de secciones, en vez
+   de ser una barra de ancho completo bajo el modal (BUG-017). */
+.config-nav-pie {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
-    width: 100%;
-    margin: 0;
-    padding: 12px 20px;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 12px;
+    padding: 12px 18px 0;
     border-top: 1px solid var(--border);
-    background: var(--glass-frosted);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
-}
-
-.config-footer-info {
-    display: flex;
-    align-items: center;
-    gap: 10px;
     font-size: 12px;
     color: var(--textSecondary);
-    flex-wrap: wrap;
 }
 
-.config-footer-acciones {
-    display: flex;
-    gap: 10px;
-    margin-left: auto;
-}
-
-@media (max-width: 520px) {
-    .config-panel-footer {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .config-footer-acciones {
-        margin-left: 0;
-        justify-content: flex-end;
-    }
+.config-nav-pie .footer-brand {
+    font-size: 13px;
 }
 
 /* ========================================
@@ -289,12 +274,28 @@
    TOGGLE DE TEMA
    ======================================== */
 
+/* El grupo se ajusta a su contenido (`width: fit-content`) en vez de estirarse
+   a todo el ancho de la celda: es una fila de tres siglas, no una barra de
+   progreso, y estirada quedaba pegada a la izquierda con el fondo del grupo
+   repartiendo el hueco sobrante.
+
+   Excepción: las cards del dashboard (css/dashboard.css) sí lo quieren a lo
+   ancho de la card, y por eso usan .grafico-periodos, que redeclara el ancho
+   explícitamente en vez de depender de esta base. */
 .toggle-group {
     display: flex;
+    width: fit-content;
+    max-width: 100%;
     gap: 4px;
     background: var(--background);
     border-radius: 50px;
     padding: 3px;
+}
+
+/* Las dos filas de 5 opciones ("7D 30D 90D 1A Todo") necesitan todo el ancho
+   para que no se monte en dos líneas dentro de una card estrecha. */
+.grafico-periodos {
+    width: 100%;
 }
 
 .toggle-lateralidad-cuenta .toggle-option {
@@ -324,10 +325,9 @@
     font-weight: 500;
 }
 
-.toggle-option:hover {
-    padding: 4px 20px;
-}
-
+/* El hover ya no ensancha la píldora: con `padding` mayor el grupo entero se
+   desplazaba al pasar el ratón y las opciones neighboring se bailaban. El
+   hover se marca solo con el fondo. */
 .toggle-option:hover:not(.active) {
     background: var(--lightHover);
 }
@@ -362,7 +362,7 @@
 
 .select:hover {
     border-color: var(--text);
-    box-shadow: 0 0 10px var(--shadow);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 /* ========================================
@@ -385,7 +385,7 @@
     background: var(--lightHover);
     border-color: var(--text);
     transform: scale(1.02);
-    --glow: 0 0 10px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
 }
 
 .glass-btn.danger {
@@ -515,33 +515,8 @@
 }
 
 /* ========================================
-   FOOTER DEL PANEL
+   MARCA Y VERSIÓN
    ======================================== */
-/* Nombre y versión están siempre a la vista: el pie se pega al borde
-   inferior del área que scrollea (sticky) en vez de viajar con el
-   contenido, así que sigue visible aunque estés al final de una sección
-   larga. Los márgenes negativos tapan el padding de .modal-body para que
-   llegue de borde a borde. */
-
-.panel-footer {
-    position: sticky;
-    bottom: 0;
-    z-index: 2;
-    /* Sin márgenes negativos: el pie es ítem del grid, en la columna del
-       contenido, así que ya está alineado con ella. Los negativos existían
-       para llegar al borde de `.modal-body` desde fuera del grid, y era
-       justamente lo que lo metía bajo la columna del menú (BUG-017). */
-    margin: 20px 0;
-    padding: 12px 0;
-    border-top: 1px solid var(--border);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 16px;
-    flex-wrap: wrap;
-    font-size: 13px;
-    color: var(--textSecondary);
-}
 
 .footer-brand {
     font-weight: 600;
@@ -643,14 +618,17 @@
         min-width: auto;
     }
 
-    .toggle-group {
+    /* Solo en la configuración: en móvil los toggles ocupan el ancho de la
+       fila. Acotado a .config-group para no estirar también los de los
+       modales, que van dentro de .form-group. */
+    .config-group .toggle-group {
         display: flex;
         flex-direction: row;
         width: 100%;
         gap: 12px;
     }
 
-    .toggle-option {
+    .config-group .toggle-option {
         flex: 1;
         text-align: center;
     }
@@ -668,11 +646,5 @@
     .button-group .glass-btn {
         flex: 1;
         text-align: center;
-    }
-
-    .panel-footer {
-        flex-direction: column;
-        align-items: center;
-        gap: 4px;
     }
 }

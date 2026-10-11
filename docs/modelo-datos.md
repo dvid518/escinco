@@ -114,6 +114,7 @@ Campos adicionales para `tipo === "credito"`:
 | `cuentaPago` / `cuentaCobro` | string | Cuenta de pago/cobro P2P |
 | `fechaRealizacion` | Timestamp | Fecha real del gasto |
 | `fechaRegistro` | Timestamp | Creación (server) |
+| `etiquetas` | string[] | Etiquetas libres del movimiento (filtrables en Movimientos y exportadas al CSV) |
 
 ## `activos/{autoId}`
 

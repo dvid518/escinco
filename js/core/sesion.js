@@ -48,7 +48,10 @@ export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
     movimientosRecientes: 5,
     periodoEvolucion: "30d",
     resaltarPatrimonio: 0,
-    formatoDivisa: "simbolo"
+    formatoDivisa: "simbolo",
+    precios: Object.freeze({
+        autoActualizar: false
+    })
 })
 
 export function esObjetoPlano(valor) {

@@ -1427,3 +1427,34 @@ Sección 4. El error más común es citar la línea vecina de la declaración bu
 son verificables y se pueden citar en el avance. Las afirmaciones sobre
 *intención* de diseño están marcadas como interpretación y no deberían presentarse
 como decisiones documentadas del equipo.
+
+---
+
+## 7 — Búsqueda global, lastbar y centro de notificaciones (1.0.0-beta.22)
+
+Novedades de UI de esta sesión, no recogidas en las secciones anteriores:
+
+- **Buscador global** (`js/core/atajos.js`): modal (`variante: "narrow"`) con un
+  input que filtra páginas, cuentas, movimientos (últimos 50) y activos. Se
+  navega con ↑↓ / Enter / clic. Se abre con **Alt+K** o desde el ítem «Buscar»
+  de la lastbar. El texto del usuario se inserta con `textContent` (nunca
+  `innerHTML`).
+- **Atajos globales** (`initAtajos`, instalado en `js/core/app.js:95`): Alt+K
+  buscador, Alt+P pendientes, Alt+M metas, Alt+N notificaciones. Funcionan aunque
+  haya un campo de texto enfocado; se resuelven por `evento.code` para ser
+  estables entre distribuciones de teclado.
+- **Lastbar**: el bloque global (`PENDIENTES_BLOCK`, `js/core/lastbar.js:112`)
+  pasa de 2 a **4 ítems**: Pendientes, Metas, **Buscar** y **Notificaciones**.
+  Los dos nuevos tienen manejador en `MAPA_ACCIONES` (`buscar`, `notificaciones`).
+- **Centro de notificaciones** (`js/ui/notificaciones.js`): modal con el
+  historial de las últimas 50 notificaciones, persistido en `localStorage` por
+  usuario (`escinco:notificaciones:{uid}`). Se marca como leído al abrirlo
+  (`marcarNotificacionesLeidas`) y expone `alCambiarNotificaciones`,
+  `contarNotificacionesNoLeidas` y `obtenerHistorialNotificaciones`.
+- **Filtro de etiquetas en Movimientos**: `#filtro-etiqueta`
+  (`js/pages/movimientos.js:126`), con opciones reconstruidas desde los
+  movimientos cargados (`actualizarOpcionesEtiquetas`, `movimientos.js:206`).
+
+> Los ítems «Buscar»/«Notificaciones» se referenciaban en el bloque de la lastbar
+> sin estar definidos (la app no arrancaba); se completaron en esta sesión. Ver
+> `docs/reporte-bugs.md`, entrada S-04.
