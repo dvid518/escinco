@@ -148,7 +148,6 @@ export async function evaluarOrdenesPendientes(uid) {
                 tipo: orden.direccion,
                 estado: "abierto",
                 divisa: orden.divisa,
-                nota: orden.nota,
                 ordenId: orden.id
             })
 

@@ -819,11 +819,6 @@ export function abrirModalNuevoTrade(tipo) {
                 <label for="trade-tp">Take Profit</label>
                 <input type="number" id="trade-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
             </div>
-            <div class="form-group full">
-                <label for="trade-nota">Nota</label>
-                <textarea id="trade-nota" class="form-input form-textarea" rows="3" maxlength="1500" placeholder="Estrategia, contexto del mercado, decisiones..."></textarea>
-                <span class="form-hint">Máximo 1500 caracteres</span>
-            </div>
         </form>
     `
 
@@ -840,7 +835,6 @@ export function abrirModalNuevoTrade(tipo) {
             const lotaje = parseFloat(document.getElementById('trade-lotaje')?.value)
             const sl = parseFloat(document.getElementById('trade-sl')?.value) || null
             const tp = parseFloat(document.getElementById('trade-tp')?.value) || null
-            const nota = document.getElementById('trade-nota')?.value.trim()
 
             if (!activo) { mostrarNotificacion("error", "El activo es obligatorio"); return false }
             if (!cuenta) { mostrarNotificacion("error", "Selecciona una cuenta"); return false }
@@ -856,7 +850,6 @@ export function abrirModalNuevoTrade(tipo) {
                     sl,
                     tp,
                     divisa,
-                    nota,
                     tipo,
                     estado: 'abierto'
                 })
@@ -1009,11 +1002,6 @@ function abrirModalEditarTrade(tradeId) {
                     <input type="number" id="editar-trade-salida" class="form-input" step="0.01" min="0" value="${trade.salida || ''}" placeholder="${simbolo} 0.00">
                 </div>
             ` : ''}
-            <div class="form-group full">
-                <label for="editar-trade-nota">Nota</label>
-                <textarea id="editar-trade-nota" class="form-input form-textarea" rows="3" maxlength="1500">${(trade.nota || "").replace(/</g, "&lt;")}</textarea>
-                <span class="form-hint">Máximo 1500 caracteres</span>
-            </div>
         </form>
     `
 
@@ -1029,7 +1017,6 @@ function abrirModalEditarTrade(tradeId) {
             const lotaje = parseFloat(document.getElementById('editar-trade-lotaje')?.value)
             const sl = parseFloat(document.getElementById('editar-trade-sl')?.value) || null
             const tp = parseFloat(document.getElementById('editar-trade-tp')?.value) || null
-            const nota = document.getElementById('editar-trade-nota')?.value.trim()
 
             if (!activo) { mostrarNotificacion("error", "El activo es obligatorio"); return false }
             if (!entrada || entrada <= 0) { mostrarNotificacion("error", "La entrada debe ser mayor a 0"); return false }
@@ -1041,8 +1028,7 @@ function abrirModalEditarTrade(tradeId) {
                 entrada,
                 lotaje,
                 sl,
-                tp,
-                nota
+                tp
             }
 
             if (trade.estaCerrado) {
@@ -1152,11 +1138,6 @@ export function abrirModalNuevaOrden() {
                 <label for="orden-tp">Take Profit</label>
                 <input type="number" id="orden-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
             </div>
-            <div class="form-group full">
-                <label for="orden-nota">Nota</label>
-                <textarea id="orden-nota" class="form-input form-textarea" rows="3" maxlength="1500" placeholder="Estrategia, contexto del mercado, decisiones..."></textarea>
-                <span class="form-hint">Máximo 1500 caracteres</span>
-            </div>
         </form>
     `
 
@@ -1175,7 +1156,6 @@ export function abrirModalNuevaOrden() {
             const lotaje = parseFloat(document.getElementById('orden-lotaje')?.value)
             const sl = parseFloat(document.getElementById('orden-sl')?.value) || null
             const tp = parseFloat(document.getElementById('orden-tp')?.value) || null
-            const nota = document.getElementById('orden-nota')?.value.trim()
 
             if (!activo) { mostrarNotificacion("error", "El activo es obligatorio"); return false }
             if (!cuenta) { mostrarNotificacion("error", "Selecciona una cuenta"); return false }
@@ -1193,7 +1173,6 @@ export function abrirModalNuevaOrden() {
                     sl,
                     tp,
                     divisa,
-                    nota,
                     estado: 'pendiente'
                 })
 
@@ -1261,12 +1240,6 @@ function abrirModalDetalleOrden(ordenId) {
                 <label>Creada el</label>
                 <span class="form-static">${formatearFechaOrden(orden.fechaCreacion)}</span>
             </div>
-            ${orden.nota ? `
-                <div class="form-group full">
-                    <label>Nota</label>
-                    <span class="form-static">${orden.nota.replace(/</g, "&lt;")}</span>
-                </div>
-            ` : ''}
         </div>
     `
 
@@ -1358,11 +1331,6 @@ function abrirModalEditarOrden(ordenId) {
                 <label for="editar-orden-tp">Take Profit</label>
                 <input type="number" id="editar-orden-tp" class="form-input" step="0.01" min="0" value="${orden.tp || ''}" placeholder="0.00">
             </div>
-            <div class="form-group full">
-                <label for="editar-orden-nota">Nota</label>
-                <textarea id="editar-orden-nota" class="form-input form-textarea" rows="3" maxlength="1500">${(orden.nota || "").replace(/</g, "&lt;")}</textarea>
-                <span class="form-hint">Máximo 1500 caracteres</span>
-            </div>
         </form>
     `
 
@@ -1382,7 +1350,6 @@ function abrirModalEditarOrden(ordenId) {
             const lotaje = parseFloat(document.getElementById('editar-orden-lotaje')?.value)
             const sl = parseFloat(document.getElementById('editar-orden-sl')?.value) || null
             const tp = parseFloat(document.getElementById('editar-orden-tp')?.value) || null
-            const nota = document.getElementById('editar-orden-nota')?.value.trim()
 
             if (!activo) { mostrarNotificacion("error", "El activo es obligatorio"); return false }
             if (!cuenta) { mostrarNotificacion("error", "Selecciona una cuenta"); return false }
@@ -1399,8 +1366,7 @@ function abrirModalEditarOrden(ordenId) {
                     lotaje,
                     sl,
                     tp,
-                    divisa,
-                    nota
+                    divisa
                 })
                 await cargarOrdenes()
                 mostrarNotificacion("exito", "Orden actualizada correctamente")

@@ -99,15 +99,6 @@ export async function reabrirTrade(uid, tradeId) {
     return resultado
 }
 
-export async function actualizarNotaTrade(uid, tradeId, nota) {
-    const referencia = doc(db, "usuarios", uid, "trades", tradeId)
-    const resultado = await updateDoc(referencia, {
-        nota: (nota || "").slice(0, 1500)
-    })
-    cacheCapa.invalidar(uid, "trades")
-    return resultado
-}
-
 export async function eliminarTrade(uid, tradeId) {
     const referencia = doc(db, "usuarios", uid, "trades", tradeId)
     const resultado = await deleteDoc(referencia)

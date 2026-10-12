@@ -4,7 +4,6 @@ import {
     actualizarTrade,
     cerrarTrade,
     reabrirTrade,
-    actualizarNotaTrade,
     eliminarTrade
 } from "../repositories/TradeRepositorio.js"
 import { buscarActivoPorSimbolo } from "../repositories/ActivoRepositorio.js"
@@ -116,10 +115,6 @@ export async function finalizarTrade(uid, tradeId, salida) {
 
 export async function reabrirTradeAbierto(uid, tradeId) {
     return await reabrirTrade(uid, tradeId)
-}
-
-export async function actualizarNota(uid, tradeId, nota) {
-    return await actualizarNotaTrade(uid, tradeId, nota)
 }
 
 export async function borrarTrade(uid, tradeId) {

@@ -12,7 +12,6 @@ export class Trade {
         this.tipo = datos.tipo || 'long' // long | short
         this.estado = datos.estado || 'abierto' // abierto | cerrado
         this.divisa = datos.divisa || 'usd'
-        this.nota = datos.nota || ''
         this.ordenId = datos.ordenId || null
         this.fechaRegistro = datos.fechaRegistro || new Date()
         this.fechaCierre = datos.fechaCierre || null
@@ -46,7 +45,6 @@ export class Trade {
             tipo: this.tipo,
             estado: this.estado,
             divisa: this.divisa,
-            nota: this.nota,
             ordenId: this.ordenId,
             fechaCierre: this.fechaCierre
         }
@@ -65,7 +63,6 @@ export class Trade {
             tipo: data.tipo,
             estado: data.estado,
             divisa: data.divisa,
-            nota: data.nota,
             ordenId: data.ordenId || null,
             fechaRegistro: data.fechaRegistro?.toDate?.() || data.fechaRegistro,
             fechaCierre: data.fechaCierre?.toDate?.() || data.fechaCierre

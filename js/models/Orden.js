@@ -39,7 +39,6 @@ export class Orden {
         this.sl = datos.sl ?? null
         this.tp = datos.tp ?? null
         this.divisa = (datos.divisa || "usd").toLowerCase()
-        this.nota = datos.nota || ""
         this.estado = datos.estado || ESTADOS_ORDEN.PENDIENTE
         this.tradeId = datos.tradeId || null
         this.precioEjecucion = datos.precioEjecucion ?? null
@@ -80,7 +79,6 @@ export class Orden {
             sl: this.sl,
             tp: this.tp,
             divisa: this.divisa,
-            nota: this.nota,
             estado: this.estado,
             tradeId: this.tradeId,
             precioEjecucion: this.precioEjecucion,
@@ -101,7 +99,6 @@ export class Orden {
             sl: data.sl ?? null,
             tp: data.tp ?? null,
             divisa: data.divisa,
-            nota: data.nota,
             estado: data.estado,
             tradeId: data.tradeId || null,
             precioEjecucion: data.precioEjecucion ?? null,
