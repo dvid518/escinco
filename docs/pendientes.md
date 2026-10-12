@@ -19,7 +19,7 @@ commit y, si procede, se propaga al registro que le corresponda.
 |-----------|-----------|
 | **Bloqueante** | 1 |
 | **Alta** | 3 |
-| **Media** | 2 |
+| **Media** | 3 |
 | **Baja** | 2 |
 
 ---
@@ -31,7 +31,7 @@ commit y, si procede, se propaga al registro que le corresponda.
 | | |
 |---|---|
 | **Prioridad** | Bloqueante |
-| **Estado** | Reglas corregidas (sin aplicar) · requiere deploy + confirmación |
+| **Estado** | Reglas e índice **desplegados** (2026-10-12) · falta confirmar un día real |
 | **Módulo** | `firebase/firestore.rules`, `js/services/SnapshotServicio.js` |
 
 Al registrar el snapshot del día salta `FirebaseError: Missing or insufficient
@@ -50,12 +50,14 @@ un snapshot antiguo hacía fallar el `hasOnly` y la regla devolvía
   `allow create` conserva el `hasOnly` original; `allow update` valida solo el
   tipo de lo que viene en la escritura (`ifPresente*`), igual que el resto de
   colecciones.
-- Verificar que `npm run deploy:rules` acierta ahora y que el snapshot se
-  registra el próximo día (o borrando el de hoy en Firebase para forzar la
-  escritura).
-- Extra: la consulta ordenada de snapshots exigía un índice compuesto
-  (`firebase/firestore.indexes.json` lo añade para `__name__ DESCENDING`) y
-  `obtenerSnapshots` tiene plan B en memoria si el índice no está desplegado.
+- **Desplegado el 2026-10-12**: `firebase deploy --only firestore:rules` y
+  `firestore:indexes` completados; el índice compuesto de `snapshots`
+  (`__name__ DESCENDING`) está en producción.
+- Falta confirmar en producción que el snapshot del día se registra sin
+  `Missing or insufficient permissions` (esperar al siguiente cierre diario, o
+  borrar el de hoy para forzar la escritura).
+- Extra: `obtenerSnapshots` tiene plan B en memoria si el índice no estuviera
+  desplegado.
 
 **Cómo confirmar**: DevTools → consola → reproducir → copiar el objeto `error`
 completo si sigue fallando (incluye `code`, `message` y `customData`).
@@ -147,6 +149,26 @@ cambios, y que Cerrar avise de cambios sin guardar.
 **Relacionado**: `BUG-017` (el pie se extendía debajo del sidebar) queda
 resuelto por este cambio, pero sigue marcado `PENDIENTE` en `reporte-bugs.md`
 porque no se ha verificado en navegador.
+
+---
+
+### PEND-010 · Verificación en navegador del gráfico tras el pulido de UI
+
+| | |
+|---|---|
+| **Prioridad** | Media |
+| **Estado** | Anotado, sin verificar |
+| **Módulo** | `js/ui/graficos.js`, `css/dashboard.css`, `css/inversiones.css` |
+
+El pulido visual de la sesión beta.27 (commit `d77cf7d`) tocó el esqueleto de
+las cards, los bordes y las capas con `position: fixed`. El gráfico de Chart.js
+(`js/ui/graficos.js:127,308,446`) es el punto más frágil frente a ese tipo de
+cambios: el canvas se dimensiona contra su contenedor y un desajuste de layout
+se ve como líneas borrosas, ejes mal medidos o canvas a 0 px.
+
+**Pendiente de comprobar**: nitidez del canvas con devicePixelRatio ≠ 1,
+tamaño de ejes y leyenda, el gráfico de evolución dentro del modal, y el
+comportamiento al cambiar de tamaño la ventana. No hay test que cubra esto.
 
 ---
 

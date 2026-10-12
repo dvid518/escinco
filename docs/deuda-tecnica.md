@@ -1,17 +1,18 @@
 # Registro de deuda técnica
 
-Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.21)
+Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.27)
 
 ## Resumen
 
-- Total de ítems: **23**
-- Prioridad alta: **5**
+- Total de ítems: **26**
+- Prioridad alta: **4**
 - Prioridad media: **10**
-- Prioridad baja: **8**
+- Prioridad baja: **9**
 - De los anteriores, **3 están resueltos** (DEUDA-001, DEUDA-003, DEUDA-004) y
   conservan su prioridad original tachada, para que se vea qué eran.
 
-Los conteos del resumen son de la tabla, no al revés: 5 + 10 + 8 = 23.
+Los conteos del resumen son de la tabla, no al revés: 4 + 10 + 9 = 26
+(resueltas: 3).
 
 ### Criterio de prioridad
 
@@ -55,7 +56,10 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-015 | `formatearMontoConDivisa` exportada y redefinida localmente | `DivisaServicio.js:46`, `cuentas.js:71` | Dos implementaciones del mismo formateo | Baja |
 | DEUDA-019 | Archivos huérfanos y de prueba en el repositorio | raíz, `experimentos/` | Basura que se despliega o confunde | Baja |
 | DEUDA-020 | `docs/informe-info.md` pesa 137 KB | `docs/` | Ilegible como documento de referencia | Baja |
-| DEUDA-021 | Sin scripts de `lint`, `test` ni `typecheck` | `package.json` | Ninguna validación automática posible | Baja |
+| DEUDA-021 | Sin scripts de `lint` ni `typecheck`; tests manuales con `npm test`, sin CI (ver DEUDA-024) | `package.json` | Los tests existen (`tests/`, 110 comprobaciones) pero corren a mano |
+| DEUDA-023 | Sin tags de Git: la versión vive solo en `constants/version.js` y mensajes de commit | raíz | Releases no reproducibles; imposible volver a "la beta.25" con certeza | Media |
+| DEUDA-024 | Sin CI: los tests no se ejecutan automáticamente en push/PR | raíz | Una regresión puede llegar a producción sin que nadie ejecute `npm test` | Media |
+| DEUDA-025 | `docs/requisitos.md` desfasado en 4 puntos | `docs/requisitos.md` | El briefing induce a decisiones equivocadas | Baja |
 
 ---
 
@@ -671,3 +675,23 @@ Lo que está abierto y accionable ahora mismo está en
   (**DEUDA-012**, **DEUDA-013**). Empezar por `no-unused-vars` y
   `no-console`: son los dos que más rápido pagan.
 - **Evidencia**: `package.json` (los 5 scripts, sin `devDependencies`)
+### DEUDA-025: `docs/requisitos.md` desfasado en 4 puntos
+
+- **Módulo**: `docs/requisitos.md`
+- **Estado**: anotada en la evaluación integral (2026-10-12). No actualizar
+  todavía: se decidirá junto con el resto de documentación al cierre.
+- **Desfases**:
+  1. **Versión**: declara `1.0.0-beta.5` (`requisitos.md:4`); la real es
+     `1.0.0-beta.27` (`constants/version.js:2`).
+  2. **Inactividad**: declara "cierre por inactividad (30 min)"
+     (`requisitos.md:33`); el real es **15 minutos**
+     (`firebase/auth.js:34`, `js/core/sesion.js:26`).
+  3. **Divisas**: declara PEN/USD/USDT (`requisitos.md:117`); el código
+     soporta **PEN/USD/USDT/EUR** (`constants/divisas.js:8-13`,
+     `DIVISAS` y `ORDEN_DIVISAS`) y `dashboard` ya desglosa por divisa
+     real, no solo por las tres.
+  4. **Trading**: `requisitos.md:101` aún menciona el campo `nota` en los
+     trades; se eliminó del modelo, la UI y los repositorios (commit
+     `fb6482b`).
+- **Prioridad**: Baja (documentación), pero es la primera fuente que consulta
+  alguien nuevo: conviene corregirla antes de declarar la v1.0.0.
