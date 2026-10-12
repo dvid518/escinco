@@ -1255,13 +1255,13 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 
     const acciones = cuenta.estado === "archivada" ? "" : cuenta.tipo === "credito" ? `
             <div class="totales-acciones">
-                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("eye", 16)}</button>
+                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("picture-in-picture", 16)}</button>
                 <button type="button" class="totales-btn" id="btn-gasto-tarjeta" title="Registrar gasto" aria-label="Registrar gasto">${icono("arrow-up-right", 16)}</button>
                 ${puedePagarTarjeta ? `<button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>` : ""}
             </div>
         ` : `
             <div class="totales-acciones">
-                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("eye", 16)}</button>
+                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("picture-in-picture", 16)}</button>
                 <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus", 16)}</button>
             </div>
         `
@@ -1314,6 +1314,7 @@ function plantillaMovimiento(m, cuentaId = null) {
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
     const seleccionada = seleccionadosCuenta.has(m.id) ? " seleccionado" : ""
+    const etiquetas = (m.etiquetas || []).filter(Boolean)
 
     // Determinar clase de color: error muestra en ambar
     let clase = esPositivo ? "positive" : "negative"
@@ -1323,8 +1324,8 @@ function plantillaMovimiento(m, cuentaId = null) {
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}</span>
-                    <span class="card-item-detalle">${fecha} · ${tipoNombre}</span>
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
+                    <span class="card-item-detalle">${fecha}</span>
                 </div>
                 <div class="card-item-valor-wrap">
                     <span class="card-item-valor ${clase}">

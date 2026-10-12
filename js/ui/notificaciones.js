@@ -237,6 +237,7 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
     const notificacion = document.createElement("div")
     notificacion.className = `glass notificacion notificacion-${config.clase}`
     notificacion.dataset.id = id
+    if (duracion > 0) notificacion.style.setProperty("--duracion", `${duracion}ms`)
     notificacion.innerHTML = `
         <span class="notificacion-icono">${icono(config.icono, 20)}</span>
         <span class="notificacion-mensaje"></span>
@@ -244,6 +245,7 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
             <button type="button" class="notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}">${a.texto}</button>
         `).join("")}
         <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">${icono("x", 16)}</button>
+        ${duracion > 0 ? `<span class="notificacion-progreso" aria-hidden="true"></span>` : ""}
     `
     notificacion.querySelector(".notificacion-mensaje").textContent = mensaje
 

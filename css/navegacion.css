@@ -224,7 +224,6 @@
 }
 
 .sidebar-wrap #sidebar {
-    width: 100%;
     min-width: 0;
     flex: 1;
     /* min-height: 0 es lo que permite que la lista scrollee en vez de crecer:
@@ -234,10 +233,15 @@
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
-    /* padding: 2px 0 da sitio a la máscara del desvanecido, que recorta por el
-       borde del padding box: sin él la lista se cortaría en seco en el borde.
-       El lateral lo traen ya los items. */
-    padding: 2px 0;
+    /* Un contenedor con scroll recorta TODO el paint de sus hijos (incluido el
+       glow de los botones .glass, que va en su ::after) a su padding box. Con
+       `padding: 2px 0` no había aire y el glow salía cortado en seco por los
+       bordes del sidebar. Le damos margen y lo compensamos con márgenes
+       negativos + más ancho para que los botones conserven el ancho de antes. */
+    box-sizing: border-box;
+    width: calc(100% + 16px);
+    margin-inline: -8px;
+    padding: 8px;
 }
 
 .sidebar-wrap #sidebar button {
@@ -510,75 +514,9 @@
     transition: all 0.3s ease;
 }
 
-/* Íconos */
-.lastbar .item:hover #icon-mov {
-    transition: all 0.3s ease;
-    transform: rotate(90deg);
-}
-
-.lastbar .item:hover #icon-act {
-    transition: all 0.6s ease;
-    transform: rotate(-360deg);
-}
-
-.lastbar .item:hover #icon-ext .arrow {
-    transition: all 0.3s ease;
-    animation: shake 1s linear infinite;
-}
-
-.lastbar .item:hover #icon-pen {
-    transition: all 0.3s ease;
-}
-
-.lastbar .item:hover #icon-target {
-    transition: all 0.3s ease;
-    transform: scale(1.15);
-}
-
-.lastbar .item:hover #icon-edit {
-    transition: all 0.4s ease;
-    transform: rotate(-30deg);
-}
-
-.lastbar .item:hover #icon-arch rect {
-    transition: all 0.3s ease;
-    transform: translateY(-2px);
-}
-
-.lastbar .item:hover #icon-trash .cover {
-    transition: all 0.3s ease;
-    transform: translateY(-2px);
-}
-
-.lastbar .item:hover #icon-up {
-    transition: all 0.3s ease;
-    transform: translateY(-3px);
-}
-
-.lastbar .item:hover #icon-down {
-    transition: all 0.3s ease;
-    transform: translateY(3px);
-}
-
-.lastbar .item:hover #icon-trend-up {
-    transition: all 0.3s ease;
-    transform: rotate(-15deg);
-}
-
-.lastbar .item:hover #icon-trend-down {
-    transition: all 0.3s ease;
-    transform: rotate(15deg);
-}
-
-.lastbar .item:hover #icon-save {
-    transition: all 0.3s ease;
-    transform: rotate(10deg);
-}
-
-.lastbar .item:hover #icon-logout .arrow {
-    transition: all 0.3s ease;
-    transform: translateX(2px);
-}
+/* Íconos: sin animaciones de hover (se retiraron los transforms/rotaciones
+   por-ícono). Solo queda la transición base de .lastbar .item svg para el
+   efecto de aparición del ícono al desplegar el lastbar. */
 
 /* ============================================
    LASTRAR - MODO SIEMPRE VISIBLE
@@ -710,7 +648,11 @@
         flex-direction: row;
         overflow-x: auto;
         overflow-y: hidden;
-        padding: 2px 0 6px;
+        /* Mismo motivo que en escritorio: aire para el glow de los botones.
+           El ancho/márgenes negativos de escritorio no aplican en fila. */
+        margin-inline: 0;
+        width: auto;
+        padding: 8px 6px;
         gap: 6px;
         max-width: 100%;
     }
@@ -959,8 +901,7 @@
 .lista-posiciones.scroll-fade,
 .pendientes-lista.scroll-fade,
 .vencimientos-lista.scroll-fade,
-.sidebar-wrap #sidebar.scroll-fade,
-#panel.scroll-fade {
+.sidebar-wrap #sidebar.scroll-fade {
     --scroll-fade-top: 0px;
     --scroll-fade-bottom: 0px;
     -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
@@ -980,8 +921,7 @@
 .lista-posiciones.scroll-fade.scroll-fade-top,
 .pendientes-lista.scroll-fade.scroll-fade-top,
 .vencimientos-lista.scroll-fade.scroll-fade-top,
-.sidebar-wrap #sidebar.scroll-fade.scroll-fade-top,
-#panel.scroll-fade.scroll-fade-top {
+.sidebar-wrap #sidebar.scroll-fade.scroll-fade-top {
     --scroll-fade-top: 18px;
 }
 
@@ -999,7 +939,6 @@
 .lista-posiciones.scroll-fade.scroll-fade-bottom,
 .pendientes-lista.scroll-fade.scroll-fade-bottom,
 .vencimientos-lista.scroll-fade.scroll-fade-bottom,
-.sidebar-wrap #sidebar.scroll-fade.scroll-fade-bottom,
-#panel.scroll-fade.scroll-fade-bottom {
+.sidebar-wrap #sidebar.scroll-fade.scroll-fade-bottom {
     --scroll-fade-bottom: 18px;
 }

@@ -82,9 +82,10 @@ function plantillaConfiguracion() {
                         </button>
                     `).join("")}
                     <div class="config-nav-pie">
-                        <span class="footer-brand">${VERSION.nombre}</span>
+                        <a class="footer-brand" href="/" target="_blank" rel="noopener noreferrer">${VERSION.nombre}</a>
                         <span class="footer-version">v${VERSION.numero}</span>
                         <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
+                        <span class="footer-legal"><a href="/privacidad" target="_blank" rel="noopener noreferrer">Privacidad</a> · <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos</a></span>
                     </div>
                 </nav>
                 <div class="config-body">

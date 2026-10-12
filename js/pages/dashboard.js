@@ -20,7 +20,8 @@ import {
     convertirMonto,
     formatearMonto,
     formatearMontoConDivisa,
-    presentarDivisa
+    presentarDivisa,
+    etiquetaDivisa
 } from "../services/DivisaServicio.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import { estadoCicloDe, nivelUsoDe, proximaAnualidad } from "../services/CreditoServicio.js"
@@ -314,7 +315,7 @@ function montarCardsInstanciadas() {
     requeridas.forEach(id => {
         if (montadas.has(id)) return
         const nodo = construirCardInstancia(id)
-        if (!nodo) return
+        if (!(nodo instanceof Element)) return
         grid.appendChild(nodo)
         enlazarCardInstancia(nodo, id)
         montadas.set(id, nodo)
@@ -333,9 +334,13 @@ function montarCardsInstanciadas() {
 function construirCardInstancia(id) {
     const entidad = entidadDeInstancia(id)
     if (!entidad) return null
-    return entidad.tipo === "cuenta"
+    const html = entidad.tipo === "cuenta"
         ? plantillaCardCuenta(entidad.cuenta)
         : plantillaCardActivo(entidad.posicion)
+    if (!html || typeof html !== "string") return null
+    const contenedor = document.createElement("div")
+    contenedor.innerHTML = html.trim()
+    return contenedor.firstElementChild
 }
 
 function cantidadDeActivo(valor) {
@@ -2701,11 +2706,7 @@ function actualizarDistribucionActivos() {
 // variable (patrimonioPEN/USD/USDT): el campo NO es la clave de divisa en
 // minúscula que usaba antes, y leer patrimonioStats["pen"] daba siempre 0
 // (BUG-029). El campo y la clave van por separado a propósito.
-const DIVISAS_PATRIMONIO = [
-    { clave: "pen", campo: "patrimonioPEN", etiqueta: "Soles" },
-    { clave: "usd", campo: "patrimonioUSD", etiqueta: "Dólares" },
-    { clave: "usdt", campo: "patrimonioUSDT", etiqueta: "USDT" }
-]
+const ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur", "usdt"]
 
 function actualizarPatrimonioDivisa() {
     const lista = document.getElementById("patrimonio-divisa-lista")
@@ -2716,12 +2717,21 @@ function actualizarPatrimonioDivisa() {
         return
     }
 
-    // Cada cifra va en su propia moneda (no en la del selector): el objeto de
-    // la card es ver cuánto hay de cada divisa, no cuánto vale en total.
-    const items = DIVISAS_PATRIMONIO.map(({ clave, campo, etiqueta }) => ({
-        etiqueta,
+    // Desglose real por divisa en su propia moneda. Los tres totales
+    // convertidos son el mismo patrimonio en tres monedas y siempre darían
+    // partes iguales: no sirven para esta card.
+    const desglose = patrimonioStats.porDivisa || {}
+    const claves = Object.keys(desglose)
+        .filter(clave => Math.abs(Number(desglose[clave]) || 0) > 0)
+        .sort((a, b) => {
+            const ia = ORDEN_DIVISAS_PATRIMONIO.indexOf(a)
+            const ib = ORDEN_DIVISAS_PATRIMONIO.indexOf(b)
+            return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || (a < b ? -1 : 1)
+        })
+    const items = claves.map(clave => ({
+        etiqueta: etiquetaDivisa(clave),
         clave,
-        valor: Number(patrimonioStats[campo]) || 0
+        valor: Number(desglose[clave]) || 0
     }))
 
     // El peso de cada divisa se mide sobre el total convertido a una moneda
@@ -2854,11 +2864,12 @@ function plantillaMovimiento(m) {
     let clase = esPositivo ? "positive" : "negative"
     if (m.tipo === "error") clase = "ambar"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Movimiento"
+    const etiquetas = (m.etiquetas || []).filter(Boolean)
 
     return `
         <div class="movimiento-item" data-movimiento-id="${m.id}" role="button" tabindex="0" title="Ver movimiento">
             <div class="movimiento-info">
-                <span class="movimiento-titulo">${m.concepto || m.activo || tipoNombre}</span>
+                <span class="movimiento-titulo">${m.concepto || m.activo || tipoNombre}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
                 <span class="movimiento-detalle">${formatearFecha(fechaDeMovimiento(m))}</span>
             </div>
             <span class="movimiento-monto ${clase}">${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}</span>

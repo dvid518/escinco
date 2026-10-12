@@ -68,6 +68,26 @@ export function formatearMontoConDivisa(monto, moneda = null) {
     return `${presentarDivisa(moneda)} ${importe}`
 }
 
+/**
+ * Igual que formatearMontoConDivisa pero sin decimales innecesarios: 97500 →
+ * "97500", 512.3 → "512.3", 0.002 → "0.002". Para precios/cantidades donde
+ * arrastrar ".00" no aporta nada.
+ */
+export function formatearMontoMinimo(monto, moneda = null) {
+    const importe = recortarDecimales(monto)
+    if (getFormatoDivisa() === "codigo") {
+        return `${importe} ${DIVISAS_LABELS[(moneda || getDivisaPrincipal()).toLowerCase()] || String(moneda || "").toUpperCase() || "PEN"}`
+    }
+    return `${presentarDivisa(moneda)} ${importe}`
+}
+
+/** Número con la menor cantidad de decimales posibles (máximo 6). */
+export function recortarDecimales(valor) {
+    const n = Number(valor)
+    if (!Number.isFinite(n)) return "0"
+    return String(Number(n.toFixed(6)))
+}
+
 export function getTipoCambio() {
     const prefs = sesion.getPreferencias()
     return prefs?.tipoCambio || TIPO_CAMBIO_DEFAULT

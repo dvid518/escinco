@@ -34,7 +34,7 @@ import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa, formatearMontoMinimo, recortarDecimales } from "../services/DivisaServicio.js"
 
 let uid = null
 let posicionesData = null
@@ -246,21 +246,6 @@ function plantillaPosicion(p) {
     const fuenteLabel = fuente === "api" ? "Auto" : "Manual"
     const fuenteClase = fuente === "api" ? "fuente-api" : "fuente-manual"
 
-    // Fecha de última actualización
-    let fechaActualizacion = ""
-    if (activo?.ultimaActualizacion) {
-        const fecha = activo.ultimaActualizacion instanceof Date
-            ? activo.ultimaActualizacion
-            : new Date(activo.ultimaActualizacion)
-        if (!Number.isNaN(fecha.getTime())) {
-            fechaActualizacion = fecha.toLocaleDateString("es-PE", {
-                day: "2-digit",
-                month: "2-digit",
-                year: "2-digit"
-            })
-        }
-    }
-
     return `
         <div class="posicion-item${seleccionadas.has(p.id) ? " seleccionado" : ""}" data-posicion-id="${p.id}" data-activo-id="${p.activoId}">
             <button
@@ -277,25 +262,20 @@ function plantillaPosicion(p) {
                     <span class="posicion-fuente ${fuenteClase}">${fuenteLabel}</span>
                 </div>
                 <div class="posicion-detalle">
-                    ${p.cantidad.toFixed(4)} · Precio: ${formatearMontoConDivisa(activo?.ultimoPrecio || 0, p.divisa)}
-                    ${fechaActualizacion ? ` · Act. ${fechaActualizacion}` : ""}
+                    ${recortarDecimales(p.cantidad)} · Precio: ${formatearMontoMinimo(activo?.ultimoPrecio || 0, p.divisa)}
                 </div>
             </div>
             <div class="card-item-valor-wrap">
-                    <div class="posicion-valores">
-                        <div class="posicion-valor">
-                            ${formatearMontoConDivisa(valor, p.divisa)}
-                        </div>
-                        <div class="posicion-rendimiento ${esGanancia ? "positive" : "negative"}">
-                            ${esGanancia ? "+" : ""}${rendimiento.toFixed(2)}%
-                        </div>
+                <div class="posicion-valores">
+                    <div class="posicion-valor">
+                        ${formatearMontoMinimo(valor, p.divisa)}
                     </div>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="precio" data-posicion-id="${p.id}" title="Actualizar precio" aria-label="Actualizar precio">${icono("refresh-cw", 16)}</button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" data-posicion-id="${p.id}" title="Eliminar" aria-label="Eliminar">${icono("trash-2", 16)}</button>
+                    <div class="posicion-rendimiento ${esGanancia ? "positive" : "negative"}">
+                        ${esGanancia ? "+" : ""}${rendimiento.toFixed(2)}%
                     </div>
                 </div>
             </div>
+        </div>
     `
 }
 
@@ -1148,7 +1128,7 @@ export async function mostrarGraficoActivo(activoId, activo, posicion) {
         </div>
         <div class="grafico-info">
             <div class="grafico-nombre">${activo?.nombre || ""} (${activo?.simbolo || ""})</div>
-            <div class="grafico-precio">${activo?.ultimoPrecio?.toFixed(2) || "0.00"}</div>
+            <div class="grafico-precio">${recortarDecimales(activo?.ultimoPrecio || 0)}</div>
             <div class="grafico-periodo">Últimos 7 días</div>
         </div>
     `
@@ -1160,6 +1140,9 @@ export async function mostrarGraficoActivo(activoId, activo, posicion) {
             <button type="button" class="modal-header-btn btn-actualizar-precio" title="Actualizar precio" aria-label="Actualizar precio">${icono("refresh-cw", 16)}</button>
             <button type="button" class="modal-header-btn danger btn-eliminar-posicion" title="Eliminar posición" aria-label="Eliminar posición">${icono("trash-2", 16)}</button>
         `,
+        // Sin botones de pie: el modal se cierra con la X, ESC o clic fuera.
+        // El glow/pie "Cerrar" duplicaba la X y "Cancelar" no hacía falta.
+        cancelText: "",
         confirmText: "Cerrar",
         onConfirm: () => {
             destruirGrafico()
@@ -1450,10 +1433,11 @@ export function abrirModalCompra() {
                 <input type="number" id="compra-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
             </div>
             <div class="form-group">
-                <label for="compra-cuenta">Cuenta de origen *</label>
-                <select id="compra-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
+                <label for="compra-cuenta">Cuenta de origen</label>
+                <select id="compra-cuenta" class="form-input">
+                    <option value="">Sin cuenta (solo posición)</option>
                 </select>
+                <span class="form-hint">Opcional: sin cuenta, la posición se registra sin afectar saldos.</span>
             </div>
             <div class="form-group">
                 <label for="compra-fecha">Fecha</label>
@@ -1497,7 +1481,6 @@ export function abrirModalCompra() {
             if (!simbolo) { mostrarNotificacion("error", "El símbolo del activo es obligatorio"); return false }
             if (!cantidad || cantidad <= 0) { mostrarNotificacion("error", "La cantidad debe ser mayor a 0"); return false }
             if (!precio || precio <= 0) { mostrarNotificacion("error", "El precio debe ser mayor a 0"); return false }
-            if (!cuentaId) { mostrarNotificacion("error", "Selecciona una cuenta de origen"); return false }
 
             try {
                 let activo = await buscarActivoPorSimbolo(uid, simbolo)
@@ -1520,7 +1503,7 @@ export function abrirModalCompra() {
                 await registrarMovimiento(uid, "compraActivo", {
                     // Símbolo, no doc-ID: PosicionServicio resuelve por símbolo (bug #3)
                     activo: simbolo,
-                    cuenta: cuentaId,
+                    ...(cuentaId ? { cuenta: cuentaId } : {}),
                     cantidad,
                     precio,
                     comision,

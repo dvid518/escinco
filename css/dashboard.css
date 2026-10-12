@@ -733,12 +733,12 @@ body.dashboard-card-dragging * {
 
 .card-badge {
     min-width: 24px;
-    padding: 2px 6px;
+    padding: 2px 10px;
     border-radius: 50px;
     background: var(--border);
     color: var(--textAlt);
     font-family: var(--font-secondary);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     text-align: center;
 }
@@ -953,13 +953,18 @@ body.dashboard-card-dragging * {
     background: var(--border);
 }
 
-/* Patrimonio por divisa: el color es de la moneda, no del importe. */
+/* Patrimonio por divisa: el color es de la moneda, no del importe. Las
+   divisas sin clase propia (criptos, EUR) caen al neutro de base. */
 .distribucion-barra span.pen {
     background: var(--positive);
 }
 
 .distribucion-barra span.usd {
     background: var(--positiveAlt);
+}
+
+.distribucion-barra span.eur {
+    background: var(--ambar);
 }
 
 .distribucion-barra span.usdt {
@@ -1405,12 +1410,12 @@ body.dashboard-card-dragging * {
 .aporte-progreso-badge {
     flex-shrink: 0;
     text-align: center;
-    padding: 3px 10px;
+    padding: 2px 10px;
     border-radius: 50px;
     background: var(--background);
     border: 1px solid var(--border);
     font-family: var(--font-secondary);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     color: var(--text);
     white-space: nowrap;

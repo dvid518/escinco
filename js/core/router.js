@@ -190,19 +190,29 @@ export async function loadPage(page) {
     }
 
     if (pageModules[page]) {
-        await renderPage(page)
-        if (pageModules[page].init) {
-            await pageModules[page].init()
-            // Abortar si otra navegación ganó
+        try {
+            await renderPage(page)
+            if (pageModules[page].init) {
+                await pageModules[page].init()
+                // Abortar si otra navegación ganó
+                if (id !== navId) {
+                    console.log(`[INFO] Navegación ${id} abortada (ganó ${navId})`)
+                    finalizarCargaNavegacion(id)
+                    return
+                }
+            }
+            restaurarScroll(scrollPendiente)
+            restaurarFoco()
+            finalizarCargaNavegacion(id)
+        } catch (error) {
             if (id !== navId) {
-                console.log(`[INFO] Navegación ${id} abortada (ganó ${navId})`)
                 finalizarCargaNavegacion(id)
                 return
             }
+            console.error(`[ERROR] Error inicializando página ${page}:`, error)
+            manejarErrorPagina(page, error)
+            finalizarCargaNavegacion(id)
         }
-        restaurarScroll(scrollPendiente)
-        restaurarFoco()
-        finalizarCargaNavegacion(id)
         return
     }
 

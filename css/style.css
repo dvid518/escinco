@@ -395,9 +395,11 @@ option {
 
 .skeleton-item {
     display: flex;
+    box-sizing: border-box;
+    width: 100%;
     min-height: 62px;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
     padding: 12px 20px;
     border: 1px solid var(--border);
     border-radius: 40px;

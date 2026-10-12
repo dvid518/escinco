@@ -124,7 +124,7 @@ export function render() {
                     <option value="EUR">EUR</option>
                     <option value="USDT">USDT</option>
                 </select>
-                <select id="filtro-etiqueta" class="filtro-select" aria-label="Etiqueta">
+                <select id="filtro-etiqueta" class="filtro-select" aria-label="Etiquetas">
                     <option value="">Etiquetas</option>
                 </select>
                 <button type="button" class="btn-icon filtro-limpiar" id="filtro-limpiar" title="Limpiar filtros" aria-label="Limpiar filtros">
@@ -213,7 +213,7 @@ function actualizarOpcionesEtiquetas() {
     movimientos.forEach(m => (m.etiquetas || []).forEach(e => etiquetas.add(e)))
 
     const ordenadas = [...etiquetas].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
-    select.innerHTML = `<option value="">Todas las etiquetas</option>` +
+    select.innerHTML = `<option value="">Etiquetas</option>` +
         ordenadas.map(e => `<option value="${e}">${e}</option>`).join("")
 
     if (seleccionada) {
@@ -285,13 +285,8 @@ function plantillaMovimiento(m, cuentaId = null) {
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}</span>
-                    <span class="card-item-detalle">${[fecha, tipoNombre, cuenta].filter(Boolean).join(" · ")}</span>
-                    ${etiquetas.length ? `
-                        <span class="card-item-etiquetas">
-                            ${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}
-                        </span>
-                    ` : ""}
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
+                    <span class="card-item-detalle">${[fecha, cuenta].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="card-item-valor-wrap">
                     <span class="card-item-valor ${clase}">

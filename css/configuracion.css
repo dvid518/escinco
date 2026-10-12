@@ -228,6 +228,21 @@
     font-size: 13px;
 }
 
+.footer-legal {
+    font-size: 12px;
+    color: var(--textSecondary);
+}
+
+.footer-legal a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.footer-legal a:hover {
+    color: var(--positive);
+}
+
 /* ========================================
    GRUPOS
    ======================================== */
@@ -522,6 +537,12 @@
     font-weight: 600;
     color: var(--text);
     font-size: 14px;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.footer-brand:hover {
+    color: var(--positive);
 }
 
 .footer-version {
