@@ -79,15 +79,26 @@ export async function cerrarSnapshotDelDia(uid) {
 export async function obtenerSnapshots(uid, dias = 30) {
     return cacheCapa.obtener(uid, `snapshots:periodo:${dias}`, async () => {
         const referencia = collection(db, "usuarios", uid, "snapshots")
-        const q = query(referencia, orderBy("__name__", "desc"), limit(dias))
-        const resultado = await getDocs(q)
-
-        const snapshots = resultado.docs.map(doc => ({
-            fecha: doc.id,
-            ...doc.data()
-        }))
-
-        return snapshots.reverse()
+        try {
+            const q = query(referencia, orderBy("__name__", "desc"), limit(dias))
+            const resultado = await getDocs(q)
+            return resultado.docs.map(doc => ({
+                fecha: doc.id,
+                ...doc.data()
+            })).reverse()
+        } catch (error) {
+            // Sin el índice compuesto de snapshots la consulta ordenada falla
+            // (failed-precondition). Plan B: leer y ordenar en memoria para que
+            // el gráfico no se quede vacío aunque falte desplegar índices.
+            if (error?.code !== "failed-precondition") throw error
+            console.warn("[WARN] Índice de snapshots ausente, ordenando en memoria:", error?.message)
+            const resultado = await getDocs(referencia)
+            return resultado.docs
+                .map(doc => ({ fecha: doc.id, ...doc.data() }))
+                .sort((a, b) => String(a.fecha) < String(b.fecha) ? 1 : -1)
+                .slice(0, dias)
+                .reverse()
+        }
     }, { ttl: TTL_SNAPSHOTS })
 }
 

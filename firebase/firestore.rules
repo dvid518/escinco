@@ -374,7 +374,7 @@ service cloud.firestore {
       match /snapshots/{fecha} {
         allow read: if esPropietario(uid);
 
-        allow create, update: if esPropietario(uid)
+        allow create: if esPropietario(uid)
           && request.resource.data.keys().hasOnly([
             'patrimonioPEN', 'patrimonioUSD', 'patrimonioUSDT', 'cerrado', 'actualizacion'
           ])
@@ -389,6 +389,16 @@ service cloud.firestore {
           && esNumeroONulo(request.resource.data.patrimonioUSDT)
           && esBoolONulo(request.resource.data.cerrado)
           && esTimestampONulo(request.resource.data.actualizacion);
+
+        // Sin hasOnly a propósito (igual que el resto de colecciones): un
+        // documento legacy con campos extra debe poder actualizarse. Solo se
+        // valida el tipo de lo que viene en la escritura.
+        allow update: if esPropietario(uid)
+          && ifPresenteNumero(request.resource.data, 'patrimonioPEN')
+          && ifPresenteNumero(request.resource.data, 'patrimonioUSD')
+          && ifPresenteNumeroONulo(request.resource.data, 'patrimonioUSDT')
+          && ifPresenteBool(request.resource.data, 'cerrado')
+          && ifPresenteTimestampONulo(request.resource.data, 'actualizacion');
 
         allow delete: if esPropietario(uid);
       }

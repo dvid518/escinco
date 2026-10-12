@@ -28,6 +28,14 @@ export async function calcularPatrimonio(uid) {
     let totalActivos = 0
     let totalDeuda = 0
     let totalCuentas = 0
+    // Desglose por divisa en su propia moneda (no convertido): cuánto dinero
+    // hay en cada una. Los tres totales de arriba son el MISMO patrimonio
+    // expresado en tres monedas, así que no sirven para repartir pesos.
+    const porDivisa = {}
+    const sumarDivisa = (divisa, monto) => {
+        const clave = String(divisa || "pen").toLowerCase()
+        porDivisa[clave] = (porDivisa[clave] || 0) + monto
+    }
 
     cuentas.forEach(c => {
         if (c.estado === "archivada") return
@@ -50,6 +58,7 @@ export async function calcularPatrimonio(uid) {
             patrimonioPEN -= deudaPEN
             patrimonioUSD -= deudaUSD
             patrimonioUSDT -= deudaUSD
+            sumarDivisa(divisa, -deuda)
             return
         }
 
@@ -60,6 +69,7 @@ export async function calcularPatrimonio(uid) {
         patrimonioPEN += saldoPEN
         patrimonioUSD += convertirMonto(saldo, divisa, "usd")
         patrimonioUSDT += convertirMonto(saldo, divisa, "usd")
+        sumarDivisa(divisa, saldo)
     })
 
     // Inversiones: posiciones en su divisa. No fallan no por que una posición
@@ -85,6 +95,7 @@ export async function calcularPatrimonio(uid) {
             patrimonioPEN += pen
             patrimonioUSD += convertirMonto(valor, divisaPosicion, "usd")
             patrimonioUSDT += convertirMonto(valor, divisaPosicion, "usd")
+            sumarDivisa(divisaPosicion, valor)
         }
     } catch (error) {
         console.warn("[WARN] No se pudieron valorar las posiciones para el patrimonio:", error)
@@ -94,6 +105,7 @@ export async function calcularPatrimonio(uid) {
         patrimonioPEN,
         patrimonioUSD,
         patrimonioUSDT,
+        porDivisa,
         totalActivos,
         totalDeuda,
         totalCuentas,
