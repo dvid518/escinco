@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>escinco | Demo interactiva</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name="description"
+        content="Prueba escinco con datos de ejemplo: dashboard, cuentas, movimientos e inversiones. Todo se guarda en tu navegador.">
+    <meta name="theme-color" content="#141414">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel='stylesheet' type='text/css' media='screen' href='css/style.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/componentes.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/tester.css'>
+    <link rel="canonical" href="https://escinco.web.app/tester">
+</head>
+
+<body class="tester">
+    <div class="tester-aviso" role="note">
+        <span><strong>Demo.</strong> Datos de prueba guardados solo en este navegador.</span>
+        <span class="tester-aviso-acciones">
+            <button type="button" class="tester-link" id="tester-reset">Reiniciar demo</button>
+            <a class="tester-link" href="/">Volver a la landing</a>
+        </span>
+    </div>
+    <header class="tester-header">
+        <span class="tester-marca">escinco <span class="tester-demo-badge">demo</span></span>
+        <div class="tester-header-acciones">
+            <div class="toggle-group" id="tester-divisa" role="group" aria-label="Divisa principal">
+                <span class="toggle-option active" data-divisa="pen">PEN</span>
+                <span class="toggle-option" data-divisa="usd">USD</span>
+            </div>
+            <button type="button" class="glass-btn" id="tester-tema" aria-label="Cambiar tema">Tema</button>
+        </div>
+    </header>
+    <div class="tester-layout">
+        <nav class="tester-nav" aria-label="Secciones de la demo">
+            <button type="button" class="glass act" data-vista="dashboard">Dashboard</button>
+            <button type="button" class="glass" data-vista="cuentas">Cuentas</button>
+            <button type="button" class="glass" data-vista="movimientos">Movimientos</button>
+            <button type="button" class="glass" data-vista="inversiones">Inversiones</button>
+            <button type="button" class="glass" data-vista="trading">Trading</button>
+            <button type="button" class="glass" data-vista="guia">Guía</button>
+        </nav>
+        <main id="tester-panel" class="glass" aria-busy="true"></main>
+    </div>
+    <script type="module" src="js/pages/tester.js"></script>
+</body>
+
+</html>

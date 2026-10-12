@@ -12,6 +12,7 @@ const CACHE_RUNTIME = `${VERSION_APP}-runtime`
 const SHELL_ASSETS = [
     "/",
     "/index.html",
+    "/tester.html",
     "/dashboard.html",
     "/auth.html",
     "/reset-password.html",
@@ -27,6 +28,7 @@ const SHELL_ASSETS = [
     "/css/style.css",
     "/css/index.css",
     "/css/home.css",
+    "/css/tester.css",
     "/css/auth.css",
     "/css/dashboard.css",
     "/css/navegacion.css",
@@ -57,6 +59,7 @@ const SHELL_ASSETS = [
 
     // JS pages
     "/js/pages/index.js",
+    "/js/pages/tester.js",
     "/js/pages/auth.js",
     "/js/pages/reset-password.js",
     "/js/pages/legal.js",
