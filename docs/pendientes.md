@@ -1,6 +1,6 @@
 # Registro de pendientes
 
-Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.21)
+Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.27)
 
 Este archivo es la lista **accionable** de lo que queda abierto: lo que bloquea,
 lo que está a medio hacer y lo que se decidió aplazar. No sustituye a los
@@ -19,7 +19,7 @@ commit y, si procede, se propaga al registro que le corresponda.
 |-----------|-----------|
 | **Bloqueante** | 1 |
 | **Alta** | 3 |
-| **Media** | 3 |
+| **Media** | 2 |
 | **Baja** | 2 |
 
 ---
@@ -31,29 +31,34 @@ commit y, si procede, se propaga al registro que le corresponda.
 | | |
 |---|---|
 | **Prioridad** | Bloqueante |
-| **Estado** | Sin causa confirmada |
-| **Módulo** | `firebase/firestore.js`, `firebase/firestore.rules` |
+| **Estado** | Reglas corregidas (sin aplicar) · requiere deploy + confirmación |
+| **Módulo** | `firebase/firestore.rules`, `js/services/SnapshotServicio.js` |
 
 Al registrar el snapshot del día salta `FirebaseError: Missing or insufficient
 permissions`.
 
-**Lo ya descartado** (no volver a mirar esto):
+**Causa probable**: la regla combinada `allow create, update` exigía
+`request.resource.data.keys().hasOnly([...])` también en la actualización. En
+una escritura *merge*, `request.resource.data` es el documento **resultante**
+(con los campos legacy del snapshot anterior), así que cualquier campo extra en
+un snapshot antiguo hacía fallar el `hasOnly` y la regla devolvía
+`permission-denied`.
 
-- La ruta coincide con la regla: write en `usuarios/{uid}/snapshots/{YYYY-MM-DD}` ↔
-  `match /usuarios/{uid}/snapshots/{fecha}`.
-- `sesion.uid` sale de `user.uid`, no de un campo del perfil.
-- `npm run deploy:rules` responde `already up to date`: las reglas desplegadas son
-  las del repositorio.
+**Corrección aplicada** (working tree, sin desplegar):
 
-**Lo que falta**: el error completo de Firestore desde DevTools, con `path` y el
-motivo. Sin eso no se puede acotar.
+- `firebase/firestore.rules` (~374): la actualización ya permite campos legacy.
+  `allow create` conserva el `hasOnly` original; `allow update` valida solo el
+  tipo de lo que viene en la escritura (`ifPresente*`), igual que el resto de
+  colecciones.
+- Verificar que `npm run deploy:rules` acierta ahora y que el snapshot se
+  registra el próximo día (o borrando el de hoy en Firebase para forzar la
+  escritura).
+- Extra: la consulta ordenada de snapshots exigía un índice compuesto
+  (`firebase/firestore.indexes.json` lo añade para `__name__ DESCENDING`) y
+  `obtenerSnapshots` tiene plan B en memoria si el índice no está desplegado.
 
-**Cómo obtenerlo**: DevTools → consola → reproducir → copiar el objeto `error`
-completo (incluye `code`, `message` y `customData`).
-
-**Candidate a revisar cuando llegue**: que la escritura se dispare antes de que
-termine la autenticación real, o que el `uid` usado sea el del perfil cacheado y
-no el del token.
+**Cómo confirmar**: DevTools → consola → reproducir → copiar el objeto `error`
+completo si sigue fallando (incluye `code`, `message` y `customData`).
 
 ---
 
@@ -67,18 +72,20 @@ no el del token.
 | **Estado** | Funciona en los tests, nunca se ha ejecutado en la app |
 | **Módulo** | `js/core/familiaCuentas.js`, `js/pages/cuentas.js`, `js/pages/dashboard.js` |
 
-El modelo de subcuentas (`padreId`) está implementado y los seis tests pasan,
-pero **nunca ha corrido en navegador**. Además está en el working tree sin
-commitear, y `npm run deploy` publica el working tree entero, así que ya está
-en producción sin haber pasado por una revisión.
+El modelo de subcuentas (`padreId`) está implementado y la suite de `tests/`
+(`npm test`) pasa, pero **nunca ha corrido en navegador**.
 
 Modelo implementado, para no perderlo:
 
-- El padre es la subcuenta de su primera divisa.
-- Cada divisa extra es una cuenta real con `padreId`.
-- Cada hija conserva su `moneda` y su `saldoInicial` (no heredan del padre).
-- Las hijas se ocultan del sidebar.
-- La card del padre muestra el total de la familia; las hijas no generan card.
+- El padre es una **clase abstracta**: no tiene divisa operativa ni saldo, solo
+  sostiene a sus hijas (`esAbstracta: true`).
+- Cada divisa —incluida la primera— es una cuenta real con `padreId`; con N
+  divisas salen N+1 documentos.
+- Cada hija conserva su `moneda` y su `saldoInicial`; el nombre se deriva del
+  padre al leer (`resolverNombresCuentas`) y no se petrifica en Firestore.
+- Las hijas se ocultan del sidebar y de los selectores (`cuentasVisibles` /
+  `cuentasOperables`).
+- La card del padre muestra el total de la familia (`saldoFamilia`).
 - Transferencias entre divisas distintas siguen exigiendo *Cambio de divisa*.
 - Archivar el padre archiva también a sus hijas; eliminarlo se bloquea si tiene hijas.
 
@@ -173,20 +180,20 @@ archivo que ya estaban en el working tree y no eran de este trabajo. Quedó
 anotado en el mensaje del commit, pero si se quiere separar, hay que partir el
 archivo en dos commits.
 
-### PEND-007 · Sin suite de tests en el repositorio
+### ~~PEND-007 · Sin suite de tests en el repositorio~~
 
 | | |
 |---|---|
-| **Prioridad** | Media |
-| **Estado** | Decidido no integrar todavía |
-| **Módulo** | raíz |
+| **Prioridad** | ~~Media~~ Resuelto |
+| **Estado** | Cerrado (commit `815b141`) |
+| **Módulo** | `tests/`, `package.json` |
 
-Los seis tests del modelo de subcuentas y de preferencias viven en
-`%TEMP%\opencode\*.mjs`, fuera del proyecto, y con stubs de Firebase. Se pierden
-al limpiar la caché y no corren en CI.
-
-Cuando se quiera, el sitio es `tests/` con Node como runner y los stubs de
-`firebase/firestore.js` resueltos por import map.
+Resuelto: la suite vive en `tests/` y corre con `npm test` (runner propio en
+Node, sin dependencias). Cubre el modelo de familia de cuentas, la creación de
+familias, el diff de preferencias, los toggles de divisa, el reparto de
+columnas de los formularios, el precache del service worker y la sintaxis ESM
+de todos los `.js`. `npm run test:rules` ejecuta el smoke test de reglas de
+snapshots contra el emulador (se salta solo si no hay emulador).
 
 ---
 
@@ -229,10 +236,9 @@ así que la única forma real es desplegar con el árbol limpio.
 1. **Limpiar preferencias redundantes** en lote (PEND-003).
 2. **Cerrar el origen del `Missing or insufficient permissions`** de los snapshots
    (PEND-001).
-3. **Integrar los tests** en el repositorio y en CI (PEND-007).
-4. **Partir `configuracion.js`** para que el diff de preferencias y los cambios
+3. **Partir `configuracion.js`** para que el diff de preferencias y los cambios
    previos sean commits independientes (PEND-006).
-5. **Revisar `DEUDA-012` y `DEUDA-013`** (`create`/`update` asimétricos y el
+4. **Revisar `DEUDA-012` y `DEUDA-013`** (`create`/`update` asimétricos y el
 `hasOnly` manual de `movimientos`): son reincidentes, y ya produjeron R-03
 y R-05.
 
