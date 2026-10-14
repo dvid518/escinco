@@ -582,7 +582,7 @@ export function abrirModalAporteMeta(meta) {
                 <div class="aporte-progreso">
                     <div class="aporte-progreso-barra" id="aporte-progreso-barra"></div>
                 </div>
-                <span class="aporte-progreso-badge" id="aporte-progreso-badge">${pctActual.toFixed(0)}%</span>
+                <span class="badge badge--positive" id="aporte-progreso-badge">${pctActual.toFixed(0)}%</span>
             </div>
             <div class="aporte-valores">
                 <div class="aporte-valor">

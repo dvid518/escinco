@@ -79,7 +79,7 @@
     --cottonCandy: #FFA4A4;
     --lightGreen: #BFFFC5;
     --banana: #ffd181;
-    --lavender: #befff7;
+    --iceBlue: #a9cdfb;
 
     --paleSky: #D0DCE8;
     --lightPaleSky: #d0dce85f;
@@ -91,13 +91,7 @@
     --tropicalMint: #00a269;
     --raspberryRed: #DC0051;
     --mustard: #f5a623;
-    --grape: #279c87;
-
-    /* Azules de liquidez: el reparto patrimonial reserva este color para el
-       efectivo (liquidez). Un azul lo separa del verde de inversiones y del
-       ámbar, y se lee como "dinero disponible" en ambos temas. */
-    --skyBlue: #8ecdf0;
-    --deepBlue: #2f7fb5;
+    --royalBlue: #2b6ff2;
 
 
     --font-primary: "Inter", Arial, sans-serif;
@@ -123,12 +117,12 @@
     --positive: var(--lightGreen);
     --negative: var(--cottonCandy);
     --ambar: var(--banana);
-    --neutral: var(--skyBlue);
+    --neutral: var(--iceBlue);
     
     --positiveAlt: var(--tropicalMint);
     --negativeAlt: var(--raspberryRed);
     --ambarAlt: var(--mustard);
-    --neutralAlt: var(--deepBlue);
+    --neutralAlt: var(--royalBlue);
     
     --border: var(--paleSky);
     --borderAlt: var(--slateGrey);
@@ -156,12 +150,12 @@
     --positive: var(--tropicalMint);
     --negative: var(--raspberryRed);
     --ambar: var(--mustard);
-    --neutral: var(--deepBlue);
+    --neutral: var(--royalBlue);
     
     --positiveAlt: var(--lightGreen);
     --negativeAlt: var(--cottonCandy);
     --ambarAlt: var(--banana);
-    --neutralAlt: var(--skyBlue);
+    --neutralAlt: var(--iceBlue);
 
     --border: var(--slateGrey);
     --borderAlt: var(--graphite);
@@ -494,9 +488,88 @@ option {
 }
 
 .skeleton-badge .skeleton-text,
-.card-badge .skeleton-text {
+.badge .skeleton-text {
     width: 22px;
     height: 10px;
+}
+
+/* ============================================
+   BADGES
+   ============================================ */
+/* Una sola base para todas las etiquetas tipo pastilla (tipo, estado,
+   etiquetas de movimiento, fuente de precio, % de progreso, pills de
+   subcuenta). Lo único que cambia entre usos es el color, vía los
+   modificadores .badge--*. */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    min-width: 24px;
+    padding: 2px 10px;
+    border: 1px solid transparent;
+    border-radius: 50px;
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.6;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    vertical-align: middle;
+    color: var(--textSecondary);
+    background: color-mix(in srgb, var(--textSecondary) 14%, transparent);
+}
+
+.badge--positive {
+    color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 20%, transparent);
+}
+
+.badge--negative {
+    color: var(--negative);
+    background: color-mix(in srgb, var(--negative) 20%, transparent);
+}
+
+.badge--aviso {
+    color: var(--ambar);
+    background: color-mix(in srgb, var(--ambar) 22%, transparent);
+}
+
+.badge--neutral {
+    color: var(--neutral);
+    background: color-mix(in srgb, var(--neutral) 20%, transparent);
+}
+
+/* Badges clicables (estado de crédito, pills de subcuenta): conservan cursor,
+   hover y foco. El hover aclara el fondo sin perder el color semántico. */
+.badge--interactivo {
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.badge--interactivo:hover {
+    background: color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.badge--interactivo.activo {
+    color: var(--text);
+    background: color-mix(in srgb, var(--text) 16%, transparent);
+}
+
+.badge--interactivo:focus-visible {
+    outline: 2px solid var(--textSecondary);
+    outline-offset: 2px;
+}
+
+/* Filas y tarjetas seleccionadas: fondo invertido, así que el badge pasa a un
+   relleno oscuro/claro de contraste para seguir legible. */
+.card-item.seleccionado .badge,
+.posicion-item.seleccionado .badge {
+    color: var(--border);
+    background: var(--background);
 }
 
 .skeleton-panel {

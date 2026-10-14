@@ -1,0 +1,54 @@
+/* ============================================
+   BANNER DE LA DEMO
+   ============================================ */
+
+.demo-aviso {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: var(--iceBlue, #cfe8ff);
+    background: rgba(20, 20, 20, 0.92);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+}
+
+.demo-aviso strong {
+    color: #fff;
+}
+
+.demo-aviso-acciones {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.demo-link {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--iceBlue, #cfe8ff);
+    text-decoration: underline;
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.demo-link:hover {
+    opacity: 1;
+}
+
+/* La demo no tiene sesión real: ocultamos las acciones que sacarían del
+   navegador (cerrar sesión, eliminar cuenta o datos). Se usa el banner. */
+#logout-btn,
+#delete-account,
+#delete-data,
+.item[data-accion="cerrar-sesion"] {
+    display: none !important;
+}

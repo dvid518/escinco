@@ -25,6 +25,8 @@
       { "source": "/login", "destination": "/auth.html" },
       { "source": "/register", "destination": "/auth.html" },
       { "source": "/tester", "destination": "/tester.html" },
+      { "source": "/demo", "destination": "/tester.html" },
+      { "source": "/demo/**", "destination": "/tester.html" },
       { "source": "/reset-password", "destination": "/reset-password.html" },
       { "source": "/privacidad", "destination": "/privacidad.html" },
       { "source": "/terminos", "destination": "/terminos.html" },

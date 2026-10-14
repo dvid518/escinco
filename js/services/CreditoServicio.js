@@ -297,6 +297,7 @@ export function abrirModalEducativoCredito(tarjeta, opciones = {}) {
     // El otro sitio es el botón de la barra de totales de la tarjeta, en
     // `cuentas.js`.
     const pagadoCompleto = opciones.pagadoCompleto === true
+    const claseBadge = nivel === "critico" ? "badge--negative" : nivel === "aviso" ? "badge--aviso" : "badge--positive"
 
     abrirModal({
         titulo: `Manejo del dinero · ${tarjeta.nombre}`,
@@ -311,7 +312,7 @@ export function abrirModalEducativoCredito(tarjeta, opciones = {}) {
                     <div class="aporte-progreso">
                         <div class="aporte-progreso-barra ${nivel}" style="--progreso:${Math.min(100, porcentaje).toFixed(1)}%"></div>
                     </div>
-                    <span class="aporte-progreso-badge ${nivel}">${porcentaje.toFixed(0)}%</span>
+                    <span class="badge ${claseBadge}">${porcentaje.toFixed(0)}%</span>
                 </div>
                 <p class="credito-educativo-detalle">
                     ${simbolo}${deuda.toFixed(2)} de ${simbolo}${limite.toFixed(2)} de línea.

@@ -262,7 +262,9 @@ así que la única forma real es desplegar con el árbol limpio.
    previos sean commits independientes (PEND-006).
 4. **Revisar `DEUDA-012` y `DEUDA-013`** (`create`/`update` asimétricos y el
 `hasOnly` manual de `movimientos`): son reincidentes, y ya produjeron R-03
-y R-05.
+y R-05. Desde la Fase 3 los tests offline (`tests/reglas.test.mjs`) avisan si
+vuelven a desalinearse, pero queda pendiente resolver la parte de validación de
+tipos.
 
 ---
 

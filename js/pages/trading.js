@@ -1,3 +1,4 @@
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { obtenerTradesConFiltros, registrarTrade, finalizarTrade, borrarTrade, reabrirTradeAbierto, editarTrade } from "../services/TradingServicio.js"
 import {
@@ -16,6 +17,8 @@ import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+
+asegurarEstilos("trading")
 
 let uid = null
 let datosTrades = null
@@ -234,7 +237,7 @@ function renderizarTrades() {
                     <div class="posicion-info">
                         <div class="posicion-nombre">
                             <span class="trade-activo">${t.activo}</span>
-                            <span class="trade-badge ${t.tipo === "long" ? "largo" : "corto"}">${t.tipoLabel}</span>
+                            <span class="badge ${t.tipo === "long" ? "badge--positive" : "badge--negative"}">${t.tipoLabel}</span>
                         </div>
                         <div class="posicion-detalle">
                             Lotaje: ${t.lotaje} · ${t.estaCerrado ? "Cerrado" : "Abierto"}
@@ -307,7 +310,7 @@ function renderizarOrdenes() {
 
     container.innerHTML = lista.map(o => {
         const claseDireccion = o.direccion === "long" ? "positive" : "negative"
-        const claseEstado = o.estaPendiente ? "pendiente" : (o.fueEjecutada ? "ejecutada" : "cancelada")
+        const claseEstado = o.estaPendiente ? "badge--neutral" : (o.fueEjecutada ? "badge--positive" : "badge--negative")
 
         return `
             <div class="posicion-item trade-item orden-item${seleccionadas.has(o.id) ? " seleccionado" : ""}" data-orden-id="${o.id}">
@@ -316,7 +319,7 @@ function renderizarOrdenes() {
                         <div class="posicion-nombre">
                             ${o.activo}
                             <span class="posicion-simbolo">${o.direccion === "long" ? "Largo" : "Corto"}</span>
-                            <span class="orden-badge ${claseEstado}">${o.estadoTexto}</span>
+                            <span class="badge ${claseEstado}">${o.estadoTexto}</span>
                         </div>
                         <div class="posicion-detalle">
                             Lotaje: ${o.lotaje}

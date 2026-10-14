@@ -1,4 +1,5 @@
 import { obtenerMovimientos, obtenerCuentas } from "../../firebase/firestore.js"
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
@@ -17,6 +18,8 @@ import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
+
+asegurarEstilos("movimientos")
 
 let movimientos = []
 let cuentas = []
@@ -285,7 +288,7 @@ function plantillaMovimiento(m, cuentaId = null) {
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
                     <span class="card-item-detalle">${[fecha, cuenta].filter(Boolean).join(" · ")}</span>
                 </div>
                 <div class="card-item-valor-wrap">

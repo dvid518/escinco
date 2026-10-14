@@ -134,17 +134,6 @@
     white-space: nowrap;
 }
 
-.cuenta-badge {
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--textSecondary);
-    border: 1px solid var(--border);
-    border-radius: 50px;
-    padding: 2px 10px;
-}
-
 .cuenta-perfil-badges {
     margin-left: auto;
     display: flex;
@@ -152,53 +141,6 @@
     align-items: flex-end;
     gap: 4px;
     flex-shrink: 0;
-}
-
-.cuenta-badge.estado {
-    color: var(--positive);
-    border-color: var(--positive);
-    background: transparent;
-    cursor: pointer;
-    font-family: inherit;
-}
-
-.cuenta-badge.estado:focus-visible {
-    outline: 2px solid var(--primary);
-    outline-offset: 2px;
-}
-
-/* El botón global de style.css pone su propio hover, que el `background`
-   transparente de arriba anula. Sin esto el badge sería clicable sin dar
-   ninguna señal. */
-.cuenta-badge.estado:hover {
-    background: var(--lightHover);
-}
-
-.cuenta-badge.estado.aviso {
-    color: var(--ambar);
-    border-color: var(--ambar);
-}
-
-.cuenta-badge.estado.critico {
-    color: var(--negative);
-    border-color: var(--negative);
-}
-
-/* Vigencia de la tarjeta (Activa / Caduca este mes / Caducada). No es
-   pulsable como el estado de nivel, así que no lleva cursor ni hover. */
-.cuenta-badge.tarjeta-estado.positiva {
-    color: var(--positive);
-    border-color: var(--positive);
-}
-
-.cuenta-badge.tarjeta-estado.ambar {
-    color: var(--ambar);
-    border-color: var(--ambar);
-}
-
-.cuenta-badge.tarjeta-estado.negativa {
-    color: var(--negative);
-    border-color: var(--negative);
 }
 
 .cuenta-saldo-moneda {
@@ -326,18 +268,6 @@
 .credito-uso .aporte-progreso-barra.ambar,
 .credito-educativo .aporte-progreso-barra.ambar {
     background: var(--ambar);
-}
-
-.credito-uso .aporte-progreso-badge.negative,
-.credito-educativo .aporte-progreso-badge.negative {
-    color: var(--negative);
-    border-color: var(--negative);
-}
-
-.credito-uso .aporte-progreso-badge.ambar,
-.credito-educativo .aporte-progreso-badge.ambar {
-    color: var(--ambar);
-    border-color: var(--ambar);
 }
 
 /* --------------------------------------------
@@ -494,44 +424,6 @@
     gap: 4px;
     flex-wrap: wrap;
     justify-content: flex-end;
-}
-
-.subcuenta-pill {
-    padding: 2px 10px;
-    border-radius: 50px;
-    border: 1px solid var(--border);
-    background: transparent;
-    color: var(--textSecondary);
-    font-family: var(--font-primary);
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-}
-
-.subcuenta-pill:hover:not(.active) {
-    color: var(--text);
-    border-color: var(--textSecondary);
-}
-
-.subcuenta-pill.active {
-    color: var(--text);
-    border-color: var(--text);
-    background: var(--glass-frosted);
-}
-
-.subcuenta-pill:focus-visible {
-    outline: 2px solid var(--textSecondary);
-    outline-offset: 2px;
-}
-
-/* Cuenta excluida del patrimonio (esPatrimonio = false). */
-.cuenta-badge.no-patrimonial {
-    color: var(--textTertiary, var(--textSecondary));
-    border-style: dashed;
 }
 
 /* "% del patrimonio": item compacto bajo el saldo de cada cuenta. */

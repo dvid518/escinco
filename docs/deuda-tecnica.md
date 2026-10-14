@@ -51,12 +51,12 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-018 | La acción "Actualizar" de la lastbar no está implementada | `js/core/lastbar.js:438` | Botón que solo emite un `console.warn` | Media |
 | DEUDA-005 | El tipo `error` no declara `fechaRealizacion` | `constants/tiposMovimiento.js:144-151` | Esos movimientos se muestran siempre con fecha "—" | Baja |
 | DEUDA-007 | Placeholder `"tucson"` como descripción de la app | `manifest.webmanifest:4`, `constants/version.js:4`, `docs/requisitos.md:7` | Texto visible en la instalación del PWA | Baja |
-| DEUDA-009 | 12 selectores CSS duplicados en 7 archivos | `css/` | ~75 líneas duplicadas; el orden de cascada decide el resultado | Baja |
+| DEUDA-009 | Selectores CSS duplicados entre hojas | `css/` | **Resuelta**: desduplicados y protegidos por `tests/css.test.mjs` | ~~Baja~~ Resuelta |
 | DEUDA-010 | 218 `console.*` sin limpiar en 35 archivos | `js/` | Ruido en consola; 3 `console.warn` silencian fallos reales | Baja |
 | DEUDA-015 | `formatearMontoConDivisa` exportada y redefinida localmente | `DivisaServicio.js:46`, `cuentas.js:71` | Dos implementaciones del mismo formateo | Baja |
 | DEUDA-019 | Archivos huérfanos y de prueba en el repositorio | raíz, `experimentos/` | Basura que se despliega o confunde | Baja |
 | DEUDA-020 | `docs/informe-info.md` pesa 137 KB | `docs/` | Ilegible como documento de referencia | Baja |
-| DEUDA-021 | Sin scripts de `lint` ni `typecheck`; tests manuales con `npm test`, sin CI (ver DEUDA-024) | `package.json` | Los tests existen (`tests/`, 110 comprobaciones) pero corren a mano |
+| DEUDA-021 | Sin scripts de `lint` ni `typecheck`; tests manuales con `npm test`, sin CI (ver DEUDA-024) | `package.json` | Los tests existen (`tests/`, 158 comprobaciones) pero corren a mano |
 | DEUDA-023 | Sin tags de Git: la versión vive solo en `constants/version.js` y mensajes de commit | raíz | Releases no reproducibles; imposible volver a "la beta.25" con certeza | Media |
 | DEUDA-024 | Sin CI: los tests no se ejecutan automáticamente en push/PR | raíz | Una regresión puede llegar a producción sin que nadie ejecute `npm test` | Media |
 | DEUDA-025 | `docs/requisitos.md` desfasado en 4 puntos | `docs/requisitos.md` | El briefing induce a decisiones equivocadas | Baja |
@@ -207,6 +207,11 @@ Lo que está abierto y accionable ahora mismo está en
   `firebase/firestore.rules:176-200` (`update` de movimientos),
   `firebase/firestore.rules:99-120` (`create` de cuentas),
   `firebase/firestore.rules:144` (`update` de cuentas)
+- **Nota (Fase 3)**: sigue abierta la parte de *tipos* (create admite valores
+  que update rechazaría), pero la dirección peligrosa —campos que update valida
+  y create no deja pasar— ya está vigilada offline por
+  `tests/reglas.test.mjs` ("update no usa campos fuera del hasOnly del create").
+  Un test con emulador (`npm run test:rules`) cubre además el caso real.
 
 ### DEUDA-013: El `hasOnly` de `movimientos` es una lista manual ya desincronizada
 - **Módulo**: `firebase/firestore.rules`, `constants/tiposMovimiento.js`,
@@ -235,9 +240,9 @@ Lo que está abierto y accionable ahora mismo está en
   causado dos incidentes de producción y un bug abierto**, por lo que la
   prioridad no es hipotética.
 - **Prioridad**: Alta
-- **Solución propuesta**: dos niveles. (a) Corto plazo: una prueba unitaria o un
-  script de build que compare `CONFIG_MOVIMIENTOS` contra el `hasOnly` y falle
-  si no coinciden. (b) Largo plazo: mover el control a `flame`/tests de reglas
+- **Solución propuesta**: dos niveles. (a) Corto plazo [**hecho en la Fase 3**:
+  `tests/reglas.test.mjs` compara `CONFIG_MOVIMIENTOS` contra el `hasOnly` de
+  movimientos en las dos direcciones y falla si se desalinean]. (b) Largo plazo: mover el control a `flame`/tests de reglas
   de Firebase, de forma que cada tipo de movimiento tenga un test que intente
   guardarlo. Como mínimo, un comentario en el `hasOnly` que recuerde la
   dependencia.
@@ -535,30 +540,36 @@ Lo que está abierto y accionable ahora mismo está en
 - **Evidencia**: `manifest.webmanifest:4`, `constants/version.js:4`,
   `docs/requisitos.md:7`, `docs/informe-info.md:32-34`
 
-### DEUDA-009: 12 selectores CSS duplicados en 7 archivos
+### DEUDA-009: Selectores CSS duplicados entre hojas — RESUELTA (Fase 3)
 - **Módulo**: `css/`
-- **Descripción**: 12 selectores están definidos en más de un archivo:
-  `#panel` en cuatro (`style.css`, `navegacion.css` en dos sitios,
-  `movimientos.css`, `inversiones.css`), `.lista-vacia` / `.lista-vacia.error` /
-  `.lista-vacia-hint` en `style.css` e `inversiones.css`, `.panel-header` (y su
-  `h2`) en `componentes.css` e `inversiones.css`, `.config-hint` en
-  `configuracion.css` y `modal.css`, `.glass-btn` en `style.css` y
-  `configuracion.css`, y `#logo` / `main` en `style.css` y `navegacion.css`.
-  Son unos 14 bloques, ~75 líneas.
-- **Impacto**: bajo por volumen, pero con una trampa real: cuando el mismo
-  selector se declara en dos archivos cargados en el mismo HTML, el resultado
-  depende del **orden de los `<link>`**, no de la especificidad. Reordenar los
-  CSS en `dashboard.html` cambia el aspecto sin tocar ninguna regla. Es una
-  fuente de bugs visuales difíciles de rastrear.
-- **Prioridad**: Baja
-- **Solución propuesta**: declarar cada componente en un único archivo, el del
-  módulo que lo usa. `.lista-vacia*` pertenece a `componentes.css` y no a
-  `inversiones.css`; `.panel-header` igual; `.config-hint` debería ir solo en
-  `componentes.css`.
-- **Evidencia**: `css/style.css:201, 232, 688, 764, 768, 785, 828, 970`,
-  `css/navegacion.css:34, 323, 668, 723`, `css/inversiones.css:80, 86, 177, 187`,
-  `css/componentes.css:200`, `css/configuracion.css:222, 313`,
-  `css/modal.css:670`, `css/movimientos.css:14`
+- **Descripción original**: 12 selectores definidos en más de un archivo
+  (`#panel`, `.lista-vacia*`, `.panel-header*`, `.config-hint`, `.glass-btn`,
+  `#logo`, `main`…), unos 14 bloques y ~75 líneas.
+- **Riesgo**: cuando el mismo selector se declaraba en dos hojas cargadas en el
+  mismo HTML, el resultado dependía del **orden de los `<link>`**, no de la
+  especificidad.
+- **Solución aplicada**: se eliminaron las **copias exactas** y los overrides
+  redundantes (subconjunto): `.panel-header` y `.panel-header h2` de
+  `inversiones.css` (ya en `componentes.css`), `.lista-vacia*` de
+  `inversiones.css` (ya en `componentes.css`), `.config-hint` de `modal.css`
+  (ya en `configuracion.css`) y el `#panel` de `inversiones.css`, cuyo `gap`
+  quedó fijado en el layout base de `navegacion.css` para no depender de qué
+  hoja se cargue antes. Los solapamientos aditivos (`#panel` con
+  `container-type`, overrides dentro de `@media`, `view-transition-name`) se
+  conservan a propósito porque no son copias.
+- **Protección**: `tests/css.test.mjs` falla si una regla idéntica vuelve a
+  aparecer en dos hojas o si los selectores desduplicados se reparten otra vez.
+- **Evidencia histórica**: `css/inversiones.css:80, 86, 177, 187`,
+  `css/modal.css:670`, `css/componentes.css:200`, `css/configuracion.css:222`
+
+### DEUDA-009b: CSS por página cargado siempre — RESUELTA (Fase 3)
+- **Módulo**: `dashboard.html`, `js/core/estilos.js`
+- **Descripción original**: las 12 hojas se enlazaban todas en
+  `dashboard.html`, así que cualquier ruta descargaba los estilos de las otras.
+- **Solución aplicada**: `dashboard.html` solo enlaza las hojas del armazón;
+  `js/core/estilos.js` inyecta las de cada página al importar su módulo. El
+  precache de `sw.js` las conserva para el modo offline. Protegido por
+  `tests/estilos.test.mjs`.
 
 ### DEUDA-010: 218 `console.*` sin limpiar en 35 archivos
 - **Módulo**: `js/` (35 archivos)
@@ -618,9 +629,8 @@ Lo que está abierto y accionable ahora mismo está en
   - `experimentos/exp.js` — experimento de detección de multitáctil, versionado en
     `bd2ceb1` y **nunca importado** por la aplicación. La propia cabecera dice
     cómo cargarlo a mano.
-  - `test-cache.html` — página de prueba de caché, referenciada solo por
-    `firebase.json:18`, que la **excluye del despliegue**. Se versiona pero no se
-    sirve en ningún entorno.
+  - `test-cache.html` — **ya eliminado en la Fase 3** (no está trackeado ni
+    desplegado). Su cobertura se sustituyó por `tests/cache.test.mjs`.
   - `generar_demo.mjs` — generador del `.dvid` de demo. Está en la raíz y
     **sin trackear** (`??` en `git status`), pese a ser la única fuente de los
     datos de referencia de la demo.
@@ -630,11 +640,11 @@ Lo que está abierto y accionable ahora mismo está en
   `test-cache.html` son ruido para quien lea el repo, y `generar_demo.mjs` se
   pierde en una limpieza de directorio porque Git no lo protege.
 - **Prioridad**: Baja
-- **Solución propuesta**: borrar `exp.js` y `test-cache.html` (y su entrada en
-  `firebase.json`); **versionar `generar_demo.mjs`**, que es documentación
-  ejecutable de cómo se fabricó la demo; añadir `.dvid` de prueba al `.gitignore`
-  local ya existente sin cambios.
-- **Evidencia**: `experimentos/exp.js:1-6`, `firebase.json:18`,
+- **Solución propuesta**: borrar `exp.js` (`test-cache.html` ya se retiró en la
+  Fase 3); **versionar `generar_demo.mjs`**, que es documentación ejecutable de
+  cómo se fabricó la demo; añadir `.dvid` de prueba al `.gitignore` local ya
+  existente sin cambios.
+- **Evidencia**: `experimentos/exp.js:1-6`,
   `git status --short` (muestra `?? generar_demo.mjs`), `.gitignore` (reglas
   `*.dvid` y `*-debug.log`)
 

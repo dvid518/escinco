@@ -733,12 +733,6 @@
     margin-bottom: 4px;
 }
 
-.config-hint {
-    color: var(--textSecondary);
-    font-size: 12px;
-    margin-top: 4px;
-}
-
 .config-status {
     font-size: 12px;
     color: var(--textSecondary);

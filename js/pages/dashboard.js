@@ -1,3 +1,4 @@
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
@@ -37,6 +38,8 @@ import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
 
 import { obtenerMetas } from "../repositories/MetaRepositorio.js"
 import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
+
+asegurarEstilos("dashboard")
 
 // ============================================
 // ESTADO
@@ -445,7 +448,7 @@ function plantillaCardCuenta(cuenta) {
             <div class="card-header">
                 <span class="card-title">${etiqueta}</span>
                 <div class="card-header-controles">
-                    <span class="card-badge" id="${prefijo}-estado">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="${prefijo}-estado">${skeletonText("skeleton-badge")}</span>
                     ${botonComprimirCard()}
                 </div>
             </div>
@@ -474,7 +477,7 @@ function plantillaCardActivo(posicion) {
             <div class="card-header">
                 <span class="card-title" id="${prefijo}-nombre"></span>
                 <div class="card-header-controles">
-                    <span class="card-badge" id="${prefijo}-estado"></span>
+                    <span class="badge" id="${prefijo}-estado"></span>
                     ${botonComprimirCard()}
                 </div>
             </div>
@@ -524,16 +527,16 @@ function pintarCardCuenta(cuenta, card) {
         }
 
         if (estadoEl) {
-            estadoEl.classList.remove("aviso", "critico", "positive")
+            estadoEl.classList.remove("badge--aviso", "badge--negative", "badge--positive")
             if (ciclo.pagadoCompleto) {
                 estadoEl.textContent = "Pagado"
-                estadoEl.classList.add("positive")
+                estadoEl.classList.add("badge--positive")
             } else if (ciclo.restante > 0) {
                 estadoEl.textContent = "Pendiente"
-                estadoEl.classList.add(uso.nivel === "critico" ? "critico" : "aviso")
+                estadoEl.classList.add(uso.nivel === "critico" ? "badge--negative" : "badge--aviso")
             } else {
                 estadoEl.textContent = "Al día"
-                estadoEl.classList.add("positive")
+                estadoEl.classList.add("badge--positive")
             }
         }
 
@@ -1412,7 +1415,7 @@ export function render() {
             <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Ver inversiones">
                 <div class="card-header">
                     <span class="card-title">Favoritos</span>
-                    <span class="card-badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="favoritos-lista" id="favoritos-lista">
                     ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
@@ -1434,7 +1437,7 @@ export function render() {
             <div class="glass card card-navegable pendientes-card" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Ver pendientes">
                 <div class="card-header">
                     <span class="card-title">Pendientes</span>
-                    <span class="card-badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="pendientes-lista" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
             </div>
@@ -1442,7 +1445,7 @@ export function render() {
             <div class="glass card card-navegable ordenes-card" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Ver órdenes">
                 <div class="card-header">
                     <span class="card-title">Órdenes</span>
-                    <span class="card-badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="ordenes-lista" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
                 <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
@@ -1465,7 +1468,7 @@ export function render() {
             <div class="glass card estrategias-card" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
                 <div class="card-header">
                     <span class="card-title">Estrategias</span>
-                    <span class="card-badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="estrategias-lista" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
             </div>
@@ -1525,7 +1528,7 @@ export function render() {
             <div class="glass card programados-card" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Ver movimientos programados">
                 <div class="card-header">
                     <span class="card-title">Programados</span>
-                    <span class="card-badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="programados-lista" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
             </div>
@@ -1533,7 +1536,7 @@ export function render() {
             <div class="glass card alertas-card" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Ver alertas">
                 <div class="card-header">
                     <span class="card-title">Alertas</span>
-                    <span class="card-badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
+                    <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
                 </div>
                 <div class="alertas-lista" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
             </div>
@@ -2869,7 +2872,7 @@ function plantillaMovimiento(m) {
     return `
         <div class="movimiento-item" data-movimiento-id="${m.id}" role="button" tabindex="0" title="Ver movimiento">
             <div class="movimiento-info">
-                <span class="movimiento-titulo">${m.concepto || m.activo || tipoNombre}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
+                <span class="movimiento-titulo">${m.concepto || m.activo || tipoNombre}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
                 <span class="movimiento-detalle">${formatearFecha(fechaDeMovimiento(m))}</span>
             </div>
             <span class="movimiento-monto ${clase}">${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}</span>

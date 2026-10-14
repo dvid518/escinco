@@ -1,17 +1,23 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es" data-theme="dark">
 
 <head>
     <meta charset='utf-8'>
     <meta name="google-site-verification" content="YPnw_Er3s8K37qyBPLG_fhESnKFe5OVLykEVmGAlxZ4">
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
-    <title>escinco | Tus finanzas, claras en segundos</title>
+    <title>escinco | Dashboard de patrimonio para inversionistas en Perú</title>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <meta name="description"
-        content="escinco centraliza tus cuentas, inversiones y deudas en una sola vista: patrimonio total, múltiples divisas, inversiones y metas.">
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales. Gratis.">
+    <meta name="keywords"
+        content="gestión finanzas personales, dashboard inversiones, patrimonio Perú, app finanzas personales, control de gastos, inversionistas peruanos, multi-divisa">
     <meta name="theme-color" content="#141414">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="preload" href="/fonts/Roboto_Mono/RobotoMono-Regular.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/fonts/Roboto_Mono/RobotoMono-Medium.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/fonts/Roboto_Mono/RobotoMono-SemiBold.ttf" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="/fonts/Roboto_Mono/RobotoMono-Bold.ttf" as="font" type="font/ttf" crossorigin>
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
     <link rel='stylesheet' type='text/css' media='screen' href='css/style.css'>
@@ -26,65 +32,53 @@
     <meta property="og:site_name" content="escinco">
     <meta property="og:locale" content="es_PE">
     <meta property="og:url" content="https://escinco.web.app/">
-    <meta property="og:title" content="escinco | Tus finanzas, claras en segundos">
+    <meta property="og:title" content="escinco | Dashboard de patrimonio para inversionistas">
     <meta property="og:description"
-        content="Centraliza cuentas, inversiones y deudas en una sola vista: patrimonio total, múltiples divisas, órdenes, metas y exportación de tus datos.">
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.">
     <meta property="og:image" content="https://escinco.web.app/icons/icon-512.png">
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="escinco | Tus finanzas, claras en segundos">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="escinco | Dashboard de patrimonio">
     <meta name="twitter:description"
-        content="Patrimonio total, múltiples divisas, inversiones, órdenes y metas en una sola vista.">
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.">
     <meta name="twitter:image" content="https://escinco.web.app/icons/icon-512.png">
 
     <script type="application/ld+json">
-        {
+{
             "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "escinco",
-            "applicationCategory": "FinanceApplication",
-            "operatingSystem": "Web, Android, iOS",
-            "url": "https://escinco.web.app/",
-            "description": "SPA de finanzas personales que registra patrimonio, cuentas, movimientos, inversiones y trading en un solo panel.",
-            "inLanguage": "es",
-            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
-            "featureList": [
-                "Patrimonio total en PEN, USD y USDT",
-                "Cards por cuenta y por activo con compresión",
-                "Órdenes límite/stop ligadas a trades",
-                "Estrategias DCA",
-                "Metas de ahorro",
-                "Exportación e importación de respaldos"
-            ]
-        }
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [
+            "@graph": [
                 {
-                    "@type": "Question",
-                    "name": "¿Es gratis?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Sí, escinco es gratuito y no pide tarjeta para crear la cuenta." }
+                    "@type": "SoftwareApplication",
+                    "name": "escinco",
+                    "applicationCategory": "FinanceApplication",
+                    "operatingSystem": "Web, Android, iOS",
+                    "url": "https://escinco.web.app/",
+                    "description": "SPA de finanzas personales que registra patrimonio, cuentas, movimientos, inversiones y trading en un solo panel.",
+                    "inLanguage": "es",
+                    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
+                    "featureList": [
+                        "Patrimonio total en PEN, USD, USDT y EUR",
+                        "Multi-divisa sin fórmulas manuales",
+                        "Inversiones, trading y P&L calculados",
+                        "Estrategias DCA y órdenes ligadas a trades",
+                        "Metas de ahorro",
+                        "Exportación e importación de respaldos",
+                        "Funciona offline (PWA)"
+                    ]
                 },
                 {
-                    "@type": "Question",
-                    "name": "¿Cómo guardo mis datos?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "En tu propia cuenta de Firebase Authentication y Firestore, separadas por usuario. Puedes exportar un respaldo .dvid y eliminar todo cuando quieras." }
-                },
-                {
-                    "@type": "Question",
-                    "name": "¿Se conecta con mi banco?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "No hay conexión automática con bancos todavía. Registras las cuentas y los movimientos a mano, y escinco los suma y los valora por ti." }
-                },
-                {
-                    "@type": "Question",
-                    "name": "¿Qué monedas admite?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Soles (S/), dólares ($), euros (€) y USDT (₮). El tipo de cambio es configurable, manual o automático." }
-                },
-                {
-                    "@type": "Question",
-                    "name": "¿Qué pasa si borro una cuenta?",
-                    "acceptedAnswer": { "@type": "Answer", "text": "Sus movimientos no se pierden: se conservan y se muestran como Cuenta eliminada. Si solo la quieres dejar de ver, archívala y la recuperas cuando quieras." }
+                    "@context": "https://schema.org",
+                    "@type": "FAQPage",
+                    "mainEntity": [
+                        {"@type": "Question", "name": "¿escinco es gratis?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. escinco está en fase beta y es completamente gratis. No hay planes de pago ocultos."}},
+                        {"@type": "Question", "name": "¿Mis datos están seguros?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Tus datos están aislados por usuario y solo tú puedes acceder a ellos. Usamos Firebase Authentication y reglas de Firestore. Puedes exportar un respaldo .dvid y eliminar todo cuando quieras."}},
+                        {"@type": "Question", "name": "¿Se conecta con mi banco?", "acceptedAnswer": {"@type": "Answer", "text": "No hay conexión automática con bancos todavía. Registras las cuentas y los movimientos a mano, y escinco los suma y los valora por ti."}},
+                        {"@type": "Question", "name": "¿Qué monedas admite?", "acceptedAnswer": {"@type": "Answer", "text": "Soles (S/), dólares ($), euros (€) y USDT (₮). El tipo de cambio es configurable, manual o automático."}},
+                        {"@type": "Question", "name": "¿Necesito saber de finanzas para usarla?", "acceptedAnswer": {"@type": "Answer", "text": "No. escinco está diseñada para que cualquiera pueda usarla, sin conocimientos técnicos."}},
+                        {"@type": "Question", "name": "¿Funciona en móvil?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Es una PWA. Puedes instalarla en tu móvil o PC y funciona como una app nativa."}},
+                        {"@type": "Question", "name": "¿Funciona sin internet?", "acceptedAnswer": {"@type": "Answer", "text": "Sí, parcialmente. La interfaz funciona offline. Los datos se sincronizan cuando vuelve la conexión."}},
+                        {"@type": "Question", "name": "¿Puedo exportar mis datos?", "acceptedAnswer": {"@type": "Answer", "text": "Sí. Puedes exportar un respaldo en formato .dvid en cualquier momento."}},
+                        {"@type": "Question", "name": "¿Qué pasa si borro una cuenta?", "acceptedAnswer": {"@type": "Answer", "text": "Sus movimientos no se pierden: se conservan y se muestran como \"Cuenta eliminada\". Si solo la quieres dejar de ver, archívala y la recuperas cuando quieras."}}
+                    ]
                 }
             ]
         }
@@ -112,12 +106,16 @@
                 <span class="home-marca-nombre" id="home-marca-nombre">esc<span class="home-marca-sufijo"
                     id="home-marca-sufijo"><span class="home-marca-desplazar">inco</span></span></span>
             </a>
-            <nav class="home-nav" aria-label="Acceso">
-                <button type="button" class="home-tema" id="home-tema" aria-label="Cambiar el tema de color">
+            <nav class="home-nav" aria-label="Acceso principal">
+                <button type="button" class="home-tema" id="home-tema" aria-label="Cambiar el tema de color" aria-pressed="false">
                     <span class="home-tema-icono" id="home-tema-icono" aria-hidden="true"></span>
                 </button>
-                <a class="home-btn home-btn-fantasma" href="/login">Entrar</a>
-                <a class="home-btn home-btn-solido" href="/register">Crear cuenta</a>
+                <a class="home-btn home-btn-fantasma" href="/login" aria-label="Entrar a la aplicación">
+                    Entrar
+                </a>
+                <a class="home-btn home-btn-solido" href="/register" aria-label="Crear nueva cuenta">
+                    Crear cuenta
+                </a>
             </nav>
         </header>
 
@@ -126,13 +124,14 @@
 
             <!-- HERO -->
             <section class="home-hero">
-                <h1 class="home-titular">Tus finanzas, claras en segundos.</h1>
-                <p class="home-subtitulo">Centraliza tus cuentas, inversiones y deudas en una sola vista. Sin hojas de cálculo y sin pegar cifras de un banco a otro.</p>
+                <h1 class="home-titular">El dashboard que tu Excel no puede darte.</h1>
+                <p class="home-subtitulo">Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.</p>
                 <div class="home-acciones">
-                    <a class="home-btn home-btn-solido" href="/register">Crear cuenta</a>
+                    <a class="home-btn home-btn-solido" href="/register">Probar escinco gratis</a>
                     <a class="home-btn home-btn-fantasma" href="/login">Entrar</a>
-                    <a class="home-btn home-btn-fantasma" href="/tester">Probar demo</a>
+                    <a class="home-btn home-btn-fantasma" href="/demo/dashboard">Ver demo</a>
                 </div>
+                <p class="home-garantias" style="margin-top:.75rem;font-size:.9rem;opacity:.9">Hecho para inversionistas en Perú</p>
                 <ul class="home-garantias" aria-label="Condiciones de uso">
                     <li class="home-garantia">Gratis</li>
                     <li class="home-garantia">Sin tarjeta</li>
@@ -214,7 +213,7 @@
                                 <div class="glass card card-navegable card-cuenta card-cuenta-credito">
                                     <div class="card-header">
                                         <span class="card-title">Tarjeta de crédito</span>
-                                        <span class="card-badge critico">Pendiente</span>
+                                        <span class="badge badge--negative">Pendiente</span>
                                     </div>
                                     <div class="card-value home-card-valor-medio negative">-S/ 8,412.60</div>
                                     <div class="card-uso">
@@ -328,7 +327,7 @@
                                 <div class="glass card card-navegable pendientes-card">
                                     <div class="card-header">
                                         <span class="card-title">Pendientes</span>
-                                        <span class="card-badge">4</span>
+                                        <span class="badge">4</span>
                                     </div>
                                     <div class="pendientes-lista">
                                         <div class="dashboard-list-item">
@@ -371,8 +370,8 @@
                             <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
                         </svg>
                     </span>
-                    <h2 class="home-feature-titulo">Patrimonio total</h2>
-                    <p class="home-feature-texto">Cuentas, efectivo, tarjetas e inversiones sumados en una sola cifra que se actualiza con cada movimiento.</p>
+                    <h2 class="home-feature-titulo">Tu patrimonio real, en una sola vista</h2>
+                    <p class="home-feature-texto" aria-label="Suma automáticamente cuentas en PEN, USD, USDT y EUR. Ve cuánto tienes disponible, invertido y pendiente de pago.">Suma automáticamente cuentas en PEN, USD, USDT y EUR. Ve cuánto tienes disponible, invertido y pendiente de pago.</p>
                 </article>
                 <article class="home-feature">
                     <span class="home-feature-icono">
@@ -385,8 +384,8 @@
                             <path d="m16.71 13.88.7.71-2.82 2.82" />
                         </svg>
                     </span>
-                    <h2 class="home-feature-titulo">Múltiples divisas</h2>
-                    <p class="home-feature-texto">Guarda cada cuenta en su moneda y compara los saldos convertidos sin hacer cuentas a mano.</p>
+                    <h2 class="home-feature-titulo">Multi-divisa sin fórmulas manuales</h2>
+                    <p class="home-feature-texto" aria-label="El tipo de cambio se actualiza solo. Ya no tienes que ajustar celdas en Excel.">El tipo de cambio se actualiza solo. Ya no tienes que ajustar celdas en Excel.</p>
                 </article>
                 <article class="home-feature">
                     <span class="home-feature-icono">
@@ -398,8 +397,8 @@
                             <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
                         </svg>
                     </span>
-                    <h2 class="home-feature-titulo">Cards a tu medida</h2>
-                    <p class="home-feature-texto">Elige qué cards ver y en qué orden. Añade una por cuenta o por activo, y comprímela a una línea cuando no la necesites.</p>
+                    <h2 class="home-feature-titulo">Inversiones y trading en el mismo sitio</h2>
+                    <p class="home-feature-texto" aria-label="Posiciones, estrategias DCA, trades y órdenes. Con P&L y rendimiento calculados.">Posiciones, estrategias DCA, trades y órdenes. Con P&L y rendimiento calculados.</p>
                 </article>
                 <article class="home-feature">
                     <span class="home-feature-icono">
@@ -499,8 +498,8 @@
                             <line x1="8" x2="16" y1="21" y2="21" />
                             <line x1="12" x2="12" y1="17" y2="21" />
                         </svg>
-                        <h3 class="home-confianza-titulo">Se instala como app</h3>
-                        <p class="home-confianza-texto">Es una PWA: se instala desde el navegador, arranca en su propia ventana y tiene respaldo offline.</p>
+                        <h3 class="home-confianza-titulo">Funciona offline</h3>
+                        <p class="home-confianza-texto">Es una PWA. Instálala en tu móvil o PC y sigue usándola sin conexión.</p>
                     </li>
                     <li class="home-confianza-item">
                         <svg id="icono-palette" class="lucide lucide-palette" width="20" height="20" viewBox="0 0 24 24"
@@ -512,8 +511,8 @@
                             <circle cx="6.5" cy="12.5" r=".5" />
                             <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
                         </svg>
-                        <h3 class="home-confianza-titulo">Como tú lo quieras</h3>
-                        <p class="home-confianza-texto">Tema oscuro, claro o el del sistema, y el formato de moneda en símbolo o en código.</p>
+                        <h3 class="home-confianza-titulo">4 divisas · 11 tipos de movimiento</h3>
+                        <p class="home-confianza-texto">Diseñado para manejar PEN, USD, USDT y EUR. Funciona offline (PWA) y con respaldo exportable.</p>
                     </li>
                 </ul>
             </section>
@@ -527,7 +526,11 @@
                         <p class="home-faq-respuesta"><span>Sí, escinco es gratuito y no pide tarjeta para crear la cuenta.</span></p>
                     </details>
                     <details class="home-faq-item">
-                        <summary class="home-faq-pregunta">¿Cómo guardo mis datos?</summary>
+                        <summary class="home-faq-pregunta">¿Necesito saber de finanzas para usarla?</summary>
+                        <p class="home-faq-respuesta"><span>No. escinco está diseñada para que cualquiera pueda usarla, sin conocimientos técnicos.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Mis datos están seguros?</summary>
                         <p class="home-faq-respuesta"><span>En tu propia cuenta de Firebase Authentication y Firestore, separadas por usuario y protegidas por reglas que solo te dejan leer lo tuyo. Puedes exportar un respaldo <code>.dvid</code> y eliminar todo cuando quieras.</span></p>
                     </details>
                     <details class="home-faq-item">
@@ -535,8 +538,20 @@
                         <p class="home-faq-respuesta"><span>No hay conexión automática con bancos todavía. Registras las cuentas y los movimientos a mano, y escinco los suma y los valora por ti.</span></p>
                     </details>
                     <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Funciona en móvil?</summary>
+                        <p class="home-faq-respuesta"><span>Sí. Es una PWA. Puedes instalarla en tu móvil o PC y funciona como una app nativa.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Funciona sin internet?</summary>
+                        <p class="home-faq-respuesta"><span>Sí, parcialmente. La interfaz funciona offline. Los datos se sincronizan cuando vuelve la conexión.</span></p>
+                    </details>
+                    <details class="home-faq-item">
                         <summary class="home-faq-pregunta">¿Qué monedas admite?</summary>
-                        <p class="home-faq-respuesta"><span>Soles (S/), dólares ($) y USDT (₮), que se trata como dólar. El tipo de cambio es configurable y también manual.</span></p>
+                        <p class="home-faq-respuesta"><span>Soles (S/), dólares ($), euros (€) y USDT (₮). El tipo de cambio es configurable, manual o automático.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Puedo exportar mis datos?</summary>
+                        <p class="home-faq-respuesta"><span>Sí. Puedes exportar un respaldo en formato <code>.dvid</code> en cualquier momento.</span></p>
                     </details>
                     <details class="home-faq-item">
                         <summary class="home-faq-pregunta">¿Qué pasa si borro una cuenta?</summary>
@@ -548,10 +563,11 @@
             <!-- CIERRE -->
             <section class="home-cierre" aria-labelledby="home-cierre-titulo">
                 <h2 class="home-seccion-titulo" id="home-cierre-titulo">Empieza a ver tu patrimonio completo</h2>
-                <p class="home-cierre-texto">Cuentas, inversiones, deudas y metas en el mismo panel. Gratis y con tus datos exportables.</p>
+                <p class="home-cierre-texto">Cuentas, inversiones, deudas y metas en el mismo panel. Gratis, sin tarjeta y con tus datos exportables.</p>
                 <div class="home-acciones">
-                    <a class="home-btn home-btn-solido" href="/register">Crear cuenta</a>
+                    <a class="home-btn home-btn-solido" href="/register">Probar escinco gratis</a>
                     <a class="home-btn home-btn-fantasma" href="/login">Ya tengo cuenta</a>
+                    <a class="home-btn home-btn-fantasma" href="/demo/dashboard">Ver demo</a>
                 </div>
             </section>
         </main>
@@ -559,7 +575,10 @@
         <!-- PIE -->
         <footer class="home-footer">
             <span class="home-footer-marca">escinco</span>
-            <nav class="home-footer-links" aria-label="Enlaces legales">
+            <nav class="home-footer-links" aria-label="Enlaces internos y legales">
+                <a class="home-footer-link" href="/">Inicio</a>
+                <a class="home-footer-link" href="/login">Entrar</a>
+                <a class="home-footer-link" href="/register">Crear cuenta</a>
                 <a class="home-footer-link" href="/privacidad">Privacidad</a>
                 <a class="home-footer-link" href="/terminos">Términos</a>
             </nav>
@@ -570,3 +589,4 @@
 <script type="module" src="js/pages/index.js"></script>
 
 </html>
+

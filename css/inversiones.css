@@ -77,76 +77,13 @@
    INVERSIONES - LAYOUT
    ============================================ */
 
-#panel {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-}
-
-.panel-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    flex-shrink: 0;
-}
-
-.panel-header h2 {
-    margin: 0;
-}
-
 /* ============================================
    RESUMEN
-   ============================================ */
-
-.portfolio-resumen {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 12px;
-    flex-shrink: 0;
-}
-
-.resumen-card {
-    background: var(--surface);
-    padding: 16px;
-    border-radius: 40px;
-    border: 1px solid var(--border);
-    text-align: center;
-}
-
-.resumen-label {
-    font-size: 12px;
-    color: var(--textSecondary);
-}
-
-.resumen-valor {
-    font-family: var(--font-secondary);
-    font-size: 24px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-/* El skeleton del resumen es un <span> (inline), así que su `width` no se
-   aplica y se queda pegado a la izquierda mientras el valor real sí sale
-   centrado por .resumen-card: al cargar, la cifra salta de un lado a otro.
-   Se hace block + márgenes automáticos para centrarlo.
-
-   La regla va sobre .resumen-valor y no sobre ids concretos porque hay dos
-   variantes de skeleton (skeleton-value y skeleton-value-large) y
-   seleccionar solo la pequeña dejaba sin centrar las cifras grandes. */
-.resumen-valor > .skeleton {
-    display: block;
-    margin-inline: auto;
-}
-
-.resumen-valor.positive {
-    color: var(--positive);
-}
-
-.resumen-valor.negative {
-    color: var(--negative);
-}
+   ============================================
+   Las cards de cifras (.portfolio-resumen, .resumen-card, .resumen-label,
+   .resumen-valor y el centrado de su skeleton) viven ahora en componentes.css:
+   las comparten cuentas y trading, y aquí quedaban sin fondo ni borde al
+   entrar a esas páginas directamente. */
 
 /* ============================================
    LISTA DE POSICIONES
@@ -172,20 +109,6 @@
 .lista-posiciones::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 10px;
-}
-
-.lista-vacia {
-    color: var(--textSecondary);
-    text-align: center;
-    padding: 40px 0;
-}
-
-.lista-vacia.error {
-    color: var(--negative);
-}
-
-.lista-vacia-hint {
-    font-size: 13px;
 }
 
 /* ============================================
@@ -280,11 +203,6 @@
 .posicion-item.seleccionado .posicion-simbolo,
 .posicion-item.seleccionado .posicion-detalle {
     color: var(--surface);
-}
-
-.posicion-item.seleccionado .posicion-fuente.fuente-manual {
-    background: var(--background);
-    color: var(--border);
 }
 
 .posicion-item.seleccionado .posicion-valor {
@@ -597,31 +515,4 @@ button.btn-nueva-estrategia {
     font-size: 13px;
     color: var(--textSecondary);
     padding: 8px 0;
-}
-
-/* ============================================
-   BADGE DE FUENTE DE PRECIO
-   ============================================ */
-
-.posicion-fuente {
-    display: inline-block;
-    margin-left: 6px;
-    padding: 2px 10px;
-    border-radius: 50px;
-    font-size: 11px;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    vertical-align: middle;
-    transition: all 0.3s ease;
-}
-
-.posicion-fuente.fuente-manual {
-    background: var(--border);
-    color: var(--surface);
-}
-
-.posicion-fuente.fuente-api {
-    background: var(--positive);
-    color: var(--onyx);
 }

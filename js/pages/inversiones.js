@@ -1,3 +1,4 @@
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { fechaLocalISO, getFechaHoy, parseFechaLocal } from "../core/fechas.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
@@ -35,6 +36,8 @@ import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa, formatearMontoMinimo, recortarDecimales } from "../services/DivisaServicio.js"
+
+asegurarEstilos("inversiones")
 
 let uid = null
 let posicionesData = null
@@ -244,7 +247,7 @@ function plantillaPosicion(p) {
     // Badge de fuente de precio
     const fuente = activo?.fuente || "manual"
     const fuenteLabel = fuente === "api" ? "Auto" : "Manual"
-    const fuenteClase = fuente === "api" ? "fuente-api" : "fuente-manual"
+    const fuenteClase = fuente === "api" ? "badge--positive" : "badge--neutral"
 
     return `
         <div class="posicion-item${seleccionadas.has(p.id) ? " seleccionado" : ""}" data-posicion-id="${p.id}" data-activo-id="${p.activoId}">
@@ -259,7 +262,7 @@ function plantillaPosicion(p) {
                 <div class="posicion-nombre">
                     ${activo?.nombre || p.activoId}
                     <span class="posicion-simbolo">${activo?.simbolo || ""}</span>
-                    <span class="posicion-fuente ${fuenteClase}">${fuenteLabel}</span>
+                    <span class="badge ${fuenteClase}">${fuenteLabel}</span>
                 </div>
                 <div class="posicion-detalle">
                     ${recortarDecimales(p.cantidad)} · Precio: ${formatearMontoMinimo(activo?.ultimoPrecio || 0, p.divisa)}

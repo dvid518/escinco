@@ -2,52 +2,98 @@
 <html lang="es" data-theme="dark">
 
 <head>
+    <base href="/">
     <meta charset='utf-8'>
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
     <title>escinco | Demo interactiva</title>
     <meta name='viewport' content='width=device-width, initial-scale=1'>
     <meta name="description"
-        content="Prueba escinco con datos de ejemplo: dashboard, cuentas, movimientos e inversiones. Todo se guarda en tu navegador.">
+        content="Prueba escinco con datos de ejemplo: dashboard, cuentas, movimientos, inversiones y trading. Todo se guarda en tu navegador.">
     <meta name="theme-color" content="#141414">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="canonical" href="https://escinco.web.app/demo/dashboard">
+
+    <!-- Estilos del armazón (shell) + estilos propios de la demo. -->
     <link rel='stylesheet' type='text/css' media='screen' href='css/style.css'>
     <link rel='stylesheet' type='text/css' media='screen' href='css/componentes.css'>
-    <link rel='stylesheet' type='text/css' media='screen' href='css/tester.css'>
-    <link rel="canonical" href="https://escinco.web.app/tester">
+    <link rel='stylesheet' type='text/css' media='screen' href='css/navegacion.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/configuracion.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/modal.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/pendientes.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/iconos.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/demo.css'>
+
+    <!-- La demo no habla con Firebase: redirigimos el SDK a mocks locales.
+         Debe ir antes de cualquier <script type="module">. -->
+    <script type="importmap">
+        {
+            "imports": {
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js": "/firebase/demo/app.js",
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js": "/firebase/demo/auth.js",
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js": "/firebase/demo/firestore.js"
+            }
+        }
+    </script>
 </head>
 
-<body class="tester">
-    <div class="tester-aviso" role="note">
+<body class="loading">
+    <div class="demo-aviso" role="note">
         <span><strong>Demo.</strong> Datos de prueba guardados solo en este navegador.</span>
-        <span class="tester-aviso-acciones">
-            <button type="button" class="tester-link" id="tester-reset">Reiniciar demo</button>
-            <a class="tester-link" href="/">Volver a la landing</a>
+        <span class="demo-aviso-acciones">
+            <button type="button" class="demo-link" id="demo-reset">Reiniciar demo</button>
+            <button type="button" class="demo-link" id="demo-salir">Salir</button>
         </span>
     </div>
-    <header class="tester-header">
-        <span class="tester-marca">escinco <span class="tester-demo-badge">demo</span></span>
-        <div class="tester-header-acciones">
-            <div class="toggle-group" id="tester-divisa" role="group" aria-label="Divisa principal">
-                <span class="toggle-option active" data-divisa="pen">PEN</span>
-                <span class="toggle-option" data-divisa="usd">USD</span>
-            </div>
-            <button type="button" class="glass-btn" id="tester-tema" aria-label="Cambiar tema">Tema</button>
+
+    <!-- NAVBAR -->
+    <header class="nav-section">
+        <div class="logo-container glass tab">
+            <a href="/demo/dashboard" data-page="dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="80px" height="80px" id="logo" viewBox="0 0 32 31">
+                    <g id="text3035" fill="currentColor">
+                        <path id="path3063" d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469"/>
+                    </g>
+                </svg>
+            </a>
+        </div>
+        <div class="nav-container">
+            <a href="/demo/dashboard" class="glass tab" data-page="dashboard">Dashboard</a>
+            <a href="/demo/cuentas" class="glass tab" data-page="cuentas">Cuentas</a>
+            <a href="/demo/movimientos" class="glass tab" data-page="movimientos">Movimientos</a>
+            <a href="/demo/inversiones" class="glass tab" data-page="inversiones">Inversiones</a>
+            <a href="/demo/trading" class="glass tab" data-page="trading">Trading</a>
+        </div>
+        <div class="user-container glass tab">
+            <a href="/demo/configuracion" data-abrir-configuracion aria-label="Configuración" title="Configuración">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="conf-icon">
+                    <path d="M11 10.27 7 3.34"/>
+                    <path d="m11 13.73-4 6.93"/>
+                    <path d="M12 22v-2"/>
+                    <path d="M12 2v2"/>
+                    <path d="M14 12h8"/>
+                    <path d="m17 20.66-1-1.73"/>
+                    <path d="m17 3.34-1 1.73"/>
+                    <path d="M2 12h2"/>
+                    <path d="m20.66 17-1.73-1"/>
+                    <path d="m20.66 7-1.73 1"/>
+                    <path d="m3.34 17 1.73-1"/>
+                    <path d="m3.34 7 1.73 1"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <circle cx="12" cy="12" r="8"/>
+                </svg>
+            </a>
         </div>
     </header>
-    <div class="tester-layout">
-        <nav class="tester-nav" aria-label="Secciones de la demo">
-            <button type="button" class="glass act" data-vista="dashboard">Dashboard</button>
-            <button type="button" class="glass" data-vista="cuentas">Cuentas</button>
-            <button type="button" class="glass" data-vista="movimientos">Movimientos</button>
-            <button type="button" class="glass" data-vista="inversiones">Inversiones</button>
-            <button type="button" class="glass" data-vista="trading">Trading</button>
-            <button type="button" class="glass" data-vista="guia">Guía</button>
-        </nav>
-        <main id="tester-panel" class="glass" aria-busy="true"></main>
-    </div>
-    <script type="module" src="js/pages/tester.js"></script>
+
+    <!-- CONTENIDO DINÁMICO -->
+    <main id="app-content"></main>
+
+    <!-- LASTRAR -->
+    <footer id="app-footer"></footer>
+
+    <script type="module" src="js/demo/demo.js"></script>
 </body>
 
 </html>

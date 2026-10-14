@@ -18,6 +18,24 @@ const routes = {
 const RUTA_CONFIGURACION = "/configuracion"
 const PAGINAS_EN_UI = new Set(["configuracion"])
 
+// La demo reutiliza este router pero cuelga sus rutas de "/demo" (así el
+// armazón y las páginas reales siguen funcionando igual). El flag lo pone
+// js/demo/demo.js antes de llamar a initRouter.
+function baseActual() {
+    return window.__ESCINCO_DEMO__ ? "/demo" : ""
+}
+
+function rutaConBase(page) {
+    return `${baseActual()}/${page}`
+}
+
+function sinBase(path) {
+    const base = baseActual()
+    if (base && path.startsWith(base + "/")) return path.slice(base.length)
+    if (base && path === base) return "/"
+    return path
+}
+
 function importarPagina(page) {
     return PAGINAS_EN_UI.has(page)
         ? import(`../ui/${page}.js`)
@@ -367,7 +385,7 @@ async function renderPage(page) {
         currentPage = page
         updateActiveNav(page)
 
-        const path = `/${page}`
+        const path = rutaConBase(page)
         if (window.location.pathname !== path) {
             window.history.pushState({ page }, '', path)
         }
@@ -393,7 +411,7 @@ function avisarCambioDePagina(hacia) {
 
 export function navigateTo(path) {
     console.log('[INFO] Navegando a:', path)
-    const cleanPath = path.replace(/\/+/g, '/')
+    const cleanPath = sinBase(path).replace(/\/+/g, '/')
     if (cleanPath === RUTA_CONFIGURACION && !configuracionComoPagina()) {
         // En modo panel, /configuracion es un atajo: se abre la ventana sobre
         // la página actual y la ruta no cambia.
@@ -470,13 +488,12 @@ window.addEventListener('popstate', (event) => {
     // La configuración nunca estuvo en el historial como ventana: si vuelve
     // por popstate es porque estaba en modo página.
     if (page === 'configuracion' && !configuracionComoPagina()) {
-        window.history.replaceState({ page: currentPage }, '', `/${currentPage}`)
+        window.history.replaceState({ page: currentPage }, '', rutaConBase(currentPage))
         abrirConfiguracionComoPanel()
         return
     }
     if (avisarCambioDePagina(page)) {
-        const path = `/${currentPage}`
-        window.history.replaceState({ page: currentPage }, '', path)
+        window.history.replaceState({ page: currentPage }, '', rutaConBase(currentPage))
         return
     }
     loadPage(page)
@@ -486,11 +503,11 @@ export function initRouter(initialPage = 'dashboard') {
     console.log("[INFO] Iniciando router...")
     setupNavigation()
 
-    const path = window.location.pathname
+    const path = sinBase(window.location.pathname)
     if (path === RUTA_CONFIGURACION && !configuracionComoPagina()) {
         // Enlace profundo con la configuración como panel: se pinta la página
         // inicial y la ventana se abre encima.
-        window.history.replaceState({ page: initialPage }, "", `/${initialPage}`)
+        window.history.replaceState({ page: initialPage }, "", rutaConBase(initialPage))
         loadPage(initialPage)
         abrirConfiguracionComoPanel()
         return

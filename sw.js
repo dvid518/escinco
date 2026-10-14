@@ -28,7 +28,7 @@ const SHELL_ASSETS = [
     "/css/style.css",
     "/css/index.css",
     "/css/home.css",
-    "/css/tester.css",
+    "/css/demo.css",
     "/css/auth.css",
     "/css/dashboard.css",
     "/css/navegacion.css",
@@ -45,6 +45,7 @@ const SHELL_ASSETS = [
 
     // JS core
     "/js/core/app.js",
+    "/js/core/estilos.js",
     "/js/core/router.js",
     "/js/core/sesion.js",
     "/js/core/tema.js",
@@ -59,7 +60,6 @@ const SHELL_ASSETS = [
 
     // JS pages
     "/js/pages/index.js",
-    "/js/pages/tester.js",
     "/js/pages/auth.js",
     "/js/pages/reset-password.js",
     "/js/pages/legal.js",
@@ -129,6 +129,14 @@ const SHELL_ASSETS = [
     "/firebase/config.js",
     "/firebase/auth.js",
     "/firebase/firestore.js",
+
+    // JS demo
+    "/js/demo/demo.js",
+    "/js/demo/fixture.js",
+    "/firebase/demo/store.js",
+    "/firebase/demo/firestore.js",
+    "/firebase/demo/auth.js",
+    "/firebase/demo/app.js",
 
     // JS constants
     "/constants/version.js",
@@ -265,7 +273,9 @@ function esFuente(url) {
 // caché de por sí ya funciona sin red.
 function htmlRespaldo(ruta) {
     const publica = ruta === "/" || ruta === "/index.html"
-    return publica ? "/index.html" : "/dashboard.html"
+    if (publica) return "/index.html"
+    if (ruta === "/tester" || ruta.startsWith("/demo")) return "/tester.html"
+    return "/dashboard.html"
 }
 
 // ============================================

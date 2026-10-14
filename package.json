@@ -1,7 +1,7 @@
 {
   "scripts": {
     "test": "node tests/run.mjs",
-    "test:rules": "firebase emulators:exec --only firestore \"node tests/run.mjs rules\"",
+    "test:rules": "firebase emulators:exec --only firestore,auth \"node tests/run.mjs rules\"",
     "serve": "firebase serve",
     "emulators": "firebase emulators:start",
     "deploy:hosting": "firebase deploy --only hosting",

@@ -1,3 +1,4 @@
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { icono } from "../core/iconos.js"
 import { skeletonMarkup } from "../ui/skeletons.js"
@@ -32,6 +33,8 @@ import { abrirModalEducativoCredito, estadoCicloDe, nivelUsoDe, notificarCruces,
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
+
+asegurarEstilos("cuentas")
 
 let cuentas = []
 // Las cuentas archivadas no se listan ni se seleccionan, pero no se borran:
@@ -803,7 +806,7 @@ async function mostrarDetalleCuenta() {
     })
 
     // El modal educativo de niveles de uso
-    panel.querySelectorAll(".cuenta-badge.estado").forEach(badge => {
+    panel.querySelectorAll(".cuenta-perfil-badges .badge--interactivo").forEach(badge => {
         badge.addEventListener("click", () => abrirModalEducativoCredito(visto, {
             pagadoCompleto: ciclo?.pagadoCompleto === true
         }))
@@ -811,7 +814,7 @@ async function mostrarDetalleCuenta() {
 
     // Cambiar de pill = mirar otra cuenta de la familia. Se repinta el panel
     // entero con el render estandar de esa cuenta.
-    panel.querySelectorAll(".subcuenta-pill").forEach(pill => {
+    panel.querySelectorAll(".subcuentas-pills .badge").forEach(pill => {
         pill.addEventListener("click", () => {
             if (miembroFamiliaVisto === pill.dataset.cuentaId) return
             miembroFamiliaVisto = pill.dataset.cuentaId
@@ -866,7 +869,7 @@ export async function modalizarCuentaActual() {
                 </div>`
         }
         mostrarVistaModal(modalEl, modalEl.querySelector(".cuenta-modal-tabs .cuenta-modal-tab.active")?.dataset.vista || "info")
-        modalEl.querySelectorAll(".subcuenta-pill").forEach(pill => {
+        modalEl.querySelectorAll(".subcuentas-pills .badge").forEach(pill => {
             pill.addEventListener("click", () => {
                 if (vistoId === pill.dataset.cuentaId) return
                 vistoId = pill.dataset.cuentaId
@@ -938,7 +941,7 @@ function plantillaTabsSubcuentas(familia, visto) {
                 const activa = c.id === visto.id
                 return `
                     <button type="button" role="tab" aria-selected="${activa}"
-                        class="subcuenta-pill${activa ? " active" : ""}"
+                        class="badge badge--interactivo${activa ? " activo" : ""}"
                         data-cuenta-id="${c.id}" title="${c.nombre}">
                         ${etiquetaDivisa(c.moneda)}
                     </button>
@@ -989,14 +992,14 @@ function badgeVencimiento(vence) {
     const finDeVigencia = new Date(anio, mes, 0) // último día del mes
 
     if (hoy > finDeVigencia) {
-        return '<span class="cuenta-badge tarjeta-estado negativa">Caducada</span>'
+        return '<span class="badge badge--negative">Caducada</span>'
     }
 
     if (hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes) {
-        return '<span class="cuenta-badge tarjeta-estado ambar">Caduca este mes</span>'
+        return '<span class="badge badge--aviso">Caduca este mes</span>'
     }
 
-    return '<span class="cuenta-badge tarjeta-estado positiva">Vigente</span>'
+    return '<span class="badge badge--positive">Vigente</span>'
 }
 
 function plantillaInfoNormal(c, opciones = {}) {
@@ -1013,7 +1016,7 @@ function plantillaInfoNormal(c, opciones = {}) {
                 <h3>${c.nombre}</h3>
             </div>
             <div class="cuenta-perfil-badges">
-                <span class="cuenta-badge">${nombreTipo(c.tipo)}</span>
+                <span class="badge">${nombreTipo(c.tipo)}</span>
                 ${badgeVencimiento(c.vence)}
                 ${laFamilia && laFamilia.length > 1 ? plantillaTabsSubcuentas(laFamilia, c) : ""}
             </div>
@@ -1070,7 +1073,7 @@ function plantillaInfoTarjeta(c, ciclo) {
     const nivelTexto = nivel === "critico" ? "Crítico" : nivel === "aviso" ? "Advertencia" : "Normal"
     const claseEstado = nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : "positive"
     const claseBarra = nivel === "critico" ? "negative" : nivel === "aviso" ? "ambar" : ""
-    const claseBadge = nivel === "critico" ? "critico" : nivel === "aviso" ? "aviso" : "normal"
+    const claseBadge = nivel === "critico" ? "badge--negative" : nivel === "aviso" ? "badge--aviso" : "badge--positive"
     const corteInfo = calcularDiasHasta(c.diaCorte)
     const pagoInfo = calcularDiasHasta(c.diaPago)
     const anualidad = proximaAnualidad(c)
@@ -1082,8 +1085,8 @@ function plantillaInfoTarjeta(c, ciclo) {
                 <h3>${c.nombre}</h3>
             </div>
             <div class="cuenta-perfil-badges">
-                <span class="cuenta-badge">Tarjeta de crédito</span>
-                <button type="button" class="cuenta-badge estado ${claseBadge}" title="¿Qué significa este estado?">${nivelTexto}</button>
+                <span class="badge">Tarjeta de crédito</span>
+                <button type="button" class="badge badge--interactivo ${claseBadge}" title="¿Qué significa este estado?">${nivelTexto}</button>
                 ${badgeVencimiento(c.vence)}
             </div>
         </div>
@@ -1108,7 +1111,7 @@ function plantillaInfoTarjeta(c, ciclo) {
                 <div class="aporte-progreso">
                     <div class="aporte-progreso-barra ${claseBarra}" style="--progreso:${Math.min(100, porcentaje).toFixed(1)}%"></div>
                 </div>
-                <span class="aporte-progreso-badge ${claseEstado}">${porcentaje.toFixed(0)}%</span>
+                <span class="badge ${claseBadge}">${porcentaje.toFixed(0)}%</span>
             </div>
         </div>
 
@@ -1324,7 +1327,7 @@ function plantillaMovimiento(m, cuentaId = null) {
         <div class="card-item${seleccionada}" data-id="${m.id}">
             <div class="card-item-main">
                 <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => `<span class="etiqueta-mini">${e}</span>`).join("")}</span>
+                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
                     <span class="card-item-detalle">${fecha}</span>
                 </div>
                 <div class="card-item-valor-wrap">

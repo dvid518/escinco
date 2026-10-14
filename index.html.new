@@ -1,0 +1,596 @@
+﻿<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+
+<head>
+    <meta charset='utf-8'>
+    <meta name="google-site-verification" content="YPnw_Er3s8K37qyBPLG_fhESnKFe5OVLykEVmGAlxZ4">
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>escinco | Dashboard de patrimonio para inversionistas en Perú</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name="description"
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales. Gratis.">
+    <meta name="keywords"
+        content="gestión finanzas personales, dashboard inversiones, patrimonio Perú, app finanzas personales, control de gastos, inversionistas peruanos, multi-divisa">
+    <meta name="theme-color" content="#141414">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel='stylesheet' type='text/css' media='screen' href='css/style.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/dashboard.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/navegacion.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/iconos.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/home.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/componentes.css'>
+    <link rel="canonical" href="https://escinco.web.app/">
+
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="escinco">
+    <meta property="og:locale" content="es_PE">
+    <meta property="og:url" content="https://escinco.web.app/">
+    <meta property="og:title" content="escinco | Dashboard de patrimonio para inversionistas">
+    <meta property="og:description"
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.">
+    <meta property="og:image" content="https://escinco.web.app/icons/icon-512.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="escinco | Dashboard de patrimonio">
+    <meta name="twitter:description"
+        content="Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.">
+    <meta name="twitter:image" content="https://escinco.web.app/icons/icon-512.png">
+
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "SoftwareApplication",
+            "name": "escinco",
+            "applicationCategory": "FinanceApplication",
+            "operatingSystem": "Web, Android, iOS",
+            "url": "https://escinco.web.app/",
+            "description": "SPA de finanzas personales que registra patrimonio, cuentas, movimientos, inversiones y trading en un solo panel.",
+            "inLanguage": "es",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "PEN" },
+            "featureList": [
+                "Patrimonio total en PEN, USD, USDT y EUR",
+                "Multi-divisa sin fórmulas manuales",
+                "Inversiones, trading y P&L calculados",
+                "Estrategias DCA y órdenes ligadas a trades",
+                "Metas de ahorro",
+                "Exportación e importación de respaldos",
+                "Funciona offline (PWA)"
+            ]
+        }
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            "mainEntity": [
+                {
+                    "@type": "Question",
+                    "name": "¿escinco es gratis?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Sí. escinco está en fase beta y es completamente gratis. No hay planes de pago ocultos." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "¿Mis datos están seguros?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Sí. Tus datos están aislados por usuario y solo tú puedes acceder a ellos. Usamos Firebase Authentication y reglas de Firestore. Puedes exportar un respaldo .dvid y eliminar todo cuando quieras." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "¿Se conecta con mi banco?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "No hay conexión automática con bancos todavía. Registras las cuentas y los movimientos a mano, y escinco los suma y los valora por ti." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "¿Qué monedas admite?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Soles (S/), dólares ($), euros (€) y USDT (₮). El tipo de cambio se actualiza y también puedes configurarlo manualmente." }
+                },
+                {
+                    "@type": "Question",
+                    "name": "¿Qué pasa si borro una cuenta?",
+                    "acceptedAnswer": { "@type": "Answer", "text": "Sus movimientos no se pierden: se conservan y se muestran como \"Cuenta eliminada\". Si solo la quieres dejar de ver, archívala y la recuperas cuando quieras." }
+                }
+            ]
+        }
+    </script>
+</head>
+
+<body class="home">
+    <div class="home-scroll">
+
+        <!-- CABECERA -->
+        <header class="home-header">
+            <a class="home-marca" href="/" aria-label="escinco">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" id="logo" viewBox="0 0 32 31">
+                    <g id="text3035" fill="currentColor">
+                        <path id="path3063" d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469" />
+                    </g>
+                </svg>
+                <!-- La marca completa se ve al entrar y "inco" se retira a los 3
+                     segundos; el hover del contenedor lo devuelve. El corte va en
+                     dos elementos porque `width: auto` no se puede animar: el
+                     externo recorta (max-width) y el interno se desplaza
+                     (translateX) para que se vea salir hacia afuera, no disolverse.
+                     El texto va en el DOM siempre, así que el nombre completo se
+                     sigue leyendo en cualquier contexto. -->
+                <span class="home-marca-nombre" id="home-marca-nombre">esc<span class="home-marca-sufijo"
+                    id="home-marca-sufijo"><span class="home-marca-desplazar">inco</span></span></span>
+            </a>
+            <nav class="home-nav" aria-label="Acceso">
+                <button type="button" class="home-tema" id="home-tema" aria-label="Cambiar el tema de color">
+                    <span class="home-tema-icono" id="home-tema-icono" aria-hidden="true"></span>
+                </button>
+                <a class="home-btn home-btn-fantasma" href="/login">Entrar</a>
+                <a class="home-btn home-btn-solido" href="/register">Crear cuenta</a>
+            </nav>
+        </header>
+
+        <!-- CONTENIDO -->
+        <main class="home-main">
+
+            <!-- HERO -->
+            <section class="home-hero">
+                <h1 class="home-titular">El dashboard que tu Excel no puede darte.</h1>
+                <p class="home-subtitulo">Centraliza cuentas, inversiones y deudas en múltiples divisas. Sabe cuánto tienes realmente, sin fórmulas manuales.</p>
+                <div class="home-acciones">
+                    <a class="home-btn home-btn-solido" href="/register">Probar escinco gratis</a>
+                    <a class="home-btn home-btn-fantasma" href="/login">Entrar</a>
+                    <a class="home-btn home-btn-fantasma" href="/demo/dashboard">Ver demo</a>
+                </div>
+                <p class="home-garantias" style="margin-top:.75rem;font-size:.9rem;opacity:.9">Hecho para inversionistas en Perú</p>
+                <ul class="home-garantias" aria-label="Condiciones de uso">
+                    <li class="home-garantia">Gratis</li>
+                    <li class="home-garantia">Sin tarjeta</li>
+                    <li class="home-garantia">Exportas tus datos cuando quieras</li>
+                </ul>
+
+                <!-- MAQUETA DEL DASHBOARD · REPRESENTACIÓN, NO ES UNA IMAGEN -->
+                <!-- Se construye con las mismas clases que el dashboard real
+                     (.dashboard, .glass.card, .card-*, .dashboard-list-item,
+                     .meta-item, .distribucion-barra) dentro de un .dashboard, de
+                     modo que hereda css/dashboard.css y se parece a la app de
+                     verdad en lugar de parecerse a una captura dibujada aparte.
+
+                     La navbar también es la de la app: mismas clases
+                     (.nav-section, .logo-container, .nav-container,
+                     .user-container y sus .glass.tab) y los mismos destinos.
+                     Hereda css/navegacion.css, así que si el menú de la app
+                     cambia, la maqueta cambia con él.
+
+                     Los enlaces apuntan a las rutas reales pero no navegan:
+                     llevan tabindex="-1" y aria-disabled, y index.js corta el
+                     clic. La alternativa —dejarlos llevar a /cuentas— devolvería
+                     al visitante a la landing en un bucle sin contenido, porque
+                     sin sesión el dashboard redirige a /login. -->
+                <figure class="home-captura" aria-label="Vista del panel de escinco con el patrimonio total, la rejilla de cards y el gráfico de evolución patrimonial">
+                    <div class="home-captura-frame">
+                        <div class="nav-section home-maqueta-nav">
+                            <div class="logo-container glass tab">
+                                <a href="/" tabindex="-1" aria-hidden="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 32 31" fill="currentColor">
+                                        <path
+                                            d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469" />
+                                    </svg>
+                                </a>
+                            </div>
+                            <div class="nav-container">
+                                <a class="glass tab act" href="/dashboard" tabindex="-1" aria-disabled="true">Dashboard</a>
+                                <a class="glass tab" href="/cuentas" tabindex="-1" aria-disabled="true">Cuentas</a>
+                                <a class="glass tab" href="/movimientos" tabindex="-1" aria-disabled="true">Movimientos</a>
+                                <a class="glass tab" href="/inversiones" tabindex="-1" aria-disabled="true">Inversiones</a>
+                                <a class="glass tab" href="/trading" tabindex="-1" aria-disabled="true">Trading</a>
+                            </div>
+                            <div class="user-container glass tab">
+                                <a href="/configuracion" tabindex="-1" aria-disabled="true" aria-label="Configuración">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+                                        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="conf-icon">
+                                        <path d="M11 10.27 7 3.34" />
+                                        <path d="m11 13.73-4 6.93" />
+                                        <path d="M12 22v-2" />
+                                        <path d="M12 2v2" />
+                                        <path d="M14 12h8" />
+                                        <path d="m17 20.66-1-1.73" />
+                                        <path d="m17 3.34-1 1.73" />
+                                        <path d="M2 12h2" />
+                                        <path d="M20 12h2" />
+                                        <path d="m6.34 17.66-1.41 1.41" />
+                                        <path d="m19.07 4.93-1.41 1.41" />
+                                        <path d="m3.34 17 1.73-1" />
+                                        <path d="m3.34 7 1.73 1" />
+                                        <circle cx="12" cy="12" r="2" />
+                                        <circle cx="12" cy="12" r="8" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div class="dashboard home-maqueta">
+                            <!-- Columna 1 -->
+                            <div class="dashboard-column">
+                                <div class="glass card primary patrimonio-card">
+                                    <div class="card-header">
+                                        <span class="card-title">Patrimonio Total</span>
+                                        <span class="divisa-select home-divisa-select" aria-hidden="true">S/</span>
+                                    </div>
+                                    <div class="card-value">S/ 184,320.55</div>
+                                    <div class="card-sub">+S/ 4,180.20 este mes</div>
+                                </div>
+
+                                <div class="glass card card-navegable card-cuenta card-cuenta-credito">
+                                    <div class="card-header">
+                                        <span class="card-title">Tarjeta de crédito</span>
+                                        <span class="badge badge--negative">Pendiente</span>
+                                    </div>
+                                    <div class="card-value home-card-valor-medio negative">-S/ 8,412.60</div>
+                                    <div class="card-uso">
+                                        <div class="card-uso-barra"><span class="critico" style="width: 84%"></span></div>
+                                        <span class="card-uso-pct critico">84%</span>
+                                    </div>
+                                    <div class="card-datos">
+                                        <div class="card-dato">
+                                            <span class="card-dato-label">De</span>
+                                            <span class="card-dato-valor">S/ 10,000.00</span>
+                                        </div>
+                                        <div class="card-dato">
+                                            <span class="card-dato-label">Ciclo</span>
+                                            <span class="card-dato-valor">Corte día 05 · Pago día 20</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Columna 2 -->
+                            <div class="dashboard-column">
+                                <div class="glass card grafico-patrimonio-card">
+                                    <div class="card-header">
+                                        <span class="card-title">Evolución patrimonial</span>
+                                    </div>
+                                    <div class="toggle-group grafico-periodos" role="group" aria-label="Periodo del gráfico de ejemplo">
+                                        <span class="toggle-option">7D</span>
+                                        <span class="toggle-option active">30D</span>
+                                        <span class="toggle-option">90D</span>
+                                        <span class="toggle-option">1A</span>
+                                        <span class="toggle-option">Todo</span>
+                                    </div>
+                                    <div class="grafico-container-dashboard">
+                                        <canvas id="home-grafico-patrimonio" role="img"
+                                            aria-label="Gráfico de ejemplo: el patrimonio sube de S/ 171,000 a S/ 184,320 en los últimos 30 días"></canvas>
+                                    </div>
+                                </div>
+
+                                <div class="glass card card-navegable distribucion-activos-card">
+                                    <div class="card-header">
+                                        <span class="card-title">Distribución por tipo de activo</span>
+                                    </div>
+                                    <div class="home-dona" role="img"
+                                        aria-label="Gráfico de ejemplo: la cartera se reparte en cripto 42%, acciones 28%, ETF 20% y bonos 10%">
+                                        <canvas id="home-grafico-distribucion"></canvas>
+                                    </div>
+                                    <div class="distribucion-lista">
+                                        <div class="distribucion-item">
+                                            <div class="distribucion-cabecera">
+                                                <span>Cripto</span>
+                                                <strong>42%</strong>
+                                            </div>
+                                            <div class="distribucion-barra"><span class="cripto" style="width: 42%"></span></div>
+                                        </div>
+                                        <div class="distribucion-item">
+                                            <div class="distribucion-cabecera">
+                                                <span>Acción</span>
+                                                <strong>28%</strong>
+                                            </div>
+                                            <div class="distribucion-barra"><span class="accion" style="width: 28%"></span></div>
+                                        </div>
+                                        <div class="distribucion-item">
+                                            <div class="distribucion-cabecera">
+                                                <span>ETF</span>
+                                                <strong>20%</strong>
+                                            </div>
+                                            <div class="distribucion-barra"><span class="etf" style="width: 20%"></span></div>
+                                        </div>
+                                        <div class="distribucion-item">
+                                            <div class="distribucion-cabecera">
+                                                <span>Bono</span>
+                                                <strong>10%</strong>
+                                            </div>
+                                            <div class="distribucion-barra"><span class="bono" style="width: 10%"></span></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Columna 3 -->
+                            <div class="dashboard-column">
+                                <div class="glass card metas-card">
+                                    <div class="card-header">
+                                        <span class="card-title">Metas de ahorro</span>
+                                    </div>
+                                    <div class="metas-lista">
+                                        <div class="meta-item">
+                                            <div class="meta-info">
+                                                <span class="meta-nombre">Fondo de emergencia</span>
+                                                <span class="meta-cantidad">S/ 14,200 de S/ 30,000</span>
+                                            </div>
+                                            <span class="meta-porcentaje">47%</span>
+                                        </div>
+                                        <div class="meta-item">
+                                            <div class="meta-info">
+                                                <span class="meta-nombre">Viaje a Chile</span>
+                                                <span class="meta-cantidad">S/ 2,600 de S/ 4,000</span>
+                                            </div>
+                                            <span class="meta-porcentaje">65%</span>
+                                        </div>
+                                        <div class="meta-item completada">
+                                            <div class="meta-info">
+                                                <span class="meta-nombre">Notebook</span>
+                                                <span class="meta-cantidad">S/ 3,400 de S/ 3,400</span>
+                                            </div>
+                                            <span class="meta-porcentaje">100%</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="glass card card-navegable pendientes-card">
+                                    <div class="card-header">
+                                        <span class="card-title">Pendientes</span>
+                                        <span class="badge">4</span>
+                                    </div>
+                                    <div class="pendientes-lista">
+                                        <div class="dashboard-list-item">
+                                            <div class="dashboard-list-info">
+                                                <span class="dashboard-list-title">Tarjeta de crédito</span>
+                                                <span class="dashboard-list-detail critico">Vence en 2 días</span>
+                                            </div>
+                                            <span class="dashboard-list-value negative">S/ 8,412.60</span>
+                                        </div>
+                                        <div class="dashboard-list-item">
+                                            <div class="dashboard-list-info">
+                                                <span class="dashboard-list-title">Alquiler</span>
+                                                <span class="dashboard-list-detail">Vence en 6 días</span>
+                                            </div>
+                                            <span class="dashboard-list-value negative">S/ 1,750.00</span>
+                                        </div>
+                                        <div class="dashboard-list-item">
+                                            <div class="dashboard-list-info">
+                                                <span class="dashboard-list-title">Factura por cobrar</span>
+                                                <span class="dashboard-list-detail">Vence en 11 días</span>
+                                            </div>
+                                            <span class="dashboard-list-value positive">S/ 2,400.00</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </figure>
+            </section>
+
+            <!-- CARACTERÍSTICAS -->
+            <section class="home-features" aria-label="Características">
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-wallet" class="lucide lucide-wallet" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M19 7V4a1 1 0 0 0-1-1H5a1 1 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+                            <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Tu patrimonio real, en una sola vista</h2>
+                    <p class="home-feature-texto">Suma automáticamente cuentas en PEN, USD, USDT y EUR. Ve cuánto tienes disponible, invertido y pendiente de pago.</p>
+                </article>
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-coins" class="lucide lucide-coins" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <circle cx="8" cy="8" r="6" />
+                            <path d="M18.09 10.37A6 6 0 1 1 10.34 18" />
+                            <path d="M7 6h1v4" />
+                            <path d="m16.71 13.88.7.71-2.82 2.82" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Multi-divisa sin fórmulas manuales</h2>
+                    <p class="home-feature-texto">El tipo de cambio se actualiza solo. Ya no tienes que ajustar celdas en Excel.</p>
+                </article>
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-layers" class="lucide lucide-layers" width="22" height="22" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a2 2 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a2 2 0 0 0 0-1.83z" />
+                            <path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65" />
+                            <path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Inversiones y trading en el mismo sitio</h2>
+                    <p class="home-feature-texto">Posiciones, estrategias DCA, trades y órdenes. Con P&L y rendimiento calculados.</p>
+                </article>
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-trending-up" class="lucide lucide-trending-up" width="22" height="22" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                            <polyline points="16 7 22 7 22 13" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Inversiones</h2>
+                    <p class="home-feature-texto">Posiciones, estrategias y precios automáticos, con la evolución de tu cartera a la vista.</p>
+                </article>
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-candlestick" class="lucide lucide-chart-candlestick" width="22" height="22" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9 5v4" />
+                            <rect width="4" height="6" x="7" y="9" rx="1" />
+                            <path d="M9 15v2" />
+                            <path d="M17 3v2" />
+                            <rect width="4" height="8" x="15" y="5" rx="1" />
+                            <path d="M17 13v3" />
+                            <path d="M3 3v16a2 2 0 0 0 2 2h16" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Trading y órdenes</h2>
+                    <p class="home-feature-texto">Trades largo/corto con P&amp;L, y órdenes límite o stop que abren el trade solas al tocar su precio de disparo.</p>
+                </article>
+                <article class="home-feature">
+                    <span class="home-feature-icono">
+                        <svg id="icono-target" class="lucide lucide-target" width="22" height="22" viewBox="0 0 24 24" fill="none"
+                            xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="6" />
+                            <circle cx="12" cy="12" r="2" />
+                        </svg>
+                    </span>
+                    <h2 class="home-feature-titulo">Metas</h2>
+                    <p class="home-feature-texto">Define objetivos de ahorro y pendientes, y mira cuánto te falta para llegar a cada uno.</p>
+                </article>
+            </section>
+
+            <!-- PASOS -->
+            <section class="home-pasos" aria-labelledby="home-pasos-titulo">
+                <h2 class="home-seccion-titulo" id="home-pasos-titulo">Empezar son tres pasos</h2>
+                <ol class="home-pasos-lista">
+                    <li class="home-paso">
+                        <span class="home-paso-numero">1</span>
+                        <h3 class="home-paso-titulo">Crea tu cuenta</h3>
+                        <p class="home-paso-texto">Con correo y contraseña o con Google. Sin tarjeta, sin prueba y sin Trials.</p>
+                    </li>
+                    <li class="home-paso">
+                        <span class="home-paso-numero">2</span>
+                        <h3 class="home-paso-titulo">Registra tus cuentas</h3>
+                        <p class="home-paso-texto">Bancos, brokers, exchanges, efectivo y tarjetas de crédito. Cada una en su moneda.</p>
+                    </li>
+                    <li class="home-paso">
+                        <span class="home-paso-numero">3</span>
+                        <h3 class="home-paso-titulo">Mira el patrimonio</h3>
+                        <p class="home-paso-texto">Cada movimiento actualiza el total, la evolución y tus metas. Tú solo ordenas.</p>
+                    </li>
+                </ol>
+            </section>
+
+            <!-- CONFIANZA -->
+            <section class="home-confianza" aria-labelledby="home-confianza-titulo">
+                <h2 class="home-seccion-titulo" id="home-confianza-titulo">Tus datos son tuyos</h2>
+                <ul class="home-confianza-lista">
+                    <li class="home-confianza-item">
+                        <svg id="icono-database" class="lucide lucide-database" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <ellipse cx="12" cy="5" rx="9" ry="3" />
+                            <path d="M3 5V19A9 3 0 0 0 21 19V5" />
+                            <path d="M3 12A9 3 0 0 0 21 12" />
+                        </svg>
+                        <h3 class="home-confianza-titulo">Exporta cuando quieras</h3>
+                        <p class="home-confianza-texto">Un respaldo <code>.dvid</code> con todo: cuentas, movimientos, activos, trades, órdenes y metas. Y se puede importar de vuelta.</p>
+                    </li>
+                    <li class="home-confianza-item">
+                        <svg id="icono-shield" class="lucide lucide-shield" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a2 2 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a2 2 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a2 2 0 0 1 2 2z" />
+                        </svg>
+                        <h3 class="home-confianza-titulo">Borra de verdad</h3>
+                        <p class="home-confianza-texto">Puedes eliminar todos tus datos y la cuenta con doble confirmación. Archivar no es borrar: lo archivado sigue ahí.</p>
+                    </li>
+                    <li class="home-confianza-item">
+                        <svg id="icono-monitor" class="lucide lucide-monitor" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect width="20" height="14" x="2" y="3" rx="2" />
+                            <line x1="8" x2="16" y1="21" y2="21" />
+                            <line x1="12" x2="12" y1="17" y2="21" />
+                        </svg>
+                        <h3 class="home-confianza-titulo">Funciona offline</h3>
+                        <p class="home-confianza-texto">Es una PWA. Instálala en tu móvil o PC y sigue usándola sin conexión.</p>
+                    </li>
+                    <li class="home-confianza-item">
+                        <svg id="icono-palette" class="lucide lucide-palette" width="20" height="20" viewBox="0 0 24 24"
+                            fill="none" xmlns="http://www.w3.org/2000/svg" stroke="currentColor" stroke-width="2"
+                            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="13.5" cy="6.5" r=".5" />
+                            <circle cx="17.5" cy="10.5" r=".5" />
+                            <circle cx="8.5" cy="7.5" r=".5" />
+                            <circle cx="6.5" cy="12.5" r=".5" />
+                            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z" />
+                        </svg>
+                        <h3 class="home-confianza-titulo">4 divisas · 11 tipos de movimiento</h3>
+                        <p class="home-confianza-texto">Diseñado para manejar PEN, USD, USDT y EUR. Funciona offline (PWA) y con respaldo exportable.</p>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- PREGUNTAS -->
+            <section class="home-faq" aria-labelledby="home-faq-titulo">
+                <h2 class="home-seccion-titulo" id="home-faq-titulo">Preguntas frecuentes</h2>
+                <div class="home-faq-lista">
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Es gratis?</summary>
+                        <p class="home-faq-respuesta"><span>Sí, escinco es gratuito y no pide tarjeta para crear la cuenta.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Necesito saber de finanzas para usarla?</summary>
+                        <p class="home-faq-respuesta"><span>No. escinco está diseñada para que cualquiera pueda usarla, sin conocimientos técnicos.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Mis datos están seguros?</summary>
+                        <p class="home-faq-respuesta"><span>En tu propia cuenta de Firebase Authentication y Firestore, separadas por usuario y protegidas por reglas que solo te dejan leer lo tuyo. Puedes exportar un respaldo <code>.dvid</code> y eliminar todo cuando quieras.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Se conecta con mi banco?</summary>
+                        <p class="home-faq-respuesta"><span>No hay conexión automática con bancos todavía. Registras las cuentas y los movimientos a mano, y escinco los suma y los valora por ti.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Funciona en móvil?</summary>
+                        <p class="home-faq-respuesta"><span>Sí. Es una PWA. Puedes instalarla en tu móvil o PC y funciona como una app nativa.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Funciona sin internet?</summary>
+                        <p class="home-faq-respuesta"><span>Sí, parcialmente. La interfaz funciona offline. Los datos se sincronizan cuando vuelve la conexión.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Qué monedas admite?</summary>
+                        <p class="home-faq-respuesta"><span>Soles (S/), dólares ($), euros (€) y USDT (₮). El tipo de cambio es configurable, manual o automático.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Puedo exportar mis datos?</summary>
+                        <p class="home-faq-respuesta"><span>Sí. Puedes exportar un respaldo en formato <code>.dvid</code> en cualquier momento.</span></p>
+                    </details>
+                    <details class="home-faq-item">
+                        <summary class="home-faq-pregunta">¿Qué pasa si borro una cuenta?</summary>
+                        <p class="home-faq-respuesta"><span>Sus movimientos no se pierden: se conservan y se muestran como "Cuenta eliminada". Si solo la quieres dejar de ver, archívala y la recuperas cuando quieras.</span></p>
+                    </details>
+                </div>
+            </section>
+
+            <!-- CIERRE -->
+            <section class="home-cierre" aria-labelledby="home-cierre-titulo">
+                <h2 class="home-seccion-titulo" id="home-cierre-titulo">Empieza a ver tu patrimonio completo</h2>
+                <p class="home-cierre-texto">Cuentas, inversiones, deudas y metas en el mismo panel. Gratis, sin tarjeta y con tus datos exportables.</p>
+                <div class="home-acciones">
+                    <a class="home-btn home-btn-solido" href="/register">Probar escinco gratis</a>
+                    <a class="home-btn home-btn-fantasma" href="/login">Ya tengo cuenta</a>
+                    <a class="home-btn home-btn-fantasma" href="/demo/dashboard">Ver demo</a>
+                </div>
+            </section>
+        </main>
+
+        <!-- PIE -->
+        <footer class="home-footer">
+            <span class="home-footer-marca">escinco</span>
+            <nav class="home-footer-links" aria-label="Enlaces internos y legales">
+                <a class="home-footer-link" href="/">Inicio</a>
+                <a class="home-footer-link" href="/login">Entrar</a>
+                <a class="home-footer-link" href="/register">Crear cuenta</a>
+                <a class="home-footer-link" href="/privacidad">Privacidad</a>
+                <a class="home-footer-link" href="/terminos">Términos</a>
+            </nav>
+            <span class="home-footer-version" id="home-version"></span>
+        </footer>
+    </div>
+</body>
+<script type="module" src="js/pages/index.js"></script>
+
+</html>
