@@ -606,6 +606,43 @@
         <span class="toggle-option" data-tpl="periodo" data-tpl-attr="data-periodo" data-tpl="etiqueta"></span>
     </template>
 
+    <!-- Inversiones y trading -->
+
+    <template id="tpl-confirmar-eliminar-inversion">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar <span data-tpl="elemento"></span> <strong data-tpl="nombre"></strong>
+                (<span data-tpl="detalle"></span>)?
+            </p>
+            <p class="modal-message-warning" data-tpl="aviso"></p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-reabrir-trade">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Reabrir el trade de <span data-tpl="activo"></span> (<span data-tpl="tipo"></span>)?
+                Se eliminará la salida registrada.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-eliminar-documento">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Estás seguro de que quieres eliminar <span data-tpl="articulo"></span>
+                <span data-tpl="elemento"></span>?
+            </p>
+        </div>
+    </template>
+
+    <!-- while (DEUDA-017): el botón existe y no hace nada todavía. -->
+    <template id="tpl-broker-desarrollo">
+        <div class="modal-message">
+            <p class="modal-message-desc">Configuración de brokers (en desarrollo)</p>
+        </div>
+    </template>
+
     <!-- PLANTILLAS DE MODAL · FIN -->
 
     <script type="module" src="js/demo/demo.js"></script>

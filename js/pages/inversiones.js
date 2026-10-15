@@ -26,7 +26,7 @@ import {
     historialParaGrafico
 } from "../services/PrecioServicio.js"
 import { crearGraficoEvolucionPrecio, destruirGrafico } from "../ui/graficos.js"
-import { abrirModal, estaAbierto } from "../ui/modal.js"
+import { abrirModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { obtenerCuentas, restaurarDocumento } from "../../firebase/firestore.js"
@@ -846,17 +846,14 @@ async function cambiarEstadoEstrategiaUI(estrategia) {
 function confirmarEliminarEstrategia(estrategia) {
     abrirModal({
         titulo: "Eliminar estrategia",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar la estrategia <strong>${estrategia.nombre}</strong>
-                    (${estrategia.activoSimbolo})?
-                </p>
-                <p class="modal-message-warning">
-                    Las compras ya ejecutadas se conservan en tu historial.
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-inversion", {
+            valores: {
+                elemento: "estrategia",
+                nombre: estrategia.nombre,
+                detalle: estrategia.activoSimbolo,
+                aviso: "Las compras ya ejecutadas se conservan en tu historial."
+            }
+        }),
         confirmText: "Eliminar",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1237,18 +1234,14 @@ function confirmarEliminarPosicion(posicion) {
 
     abrirModal({
         titulo: "Eliminar posición",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar la posición de <strong>${posicion.activo?.nombre || posicion.activoId}</strong>
-                    (${posicion.cantidad.toFixed(4)})?
-                </p>
-                <p class="modal-message-warning">
-                    Solo se elimina la posición. Los movimientos de compra/venta
-                    se conservan en tu historial.
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-inversion", {
+            valores: {
+                elemento: "posición de",
+                nombre: posicion.activo?.nombre || posicion.activoId,
+                detalle: posicion.cantidad.toFixed(4),
+                aviso: "Solo se elimina la posición. Los movimientos de compra/venta se conservan en tu historial."
+            }
+        }),
         confirmText: "Eliminar",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1654,7 +1647,7 @@ export function abrirModalVenta() {
 export function abrirModalBroker() {
     abrirModal({
         titulo: "Broker",
-        contenido: `<p class="lista-vacia">Configuración de brokers (en desarrollo)</p>`,
+        contenido: contenidoDesdeTemplate("tpl-broker-desarrollo"),
         confirmText: "Cerrar"
     })
 }

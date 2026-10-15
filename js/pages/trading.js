@@ -8,7 +8,7 @@ import {
     borrarOrden,
     evaluarOrdenesPendientes
 } from "../services/OrdenServicio.js"
-import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
@@ -780,7 +780,7 @@ function vincularGestosTarjetas(container) {
 export function abrirModalBroker() {
     abrirModal({
         titulo: "Broker",
-        contenido: `<div class="modal-message"><p class="modal-message-desc">Configuración de brokers (en desarrollo)</p></div>`,
+        contenido: contenidoDesdeTemplate("tpl-broker-desarrollo"),
         confirmText: 'Cerrar'
     })
 }
@@ -936,13 +936,9 @@ function abrirModalReabrirTrade(tradeId) {
 
     abrirModal({
         titulo: "Reabrir trade",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Reabrir el trade de ${trade.activo} (${trade.tipoLabel})? Se eliminará la salida registrada.
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-reabrir-trade", {
+            valores: { activo: trade.activo, tipo: trade.tipoLabel }
+        }),
         confirmText: "Reabrir",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1064,11 +1060,9 @@ function confirmarEliminarTrade(tradeId) {
     const snapshot = trade ? { id: trade.id, ...trade.toFirestore() } : null
     abrirModal({
         titulo: "Eliminar trade",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">¿Estás seguro de que quieres eliminar este trade?</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-documento", {
+            valores: { elemento: "trade" }
+        }),
         confirmText: 'Eliminar',
         cancelText: 'Cancelar',
         onConfirm: async () => {
@@ -1399,11 +1393,9 @@ function confirmarEliminarOrden(ordenId) {
     const snapshot = orden ? { id: orden.id, ...orden.toFirestore() } : null
     abrirModal({
         titulo: "Eliminar orden",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">¿Estás seguro de que quieres eliminar esta orden?</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-documento", {
+            valores: { elemento: "orden" }
+        }),
         confirmText: 'Eliminar',
         cancelText: 'Cancelar',
         onConfirm: async () => {
