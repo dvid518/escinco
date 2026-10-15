@@ -66,6 +66,23 @@
 
     <!-- LASTRAR -->
     <footer id="app-footer"></footer>
+
+    <!-- PLANTILLAS DE MODAL
+         Cuerpos de modal declarados en HTML. Se clonan con
+         contenidoDesdeTemplate() (js/ui/modal.js), que rellena los huecos
+         [data-tpl] con textContent: sin XSS y sin peticiones extra.
+         El service worker ya precachea este archivo. Mantener en sincronía con
+         tester.html. -->
+
+    <template id="tpl-confirmar-eliminar">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Eliminar este movimiento?</p>
+            <p class="modal-message-desc">
+                <strong data-tpl="concepto"></strong> ·
+                <span data-tpl="fecha"></span>
+            </p>
+        </div>
+    </template>
 </body>
 <script type="module" src="js/core/app.js"></script>
 </html>

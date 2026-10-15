@@ -32,9 +32,38 @@ function sobreponer(overlay) {
 }
 
 /**
- * @param {Object} opciones
+ * Construye el cuerpo de un modal clonando un <template> del documento y
+ * rellenando sus huecos con textContent. Los templates viven en el HTML
+ * principal (dashboard.html, tester.html), que el service worker ya precachea:
+ * no hay peticiones extra ni framework.
+ *
+ * El HTML editable se queda en el HTML, el texto del usuario se inserta
+ * escapado por defecto y no hay marcadores `{{variable}}` que puedan quedar
+ * sin reemplazar.
+ *
+ * @param {string} id            id del <template>
+ * @param {Object} [valores]     pares { hueco: texto } para [data-tpl="hueco"]
+ * @returns {DocumentFragment}   fragmento listo para `abrirModal({ contenido })`
+ */
+export function contenidoDesdeTemplate(id, valores = {}) {
+    const tpl = document.getElementById(id)
+    if (!tpl?.content) {
+        throw new Error(`No existe el <template id="${id}"> en este documento`)
+    }
+
+    const fragmento = tpl.content.cloneNode(true)
+    for (const [hueco, valor] of Object.entries(valores)) {
+        const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
+        if (!destino) continue
+        destino.textContent = valor == null ? "" : String(valor)
+    }
+    return fragmento
+}
+
+/**
  * @param {string} [opciones.titulo]
- * @param {string} [opciones.contenido]       HTML del cuerpo
+ * @param {string|Node} [opciones.contenido]  HTML del cuerpo, o un fragmento
+ *   ya construido (lo habitual: `contenidoDesdeTemplate()`)
  * @param {string} [opciones.variante]        'info' | 'form' | 'confirm' | 'wide' | 'xl' | 'narrow'
  * @param {string} [opciones.confirmText]
  * @param {string} [opciones.cancelText]
@@ -76,7 +105,6 @@ export function abrirModal(opciones) {
     overlay.style.setProperty("--z-modal", ++zContador)
 
     const textoTitulo = titulo == null || String(titulo).trim().toLowerCase() === "null" ? "escinco" : String(titulo)
-    const textoContenido = contenido == null ? "" : contenido
     const textoHeaderExtra = headerExtra == null ? "" : headerExtra
     const textoFooterExtra = footerExtra == null ? "" : String(footerExtra).trim()
     const textoCancelar = cancelText == null ? "" : String(cancelText)
@@ -110,9 +138,7 @@ ${cerrarConBotonX ? `
                             </button>` : ""}
                 </div>
             </div>
-            <div class="modal-body">
-                ${textoContenido}
-            </div>
+            <div class="modal-body"></div>
             ${mostrarFooter ? `
             <div class="modal-footer">
                 ${mostrarCancelar ? `<button class="modal-btn modal-btn-secondary" id="modal-cancel"
@@ -126,6 +152,17 @@ ${cerrarConBotonX ? `
     `
 
     document.body.appendChild(overlay)
+
+    // El cuerpo puede llegar como HTML (los modales que aún no han migrado) o
+    // como un fragmento ya construido desde un <template> del documento, que se
+    // inserta tal cual: sus nodos no pasan por innerHTML y su texto ya viene
+    // escapado por textContent.
+    const bodyEl = overlay.querySelector(".modal-body")
+    if (contenido instanceof Node) {
+        bodyEl.appendChild(contenido)
+    } else if (contenido != null && String(contenido) !== "") {
+        bodyEl.innerHTML = String(contenido)
+    }
 
     // En modo persistente, cada nueva ventana baja un poco de la anterior
     // para que se aprecien varias a la vez (como ventanas en cascada).

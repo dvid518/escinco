@@ -5,7 +5,7 @@ import { getFechaHoy } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
 import { skeletonMarkup } from "../ui/skeletons.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
-import { abrirModal, cerrarModal, estaAbierto } from "../ui/modal.js"
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
 import {
     generarFormularioMovimiento,
     recogerDatosFormulario,
@@ -1158,15 +1158,10 @@ function formatearParaInput(valor) {
 function abrirModalEliminarMovimiento(m) {
     abrirModal({
         titulo: "Eliminar movimiento",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">¿Eliminar este movimiento?</p>
-                <p class="modal-message-desc">
-                    <strong>${m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto"}</strong>
-                    · ${formatearFecha(m.fechaRealizacion)}
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar", {
+            concepto: m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
+            fecha: formatearFecha(m.fechaRealizacion)
+        }),
         variante: "confirm",
         confirmText: "Eliminar",
         cancelText: "Cancelar",

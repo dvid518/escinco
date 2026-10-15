@@ -93,6 +93,20 @@
     <!-- LASTRAR -->
     <footer id="app-footer"></footer>
 
+    <!-- PLANTILLAS DE MODAL
+         Copia de las de dashboard.html: la demo carga las mismas páginas, así
+         que necesita los mismos templates. -->
+
+    <template id="tpl-confirmar-eliminar">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Eliminar este movimiento?</p>
+            <p class="modal-message-desc">
+                <strong data-tpl="concepto"></strong> ·
+                <span data-tpl="fecha"></span>
+            </p>
+        </div>
+    </template>
+
     <script type="module" src="js/demo/demo.js"></script>
 </body>
 
