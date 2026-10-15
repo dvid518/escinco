@@ -60,6 +60,7 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-023 | Sin tags de Git: la versión vive solo en `constants/version.js` y mensajes de commit | raíz | Releases no reproducibles; imposible volver a "la beta.25" con certeza | Media |
 | DEUDA-024 | Sin CI: los tests no se ejecutan automáticamente en push/PR | raíz | Una regresión puede llegar a producción sin que nadie ejecute `npm test` | Media |
 | DEUDA-025 | `docs/requisitos.md` desfasado en 4 puntos | `docs/requisitos.md` | El briefing induce a decisiones equivocadas | Baja |
+| DEUDA-026 | Cuerpos de modal escritos como HTML dentro del JS | `dashboard.html`, `tester.html`, 9 archivos de `js/` | Editar la UI exige bucear en el código; el texto del usuario pasaba por `innerHTML` | Media |
 
 ---
 
@@ -705,3 +706,33 @@ Lo que está abierto y accionable ahora mismo está en
      `fb6482b`).
 - **Prioridad**: Baja (documentación), pero es la primera fuente que consulta
   alguien nuevo: conviene corregirla antes de declarar la v1.0.0.
+
+### DEUDA-026: cuerpos de modal escritos como HTML dentro del JS
+
+- **Módulo**: `dashboard.html`, `tester.html`, `js/ui/modal.js` y las páginas que
+  abren modales
+- **Descripción**: los ~50 modales de la aplicación armaban su cuerpo con
+  plantillas literales en el JS. El marcado no se podía editar sin bucear en el
+  código y todo dato que viniera del usuario (nombre de una cuenta, concepto de
+  un pendiente, nombre de una meta, mensaje de un error) se interpolaba en
+  `innerHTML`.
+- **Solución adoptada**: los cuerpos viven como `<template>` en el HTML
+  principal y se clonan con `contenidoDesdeTemplate()` / `contenidoDesdeFilas()`
+  (`js/ui/modal.js`). Los datos entran por `valores` (se escriben con
+  `textContent`), el markup del catálogo de iconos por `html`, y los atributos y
+  casillas con la clave `hueco@atributo` (`"marcado@checked"`). Un hueco con
+  `data-tpl-oculto` sustituye a los bloques `cond ? html : ""`. Sin framework, sin
+  peticiones extra (el service worker ya precachea `dashboard.html`) y sin
+  marcadores `{{variable}}` que puedan quedar sin reemplazar.
+- **Estado**: migrados los modales de información, error, confirmación, carga y
+  las listas de metas y pendientes. `tests/plantillas.test.mjs` vigila que toda
+  llamada apunte a un template existente en los dos documentos, que los huecos
+  existan, que no queden templates sin usar y que los valores sigan yendo por
+  `textContent`.
+- **Pendiente**: los formularios grandes (crear/editar movimiento, cuenta,
+  estrategia, compra, venta, trade, orden y pendiente) y el panel completo de
+  Configuración (`plantillaConfiguracion()`) siguen generando su HTML en el JS.
+  Su markup es casi todo estático, así que el riesgo es de mantenimiento, no de
+  XSS, salvo los `<option>` de los selectores de cuenta, que sí llevan el nombre
+  de la cuenta y conviene construir con `document.createElement`.
+- **Prioridad**: Media
