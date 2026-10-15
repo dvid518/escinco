@@ -33,31 +33,79 @@ function sobreponer(overlay) {
 
 /**
  * Construye el cuerpo de un modal clonando un <template> del documento y
- * rellenando sus huecos con textContent. Los templates viven en el HTML
- * principal (dashboard.html, tester.html), que el service worker ya precachea:
- * no hay peticiones extra ni framework.
+ * rellenando sus huecos. Los templates viven en el HTML principal
+ * (dashboard.html, tester.html), que el service worker ya precachea: no hay
+ * peticiones extra ni framework.
  *
- * El HTML editable se queda en el HTML, el texto del usuario se inserta
- * escapado por defecto y no hay marcadores `{{variable}}` que puedan quedar
- * sin reemplazar.
+ * El HTML editable se queda en el HTML, el texto se inserta escapado por
+ * defecto y no hay marcadores `{{variable}}` que puedan quedar sin reemplazar.
+ *
+ * Las opciones son las tres clases de hueco que tiene un template:
+ *
+ *   valores    pares { hueco: valor } para [data-tpl="hueco"]. Todo dato que
+ *              venga de la aplicación o del usuario va aquí: se escribe con
+ *              textContent, nunca se interpreta como HTML. Un hueco marcado con
+ *              `data-tpl-oculto` se esconde cuando su valor es vacío, que es lo
+ *              que reemplaza los bloques `cond ? html : ""`. Si el hueco lleva
+ *              `data-tpl-attr="nombre"`, el valor se escribe como atributo en
+ *              lugar de como texto (los `id` y `value` de una fila).
+ *   html       pares { hueco: markup } para el mismo atributo. Solo para iconos
+ *              del catálogo (`icono()`, `LOGO_ESCINCO_CARGA`): markup que genera
+ *              el propio código. Nunca texto de usuario: ahí va `valores`.
  *
  * @param {string} id            id del <template>
- * @param {Object} [valores]     pares { hueco: texto } para [data-tpl="hueco"]
+ * @param {Object} [opciones]    { valores, html }
  * @returns {DocumentFragment}   fragmento listo para `abrirModal({ contenido })`
  */
-export function contenidoDesdeTemplate(id, valores = {}) {
+export function contenidoDesdeTemplate(id, opciones = {}) {
+    const fragmento = clonarTemplate(id)
+    rellenarHuecos(fragmento, opciones)
+    return fragmento
+}
+
+/**
+ * Igual que `contenidoDesdeTemplate`, pero para cuerpos que son una lista: clona
+ * el template una vez por fila y junta todas en un único fragmento.
+ *
+ * @param {string} id            id del <template> de una fila
+ * @param {Array} filas          datos a representar
+ * @param {Function} mapear      fila -> { valores, html }
+ * @returns {DocumentFragment}   fragmento con una copia del template por fila
+ */
+export function contenidoDesdeFilas(id, filas, mapear) {
+    const fragmento = document.createDocumentFragment()
+    for (const fila of Array.isArray(filas) ? filas : []) {
+        const copia = clonarTemplate(id)
+        rellenarHuecos(copia, mapear(fila) || {})
+        fragmento.appendChild(copia)
+    }
+    return fragmento
+}
+
+function clonarTemplate(id) {
     const tpl = document.getElementById(id)
     if (!tpl?.content) {
         throw new Error(`No existe el <template id="${id}"> en este documento`)
     }
+    return tpl.content.cloneNode(true)
+}
 
-    const fragmento = tpl.content.cloneNode(true)
+function rellenarHuecos(fragmento, { valores = {}, html = {} } = {}) {
     for (const [hueco, valor] of Object.entries(valores)) {
         const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
         if (!destino) continue
-        destino.textContent = valor == null ? "" : String(valor)
+        const texto = valor == null ? "" : String(valor)
+        const atributo = destino.getAttribute("data-tpl-attr")
+        if (atributo) destino.setAttribute(atributo, texto)
+        else destino.textContent = texto
+        if (destino.hasAttribute("data-tpl-oculto")) destino.hidden = !valor
     }
-    return fragmento
+    for (const [hueco, markup] of Object.entries(html)) {
+        const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
+        if (!destino) continue
+        destino.innerHTML = markup == null ? "" : String(markup)
+        if (destino.hasAttribute("data-tpl-oculto")) destino.hidden = !markup
+    }
 }
 
 /**

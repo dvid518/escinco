@@ -8,7 +8,7 @@
 //   3. dejar un template fuera de dashboard.html o tester.html (se rompe la demo).
 import { readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
-import { leer, RAIZ, nuevoReporter } from "./helpers.mjs"
+import { leer, RAIZ, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 
 // Documentos que sirven la app (los dos precacheados por sw.js).
 const DOCUMENTOS = ["dashboard.html", "tester.html"]
@@ -29,7 +29,8 @@ function huecosDe(cuerpo) {
     return new Set([...cuerpo.matchAll(/data-tpl="([^"]+)"/g)].map(m => m[1]))
 }
 
-// Llamadas contenidoDesdeTemplate("id", { hueco: ... }) en todo js/.
+// Llamadas contenidoDesdeTemplate("id", { valores: {...}, html: {...} }) y
+// contenidoDesdeFilas("id", filas, fila => ({ valores: {...} })) en todo js/.
 function llamadasEnJs() {
     const archivos = []
     const recorrer = dir => {
@@ -44,10 +45,34 @@ function llamadasEnJs() {
 
     const llamadas = []
     for (const ruta of archivos) {
+        // modal.js es donde se definen los helpers: ahí los nombres son variables.
+        if (/js[\\/]ui[\\/]modal\.js$/.test(ruta)) continue
         const src = leer(relative(RAIZ, ruta))
-        for (const m of src.matchAll(/contenidoDesdeTemplate\(\s*"([^"]+)"\s*(?:,\s*\{([\s\S]*?)\})?\s*\)/g)) {
-            const hues = m[2] ? [...m[2].matchAll(/(\w+)\s*:/g)].map(x => x[1]) : []
-            llamadas.push({ archivo: relative(RAIZ, ruta).replace(/\\/g, "/"), id: m[1], hues })
+        const archivo = relative(RAIZ, ruta).replace(/\\/g, "/")
+        const re = /contenidoDesde(Template|Filas)\(/g
+        for (const m of src.matchAll(re)) {
+            // Texto de la llamada: desde el paréntesis hasta su cierre, contando
+            // llaves y paréntesis anidados, para no leer las opciones de la
+            // llamada siguiente.
+            let nivel = 0
+            let fin = m.index + m[0].length
+            for (; fin < src.length; fin++) {
+                const ch = src[fin]
+                if (ch === "(" || ch === "{" || ch === "[") nivel++
+                else if (ch === ")" || ch === "}" || ch === "]") {
+                    nivel--
+                    if (nivel < 0) break
+                }
+            }
+            const llamada = src.slice(m.index, fin)
+            const id = (llamada.match(/"([^"]+)"/) || [])[1]
+
+            // Los huecos son las claves de los objetos `valores:` y `html:`.
+            const hues = new Set()
+            for (const bloque of llamada.matchAll(/(?:valores|html)\s*:\s*\{([^}]*)\}/g)) {
+                for (const k of bloque[1].matchAll(/(\w+)\s*:/g)) hues.add(k[1])
+            }
+            llamadas.push({ archivo, id, helper: m[1], hues: [...hues] })
         }
     }
     return llamadas
@@ -96,13 +121,16 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
     t.check("ningún template queda sin usar", huerfanos.length === 0, huerfanos.join(" | "))
 
     // La inserción por textContent es lo que hace seguro el patrón: si alguien
-    // vuelve a meter innerHTML dentro de contenidoDesdeTemplate, este test lo ve.
-    const modalJs = leer("js/ui/modal.js")
-    const cuerpoHelper = modalJs.slice(
-        modalJs.indexOf("export function contenidoDesdeTemplate"),
-        modalJs.indexOf("/**", modalJs.indexOf("export function contenidoDesdeTemplate") + 10)
-    )
-    t.check("contenidoDesdeTemplate no usa innerHTML", !cuerpoHelper.includes("innerHTML"))
+    // cambia los valores por innerHTML, este test lo ve. El markup de iconos
+    // (catálogo propio) va en una clave aparte, y los ids en otra.
+    const rellenar = extraerFuncion(leer("js/ui/modal.js"), "rellenarHuecos")
+    const iTexto = rellenar.indexOf("destino.textContent")
+    const iMarkup = rellenar.indexOf("destino.innerHTML")
+    t.check("los valores se escriben con textContent", iTexto !== -1)
+    t.check("el markup de iconos va en su propia clave, aparte de los valores",
+        iMarkup !== -1 && iMarkup > iTexto)
+    t.check("los ids y values van por atributos con data-tpl-attr",
+    /data-tpl-attr/.test(rellenar) && /setAttribute\(atributo/.test(rellenar))
 
     return t
 }

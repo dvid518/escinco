@@ -2,7 +2,7 @@ import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, a
 import { sesion, PREFERENCIAS_POR_DEFECTO, fusionarProfundo, esObjetoPlano } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { obtenerCuentas, obtenerPreferencias, aplicarPreferenciasDiff, actualizarCuenta } from "../../firebase/firestore.js"
-import { abrirModal, cerrarModal } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { VERSION } from "../../constants/version.js"
 import { TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
@@ -784,24 +784,14 @@ function configurarCuenta() {
 // ============================================
 
 function abrirModalConfigurarPassword() {
-    const html = `
-        <form class="form-movimiento" id="form-config-password">
-            <div class="form-group">
-                <label for="nueva-password">Nueva contraseña</label>
-                <input type="password" id="nueva-password" class="form-input" autocomplete="new-password" required>
-                <span class="form-hint">Mínimo 6 caracteres</span>
-            </div>
-            <div class="form-group">
-                <label for="confirmar-password">Confirmar contraseña</label>
-                <input type="password" id="confirmar-password" class="form-input" autocomplete="new-password" required>
-            </div>
-            <div id="password-error" class="modal-message-error" hidden></div>
-        </form>
-    `
-
     abrirModal({
         titulo: "Configurar contraseña",
-        contenido: html,
+        contenido: contenidoDesdeTemplate("tpl-form-password", {
+            valores: {
+                form: "form-config-password",
+                "etiqueta-confirmar": "Confirmar contraseña"
+            }
+        }),
         variante: "narrow",
         confirmText: "Guardar",
         cancelText: "Cancelar",
@@ -840,24 +830,14 @@ function abrirModalConfigurarPassword() {
 // ============================================
 
 function abrirModalCambiarPassword() {
-    const html = `
-        <form class="form-movimiento" id="form-cambiar-password">
-            <div class="form-group">
-                <label for="nueva-password">Nueva contraseña</label>
-                <input type="password" id="nueva-password" class="form-input" autocomplete="new-password" required>
-                <span class="form-hint">Mínimo 6 caracteres</span>
-            </div>
-            <div class="form-group">
-                <label for="confirmar-password">Confirmar nueva contraseña</label>
-                <input type="password" id="confirmar-password" class="form-input" autocomplete="new-password" required>
-            </div>
-            <div id="password-error" class="modal-message-error" hidden></div>
-        </form>
-    `
-
     abrirModal({
         titulo: "Cambiar contraseña",
-        contenido: html,
+        contenido: contenidoDesdeTemplate("tpl-form-password", {
+            valores: {
+                form: "form-cambiar-password",
+                "etiqueta-confirmar": "Confirmar nueva contraseña"
+            }
+        }),
         variante: "narrow",
         confirmText: "Cambiar",
         cancelText: "Cancelar",
@@ -927,11 +907,7 @@ function cerrarSesionConAviso(titulo, mensaje) {
         setTimeout(() => {
             abrirModal({
                 titulo,
-                contenido: `
-                    <div class="modal-message">
-                        <p class="modal-message-desc">${mensaje}</p>
-                    </div>
-                `,
+                contenido: contenidoDesdeTemplate("tpl-mensaje", { valores: { mensaje } }),
                 variante: "narrow",
                 confirmText: "Ir al login",
                 cerrarAlClickFuera: false,
@@ -1766,13 +1742,7 @@ function modoConfigActual() {
 export function abrirModalLogout() {
     abrirModal({
         titulo: "Cerrar sesión",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Estás seguro de que quieres cerrar sesión?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-logout"),
         variante: "confirm",
         confirmText: "Cerrar sesión",
         cancelText: "Cancelar",
@@ -1837,30 +1807,17 @@ async function abrirRestaurarCuentasArchivadas() {
         return
     }
 
-    const opciones = archivadas.map(cuenta => `
-        <label class="dashboard-card-opcion">
-            <input type="checkbox" value="${cuenta.id}" checked>
-            <span>
-                ${cuenta.nombre || "Cuenta"}
-                <small>${formatearMontoConDivisa(cuenta.saldoInicial || 0, cuenta.moneda)}</small>
-            </span>
-        </label>
-    `).join("")
+    const opciones = contenidoDesdeFilas("tpl-cuenta-archivable", archivadas, cuenta => ({
+        valores: {
+            id: cuenta.id,
+            nombre: cuenta.nombre || "Cuenta",
+            saldo: formatearMontoConDivisa(cuenta.saldoInicial || 0, cuenta.moneda)
+        }
+    }))
 
     const modal = abrirModal({
         titulo: "Restaurar cuentas archivadas",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    Elige las cuentas archivadas que quieres volver a activas.
-                </p>
-                <p class="modal-message-hint">
-                    Recuperan su sitio en el sidebar y vuelven a sumar en el patrimonio
-                    y el dashboard. Sus movimientos no se han tocado.
-                </p>
-            </div>
-            <div class="dashboard-editor-grid">${opciones}</div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-restaurar-cuentas", { html: { opciones } }),
         confirmText: "Restaurar",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1916,14 +1873,9 @@ async function importarDVID() {
             console.error("Error previsualizando:", error)
             abrirModal({
                 titulo: "Archivo inválido",
-                contenido: `
-                    <div class="modal-message">
-                        <p class="modal-message-error">${error.message}</p>
-                        <p class="modal-message-desc">
-                            Asegúrate de que sea un archivo .dvid generado por escinco.
-                        </p>
-                    </div>
-                `,
+                contenido: contenidoDesdeTemplate("tpl-archivo-invalido", {
+                    valores: { error: error.message }
+                }),
                 variante: "info",
                 confirmText: "Cerrar",
                 onConfirm: () => true
@@ -1937,58 +1889,20 @@ async function importarDVID() {
 function abrirModalPreviewImportacion(archivo, preview) {
     abrirModal({
         titulo: "Previsualización",
-        contenido: `
-            <div class="modal-preview">
-                <div class="preview-row">
-                    <span class="preview-label">Formato</span>
-                    <span class="preview-value">${preview.formato} v${preview.version}</span>
-                </div>
-                <div class="preview-row">
-                    <span class="preview-label">Versión mínima</span>
-                    <span class="preview-value">v${preview.versionMinima || "2.0.0"}</span>
-                </div>
-                <div class="preview-row">
-                    <span class="preview-label">Exportado</span>
-                    <span class="preview-value">${new Date(preview.fechaExportacion).toLocaleString()}</span>
-                </div>
-
-                <div class="preview-content">
-                    <div class="preview-content-title">CONTENIDO</div>
-                    <div class="preview-item">
-                        <span>Cuentas</span>
-                        <span class="preview-number">${preview.resumen.cuentas}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Movimientos</span>
-                        <span class="preview-number">${preview.resumen.movimientos}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Activos</span>
-                        <span class="preview-number">${preview.resumen.activos}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Pendientes</span>
-                        <span class="preview-number">${preview.resumen.pendientes}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Inversiones</span>
-                        <span class="preview-number">${preview.resumen.posiciones || 0}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Historial precios</span>
-                        <span class="preview-number">${preview.resumen.historial || 0}</span>
-                    </div>
-                    <div class="preview-item">
-                        <span>Snapshots</span>
-                        <span class="preview-number">${preview.resumen.snapshots}</span>
-                    </div>
-                </div>
-
-                <div class="modal-warning">
-                    Los datos se <strong>agregarán</strong> a los existentes. No se eliminará nada.
-                </div>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-preview-importacion", {
+            valores: {
+                formato: `${preview.formato} v${preview.version}`,
+                "version-minima": `v${preview.versionMinima || "2.0.0"}`,
+                exportado: new Date(preview.fechaExportacion).toLocaleString(),
+                cuentas: preview.resumen.cuentas,
+                movimientos: preview.resumen.movimientos,
+                activos: preview.resumen.activos,
+                pendientes: preview.resumen.pendientes,
+                posiciones: preview.resumen.posiciones || 0,
+                historial: preview.resumen.historial || 0,
+                snapshots: preview.resumen.snapshots
+            }
+        }),
         variante: "form",
         confirmText: "Importar",
         cancelText: "Cancelar",
@@ -1998,12 +1912,10 @@ function abrirModalPreviewImportacion(archivo, preview) {
             setTimeout(() => {
                 abrirModal({
                     titulo: "Importando...",
-                    contenido: `
-                        <div class="modal-loading">
-                            ${LOGO_ESCINCO_CARGA}
-                            <p class="modal-loading-text">Importando datos...</p>
-                        </div>
-                    `,
+                    contenido: contenidoDesdeTemplate("tpl-cargando", {
+                        valores: { texto: "Importando datos..." },
+                        html: { logo: LOGO_ESCINCO_CARGA }
+                    }),
                     variante: "narrow",
                     confirmText: null,
                     cancelText: null,
@@ -2024,7 +1936,20 @@ function abrirModalPreviewImportacion(archivo, preview) {
                 setTimeout(() => {
                     abrirModal({
                         titulo: "Importación completada",
-                        contenido: plantillaResultadoImportacion(resultado),
+                        contenido: contenidoDesdeTemplate("tpl-resultado-importacion", {
+                            valores: {
+                                cuentas: resultado.cuentas,
+                                movimientos: resultado.movimientos,
+                                activos: resultado.activos,
+                                pendientes: resultado.pendientes,
+                                posiciones: resultado.posiciones || 0,
+                                historial: resultado.historial || 0,
+                                snapshots: resultado.snapshots,
+                                errores: resultado.errores?.length
+                                    ? `${resultado.errores.length} errores menores`
+                                    : ""
+                            }
+                        }),
                         variante: "info",
                         confirmText: "Recargar",
                         onConfirm: () => {
@@ -2039,11 +1964,9 @@ function abrirModalPreviewImportacion(archivo, preview) {
                 setTimeout(() => {
                     abrirModal({
                         titulo: "Error al importar",
-                        contenido: `
-                            <div class="modal-message">
-                                <p class="modal-message-error">${error.message}</p>
-                            </div>
-                        `,
+                        contenido: contenidoDesdeTemplate("tpl-error", {
+                            valores: { error: error.message }
+                        }),
                         variante: "info",
                         confirmText: "Cerrar",
                         onConfirm: () => true
@@ -2056,49 +1979,6 @@ function abrirModalPreviewImportacion(archivo, preview) {
     })
 }
 
-function plantillaResultadoImportacion(resultado) {
-    const errores = resultado.errores?.length || 0
-    return `
-        <div class="modal-message">
-            <div class="modal-resultado">
-                <div class="preview-item">
-                    <span>Cuentas</span>
-                    <span class="preview-number">${resultado.cuentas}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Movimientos</span>
-                    <span class="preview-number">${resultado.movimientos}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Activos</span>
-                    <span class="preview-number">${resultado.activos}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Pendientes</span>
-                    <span class="preview-number">${resultado.pendientes}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Inversiones</span>
-                    <span class="preview-number">${resultado.posiciones || 0}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Historial precios</span>
-                    <span class="preview-number">${resultado.historial || 0}</span>
-                </div>
-                <div class="preview-item">
-                    <span>Snapshots</span>
-                    <span class="preview-number">${resultado.snapshots}</span>
-                </div>
-            </div>
-            ${errores > 0 ? `
-                <p class="modal-message-warning">
-                    ${errores} errores menores
-                </p>
-            ` : ""}
-        </div>
-    `
-}
-
 // ============================================
 // ELIMINAR DATOS
 // ============================================
@@ -2106,20 +1986,7 @@ function plantillaResultadoImportacion(resultado) {
 function eliminarTodosLosDatos() {
     abrirModal({
         titulo: "Eliminar todos los datos",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">¿Estás seguro?</p>
-                <p class="modal-message-desc">Se eliminarán <strong>todos</strong> tus datos de escinco:</p>
-                <div class="modal-list">
-                    • Cuentas<br>
-                    • Movimientos<br>
-                    • Inversiones<br>
-                    • Pendientes<br>
-                    • Snapshots<br>
-                    • Trades
-                </div>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-eliminar-todos"),
         variante: "confirm",
         confirmText: "Continuar",
         cancelText: "Cancelar",
@@ -2134,18 +2001,9 @@ function eliminarTodosLosDatos() {
 function confirmarEliminacionFinal() {
     abrirModal({
         titulo: "Confirmación final",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">Última oportunidad</p>
-                <p class="modal-message-desc">
-                    Para confirmar, escribe <strong class="text-danger">ELIMINAR</strong> a continuación:
-                </p>
-                <input type="text" id="confirmar-eliminar"
-                       class="form-input modal-input-confirm"
-                       placeholder="Escribe ELIMINAR"
-                       autocomplete="off">
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-escritura", {
+            valores: { campo: "confirmar-eliminar" }
+        }),
         variante: "confirm",
         confirmText: "Eliminar todo",
         cancelText: "Cancelar",
@@ -2162,14 +2020,12 @@ function confirmarEliminacionFinal() {
             cerrarModal()
             await new Promise(resolve => setTimeout(resolve, 100))
 
-            abrirModal({
+            const modalCargando = abrirModal({
                 titulo: "Eliminando datos",
-                contenido: `
-                    <div class="modal-loading">
-                        ${LOGO_ESCINCO_CARGA}
-                        <p class="modal-loading-text" id="eliminar-status">Descargando respaldo...</p>
-                    </div>
-                `,
+                contenido: contenidoDesdeTemplate("tpl-cargando", {
+                    valores: { texto: "Descargando respaldo..." },
+                    html: { logo: LOGO_ESCINCO_CARGA }
+                }),
                 variante: "narrow",
                 confirmText: null,
                 cancelText: null,
@@ -2181,7 +2037,7 @@ function confirmarEliminacionFinal() {
             })
 
             try {
-                const status = document.getElementById("eliminar-status")
+                const status = modalCargando.querySelector(".modal-loading-text")
 
                 const { exportarDVID } = await import("../services/ExportarServicio.js")
                 await exportarDVID(uid)
@@ -2198,17 +2054,13 @@ function confirmarEliminacionFinal() {
 
                 abrirModal({
                     titulo: "Datos eliminados",
-                    contenido: `
-                        <div class="modal-message">
-                            <p class="modal-message-desc">Todos los datos han sido eliminados.</p>
-                            <div class="modal-resultado">
-                                <div class="preview-item">
-                                    <span>Total eliminados</span>
-                                    <span class="preview-number">${total}</span>
-                                </div>
-                            </div>
-                        </div>
-                    `,
+                    contenido: contenidoDesdeTemplate("tpl-resultado-simple", {
+                        valores: {
+                            descripcion: "Todos los datos han sido eliminados.",
+                            "etiqueta-total": "Total eliminados",
+                            total
+                        }
+                    }),
                     variante: "info",
                     confirmText: "Recargar",
                     onConfirm: () => {
@@ -2223,11 +2075,9 @@ function confirmarEliminacionFinal() {
 
                 abrirModal({
                     titulo: "Error al eliminar",
-                    contenido: `
-                        <div class="modal-message">
-                            <p class="modal-message-error">${error.message}</p>
-                        </div>
-                    `,
+                    contenido: contenidoDesdeTemplate("tpl-error", {
+                        valores: { error: error.message }
+                    }),
                     variante: "info",
                     confirmText: "Cerrar",
                     onConfirm: () => true
@@ -2246,26 +2096,7 @@ function confirmarEliminacionFinal() {
 function abrirModalEliminarCuenta() {
     abrirModal({
         titulo: "Eliminar cuenta",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">¿Estás seguro?</p>
-                <p class="modal-message-desc">
-                    Se eliminará tu <strong>cuenta</strong> y <strong>todos tus datos</strong> de escinco permanentemente:
-                </p>
-                <div class="modal-list">
-                    • Cuentas<br>
-                    • Movimientos<br>
-                    • Inversiones<br>
-                    • Pendientes<br>
-                    • Snapshots<br>
-                    • Trades
-                </div>
-                <p class="modal-message-desc">
-                    Antes de borrar se descargará automáticamente un respaldo <strong>.dvid</strong>.
-                </p>
-                <p class="modal-message-error">Esta acción no se puede deshacer.</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-eliminar-cuenta"),
         variante: "confirm",
         confirmText: "Continuar",
         cancelText: "Cancelar",
@@ -2297,18 +2128,7 @@ function conReautenticacion(alContinuar) {
 function abrirModalReauthPassword(alContinuar) {
     abrirModal({
         titulo: "Reautenticación requerida",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    Por seguridad, confirma tu contraseña antes de continuar:
-                </p>
-                <input type="password" id="reauth-password"
-                       class="form-input modal-input-confirm"
-                       placeholder="Tu contraseña"
-                       autocomplete="current-password">
-                <p class="modal-message-error" id="reauth-error" hidden></p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-reauth-password"),
         variante: "confirm",
         confirmText: "Verificar",
         cancelText: "Cancelar",
@@ -2345,13 +2165,7 @@ function abrirModalReauthPassword(alContinuar) {
 function abrirModalReauthGoogle(alContinuar) {
     abrirModal({
         titulo: "Reautenticación requerida",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    Por seguridad, vuelve a iniciar sesión con Google para continuar.
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-reauth-google"),
         variante: "confirm",
         confirmText: "Continuar con Google",
         cancelText: "Cancelar",
@@ -2378,18 +2192,9 @@ function abrirModalReauthGoogle(alContinuar) {
 function abrirModalConfirmacionFinal() {
     abrirModal({
         titulo: "Confirmación final",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">Última oportunidad</p>
-                <p class="modal-message-desc">
-                    Para confirmar, escribe <strong class="text-danger">ELIMINAR</strong> a continuación:
-                </p>
-                <input type="text" id="confirmar-eliminar-cuenta"
-                       class="form-input modal-input-confirm"
-                       placeholder="Escribe ELIMINAR"
-                       autocomplete="off">
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-escritura", {
+            valores: { campo: "confirmar-eliminar-cuenta" }
+        }),
         variante: "confirm",
         confirmText: "Eliminar cuenta",
         cancelText: "Cancelar",
@@ -2406,14 +2211,12 @@ function abrirModalConfirmacionFinal() {
             cerrarModal()
             await new Promise(resolve => setTimeout(resolve, 100))
 
-            abrirModal({
+            const modalCargando = abrirModal({
                 titulo: "Eliminando cuenta",
-                contenido: `
-                    <div class="modal-loading">
-                        ${LOGO_ESCINCO_CARGA}
-                        <p class="modal-loading-text" id="eliminar-cuenta-status">Descargando respaldo...</p>
-                    </div>
-                `,
+                contenido: contenidoDesdeTemplate("tpl-cargando", {
+                    valores: { texto: "Descargando respaldo..." },
+                    html: { logo: LOGO_ESCINCO_CARGA }
+                }),
                 variante: "narrow",
                 confirmText: null,
                 cancelText: null,
@@ -2425,7 +2228,7 @@ function abrirModalConfirmacionFinal() {
             })
 
             try {
-                const status = document.getElementById("eliminar-cuenta-status")
+                const status = modalCargando.querySelector(".modal-loading-text")
 
                 const { eliminarCuenta } = await import("../services/EliminarServicio.js")
                 await eliminarCuenta(uid)
@@ -2449,11 +2252,9 @@ function abrirModalConfirmacionFinal() {
 function abrirModalErrorEliminar(error) {
     abrirModal({
         titulo: "Error al eliminar la cuenta",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-error">${error.message}</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-error", {
+            valores: { error: error.message }
+        }),
         variante: "info",
         confirmText: "Cerrar",
         onConfirm: () => true

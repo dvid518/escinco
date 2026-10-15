@@ -67,12 +67,13 @@
     <!-- LASTRAR -->
     <footer id="app-footer"></footer>
 
-    <!-- PLANTILLAS DE MODAL
+    <!-- PLANTILLAS DE MODAL · INICIO
          Cuerpos de modal declarados en HTML. Se clonan con
          contenidoDesdeTemplate() (js/ui/modal.js), que rellena los huecos
          [data-tpl] con textContent: sin XSS y sin peticiones extra.
-         El service worker ya precachea este archivo. Mantener en sincronía con
-         tester.html. -->
+         El service worker ya precachea este archivo. El bloque entero se
+         replica en tester.html (la demo carga las mismas páginas);
+         tests/plantillas.test.mjs verifica que no se desincronicen. -->
 
     <template id="tpl-confirmar-eliminar">
         <div class="modal-message">
@@ -83,6 +84,257 @@
             </p>
         </div>
     </template>
+
+    <!-- Genéricos reutilizables por varios modales -->
+
+    <template id="tpl-mensaje">
+        <div class="modal-message">
+            <p class="modal-message-desc" data-tpl="mensaje"></p>
+        </div>
+    </template>
+
+    <template id="tpl-error">
+        <div class="modal-message">
+            <p class="modal-message-error" data-tpl="error"></p>
+        </div>
+    </template>
+
+    <template id="tpl-cargando">
+        <div class="modal-loading">
+            <span data-tpl="logo"></span>
+            <p class="modal-loading-text" data-tpl="texto"></p>
+        </div>
+    </template>
+
+    <template id="tpl-resultado-simple">
+        <div class="modal-message">
+            <p class="modal-message-desc" data-tpl="descripcion"></p>
+            <div class="modal-resultado">
+                <div class="preview-item">
+                    <span data-tpl="etiqueta-total"></span>
+                    <span class="preview-number" data-tpl="total"></span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Configuración: cuenta, datos y reautenticación -->
+
+    <template id="tpl-form-password">
+        <form class="form-movimiento" data-tpl="form" data-tpl-attr="id">
+            <div class="form-group">
+                <label for="nueva-password">Nueva contraseña</label>
+                <input type="password" id="nueva-password" class="form-input" autocomplete="new-password" required>
+                <span class="form-hint">Mínimo 6 caracteres</span>
+            </div>
+            <div class="form-group">
+                <label for="confirmar-password" data-tpl="etiqueta-confirmar">Confirmar contraseña</label>
+                <input type="password" id="confirmar-password" class="form-input" autocomplete="new-password" required>
+            </div>
+            <div id="password-error" class="modal-message-error" hidden></div>
+        </form>
+    </template>
+
+    <template id="tpl-confirmar-logout">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Estás seguro de que quieres cerrar sesión?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-restaurar-cuentas">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Elige las cuentas archivadas que quieres volver a activas.
+            </p>
+            <p class="modal-message-hint">
+                Recuperan su sitio en el sidebar y vuelven a sumar en el patrimonio
+                y el dashboard. Sus movimientos no se han tocado.
+            </p>
+        </div>
+        <div class="dashboard-editor-grid" data-tpl="opciones"></div>
+    </template>
+
+    <template id="tpl-cuenta-archivable">
+        <label class="dashboard-card-opcion">
+            <input type="checkbox" data-tpl="id" data-tpl-attr="value" checked>
+            <span>
+                <span data-tpl="nombre">Cuenta</span>
+                <small data-tpl="saldo"></small>
+            </span>
+        </label>
+    </template>
+
+    <template id="tpl-archivo-invalido">
+        <div class="modal-message">
+            <p class="modal-message-error" data-tpl="error"></p>
+            <p class="modal-message-desc">
+                Asegúrate de que sea un archivo .dvid generado por escinco.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-preview-importacion">
+        <div class="modal-preview">
+            <div class="preview-row">
+                <span class="preview-label">Formato</span>
+                <span class="preview-value" data-tpl="formato"></span>
+            </div>
+            <div class="preview-row">
+                <span class="preview-label">Versión mínima</span>
+                <span class="preview-value" data-tpl="version-minima"></span>
+            </div>
+            <div class="preview-row">
+                <span class="preview-label">Exportado</span>
+                <span class="preview-value" data-tpl="exportado"></span>
+            </div>
+
+            <div class="preview-content">
+                <div class="preview-content-title">CONTENIDO</div>
+                <div class="preview-item">
+                    <span>Cuentas</span>
+                    <span class="preview-number" data-tpl="cuentas"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Movimientos</span>
+                    <span class="preview-number" data-tpl="movimientos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Activos</span>
+                    <span class="preview-number" data-tpl="activos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Pendientes</span>
+                    <span class="preview-number" data-tpl="pendientes"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Inversiones</span>
+                    <span class="preview-number" data-tpl="posiciones"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Historial precios</span>
+                    <span class="preview-number" data-tpl="historial"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Snapshots</span>
+                    <span class="preview-number" data-tpl="snapshots"></span>
+                </div>
+            </div>
+
+            <div class="modal-warning">
+                Los datos se <strong>agregarán</strong> a los existentes. No se eliminará nada.
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-resultado-importacion">
+        <div class="modal-message">
+            <div class="modal-resultado">
+                <div class="preview-item">
+                    <span>Cuentas</span>
+                    <span class="preview-number" data-tpl="cuentas"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Movimientos</span>
+                    <span class="preview-number" data-tpl="movimientos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Activos</span>
+                    <span class="preview-number" data-tpl="activos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Pendientes</span>
+                    <span class="preview-number" data-tpl="pendientes"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Inversiones</span>
+                    <span class="preview-number" data-tpl="posiciones"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Historial precios</span>
+                    <span class="preview-number" data-tpl="historial"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Snapshots</span>
+                    <span class="preview-number" data-tpl="snapshots"></span>
+                </div>
+            </div>
+            <p class="modal-message-warning" data-tpl="errores" data-tpl-oculto hidden></p>
+        </div>
+    </template>
+
+    <template id="tpl-eliminar-todos">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Estás seguro?</p>
+            <p class="modal-message-desc">Se eliminarán <strong>todos</strong> tus datos de escinco:</p>
+            <div class="modal-list">
+                • Cuentas<br>
+                • Movimientos<br>
+                • Inversiones<br>
+                • Pendientes<br>
+                • Snapshots<br>
+                • Trades
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-eliminar-cuenta">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Estás seguro?</p>
+            <p class="modal-message-desc">
+                Se eliminará tu <strong>cuenta</strong> y <strong>todos tus datos</strong> de escinco permanentemente:
+            </p>
+            <div class="modal-list">
+                • Cuentas<br>
+                • Movimientos<br>
+                • Inversiones<br>
+                • Pendientes<br>
+                • Snapshots<br>
+                • Trades
+            </div>
+            <p class="modal-message-desc">
+                Antes de borrar se descargará automáticamente un respaldo <strong>.dvid</strong>.
+            </p>
+            <p class="modal-message-error">Esta acción no se puede deshacer.</p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-escritura">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">Última oportunidad</p>
+            <p class="modal-message-desc">
+                Para confirmar, escribe <strong class="text-danger">ELIMINAR</strong> a continuación:
+            </p>
+            <input type="text" data-tpl="campo" data-tpl-attr="id"
+                   class="form-input modal-input-confirm"
+                   placeholder="Escribe ELIMINAR"
+                   autocomplete="off">
+        </div>
+    </template>
+
+    <template id="tpl-reauth-password">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Por seguridad, confirma tu contraseña antes de continuar:
+            </p>
+            <input type="password" id="reauth-password"
+                   class="form-input modal-input-confirm"
+                   placeholder="Tu contraseña"
+                   autocomplete="current-password">
+            <p class="modal-message-error" id="reauth-error" hidden></p>
+        </div>
+    </template>
+
+    <template id="tpl-reauth-google">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Por seguridad, vuelve a iniciar sesión con Google para continuar.
+            </p>
+        </div>
+    </template>
+
+    <!-- PLANTILLAS DE MODAL · FIN -->
 </body>
 <script type="module" src="js/core/app.js"></script>
 </html>

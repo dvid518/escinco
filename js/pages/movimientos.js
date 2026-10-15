@@ -1159,8 +1159,10 @@ function abrirModalEliminarMovimiento(m) {
     abrirModal({
         titulo: "Eliminar movimiento",
         contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar", {
-            concepto: m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
-            fecha: formatearFecha(m.fechaRealizacion)
+            valores: {
+                concepto: m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
+                fecha: formatearFecha(m.fechaRealizacion)
+            }
         }),
         variante: "confirm",
         confirmText: "Eliminar",
