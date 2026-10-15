@@ -31,7 +31,7 @@ import { obtenerPendientes } from "../repositories/PendienteRepositorio.js"
 import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
 import { calcularProximaEjecucion } from "../services/EstrategiaServicio.js"
-import { abrirModal } from "../ui/modal.js"
+import { abrirModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
@@ -1173,15 +1173,12 @@ function manejarCambioPaginaDashboard(evento) {
 // Bloque de cards instanciadas dentro del selector: una casilla por cuenta y
 // otra por activo con posición abierta.
 function bloqueInstanciasSelector(titulo, descripcion, opciones, vacio) {
-    return `
-        <div class="dashboard-editor-bloque">
-            <span class="dashboard-editor-titulo">${titulo}</span>
-            <p class="dashboard-editor-hint">${descripcion}</p>
-            ${opciones.length > 0
-                ? `<div class="dashboard-editor-grid">${opciones.join("")}</div>`
-                : `<p class="dashboard-editor-hint">${vacio}</p>`}
-        </div>
-    `
+    // `opciones` es un fragmento (una copia del template de fila por casilla).
+    const hayOpciones = opciones.childNodes.length > 0
+    return contenidoDesdeTemplate("tpl-dashboard-editor-bloque", {
+        valores: { titulo, descripcion, vacio: hayOpciones ? "" : vacio },
+        html: { opciones: hayOpciones ? opciones : "" }
+    })
 }
 
 function opcionesInstanciasCuentas(activas) {
@@ -1196,22 +1193,21 @@ function opcionesInstanciasCuentas(activas) {
     // selector con la foto y el nombre grande), se levanta el tope.
     const yaHay = lista.some(cuenta => activas.has(idCardCuenta(cuenta.id)))
 
-    return lista.map(cuenta => {
+    return contenidoDesdeFilas("tpl-dashboard-card-instancia", lista, cuenta => {
         const id = idCardCuenta(cuenta.id)
         const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
         const activa = activas.has(id)
         const bloqueada = !activa && yaHay
-
-        return `
-            <label class="dashboard-card-opcion${bloqueada ? " bloqueada" : ""}">
-                <input type="checkbox" value="${id}" ${activa ? "checked" : ""}
-                    ${bloqueada ? "disabled" : ""}>
-                <span>
-                    ${cuenta.nombre || "Cuenta"}
-                    <small>${etiqueta}</small>
-                </span>
-            </label>
-        `
+        return {
+            valores: {
+                "instancia@class": `dashboard-card-opcion${bloqueada ? " bloqueada" : ""}`,
+                "valor@value": id,
+                "valor@checked": activa,
+                "valor@disabled": bloqueada,
+                nombre: cuenta.nombre || "Cuenta",
+                tipo: etiqueta
+            }
+        }
     })
 }
 
@@ -1219,22 +1215,21 @@ function opcionesInstanciasActivos(activas) {
     // Mismo tope que en las cuentas: una sola card de activo.
     const yaHay = posicionesData.some(posicion => activas.has(idCardActivo(posicion.activoId)))
 
-    return posicionesData.map(posicion => {
+    return contenidoDesdeFilas("tpl-dashboard-card-instancia", posicionesData, posicion => {
         const id = idCardActivo(posicion.activoId)
         const activo = posicion.activo || {}
         const activa = activas.has(id)
         const bloqueada = !activa && yaHay
-
-        return `
-            <label class="dashboard-card-opcion${bloqueada ? " bloqueada" : ""}">
-                <input type="checkbox" value="${id}" ${activa ? "checked" : ""}
-                    ${bloqueada ? "disabled" : ""}>
-                <span>
-                    ${activo.simbolo || activo.nombre || "Activo"}
-                    <small>${ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"}</small>
-                </span>
-            </label>
-        `
+        return {
+            valores: {
+                "instancia@class": `dashboard-card-opcion${bloqueada ? " bloqueada" : ""}`,
+                "valor@value": id,
+                "valor@checked": activa,
+                "valor@disabled": bloqueada,
+                nombre: activo.simbolo || activo.nombre || "Activo",
+                tipo: ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"
+            }
+        }
     })
 }
 
@@ -1242,12 +1237,14 @@ function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
     const activas = new Set(cardsVisiblesDashboard)
-    const opciones = cards.map(card => `
-        <label class="dashboard-card-opcion" data-card="${card.id}">
-            <input type="checkbox" value="${card.id}" ${activas.has(card.id) ? "checked" : ""}>
-            <span>${card.label}</span>
-        </label>
-    `).join("")
+    const opciones = contenidoDesdeFilas("tpl-dashboard-card", cards, card => ({
+        valores: {
+            "card@data-card": card.id,
+            "valor@value": card.id,
+            "valor@checked": activas.has(card.id),
+            etiqueta: card.label
+        }
+    }))
 
     const cuentasBloque = bloqueInstanciasSelector(
         "Tu cuenta en el dashboard",
@@ -1270,13 +1267,9 @@ function abrirSelectorCardsDashboard() {
         cancelText: "Cancelar",
         onCancel: () => { cambiosPendientesDashboard = cambiosPendientesAntesModal },
         footerExtra: '<button type="button" class="modal-btn modal-btn-secondary" data-dashboard-reset>Restablecer</button>',
-        contenido: `
-            <div class="dashboard-editor">
-                <div class="dashboard-editor-grid">${opciones}</div>
-                ${cuentasBloque}
-                ${activosBloque}
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-dashboard-editor", {
+            html: { cards: opciones, cuentas: cuentasBloque, activos: activosBloque }
+        }),
         onConfirm: async () => {
             const seleccionadas = [...modal.querySelectorAll(".dashboard-editor input:checked")].map(input => input.value)
             // El orden se conserva para las cards que siguen activas; las
@@ -3011,7 +3004,9 @@ function abrirModalPatrimonioDashboard() {
 
     const modal = abrirModal({
         titulo: "Patrimonio total",
-        contenido: `<div class="patrimonio-modal-loading">${LOGO_ESCINCO_CARGA}</div>`,
+        contenido: contenidoDesdeTemplate("tpl-patrimonio-loading", {
+            html: { logo: LOGO_ESCINCO_CARGA }
+        }),
         variante: "form",
         confirmText: "Cerrar",
         cancelText: null,
@@ -3028,31 +3023,25 @@ function abrirModalPatrimonioDashboard() {
             const disponible = Math.max(0, activos - invertido)
             const patrimonioNeto = activos - deudas
             const nombreUsuario = sesion.nombre?.trim() || "Tú"
-            body.innerHTML = `
-                <p class="patrimonio-modal-caption patrimonio-modal-owner">${nombreUsuario}, posees</p>
-                <div class="patrimonio-modal-total ${patrimonioNeto < 0 ? "negative" : "positive"}">
-                    ${formatearMontoConDivisa(patrimonioNeto, divisaActual)}
-                </div>
-                <div class="patrimonio-modal-stats">
-                    <div class="patrimonio-modal-stat">
-                        <span>Disponible</span>
-                        <strong>${formatearMontoConDivisa(disponible, divisaActual)}</strong>
-                    </div>
-                    <div class="patrimonio-modal-stat">
-                        <span>Inmovil / invertido</span>
-                        <strong>${formatearMontoConDivisa(invertido, divisaActual)}</strong>
-                    </div>
-                    <div class="patrimonio-modal-stat">
-                        <span>Deudas</span>
-                        <strong>${formatearMontoConDivisa(deudas, divisaActual)}</strong>
-                    </div>
-                </div>
-            `
+            body.replaceChildren(contenidoDesdeTemplate("tpl-patrimonio", {
+                valores: {
+                    nombre: nombreUsuario,
+                    "total@class": `patrimonio-modal-total ${patrimonioNeto < 0 ? "negative" : "positive"}`,
+                    patrimonio: formatearMontoConDivisa(patrimonioNeto, divisaActual),
+                    disponible: formatearMontoConDivisa(disponible, divisaActual),
+                    invertido: formatearMontoConDivisa(invertido, divisaActual),
+                    deudas: formatearMontoConDivisa(deudas, divisaActual)
+                }
+            }))
         })
         .catch(error => {
             const body = modal?.querySelector(".modal-body")
             if (!body || !modal.isConnected) return
-            body.innerHTML = `<p class="modal-message-desc">No se pudo calcular el patrimonio: ${error.message || "error desconocido"}</p>`
+            body.replaceChildren(contenidoDesdeTemplate("tpl-mensaje", {
+                valores: {
+                    mensaje: `No se pudo calcular el patrimonio: ${error.message || "error desconocido"}`
+                }
+            }))
         })
 }
 
@@ -3070,7 +3059,9 @@ async function abrirModalEvolucionDashboard() {
 
     const modal = abrirModal({
         titulo: "Evolución patrimonial",
-        contenido: `<div class="patrimonio-modal-loading">${LOGO_ESCINCO_CARGA}</div>`,
+        contenido: contenidoDesdeTemplate("tpl-patrimonio-loading", {
+            html: { logo: LOGO_ESCINCO_CARGA }
+        }),
         variante: "wide",
         confirmText: "Cerrar",
         cancelText: null,
@@ -3089,16 +3080,11 @@ async function abrirModalEvolucionDashboard() {
         const body = modal?.querySelector(".modal-body")
         if (!body || !modal.isConnected || cancelado) return
 
-        body.innerHTML = `
-            <div class="evolucion-modal-grafico">
-                <canvas id="grafico-patrimonio-modal"></canvas>
-            </div>
-            <div class="toggle-group grafico-periodos-modal" id="grafico-periodos-modal">
-                ${PERIODOS_GRAFICO.map(p => `
-                    <span class="toggle-option" data-periodo="${p.id}">${p.etiqueta}</span>
-                `).join('')}
-            </div>
-        `
+        const periodos = contenidoDesdeFilas("tpl-periodo-grafico", PERIODOS_GRAFICO, p => ({
+            valores: { "periodo@data-periodo": p.id, etiqueta: p.etiqueta }
+        }))
+        const contenido = contenidoDesdeTemplate("tpl-evolucion", { html: { periodos } })
+        body.replaceChildren(contenido)
         configurarPeriodos(body.querySelector("#grafico-periodos-modal"), async () => {
             if (!modal?.isConnected || cancelado) return
             const secuencia = ++secuenciaModal

@@ -46,11 +46,11 @@ function sobreponer(overlay) {
  *              venga de la aplicación o del usuario va aquí: se escribe con
  *              textContent, nunca se interpreta como HTML. Un hueco marcado con
  *              `data-tpl-oculto` se esconde cuando su valor es vacío, que es lo
- *              que reemplaza los bloques `cond ? html : ""`. Para escribir un
- *              atributo en vez de texto, la clave lleva `@`: "tipo@data-tipo"
- *              pone el valor en el atributo `data-tipo` del elemento. El atributo
- *              `data-tpl-attr="a,b"` del template no hace falta para el
- *              relleno: documenta qué atributos se rellenan.
+ *              que reemplaza los bloques `cond ? html : ""`. Para escribir en vez
+ *              de en el texto, la clave lleva `@`: "tipo@data-tipo" pone el
+ *              valor en el atributo `data-tipo` del elemento, y "marcado@checked"
+ *              marca la casilla. El atributo `data-tpl-attr="a,b"` del template
+ *              no hace falta para el relleno: documenta qué se rellena.
  *   html       pares { hueco: markup } para el mismo atributo. Solo para iconos
  *              del catálogo (`icono()`, `LOGO_ESCINCO_CARGA`): markup que genera
  *              el propio código. Nunca texto de usuario: ahí va `valores`.
@@ -92,15 +92,20 @@ function clonarTemplate(id) {
     return tpl.content.cloneNode(true)
 }
 
+// Atributos que en realidad son propiedades del elemento: se escriben como
+// `destino[propiedad] = valor`, para poder poner y quitar checked/disabled.
+const PROPIEDADES = ["checked", "disabled", "selected", "hidden", "indeterminate"]
+
 function rellenarHuecos(fragmento, { valores = {}, html = {} } = {}) {
     for (const [clave, valor] of Object.entries(valores)) {
-        const [hueco, atributo] = clave.includes("@") ? clave.split("@") : [clave, null]
-        const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
-        if (!destino) continue
+        const [hueco, destino] = clave.includes("@") ? clave.split("@") : [clave, null]
+        const elemento = fragmento.querySelector(`[data-tpl="${hueco}"]`)
+        if (!elemento) continue
         const texto = valor == null ? "" : String(valor)
-        if (atributo) destino.setAttribute(atributo, texto)
-        else destino.textContent = texto
-        if (destino.hasAttribute("data-tpl-oculto")) destino.hidden = !valor
+        if (destino && PROPIEDADES.includes(destino)) elemento[destino] = valor === true
+        else if (destino) elemento.setAttribute(destino, texto)
+        else elemento.textContent = texto
+        if (elemento.hasAttribute("data-tpl-oculto")) elemento.hidden = !valor
     }
     for (const [clave, markup] of Object.entries(html)) {
         const [hueco] = clave.split("@")

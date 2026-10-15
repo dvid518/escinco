@@ -506,6 +506,80 @@
         </div>
     </template>
 
+    <!-- Dashboard: editor de cards, patrimonio y evolución -->
+
+    <template id="tpl-dashboard-editor">
+        <div class="dashboard-editor">
+            <div class="dashboard-editor-grid" data-tpl="cards"></div>
+            <div data-tpl="cuentas"></div>
+            <div data-tpl="activos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-editor-bloque">
+        <div class="dashboard-editor-bloque">
+            <span class="dashboard-editor-titulo" data-tpl="titulo"></span>
+            <p class="dashboard-editor-hint" data-tpl="descripcion"></p>
+            <div class="dashboard-editor-grid" data-tpl="opciones" data-tpl-oculto></div>
+            <p class="dashboard-editor-hint" data-tpl="vacio" data-tpl-oculto></p>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-card">
+        <label class="dashboard-card-opcion" data-tpl="card" data-tpl-attr="data-card">
+            <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked">
+            <span data-tpl="etiqueta"></span>
+        </label>
+    </template>
+
+    <template id="tpl-dashboard-card-instancia">
+        <label data-tpl="instancia" data-tpl-attr="class">
+            <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked,disabled">
+            <span>
+                <span data-tpl="nombre"></span>
+                <small data-tpl="tipo"></small>
+            </span>
+        </label>
+    </template>
+
+    <template id="tpl-patrimonio-loading">
+        <div class="patrimonio-modal-loading" data-tpl="logo"></div>
+    </template>
+
+    <template id="tpl-patrimonio">
+        <p class="patrimonio-modal-caption patrimonio-modal-owner">
+            <span data-tpl="nombre"></span>, posees
+        </p>
+        <div data-tpl="total" data-tpl-attr="class">
+            <span data-tpl="patrimonio"></span>
+        </div>
+        <div class="patrimonio-modal-stats">
+            <div class="patrimonio-modal-stat">
+                <span>Disponible</span>
+                <strong data-tpl="disponible"></strong>
+            </div>
+            <div class="patrimonio-modal-stat">
+                <span>Inmovil / invertido</span>
+                <strong data-tpl="invertido"></strong>
+            </div>
+            <div class="patrimonio-modal-stat">
+                <span>Deudas</span>
+                <strong data-tpl="deudas"></strong>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-evolucion">
+        <div class="evolucion-modal-grafico">
+            <canvas id="grafico-patrimonio-modal"></canvas>
+        </div>
+        <div class="toggle-group grafico-periodos-modal" id="grafico-periodos-modal" data-tpl="periodos"></div>
+    </template>
+
+    <template id="tpl-periodo-grafico">
+        <span class="toggle-option" data-tpl="periodo" data-tpl-attr="data-periodo" data-tpl="etiqueta"></span>
+    </template>
+
     <!-- PLANTILLAS DE MODAL · FIN -->
 </body>
 <script type="module" src="js/core/app.js"></script>

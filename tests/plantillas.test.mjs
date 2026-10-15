@@ -13,6 +13,10 @@ import { leer, RAIZ, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 // Documentos que sirven la app (los dos precacheados por sw.js).
 const DOCUMENTOS = ["dashboard.html", "tester.html"]
 
+// ----------------------------------------------------------------------
+// Lectura del HTML
+// ----------------------------------------------------------------------
+
 // Cuerpo de un <template>...</template> por id, tal cual aparece en el HTML.
 // Los finales de línea se normalizan: dashboard.html va en CRLF y tester.html en
 // LF, y eso no es una diferencia de contenido.
@@ -29,8 +33,102 @@ function huecosDe(cuerpo) {
     return new Set([...cuerpo.matchAll(/data-tpl="([^"]+)"/g)].map(m => m[1]))
 }
 
-// Llamadas contenidoDesdeTemplate("id", { valores: {...}, html: {...} }) y
-// contenidoDesdeFilas("id", filas, fila => ({ valores: {...} })) en todo js/.
+// ----------------------------------------------------------------------
+// Lectura del JS
+// ----------------------------------------------------------------------
+
+// Avanza saltando una cadena (", ' o `), incluidas las interpolaciones ${...}
+// de las plantillas literales, para que un paréntesis o una clave dentro de un
+// texto no se cuente como código.
+function saltarCadena(src, i) {
+    const comilla = src[i]
+    i++
+    while (i < src.length) {
+        const ch = src[i]
+        if (ch === "\\") { i += 2; continue }
+        if (comilla === "`" && ch === "$" && src[i + 1] === "{") {
+            let nivel = 1
+            i += 2
+            while (i < src.length && nivel > 0) {
+                const c = src[i]
+                if (c === '"' || c === "'" || c === "`") { i = saltarCadena(src, i); continue }
+                if (c === "{") nivel++
+                else if (c === "}") nivel--
+                i++
+            }
+            continue
+        }
+        if (ch === comilla) return i + 1
+        i++
+    }
+    return i
+}
+
+// Texto de una llamada: desde el paréntesis hasta su cierre, contando anidados.
+function argumentosDe(src, inicio) {
+    let nivel = 0
+    for (let i = inicio; i < src.length; i++) {
+        const ch = src[i]
+        if (ch === '"' || ch === "'" || ch === "`") { i = saltarCadena(src, i) - 1; continue }
+        if (ch === "(" || ch === "{" || ch === "[") nivel++
+        else if (ch === ")" || ch === "}" || ch === "]") {
+            nivel--
+            if (nivel < 0) return src.slice(inicio, i)
+        }
+    }
+    return src.slice(inicio)
+}
+
+// Claves del objeto que empieza en `pos` (la llave de {). Solo las del primer
+// nivel: es donde van los pares { hueco: valor }.
+function clavesDeObjeto(src, pos) {
+    const claves = []
+    let nivel = 0
+    let esperarClave = true
+    for (let i = pos; i < src.length; i++) {
+        const ch = src[i]
+        if (ch === '"' || ch === "'" || ch === "`") {
+            const fin = saltarCadena(src, i)
+            if (nivel === 1 && ch === '"') {
+                // clave entre comillas, o valor: se ve por lo que sigue
+                let j = fin
+                while (j < src.length && /\s/.test(src[j])) j++
+                if (src[j] === ":") claves.push(src.slice(i + 1, fin - 1))
+            }
+            i = fin - 1
+            esperarClave = false
+            continue
+        }
+        if (ch === "{" || ch === "[" || ch === "(") {
+            nivel++
+            if (nivel === 1) esperarClave = true
+            continue
+        }
+        if (ch === "}" || ch === "]" || ch === ")") {
+            nivel--
+            if (nivel === 0) break
+            continue
+        }
+        if (ch === "," && nivel === 1) { esperarClave = true; continue }
+        if (/[\w$]/.test(ch)) {
+            let j = i
+            while (j < src.length && /[\w$-]/.test(src[j])) j++
+            const palabra = src.slice(i, j)
+            let k = j
+            while (k < src.length && /\s/.test(src[k])) k++
+            if (nivel === 1 && src[k] === ":") claves.push(palabra)
+            // Atajo: { mensaje } sin dos puntos.
+            else if (nivel === 1 && esperarClave) claves.push(palabra)
+            i = j - 1
+            esperarClave = false
+            continue
+        }
+        if (!/\s/.test(ch)) esperarClave = false
+    }
+    return claves
+}
+
+// Llamadas contenidoDesdeTemplate(...) y contenidoDesdeFilas(...) en todo js/.
 function llamadasEnJs() {
     const archivos = []
     const recorrer = dir => {
@@ -49,32 +147,15 @@ function llamadasEnJs() {
         if (/js[\\/]ui[\\/]modal\.js$/.test(ruta)) continue
         const src = leer(relative(RAIZ, ruta))
         const archivo = relative(RAIZ, ruta).replace(/\\/g, "/")
-        const re = /contenidoDesde(Template|Filas)\(/g
-        for (const m of src.matchAll(re)) {
-            // Texto de la llamada: desde el paréntesis hasta su cierre, contando
-            // llaves y paréntesis anidados, para no leer las opciones de la
-            // llamada siguiente.
-            let nivel = 0
-            let fin = m.index + m[0].length
-            for (; fin < src.length; fin++) {
-                const ch = src[fin]
-                if (ch === "(" || ch === "{" || ch === "[") nivel++
-                else if (ch === ")" || ch === "}" || ch === "]") {
-                    nivel--
-                    if (nivel < 0) break
-                }
-            }
-            const llamada = src.slice(m.index, fin)
+        for (const m of src.matchAll(/contenidoDesde(Template|Filas)\(/g)) {
+            const llamada = argumentosDe(src, m.index + m[0].length)
             // Un id puede venir de un condicional (`cond ? "tpl-a" : "tpl-b"`),
             // así que se recogen todos los literales que parecen un template.
             const ids = [...llamada.matchAll(/"(tpl-[\w-]+)"/g)].map(x => x[1])
-
-            // Los huecos son las claves de los objetos `valores:` y `html:`,
-            // incluidos los que llevan atributo ("tipo@data-tipo").
             const hues = new Set()
-            for (const bloque of llamada.matchAll(/(?:valores|html)\s*:\s*\{([^}]*)\}/g)) {
-                for (const k of bloque[1].matchAll(/["']?([\w-]+(?:@[\w-]+)?)["']?\s*:/g)) {
-                    hues.add(k[1])
+            for (const bloque of llamada.matchAll(/(?:valores|html)\s*:\s*\{/g)) {
+                for (const clave of clavesDeObjeto(llamada, bloque.index + bloque[0].length - 1)) {
+                    if (clave) hues.add(clave)
                 }
             }
             llamadas.push({ archivo, ids, helper: m[1], hues: [...hues] })
@@ -82,6 +163,8 @@ function llamadasEnJs() {
     }
     return llamadas
 }
+
+// ----------------------------------------------------------------------
 
 export default function ejecutar(t = nuevoReporter("plantillas")) {
     const docs = Object.fromEntries(DOCUMENTOS.map(d => [d, templatesDe(leer(d))]))
@@ -134,15 +217,17 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
 
     // La inserción por textContent es lo que hace seguro el patrón: si alguien
     // cambia los valores por innerHTML, este test lo ve. El markup de iconos
-    // (catálogo propio) va en una clave aparte, y los ids en otra.
+    // (catálogo propio) va en una clave aparte, y atributos y propiedades en
+    // otras ("hueco@data-tipo", "marcado@checked").
     const rellenar = extraerFuncion(leer("js/ui/modal.js"), "rellenarHuecos")
-    const iTexto = rellenar.indexOf("destino.textContent")
-    const iMarkup = rellenar.indexOf("destino.innerHTML")
+    const iTexto = rellenar.indexOf(".textContent")
+    const iMarkup = rellenar.indexOf(".innerHTML")
     t.check("los valores se escriben con textContent", iTexto !== -1)
     t.check("el markup de iconos va en su propia clave, aparte de los valores",
         iMarkup !== -1 && iMarkup > iTexto)
-    t.check("los ids y values van por atributos con la clave hueco@atributo",
-        /clave\.split\("@"\)/.test(rellenar) && /setAttribute\(atributo/.test(rellenar))
+    t.check("los atributos y las casillas van por su clave",
+        /clave\.split\("@"\)/.test(rellenar) && /setAttribute\(destino/.test(rellenar) &&
+        /PROPIEDADES\.includes\(destino\)/.test(rellenar))
 
     return t
 }
