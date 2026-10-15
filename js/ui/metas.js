@@ -1,4 +1,4 @@
-import { abrirModal, cerrarModal, contenidoDesdeTemplate } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 import { obtenerMetas, crearMeta, actualizarMeta, eliminarMeta } from "../repositories/MetaRepositorio.js"
 import { sesion } from "../core/sesion.js"
 import { aportarMeta } from "../services/MetaServicio.js"
@@ -94,39 +94,22 @@ async function cargarCuentasEnSelect(selectId, divisa = null) {
 // estado con la fecha límite. Las acciones (aportar/editar/eliminar) se
 // revelan con hover, foco o tocando la card.
 function plantillaMetaCard(meta) {
-    const simbolo = formatearMontoConDivisa(0, meta.divisa)
-    const estado = meta.completada
-        ? '<span class="pendiente-vencido"> · Completada</span>'
-        : (meta.activa ? "" : '<span class="pendiente-vencido"> · Pausada</span>')
-
-    return `
-        <div class="card-item meta-card" data-id="${meta.id}">
-            <div class="card-item-main">
-                <div class="card-item-info">
-                    <span class="card-item-titulo">${meta.nombre}${estado}</span>
-                    <span class="card-item-detalle">
-                        Faltan ${formatearMontoConDivisa(meta.montoRestante, meta.divisa)}
-                    </span>
-                </div>
-                <div class="card-item-valor-wrap">
-                    <span class="card-item-valor">
-                        ${simbolo} ${meta.porcentaje.toFixed(2)}%
-                    </span>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="aportar" title="Aportar" aria-label="Aportar">
-                            ${icono("plus-circle", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar">
-                            ${icono("pencil", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar">
-                            ${icono("trash", 16)}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "meta@data-id": meta.id,
+            nombre: meta.nombre,
+            estado: meta.completada
+                ? " · Completada"
+                : (meta.activa ? "" : " · Pausada"),
+            restante: formatearMontoConDivisa(meta.montoRestante, meta.divisa),
+            valor: `${formatearMontoConDivisa(0, meta.divisa)} ${meta.porcentaje.toFixed(2)}%`
+        },
+        html: {
+            "icono-aportar": icono("plus-circle", 16),
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash", 16)
+        }
+    }
 }
 
 export async function mostrarMetas() {
@@ -169,28 +152,15 @@ export async function mostrarMetas() {
             }
         }
 
-        const html = `
-            <div class="pendientes-cabecera">
-                <span class="pendientes-contador" id="metas-contador">
-                    ${metas.length} meta${metas.length !== 1 ? 's' : ''}
-                </span>
-                <div class="pendientes-cabecera-acciones">
-                    <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-metas-lote" disabled>
-                        Eliminar seleccionadas
-                    </button>
-                    <button class="glass pendiente-crear-btn" id="btn-crear-meta">
-                        + Nueva meta
-                    </button>
-                </div>
-            </div>
-            <div class="pendientes-lista">
-                ${metas.length === 0 ? `
-                    <p class="pendiente-vacio">
-                        No hay metas registradas.
-                    </p>
-                ` : metas.map(plantillaMetaCard).join('')}
-            </div>
-        `
+        const html = contenidoDesdeTemplate("tpl-lista-metas", {
+            valores: {
+                contador: `${metas.length} meta${metas.length !== 1 ? "s" : ""}`,
+                vacio: metas.length === 0 ? "No hay metas registradas." : ""
+            },
+            html: {
+                lista: contenidoDesdeFilas("tpl-meta-card", metas, plantillaMetaCard)
+            }
+        })
 
         const modalEl = abrirModal({
             titulo: 'Metas',

@@ -1,4 +1,4 @@
-import { abrirModal, cerrarModal, contenidoDesdeTemplate } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 import { obtenerPendientes, eliminarPendiente, crearPendiente, actualizarPendiente } from "../repositories/PendienteRepositorio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
 import { sesion } from "../core/sesion.js"
@@ -20,39 +20,24 @@ import { icono } from "../core/iconos.js"
 // y no hay borde lateral de color.
 function plantillaPendiente(p) {
     const esCobro = p.tipo !== false
-    const clase = esCobro ? "positive" : "negative"
-    const signo = esCobro ? "+" : "-"
     const vence = formatearFechaPendiente(p.fechaVencimiento)
 
-    return `
-        <div class="card-item pendiente-card" data-id="${p.id}">
-            <div class="card-item-main">
-                <div class="card-item-info">
-                    <span class="card-item-titulo">${p.concepto}</span>
-                    <span class="card-item-detalle">
-                        ${vence
-                            ? `Vence: ${vence}`
-                            : '<span class="text-muted">Sin fecha de vencimiento</span>'}
-                        ${p.estaVencido ? '<span class="pendiente-vencido"> · VENCIDO</span>' : ""}
-                    </span>
-                </div>
-                <div class="card-item-valor-wrap">
-                    <span class="card-item-valor ${clase}">${signo} ${formatearMontoConDivisa(p.monto, p.divisa)}</span>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="consolidar" title="Consolidar" aria-label="Consolidar">
-                            ${icono("circle-check", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar">
-                            ${icono("pencil", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar">
-                            ${icono("trash", 16)}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "pendiente@data-id": p.id,
+            concepto: p.concepto,
+            vence: vence ? `Vence: ${vence}` : "",
+            "sin-fecha@hidden": Boolean(vence),
+            vencido: p.estaVencido ? " · VENCIDO" : "",
+            "valor@class": `card-item-valor ${esCobro ? "positive" : "negative"}`,
+            valor: `${esCobro ? "+" : "-"} ${formatearMontoConDivisa(p.monto, p.divisa)}`
+        },
+        html: {
+            "icono-consolidar": icono("circle-check", 16),
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash", 16)
+        }
+    }
 }
 
 function formatearFechaPendiente(valor) {
@@ -282,28 +267,15 @@ export async function mostrarPendientes() {
             }
         }
 
-        const html = `
-            <div class="pendientes-cabecera">
-                <span class="pendientes-contador" id="pendientes-contador">
-                    ${pendientes.length} pendiente${pendientes.length !== 1 ? 's' : ''}
-                </span>
-                <div class="pendientes-cabecera-acciones">
-                    <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-lote" disabled>
-                        Eliminar seleccionados
-                    </button>
-                    <button class="glass pendiente-crear-btn" id="btn-crear-pendiente">
-                        + Nuevo pendiente
-                    </button>
-                </div>
-            </div>
-            <div class="pendientes-lista">
-                ${pendientes.length === 0 ? `
-                    <p class="pendiente-vacio">
-                        No hay pendientes registrados.
-                    </p>
-                ` : pendientes.map(p => plantillaPendiente(p)).join('')}
-            </div>
-        `
+        const html = contenidoDesdeTemplate("tpl-lista-pendientes", {
+            valores: {
+                contador: `${pendientes.length} pendiente${pendientes.length !== 1 ? "s" : ""}`,
+                vacio: pendientes.length === 0 ? "No hay pendientes registrados." : ""
+            },
+            html: {
+                lista: contenidoDesdeFilas("tpl-pendiente-card", pendientes, plantillaPendiente)
+            }
+        })
 
         const modalEl = abrirModal({
             titulo: 'Pendientes',

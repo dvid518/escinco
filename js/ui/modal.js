@@ -104,8 +104,12 @@ function rellenarHuecos(fragmento, { valores = {}, html = {} } = {}) {
         const texto = valor == null ? "" : String(valor)
         if (destino && PROPIEDADES.includes(destino)) elemento[destino] = valor === true
         else if (destino) elemento.setAttribute(destino, texto)
-        else elemento.textContent = texto
-        if (elemento.hasAttribute("data-tpl-oculto")) elemento.hidden = !valor
+        else {
+            elemento.textContent = texto
+            // data-tpl-oculto manda solo si el hueco se rellena como texto:
+            // con "algo@atributo" el atributo lo decide el llamador.
+            if (elemento.hasAttribute("data-tpl-oculto")) elemento.hidden = !valor
+        }
     }
     for (const [clave, markup] of Object.entries(html)) {
         const [hueco] = clave.split("@")

@@ -643,6 +643,91 @@
         </div>
     </template>
 
+    <!-- Listas de metas y pendientes -->
+
+    <template id="tpl-lista-metas">
+        <div class="pendientes-cabecera">
+            <span class="pendientes-contador" id="metas-contador" data-tpl="contador"></span>
+            <div class="pendientes-cabecera-acciones">
+                <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-metas-lote" disabled>
+                    Eliminar seleccionadas
+                </button>
+                <button class="glass pendiente-crear-btn" id="btn-crear-meta">
+                    + Nueva meta
+                </button>
+            </div>
+        </div>
+        <div class="pendientes-lista">
+            <p class="pendiente-vacio" data-tpl="vacio" data-tpl-oculto>No hay metas registradas.</p>
+            <div data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-meta-card">
+        <div class="card-item meta-card" data-tpl="meta" data-tpl-attr="data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo">
+                        <span data-tpl="nombre"></span>
+                        <span class="pendiente-vencido" data-tpl="estado" data-tpl-oculto></span>
+                    </span>
+                    <span class="card-item-detalle">
+                        Faltan <span data-tpl="restante"></span>
+                    </span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor"></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="aportar" title="Aportar" aria-label="Aportar" data-tpl="icono-aportar"></button>
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-lista-pendientes">
+        <div class="pendientes-cabecera">
+            <span class="pendientes-contador" id="pendientes-contador" data-tpl="contador"></span>
+            <div class="pendientes-cabecera-acciones">
+                <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-lote" disabled>
+                    Eliminar seleccionados
+                </button>
+                <button class="glass pendiente-crear-btn" id="btn-crear-pendiente">
+                    + Nuevo pendiente
+                </button>
+            </div>
+        </div>
+        <div class="pendientes-lista">
+            <p class="pendiente-vacio" data-tpl="vacio" data-tpl-oculto>No hay pendientes registrados.</p>
+            <div data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-pendiente-card">
+        <div class="card-item pendiente-card" data-tpl="pendiente" data-tpl-attr="data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo" data-tpl="concepto"></span>
+                    <span class="card-item-detalle">
+                        <span data-tpl="vence" data-tpl-oculto></span>
+                        <span class="text-muted" data-tpl="sin-fecha" data-tpl-oculto>Sin fecha de vencimiento</span>
+                        <span class="pendiente-vencido" data-tpl="vencido" data-tpl-oculto> · VENCIDO</span>
+                    </span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor" data-tpl-attr="class"></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="consolidar" title="Consolidar" aria-label="Consolidar" data-tpl="icono-consolidar"></button>
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
     <!-- PLANTILLAS DE MODAL · FIN -->
 
     <script type="module" src="js/demo/demo.js"></script>

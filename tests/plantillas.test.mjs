@@ -89,7 +89,7 @@ function clavesDeObjeto(src, pos) {
         const ch = src[i]
         if (ch === '"' || ch === "'" || ch === "`") {
             const fin = saltarCadena(src, i)
-            if (nivel === 1 && ch === '"') {
+            if (nivel === 1 && ch === '"' && esperarClave) {
                 // clave entre comillas, o valor: se ve por lo que sigue
                 let j = fin
                 while (j < src.length && /\s/.test(src[j])) j++
