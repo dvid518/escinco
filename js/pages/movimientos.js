@@ -5,7 +5,7 @@ import { getFechaHoy } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
 import { skeletonMarkup } from "../ui/skeletons.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
-import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import {
     generarFormularioMovimiento,
     recogerDatosFormulario,
@@ -899,36 +899,40 @@ export function abrirSelectorTipoMovimiento(cuentaId = null) {
     // `button`. Con el `div` exterior la zona sensible era el cuadrado entero
     // de la celda y el efecto de hover se disparaba en las esquinas, además de
     // quedar fuera del recorrido del teclado (BUG-016).
-    const botonDestacado = t => {
-        const nombre = CONFIG_MOVIMIENTOS[t]?.nombre || NOMBRES_ADICIONALES[t] || t
-        return `
-        <button class="tipo-movimiento-btn tipo-principal" data-tipo="${t}" type="button" aria-label="Crear ${nombre}">
-            <span class="tipo-icono" aria-hidden="true">
-                ${icono(ICONO_TIPO_MOVIMIENTO[t] || "plus-circle", 24)}
-            </span>
-            <span class="tipo-texto">${nombre}</span>
-        </button>
-    `
-    }
+    const nombreDe = t => CONFIG_MOVIMIENTOS[t]?.nombre || NOMBRES_ADICIONALES[t] || t
+
     // Si la cantidad de secundarios es impar, el último (error) ocupa ambas columnas.
     const impar = secundarios.length % 2 === 1
-    const botonSecundario = (t, i) => {
-        const nombre = CONFIG_MOVIMIENTOS[t]?.nombre || NOMBRES_ADICIONALES[t] || t
-        const spanFull = impar && i === secundarios.length - 1 ? " span-full" : ""
-        return `<button class="tipo-movimiento-btn tipo-secundario${spanFull}" data-tipo="${t}" type="button">${nombre}</button>`
+
+    const destacado = contenidoDesdeFilas("tpl-tipo-principal", destacados, t => {
+        const nombre = nombreDe(t)
+        return {
+            valores: {
+                "tipo@data-tipo": t,
+                "tipo@aria-label": `Crear ${nombre}`,
+                nombre
+            },
+            html: { icono: icono(ICONO_TIPO_MOVIMIENTO[t] || "plus-circle", 24) }
+        }
+    })
+
+    const contenido = contenidoDesdeTemplate("tpl-grupo-tipos-destacados")
+    contenido.querySelector("[data-tpl='botones']").appendChild(destacado)
+
+    if (secundarios.length > 0) {
+        const botones = contenidoDesdeFilas(
+            impar ? "tpl-tipo-secundario-full" : "tpl-tipo-secundario",
+            secundarios,
+            t => ({ valores: { "tipo@data-tipo": t, nombre: nombreDe(t) } })
+        )
+        const grupo = contenidoDesdeTemplate("tpl-grupo-tipos-secundarios")
+        grupo.querySelector("[data-tpl='botones']").appendChild(botones)
+        contenido.appendChild(grupo)
     }
 
     abrirModal({
         titulo: "Seleccionar tipo",
-        contenido: `
-            <div class="selector-tipos selector-tipos-destacados">
-                ${destacados.map(botonDestacado).join("")}
-            </div>
-            ${secundarios.length > 0 ? `
-            <div class="selector-tipos selector-tipos-secundarios">
-                ${secundarios.map(botonSecundario).join("")}
-            </div>` : ""}
-        `,
+        contenido,
         variante: "narrow",
         confirmText: null,
         cancelText: null,
@@ -960,12 +964,7 @@ export function abrirSelectorTipoMovimiento(cuentaId = null) {
 function abrirSelectorDireccionTrade() {
     abrirModal({
         titulo: "Nuevo trade",
-        contenido: `
-            <div class="selector-tipos selector-tipos-secundarios">
-                <button class="tipo-movimiento-btn tipo-secundario" data-direccion="long" type="button">Largo (Long)</button>
-                <button class="tipo-movimiento-btn tipo-secundario" data-direccion="short" type="button">Corto (Short)</button>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-direccion-trade"),
         variante: "narrow",
         confirmText: null,
         cancelText: null,
@@ -1201,16 +1200,16 @@ function abrirDetalleMovimiento(id) {
 
 export async function abrirFormularioDetalle(m) {
     uid = sesion.uid
-    const html = await generarFormularioMovimiento(m.tipo)
     const config = CONFIG_MOVIMIENTOS[m.tipo]
     const tipoNombre = config?.nombre || m.tipo || "Desconocido"
 
+    const formulario = contenidoDesdeTemplate("tpl-detalle-movimiento", {
+        html: { formulario: await generarFormularioMovimiento(m.tipo) }
+    })
+
     const modalEl = abrirModal({
         titulo: `${tipoNombre} · ${formatearFecha(m.fechaRealizacion)}`,
-        contenido: `
-            ${html}
-            <div class="movimiento-detalle-acciones" id="detalle-acciones"></div>
-        `,
+        contenido: formulario,
         variante: "form",
         confirmText: null,
         cancelText: null,
@@ -1385,11 +1384,9 @@ export async function eliminarSeleccionados() {
 function abrirModalEliminarVarios(lista) {
     abrirModal({
         titulo: "Eliminar movimientos",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-title-danger">¿Eliminar ${lista.length} movimiento(s)?</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-varios", {
+            valores: { pregunta: `¿Eliminar ${lista.length} movimiento(s)?` }
+        }),
         variante: "confirm",
         confirmText: "Eliminar",
         cancelText: "Cancelar",

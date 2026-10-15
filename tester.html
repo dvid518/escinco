@@ -440,6 +440,98 @@
         </div>
     </template>
 
+    <!-- Movimientos: selector de tipo, dirección de trade y confirmaciones -->
+
+    <template id="tpl-grupo-tipos-destacados">
+        <div class="selector-tipos selector-tipos-destacados" data-tpl="botones"></div>
+    </template>
+
+    <template id="tpl-grupo-tipos-secundarios">
+        <div class="selector-tipos selector-tipos-secundarios" data-tpl="botones"></div>
+    </template>
+
+    <!-- El destacado es un <button>, no un div que envuelve a otro button:
+         con el div exterior la zona sensible era el cuadrado entero de la celda
+         y quedaba fuera del recorrido del teclado (BUG-016). -->
+    <template id="tpl-tipo-principal">
+        <button class="tipo-movimiento-btn tipo-principal" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo,aria-label">
+            <span class="tipo-icono" aria-hidden="true" data-tpl="icono"></span>
+            <span class="tipo-texto" data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <template id="tpl-tipo-secundario">
+        <button class="tipo-movimiento-btn tipo-secundario" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo">
+            <span data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <!-- Si la cantidad de secundarios es impar, el último (error) ocupa ambas columnas. -->
+    <template id="tpl-tipo-secundario-full">
+        <button class="tipo-movimiento-btn tipo-secundario span-full" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo">
+            <span data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <template id="tpl-direccion-trade">
+        <div class="selector-tipos selector-tipos-secundarios">
+            <button class="tipo-movimiento-btn tipo-secundario" data-direccion="long" type="button">Largo (Long)</button>
+            <button class="tipo-movimiento-btn tipo-secundario" data-direccion="short" type="button">Corto (Short)</button>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-eliminar-varios">
+        <div class="modal-message">
+            <p class="modal-message-title-danger" data-tpl="pregunta"></p>
+        </div>
+    </template>
+
+    <template id="tpl-detalle-movimiento">
+        <div data-tpl="formulario"></div>
+        <div class="movimiento-detalle-acciones" id="detalle-acciones"></div>
+    </template>
+
+    <!-- Cuentas -->
+
+    <template id="tpl-confirmar-cuenta">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                <span data-tpl="pregunta"></span> <strong data-tpl="nombre"></strong>?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-archivar-en-cero">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                La cuenta <strong data-tpl="nombre"></strong> tiene un saldo distinto de 0.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-archivar-en-cero-credito">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                La tarjeta <strong data-tpl="nombre"></strong> tiene una deuda pendiente.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-modal-cuenta">
+        <div class="cuenta-modal-tabs" role="tablist" aria-label="Vista de la cuenta">
+            <button type="button" role="tab" class="cuenta-modal-tab active" data-vista="info">Información</button>
+            <button type="button" role="tab" class="cuenta-modal-tab" data-vista="movimientos">Movimientos</button>
+        </div>
+        <div class="cuenta-modal-cuerpo"></div>
+        <div class="cuenta-modal-flechas">
+            <button type="button" class="glass-btn cuenta-modal-ant" aria-label="Anterior" data-tpl="anterior"></button>
+            <button type="button" class="glass-btn cuenta-modal-sig" aria-label="Siguiente" data-tpl="siguiente"></button>
+        </div>
+    </template>
+
     <!-- PLANTILLAS DE MODAL · FIN -->
 
     <script type="module" src="js/demo/demo.js"></script>

@@ -65,14 +65,19 @@ function llamadasEnJs() {
                 }
             }
             const llamada = src.slice(m.index, fin)
-            const id = (llamada.match(/"([^"]+)"/) || [])[1]
+            // Un id puede venir de un condicional (`cond ? "tpl-a" : "tpl-b"`),
+            // así que se recogen todos los literales que parecen un template.
+            const ids = [...llamada.matchAll(/"(tpl-[\w-]+)"/g)].map(x => x[1])
 
-            // Los huecos son las claves de los objetos `valores:` y `html:`.
+            // Los huecos son las claves de los objetos `valores:` y `html:`,
+            // incluidos los que llevan atributo ("tipo@data-tipo").
             const hues = new Set()
             for (const bloque of llamada.matchAll(/(?:valores|html)\s*:\s*\{([^}]*)\}/g)) {
-                for (const k of bloque[1].matchAll(/(\w+)\s*:/g)) hues.add(k[1])
+                for (const k of bloque[1].matchAll(/["']?([\w-]+(?:@[\w-]+)?)["']?\s*:/g)) {
+                    hues.add(k[1])
+                }
             }
-            llamadas.push({ archivo, id, helper: m[1], hues: [...hues] })
+            llamadas.push({ archivo, ids, helper: m[1], hues: [...hues] })
         }
     }
     return llamadas
@@ -101,15 +106,22 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
 
     const sinTemplate = []
     const huesPerdidos = []
-    for (const { archivo, id, hues } of llamadas) {
-        const cuerpo = docs["dashboard.html"].get(id)
-        if (!cuerpo) {
-            sinTemplate.push(`${archivo}: "${id}"`)
+    for (const { archivo, ids, hues } of llamadas) {
+        // Con un condicional hay varios candidatos: vale cualquiera de ellos.
+        const candidatos = ids.map(id => docs["dashboard.html"].get(id)).filter(Boolean)
+        if (ids.length === 0 || candidatos.length === 0) {
+            sinTemplate.push(`${archivo}: ${ids.length ? ids.join(" / ") : "sin id"}`)
             continue
         }
-        const declarados = huecosDe(cuerpo)
+        // Un hueco "tipo@data-tipo" se busca por la parte anterior a la arroba.
+        const declarados = new Set()
+        for (const cuerpo of candidatos) {
+            for (const hueco of huecosDe(cuerpo)) declarados.add(hueco.split("@")[0])
+        }
         for (const hueco of hues) {
-            if (!declarados.has(hueco)) huesPerdidos.push(`${archivo}: ${id} no tiene data-tpl="${hueco}"`)
+            if (!declarados.has(hueco.split("@")[0])) {
+                huesPerdidos.push(`${archivo}: ${ids.join("/")} no tiene data-tpl="${hueco.split("@")[0]}"`)
+            }
         }
     }
     t.check("toda llamada apunta a un template existente", sinTemplate.length === 0, sinTemplate.join(" | "))
@@ -117,7 +129,7 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
 
     // Los templates no son HTML muerto: cada uno se usa.
     const huerfanos = [...docs["dashboard.html"].keys()]
-        .filter(id => !llamadas.some(c => c.id === id))
+        .filter(id => !llamadas.some(c => c.ids.includes(id)))
     t.check("ningún template queda sin usar", huerfanos.length === 0, huerfanos.join(" | "))
 
     // La inserción por textContent es lo que hace seguro el patrón: si alguien
@@ -129,8 +141,8 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
     t.check("los valores se escriben con textContent", iTexto !== -1)
     t.check("el markup de iconos va en su propia clave, aparte de los valores",
         iMarkup !== -1 && iMarkup > iTexto)
-    t.check("los ids y values van por atributos con data-tpl-attr",
-    /data-tpl-attr/.test(rellenar) && /setAttribute\(atributo/.test(rellenar))
+    t.check("los ids y values van por atributos con la clave hueco@atributo",
+        /clave\.split\("@"\)/.test(rellenar) && /setAttribute\(atributo/.test(rellenar))
 
     return t
 }

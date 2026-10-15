@@ -46,9 +46,11 @@ function sobreponer(overlay) {
  *              venga de la aplicación o del usuario va aquí: se escribe con
  *              textContent, nunca se interpreta como HTML. Un hueco marcado con
  *              `data-tpl-oculto` se esconde cuando su valor es vacío, que es lo
- *              que reemplaza los bloques `cond ? html : ""`. Si el hueco lleva
- *              `data-tpl-attr="nombre"`, el valor se escribe como atributo en
- *              lugar de como texto (los `id` y `value` de una fila).
+ *              que reemplaza los bloques `cond ? html : ""`. Para escribir un
+ *              atributo en vez de texto, la clave lleva `@`: "tipo@data-tipo"
+ *              pone el valor en el atributo `data-tipo` del elemento. El atributo
+ *              `data-tpl-attr="a,b"` del template no hace falta para el
+ *              relleno: documenta qué atributos se rellenan.
  *   html       pares { hueco: markup } para el mismo atributo. Solo para iconos
  *              del catálogo (`icono()`, `LOGO_ESCINCO_CARGA`): markup que genera
  *              el propio código. Nunca texto de usuario: ahí va `valores`.
@@ -91,16 +93,17 @@ function clonarTemplate(id) {
 }
 
 function rellenarHuecos(fragmento, { valores = {}, html = {} } = {}) {
-    for (const [hueco, valor] of Object.entries(valores)) {
+    for (const [clave, valor] of Object.entries(valores)) {
+        const [hueco, atributo] = clave.includes("@") ? clave.split("@") : [clave, null]
         const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
         if (!destino) continue
         const texto = valor == null ? "" : String(valor)
-        const atributo = destino.getAttribute("data-tpl-attr")
         if (atributo) destino.setAttribute(atributo, texto)
         else destino.textContent = texto
         if (destino.hasAttribute("data-tpl-oculto")) destino.hidden = !valor
     }
-    for (const [hueco, markup] of Object.entries(html)) {
+    for (const [clave, markup] of Object.entries(html)) {
+        const [hueco] = clave.split("@")
         const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
         if (!destino) continue
         destino.innerHTML = markup == null ? "" : String(markup)

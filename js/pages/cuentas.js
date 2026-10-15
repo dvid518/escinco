@@ -886,16 +886,12 @@ export async function modalizarCuentaActual() {
 
     const modalEl = abrirModal({
         titulo: `Cuenta · ${cuenta.nombre}`,
-        contenido: `
-            <div class="cuenta-modal-tabs" role="tablist" aria-label="Vista de la cuenta">
-                <button type="button" role="tab" class="cuenta-modal-tab active" data-vista="info">Información</button>
-                <button type="button" role="tab" class="cuenta-modal-tab" data-vista="movimientos">Movimientos</button>
-            </div>
-            <div class="cuenta-modal-cuerpo"></div>
-            <div class="cuenta-modal-flechas">
-                <button type="button" class="glass-btn cuenta-modal-ant" aria-label="Anterior">${icono("chevron-left", 16)}</button>
-                <button type="button" class="glass-btn cuenta-modal-sig" aria-label="Siguiente">${icono("chevron-right", 16)}</button>
-            </div>`,
+        contenido: contenidoDesdeTemplate("tpl-modal-cuenta", {
+            html: {
+                anterior: icono("chevron-left", 16),
+                siguiente: icono("chevron-right", 16)
+            }
+        }),
         variante: "wide",
         confirmText: "Cerrar",
         cancelText: null
@@ -1765,16 +1761,10 @@ export function archivarCuentaSeleccionada() {
     if (saldo !== 0) {
         abrirModal({
             titulo: "No se puede archivar en cero",
-            contenido: `
-                <div class="modal-message">
-                    <p class="modal-message-desc">
-                        ${cuenta.tipo === "credito"
-                            ? "La tarjeta <strong>" + cuenta.nombre + "</strong> tiene una deuda pendiente."
-                            : "La cuenta <strong>" + cuenta.nombre + "</strong> tiene un saldo distinto de 0."
-                        }
-                    </p>
-                </div>
-            `,
+            contenido: contenidoDesdeTemplate(
+                cuenta.tipo === "credito" ? "tpl-archivar-en-cero-credito" : "tpl-archivar-en-cero",
+                { valores: { nombre: cuenta.nombre } }
+            ),
             variante: "confirm",
             confirmText: "Forzar archivo",
             cancelText: "Cancelar",
@@ -1792,13 +1782,9 @@ export function archivarCuentaSeleccionada() {
 
     abrirModal({
         titulo: "Archivar cuenta",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Archivar la cuenta <strong>${cuenta.nombre}</strong>?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-cuenta", {
+            valores: { pregunta: "¿Archivar la cuenta", nombre: cuenta.nombre }
+        }),
         variante: "confirm",
         confirmText: "Archivar",
         cancelText: "Cancelar",
@@ -1860,13 +1846,9 @@ export function eliminarCuentaSeleccionada() {
 
     abrirModal({
         titulo: "Eliminar cuenta",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar definitivamente la cuenta <strong>${cuenta.nombre}</strong>?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-cuenta", {
+            valores: { pregunta: "¿Eliminar definitivamente la cuenta", nombre: cuenta.nombre }
+        }),
         variante: "confirm",
         confirmText: "Eliminar",
         cancelText: "Archivar en su lugar",
