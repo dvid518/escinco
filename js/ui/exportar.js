@@ -1,6 +1,6 @@
 import { sesion } from "../core/sesion.js"
 import { LOGO_ESCINCO_CARGA } from "../core/iconos.js"
-import { abrirModal, cerrarModal } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate } from "./modal.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 
 // ============================================
@@ -13,12 +13,10 @@ export async function accionExportar() {
 
     abrirModal({
         titulo: "Exportando respaldo",
-        contenido: `
-            <div class="modal-loading">
-                ${LOGO_ESCINCO_CARGA}
-                <p class="modal-loading-text">Preparando archivo .dvid...</p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-cargando", {
+            valores: { texto: "Preparando archivo .dvid..." },
+            html: { logo: LOGO_ESCINCO_CARGA }
+        }),
         variante: "narrow",
         confirmText: null,
         cancelText: null,
@@ -37,15 +35,9 @@ export async function accionExportar() {
         setTimeout(() => {
             abrirModal({
                 titulo: "Respaldo exportado",
-                contenido: `
-                    <div class="modal-message">
-                        <p class="modal-message-title">${resultado.archivo}</p>
-                        <p class="modal-message-desc">
-                            El archivo se ha descargado correctamente.<br>
-                            Guárdalo en un lugar seguro.
-                        </p>
-                    </div>
-                `,
+                contenido: contenidoDesdeTemplate("tpl-respaldo-exportado", {
+                    valores: { archivo: resultado.archivo }
+                }),
                 variante: "info",
                 confirmText: "Entendido",
                 onConfirm: () => true

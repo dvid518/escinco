@@ -334,6 +334,86 @@
         </div>
     </template>
 
+    <!-- Confirmaciones con un dato en negrita -->
+
+    <template id="tpl-confirmar-meta">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar la meta <strong data-tpl="nombre"></strong>?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-pendiente">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar el pendiente "<strong data-tpl="concepto"></strong>"?
+            </p>
+        </div>
+    </template>
+
+    <!-- Respaldo y crédito -->
+
+    <template id="tpl-respaldo-exportado">
+        <div class="modal-message">
+            <p class="modal-message-title" data-tpl="archivo"></p>
+            <p class="modal-message-desc">
+                El archivo se ha descargado correctamente.<br>
+                Guárdalo en un lugar seguro.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-credito-educativo">
+        <div class="credito-educativo">
+            <!-- La clase de nivel (normal/aviso/critico) y el ancho de la barra los
+                 añade el JS sobre el fragmento: un elemento no puede llevar dos
+                 data-tpl y aquí hacen falta clase y estilo a la vez. -->
+            <div class="credito-educativo-cifra">
+                <span class="label">Uso de la línea de crédito</span>
+                <span class="valor" data-tpl="porcentaje"></span>
+            </div>
+            <div class="aporte-progreso-wrap">
+                <div class="aporte-progreso">
+                    <div class="aporte-progreso-barra"></div>
+                </div>
+                <span class="badge" data-tpl="badge"></span>
+            </div>
+            <p class="credito-educativo-detalle" data-tpl="detalle"></p>
+            <div class="credito-educativo-niveles">
+                <div class="credito-educativo-fila">
+                    <span class="punto normal"></span>
+                    <span>Menos del <strong data-tpl="aviso"></strong> de la línea: uso saludable.</span>
+                </div>
+                <div class="credito-educativo-fila">
+                    <span class="punto aviso"></span>
+                    <span>Entre <strong data-tpl="aviso"></strong> y <strong data-tpl="critico"></strong>: uso elevado; las entidades pueden verlo como riesgo en tu historial crediticio.</span>
+                </div>
+                <div class="credito-educativo-fila">
+                    <span class="punto critico"></span>
+                    <span>Más del <strong data-tpl="critico"></strong>: uso excesivo o peligroso; conviene reducir la deuda cuanto antes.</span>
+                </div>
+            </div>
+            <p class="credito-educativo-tip">Tip: paga más que el mínimo, respeta tu día de pago y limita los consumos con la tarjeta para mantener una utilización sana.</p>
+        </div>
+    </template>
+
+    <!-- Buscador global -->
+
+    <template id="tpl-buscador-global">
+        <div class="buscador-global">
+            <div class="buscador-header">
+                <span class="buscador-header-icono" data-tpl="icono"></span>
+                <input type="text" id="buscador-input" class="buscador-input"
+                       placeholder="Buscar en páginas, cuentas, movimientos y activos..."
+                       aria-label="Buscar global" autocomplete="off">
+            </div>
+            <div class="buscador-resultados" role="listbox">
+                <p class="lista-vacia">Escribe para buscar…</p>
+            </div>
+        </div>
+    </template>
+
     <!-- PLANTILLAS DE MODAL · FIN -->
 </body>
 <script type="module" src="js/core/app.js"></script>

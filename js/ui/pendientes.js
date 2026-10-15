@@ -1,4 +1,4 @@
-import { abrirModal, cerrarModal } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate } from "./modal.js"
 import { obtenerPendientes, eliminarPendiente, crearPendiente, actualizarPendiente } from "../repositories/PendienteRepositorio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
 import { sesion } from "../core/sesion.js"
@@ -173,13 +173,9 @@ function ejecutarAccionPendiente(accion, pendiente, uid) {
 function confirmarEliminacionPendiente(pendiente, uid) {
     abrirModal({
         titulo: "Eliminar pendiente",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar el pendiente "${pendiente.concepto}"?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-pendiente", {
+            valores: { concepto: pendiente.concepto }
+        }),
         variante: "confirm",
         confirmText: "Eliminar",
         cancelText: "Cancelar",
@@ -208,13 +204,11 @@ function confirmarEliminacionLotePendientes(lista, uid) {
     const cantidad = lista.length
     abrirModal({
         titulo: "Eliminar pendientes",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar ${cantidad} pendiente${cantidad !== 1 ? 's' : ''} seleccionado${cantidad !== 1 ? 's' : ''}?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-mensaje", {
+            valores: {
+                mensaje: `¿Eliminar ${cantidad} pendiente${cantidad !== 1 ? "s" : ""} seleccionado${cantidad !== 1 ? "s" : ""}?`
+            }
+        }),
         variante: "confirm",
         confirmText: "Eliminar",
         cancelText: "Cancelar",

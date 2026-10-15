@@ -1,7 +1,7 @@
 import { obtenerCuentas, obtenerMovimientos, actualizarCuenta } from "../../firebase/firestore.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
-import { abrirModal } from "../ui/modal.js"
+import { abrirModal, contenidoDesdeTemplate } from "../ui/modal.js"
 import { icono } from "../core/iconos.js"
 
 // ============================================
@@ -299,41 +299,27 @@ export function abrirModalEducativoCredito(tarjeta, opciones = {}) {
     const pagadoCompleto = opciones.pagadoCompleto === true
     const claseBadge = nivel === "critico" ? "badge--negative" : nivel === "aviso" ? "badge--aviso" : "badge--positive"
 
+    const contenido = contenidoDesdeTemplate("tpl-credito-educativo", {
+        valores: {
+            porcentaje: `${porcentaje.toFixed(1)}%`,
+            badge: `${porcentaje.toFixed(0)}%`,
+            detalle: `${simbolo}${deuda.toFixed(2)} de ${simbolo}${limite.toFixed(2)} de línea.`,
+            aviso: `${aviso}%`,
+            critico: `${critico}%`
+        }
+    })
+    // La clase de nivel y el ancho de la barra los pone el JS: en el template
+    // esos dos elementos ya llevan su clase base y necesitan dos cosas a la vez.
+    contenido.querySelector(".credito-educativo-cifra")?.classList.add(nivel)
+    contenido.querySelector(".aporte-progreso-barra")?.classList.add(nivel)
+    const barra = contenido.querySelector(".aporte-progreso-barra")
+    if (barra) barra.style.setProperty("--progreso", `${Math.min(100, porcentaje).toFixed(1)}%`)
+    contenido.querySelector(".badge")?.classList.add(claseBadge.split(" ").pop())
+
     abrirModal({
         titulo: `Manejo del dinero · ${tarjeta.nombre}`,
         variante: "narrow",
-        contenido: `
-            <div class="credito-educativo">
-                <div class="credito-educativo-cifra ${nivel}">
-                    <span class="label">Uso de la línea de crédito</span>
-                    <span class="valor">${porcentaje.toFixed(1)}%</span>
-                </div>
-                <div class="aporte-progreso-wrap">
-                    <div class="aporte-progreso">
-                        <div class="aporte-progreso-barra ${nivel}" style="--progreso:${Math.min(100, porcentaje).toFixed(1)}%"></div>
-                    </div>
-                    <span class="badge ${claseBadge}">${porcentaje.toFixed(0)}%</span>
-                </div>
-                <p class="credito-educativo-detalle">
-                    ${simbolo}${deuda.toFixed(2)} de ${simbolo}${limite.toFixed(2)} de línea.
-                </p>
-                <div class="credito-educativo-niveles">
-                    <div class="credito-educativo-fila">
-                        <span class="punto normal"></span>
-                        <span>Menos del <strong>${aviso}%</strong> de la línea: uso saludable.</span>
-                    </div>
-                    <div class="credito-educativo-fila">
-                        <span class="punto aviso"></span>
-                        <span>Entre <strong>${aviso}%</strong> y <strong>${critico}%</strong>: uso elevado; las entidades pueden verlo como riesgo en tu historial crediticio.</span>
-                    </div>
-                    <div class="credito-educativo-fila">
-                        <span class="punto critico"></span>
-                        <span>Más del <strong>${critico}%</strong>: uso excesivo o peligroso; conviene reducir la deuda cuanto antes.</span>
-                    </div>
-                </div>
-                <p class="credito-educativo-tip">Tip: paga más que el mínimo, respeta tu día de pago y limita los consumos con la tarjeta para mantener una utilización sana.</p>
-            </div>
-        `,
+        contenido,
         confirmText: pagadoCompleto ? "Cerrar" : `${icono("credit-card", 16)} Pagar tarjeta`,
         // `soloCerrar` exige `onConfirm` presente (modal.js:88), y devolver
         // algo distinto de `false` cierra el modal (modal.js:204).

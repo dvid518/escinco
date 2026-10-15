@@ -31,7 +31,7 @@ const ICONO_POR_TIPO = {
  * y activos; se navega con ↑↓ / Enter / clic.
  */
 export async function abrirBuscadorGlobal() {
-    const { abrirModal, cerrarModal, estaAbierto } = await import("../ui/modal.js")
+    const { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } = await import("../ui/modal.js")
 
     // Toggle: si el buscador ya está abierto, cerrarlo.
     if (estaAbierto?.() && document.querySelector(".buscador-global")) {
@@ -154,17 +154,9 @@ export async function abrirBuscadorGlobal() {
 
     const modalEl = abrirModal({
         titulo: "Buscar",
-        contenido: `
-            <div class="buscador-global">
-                <div class="buscador-header">
-                    <span class="buscador-header-icono">${icono("eye", 20)}</span>
-                    <input type="text" id="buscador-input" class="buscador-input" placeholder="Buscar en páginas, cuentas, movimientos y activos..." aria-label="Buscar global" autocomplete="off">
-                </div>
-                <div class="buscador-resultados" role="listbox">
-                    <p class="lista-vacia">Escribe para buscar…</p>
-                </div>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-buscador-global", {
+            html: { icono: icono("eye", 20) }
+        }),
         variante: "narrow",
         cancelText: null,
         confirmText: null

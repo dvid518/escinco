@@ -1,4 +1,4 @@
-import { abrirModal, cerrarModal } from "./modal.js"
+import { abrirModal, cerrarModal, contenidoDesdeTemplate } from "./modal.js"
 import { obtenerMetas, crearMeta, actualizarMeta, eliminarMeta } from "../repositories/MetaRepositorio.js"
 import { sesion } from "../core/sesion.js"
 import { aportarMeta } from "../services/MetaServicio.js"
@@ -683,13 +683,11 @@ function confirmarEliminacionLoteMetas(lista, uid) {
     const cantidad = lista.length
     abrirModal({
         titulo: "Eliminar metas",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar ${cantidad} meta${cantidad !== 1 ? 's' : ''} seleccionada${cantidad !== 1 ? 's' : ''}?
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-mensaje", {
+            valores: {
+                mensaje: `¿Eliminar ${cantidad} meta${cantidad !== 1 ? "s" : ""} seleccionada${cantidad !== 1 ? "s" : ""}?`
+            }
+        }),
         variante: "peligro",
         confirmText: "Eliminar",
         cancelText: "Cancelar",
@@ -726,13 +724,9 @@ function confirmarEliminacionLoteMetas(lista, uid) {
 export function confirmarEliminarMeta(meta) {
     abrirModal({
         titulo: "Eliminar meta",
-        contenido: `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    ¿Eliminar la meta <strong>${meta.nombre}</strong>?}
-                </p>
-            </div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-confirmar-meta", {
+            valores: { nombre: meta.nombre }
+        }),
         variante: "peligro",
         confirmText: "Eliminar",
         cancelText: "Cancelar",
