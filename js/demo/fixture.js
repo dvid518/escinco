@@ -34,7 +34,10 @@ export function construirFixture() {
         email: "demo@escinco.app",
         nombre: "Invitado",
         fechaRegistro: momento(120),
-        preferencias: { tema: "dark", divisaPrincipal: "pen" }
+        preferencias: {
+            tema: "dark", divisaPrincipal: "pen",
+            paginas: { inversiones: true, trading: true }
+        }
     })
 
     // ---------- cuentas ----------

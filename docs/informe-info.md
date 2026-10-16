@@ -368,7 +368,8 @@ No hay librería de estado global. El estado se reparte en varios mecanismos:
 | **Estado local de página** | variables de módulo | p. ej. flags de idempotencia de listeners en `js/pages/dashboard.js:58`, `142`, `143` |
 | **Sincronización entre páginas** | `CustomEvent` | `metas-actualizadas` (`js/ui/metas.js:58-60`, consumidor `js/pages/dashboard.js:2639`); `movimientos-actualizadas` (`js/services/MovimientoServicio.js:322-328`, consumidores `js/pages/dashboard.js:1234`, `js/pages/cuentas.js:97`); `pagina-cambiando` (`js/core/router.js:339-344`); `tema-cambiado` (`js/core/lastbar.js:53-55`) |
 
-**Preferencias por defecto** (`js/core/sesion.js:5-38`): `paginas` (6 rutas),
+**Preferencias por defecto** (`js/core/sesion.js:5-38`): `paginas` (6 rutas;
+`inversiones` y `trading` nacen en `false`, el resto en `true`),
 `seg` (inactividad 15 min, cerrar al cerrar pestaña), `accesibilidad` (5 opciones),
 `tiposMovimiento` (7 interruptores), `movimientosRecientes: 5`,
 `periodoEvolucion: "30d"`, `resaltarPatrimonio: 0`, `formatoDivisa: "simbolo"`.

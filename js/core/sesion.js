@@ -18,8 +18,8 @@ export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
         dashboard: true,
         cuentas: true,
         movimientos: true,
-        inversiones: true,
-        trading: true,
+        inversiones: false,
+        trading: false,
         configuracion: true
     }),
     seg: Object.freeze({
@@ -265,8 +265,8 @@ class Sesion {
                 dashboard: true,
                 cuentas: true,
                 movimientos: true,
-                inversiones: true,
-                trading: true,
+                inversiones: false,
+                trading: false,
                 configuracion: true
             },
             seg: {

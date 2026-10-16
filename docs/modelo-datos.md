@@ -49,7 +49,7 @@ usuario en `firebase/firestore.rules`, nivel de validación MEDIA).
 | `tema` | string | `dark` \| `light` \| `system` |
 | `divisaPrincipal` | string | `pen` (por defecto) \| `usd` \| `usdt` |
 | `tipoCambio` | object | `{ pen_usd, modo }` — `modo: "manual"`; `actualizacion` ISO al guardar |
-| `paginas` | object | Visibilidad por ruta: `{ dashboard, cuentas, movimientos, inversiones, trading, configuracion }` (boolean) |
+| `paginas` | object | Visibilidad por ruta: `{ dashboard, cuentas, movimientos, inversiones, trading, configuracion }` (boolean). Por defecto `inversiones` y `trading` en `false` |
 | `dashboard` | object | Layout del dashboard (ver abajo) |
 
 #### `preferencias.dashboard`
