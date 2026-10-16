@@ -77,6 +77,41 @@ function seccion(nombre) {
 }
 
 // ============================================
+// BLOQUEO DEL FORMULARIO DURANTE LA CARGA
+// ============================================
+
+// Evita que un mismo formulario lance dos autenticaciones en paralelo
+// (doble clic, Enter, o pasar de contraseña a Google a mitad de camino).
+let formularioOcupado = false
+
+const CAMPOS = {
+    login: ["login_email", "login_clave", "login_submit"],
+    registro: ["registro_nombre", "registro_email", "registro_clave", "registro_confirmar_clave", "registro_submit"]
+}
+
+function bloquearFormulario(estado) {
+    formularioOcupado = true
+    document.getElementById("logo")?.classList.add("spin")
+    for (const id of CAMPOS[estado] || []) {
+        const campo = document.getElementById(id)
+        if (campo) campo.disabled = true
+    }
+    const google = document.getElementById(BOTON_GOOGLE[estado])
+    if (google) google.disabled = true
+}
+
+function desbloquearFormulario(estado) {
+    formularioOcupado = false
+    document.getElementById("logo")?.classList.remove("spin")
+    for (const id of CAMPOS[estado] || []) {
+        const campo = document.getElementById(id)
+        if (campo) campo.disabled = false
+    }
+    const google = document.getElementById(BOTON_GOOGLE[estado])
+    if (google) google.disabled = false
+}
+
+// ============================================
 // CAMBIO DE ESTADO
 // ============================================
 
@@ -175,21 +210,21 @@ async function trasAutenticar(user) {
 // ============================================
 
 async function iniciarSesion() {
+    if (formularioOcupado) return
+
     const email = document.getElementById("login_email").value.trim()
     const password = document.getElementById("login_clave").value
 
     if (!email) return avisar("Escribe tu correo electrónico.", "login_email")
     if (!password) return avisar("Escribe tu contraseña.", "login_clave")
 
-    const boton = document.getElementById("login_submit")
-    if (boton?.disabled) return
-    if (boton) boton.disabled = true
+    bloquearFormulario("login")
 
     try {
         const { user } = await login(email, password)
         await trasAutenticar(user)
     } catch (error) {
-        if (boton) boton.disabled = false
+        desbloquearFormulario("login")
         await manejarErrorLogin(error, email, password)
     }
 }
@@ -199,6 +234,8 @@ async function iniciarSesion() {
 // ============================================
 
 async function crearCuenta() {
+    if (formularioOcupado) return
+
     const nombre = document.getElementById("registro_nombre").value.trim()
     const email = document.getElementById("registro_email").value.trim()
     const password = document.getElementById("registro_clave").value
@@ -210,9 +247,7 @@ async function crearCuenta() {
         return
     }
 
-    const boton = document.getElementById("registro_submit")
-    if (boton?.disabled) return
-    if (boton) boton.disabled = true
+    bloquearFormulario("registro")
 
     try {
         // registrarConEmail ya guarda el nombre en el perfil de Auth y en el doc
@@ -220,7 +255,7 @@ async function crearCuenta() {
         const { user } = await registrarConEmail(nombre, email, password)
         await trasAutenticar(user)
     } catch (error) {
-        if (boton) boton.disabled = false
+        desbloquearFormulario("registro")
         mostrarNotificacion("error", mensajeDeError(error))
         limpiarClaves()
         document.getElementById("registro_clave").focus()
@@ -335,10 +370,15 @@ async function reenviarVerificacion() {
 // ============================================
 
 async function entrarConGoogle(estado) {
+    if (formularioOcupado) return
+
+    bloquearFormulario(estado)
+
     try {
         const { user } = estado === "registro" ? await registrarConGoogle() : await loginConGoogle()
         await trasAutenticar(user)
     } catch (error) {
+        desbloquearFormulario(estado)
         console.error("Error Google:", error)
         mostrarNotificacion("error", mensajeDeError(error))
     }
