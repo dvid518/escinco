@@ -181,10 +181,15 @@ async function iniciarSesion() {
     if (!email) return avisar("Escribe tu correo electrónico.", "login_email")
     if (!password) return avisar("Escribe tu contraseña.", "login_clave")
 
+    const boton = document.getElementById("login_submit")
+    if (boton?.disabled) return
+    if (boton) boton.disabled = true
+
     try {
         const { user } = await login(email, password)
         await trasAutenticar(user)
     } catch (error) {
+        if (boton) boton.disabled = false
         await manejarErrorLogin(error, email, password)
     }
 }
@@ -205,12 +210,17 @@ async function crearCuenta() {
         return
     }
 
+    const boton = document.getElementById("registro_submit")
+    if (boton?.disabled) return
+    if (boton) boton.disabled = true
+
     try {
         // registrarConEmail ya guarda el nombre en el perfil de Auth y en el doc
         // de Firestore; aquí solo queda la verificación del correo.
         const { user } = await registrarConEmail(nombre, email, password)
         await trasAutenticar(user)
     } catch (error) {
+        if (boton) boton.disabled = false
         mostrarNotificacion("error", mensajeDeError(error))
         limpiarClaves()
         document.getElementById("registro_clave").focus()
