@@ -825,9 +825,10 @@ para que las marcas temporales queden alineadas en columna.
 aplicación llega a ese tamaño.
 
 **Ejemplo 2 — El patrimonio queda fuera de las cards personalizables.** El
-catálogo tiene 22 cards (`js/pages/dashboard.js:70-93`), pero
-`DEFAULT_CARDS_VISIBLES` excluye explícitamente `"patrimonio"`
-(`js/pages/dashboard.js:102-104`). Es decir: **el elemento más importante de la
+catálogo tiene 22 cards (`js/pages/dashboard.js:82-104`), pero
+`DEFAULT_CARDS_VISIBLES` excluye explícitamente `"patrimonio"`: por defecto solo
+se ofrecen `cuentas`, `movimientos`, `inversiones`, `metas` y `grafico`
+(`js/pages/dashboard.js:113-115`). Es decir: **el elemento más importante de la
 interfaz es el único que el usuario no puede quitar ni mover.** La jerarquía
 está garantizada por la estructura, no por una recomendación.
 
@@ -1143,7 +1144,7 @@ formulario y modal que las sirven.
 
 **Decisión de diseño clave**: `patrimonio` es la **única card que el usuario no
 puede quitar ni mover**, porque está excluida de `DEFAULT_CARDS_VISIBLES`
-(`js/pages/dashboard.js:102-104`). El elemento más importante de la interfaz está
+(`js/pages/dashboard.js:113-115`). El elemento más importante de la interfaz está
 protegido a nivel de estructura.
 
 También hay un modo **comprimido** de las cards, con su propio tratamiento

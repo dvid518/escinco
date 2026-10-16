@@ -105,10 +105,16 @@ const TANDAS_CARDS = [
     ["nuevasCardsV3", NUEVAS_CARDS_V3]
 ]
 
-const DEFAULT_CARDS_VISIBLES = DASHBOARD_CARDS
+// Cards visibles de partida para una cuenta nueva o sin elección guardada.
+// "patrimonio" queda fuera: se pinta siempre y no es personalizable.
+const DEFAULT_CARDS_VISIBLES = ["cuentas", "movimientos", "inversiones", "metas", "grafico"]
+
+// El orden conserva el catálogo completo: normalizarCardsOrden lo usa como
+// lista de ids conocidos, así que recortarlo descartaría del orden las cards
+// que el usuario active más adelante.
+const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
     .map(card => card.id)
     .filter(id => id !== "patrimonio")
-const DEFAULT_CARDS_ORDEN = [...DEFAULT_CARDS_VISIBLES]
 
 // ============================================
 // CARDS INSTANCIADAS (cuenta / activo)
@@ -1302,7 +1308,9 @@ function abrirSelectorCardsDashboard() {
 
     modal.querySelector("[data-dashboard-reset]")?.addEventListener("click", () => {
         cambiosPendientesDashboard = true
-        modal.querySelectorAll(".dashboard-editor input").forEach(input => { input.checked = true })
+        modal.querySelectorAll(".dashboard-editor input").forEach(input => {
+            input.checked = DEFAULT_CARDS_VISIBLES.includes(input.value)
+        })
     })
     modal.querySelectorAll(".dashboard-editor input").forEach(input => {
         input.addEventListener("change", () => { cambiosPendientesDashboard = true })
