@@ -805,8 +805,11 @@ async function mostrarDetalleCuenta() {
         })
     })
 
-    // El modal educativo de niveles de uso
-    panel.querySelectorAll(".cuenta-perfil-badges .badge--interactivo").forEach(badge => {
+    // El modal educativo de niveles de uso. Solo el badge de nivel de la
+    // tarjeta: las pills de subcuenta tambien son .badge--interactivo y viven
+    // dentro de .cuenta-perfil-badges, asi que se limita a los hijos directos
+    // para no abrir el modal al cambiar de subcuenta.
+    panel.querySelectorAll(".cuenta-perfil-badges > .badge--interactivo").forEach(badge => {
         badge.addEventListener("click", () => abrirModalEducativoCredito(visto, {
             pagadoCompleto: ciclo?.pagadoCompleto === true
         }))
