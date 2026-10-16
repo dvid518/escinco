@@ -230,7 +230,6 @@ async function asegurarDocUsuario(user, esNuevo, nombrePersonalizado) {
         await setDoc(referencia, {
             email: user.email || null,
             nombre: nombrePersonalizado || user.displayName || null,
-            foto: user.photoURL || null,
             fechaRegistro: serverTimestamp(),
             preferencias: {}
         })

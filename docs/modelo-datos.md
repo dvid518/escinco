@@ -39,7 +39,6 @@ usuario en `firebase/firestore.rules`, nivel de validación MEDIA).
 |---|---|---|
 | `email` | string | Correo de Firebase Auth |
 | `nombre` | string | Nombre (displayName) |
-| `foto` | string/null | photoURL |
 | `fechaRegistro` | Timestamp | Alta |
 | `preferencias` | object | Ver abajo |
 

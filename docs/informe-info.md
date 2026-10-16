@@ -70,7 +70,7 @@ misión, visión ni alcance de negocio. **No existe `README.md`** (verificado).
 - Modelo de datos: **usuario único con aislamiento total por `uid`**. Todas las
   colecciones cuelgan de `usuarios/{uid}` (`docs/modelo-datos.md:16-28`,
   `docs/modelo-datos.md:33-34`).
-- Perfil registrado: email, nombre (displayName), foto, fecha de registro
+- Perfil registrado: email, nombre (displayName), fecha de registro
   (`docs/modelo-datos.md:38-44`; `firebase/auth.js:118-135`).
 - El documento de usuario se crea automáticamente en el primer registro/login
   (`firebase/auth.js:118-135`, `firebase/firestore.js:40-83`).
@@ -465,15 +465,8 @@ Fuente: `docs/modelo-datos.md:16-31`.
 |---|---|---|
 | `email` | string | de Firebase Auth |
 | `nombre` | string | displayName |
-| `foto` | string/null | photoURL |
 | `fechaRegistro` | Timestamp | `serverTimestamp()` |
 | `preferencias` | object | ver abajo |
-
-**Discrepancia**: el código también escribe `efectivoInicialCreado: boolean`
-(`firebase/firestore.js:53`, `61`, `80`), campo **no documentado** en
-`docs/modelo-datos.md` y **no permitido** por `hasOnly` en el `create`
-(`firebase/firestore.rules:53`). Funciona solo porque la validación de `update` es
-un `return true` (`firebase/firestore.rules:61-65`).
 
 #### `preferencias` — `docs/modelo-datos.md:46-66` + `js/core/sesion.js:5-38`
 

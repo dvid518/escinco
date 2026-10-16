@@ -57,10 +57,9 @@ service cloud.firestore {
     // ----------------------------------------------------------
 
     function validarCreateDocUsuario(data) {
-      return data.keys().hasOnly(['email', 'nombre', 'foto', 'fechaRegistro', 'preferencias'])
+      return data.keys().hasOnly(['email', 'nombre', 'fechaRegistro', 'preferencias'])
         && esTextoONulo(data.email)
         && esTextoONulo(data.nombre)
-        && esTextoONulo(data.foto)
         && esTimestampONulo(data.fechaRegistro)
         && esMapa(data.preferencias);
     }

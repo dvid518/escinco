@@ -49,19 +49,15 @@ export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
         await setDoc(usuarioRef, {
             email: usuario?.email || null,
             nombre: usuario?.displayName || usuario?.nombre || null,
-            foto: usuario?.photoURL || null,
             fechaRegistro: serverTimestamp(),
             preferencias: {}
         })
-    } else if (usuarioDoc.data().efectivoInicialCreado === true) {
-        return null
     }
 
     const cuentas = await obtenerCuentas(uid)
     const tieneEfectivo = cuentas.some(c => c.tipo === "efectivo")
 
     if (tieneEfectivo) {
-        await updateDoc(usuarioRef, { efectivoInicialCreado: true })
         return null
     }
 
@@ -80,7 +76,6 @@ export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
         })
     }
 
-    await updateDoc(usuarioRef, { efectivoInicialCreado: true })
     cacheCapa.invalidar(uid, "cuentas")
     return referencia.id
 }

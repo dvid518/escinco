@@ -33,9 +33,7 @@ export function construirFixture() {
     poner(`usuarios/${UID}`, {
         email: "demo@escinco.app",
         nombre: "Invitado",
-        foto: null,
         fechaRegistro: momento(120),
-        efectivoInicialCreado: true,
         preferencias: { tema: "dark", divisaPrincipal: "pen" }
     })
 
