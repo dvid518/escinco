@@ -58,10 +58,10 @@
 
 ## Modo demo ✅
 
-La demo (`/demo/<página>`, servida por `tester.html`) reutiliza el armazón, el
+La demo (`/demo/<página>`, servida por `demo.html`) reutiliza el armazón, el
 router y las páginas reales; solo se cambia la capa de datos por `localStorage`:
 
-- `tester.html`: mismo shell que `dashboard.html` + banner + `<base href="/">`
+- `demo.html`: mismo shell que `dashboard.html` + banner + `<base href="/">`
   + un `<script type="importmap">` que redirige el SDK de Firebase a mocks.
 - `firebase/demo/{app,auth,firestore}.js`: mocks del subconjunto de la API que
   usa la app (sin tiempo real ni transacciones).

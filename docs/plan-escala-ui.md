@@ -67,7 +67,7 @@ navegador.
 - [ ] Sidebar: scroll y glow (`::after`) sin recortes.
 - [ ] `canvas` del gráfico (inversiones): nitidez y tamaño de ejes.
 - [ ] Iconos SVG: sin deformación (usar `vector-effect`/tamaños si hace falta).
-- [ ] Landing (`index.html`) y `tester.html`/demo: coherencia si se aplica a
+- [ ] Landing (`index.html`) y `demo.html`/demo: coherencia si se aplica a
       todo el sitio.
 - [ ] Móvil: media queries en px vs `zoom` (puede doble-escalar).
 
