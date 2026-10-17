@@ -469,6 +469,14 @@ function plantillaConfiguracion() {
                         selector de movimientos. Desactivada, se ven como los demás tipos.
                     </span>
                 </div>
+
+                <div class="config-group">
+                    <span class="config-label">Atajos de teclado</span>
+                    <button class="glass-btn" id="abrir-atajos" type="button">Ver atajos de teclado</button>
+                    <span class="config-hint">
+                        Consulta todas las combinaciones de teclas disponibles.
+                    </span>
+                </div>
             </div>
 
             <!-- DATOS -->
@@ -1694,6 +1702,9 @@ function configurarBotones() {
     document.getElementById("delete-data")?.addEventListener("click", eliminarTodosLosDatos)
     document.getElementById("delete-account")?.addEventListener("click", abrirModalEliminarCuenta)
     document.getElementById("restore-cuentas")?.addEventListener("click", abrirRestaurarCuentasArchivadas)
+    document.getElementById("abrir-atajos")?.addEventListener("click", () => {
+        import("../core/atajos.js").then(m => m.abrirModalAtajos())
+    })
 }
 
 // ============================================

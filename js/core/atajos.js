@@ -185,10 +185,88 @@ export async function abrirBuscadorGlobal() {
 }
 
 // ============================================
+// AYUDA DE ATAJOS
+// ============================================
+// Única fuente de la lista que muestra el modal de ayuda. Los grupos y las
+// combinaciones se reflejan aquí y en ningún otro sitio; el modal solo pinta.
+// Si se añade o cambia un atajo, se actualiza esta tabla.
+
+const ATAJOS_AYUDA = [
+    {
+        titulo: "Globales",
+        filas: [
+            { teclas: "Alt+K", descripcion: "Buscar en toda la app" },
+            { teclas: "Alt+P", descripcion: "Pendientes" },
+            { teclas: "Alt+M", descripcion: "Metas" },
+            { teclas: "Alt+N", descripcion: "Centro de notificaciones" },
+            { teclas: "Alt+A", descripcion: "Esta ayuda de atajos" },
+            { teclas: "Supr", descripcion: "Cerrar la notificación más antigua" }
+        ]
+    },
+    {
+        titulo: "Listas (Cuentas, Movimientos, Inversiones y Trading)",
+        filas: [
+            { teclas: "Esc", descripcion: "Limpiar la selección" },
+            { teclas: "Supr / Retroceso", descripcion: "Quitar el último elemento seleccionado" }
+        ]
+    },
+    {
+        titulo: "Panel de inicio (edición de tarjetas)",
+        filas: [
+            { teclas: "Enter", descripcion: "Guardar y salir de la edición" },
+            { teclas: "Esc", descripcion: "Salir de la edición (guarda si hay cambios)" }
+        ]
+    },
+    {
+        titulo: "Ventanas",
+        filas: [
+            { teclas: "Esc", descripcion: "Cerrar la ventana" },
+            { teclas: "Tab / Shift+Tab", descripcion: "Recorrer los controles de la ventana" }
+        ]
+    },
+    {
+        titulo: "Formularios",
+        filas: [
+            { teclas: "Enter", descripcion: "Enviar (iniciar sesión, registro, contraseña)" }
+        ]
+    }
+]
+
+/**
+ * Abre el modal de ayuda con todas las combinaciones de atajos. Funciona como
+ * interruptor: si ya está abierto, lo cierra.
+ */
+export async function abrirModalAtajos() {
+    const { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } = await import("../ui/modal.js")
+
+    if (estaAbierto?.() && document.querySelector(".atajos-modal")) {
+        cerrarModal()
+        return
+    }
+
+    const grupos = contenidoDesdeFilas("tpl-atajos-grupo", ATAJOS_AYUDA, grupo => ({
+        valores: { titulo: grupo.titulo },
+        html: {
+            filas: contenidoDesdeFilas("tpl-atajo-fila", grupo.filas, fila => ({
+                valores: { teclas: fila.teclas, descripcion: fila.descripcion }
+            }))
+        }
+    }))
+
+    abrirModal({
+        titulo: "Atajos de teclado",
+        variante: "narrow",
+        contenido: contenidoDesdeTemplate("tpl-atajos-modal", { html: { grupos } }),
+        cancelText: null,
+        confirmText: null
+    })
+}
+
+// ============================================
 // ATAJOS GLOBALES
 // ============================================
-// Alt+K buscador · Alt+P pendientes · Alt+M metas · Alt+N notificaciones.
-// Funcionan aunque haya un campo de texto enfocado.
+// Alt+K buscador · Alt+P pendientes · Alt+M metas · Alt+N notificaciones ·
+// Alt+A ayuda de atajos. Funcionan aunque haya un campo de texto enfocado.
 
 let atajosInicializados = false
 
@@ -214,6 +292,9 @@ export function initAtajos() {
                 break
             case "KeyN":
                 accion = () => import("../ui/notificaciones.js").then(m => m.abrirCentroNotificaciones())
+                break
+            case "KeyA":
+                accion = abrirModalAtajos
                 break
         }
 

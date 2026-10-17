@@ -735,3 +735,69 @@
 .buscador-icono { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 12px; background: var(--background); color: var(--text); flex-shrink: 0; }
 .buscador-concepto { font-weight: 600; color: var(--text); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .buscador-detalle { margin-left: auto; font-size: 12px; color: var(--textSecondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+
+/* ============================================
+   ATAJOS DE TECLADO
+   ============================================
+   Modal de ayuda (Alt+A o Configuración). Lista las combinaciones agrupadas por
+   contexto: cada fila es la tecla a la izquierda y qué hace a la derecha. */
+
+.atajos-modal {
+    display: flex;
+    flex-direction: column;
+}
+
+.atajos-grupos {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.atajos-grupo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.atajos-grupo-titulo {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--textSecondary);
+}
+
+.atajos-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.atajo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid var(--lightBorder);
+    border-radius: 12px;
+    background: var(--surface);
+}
+
+.atajo-teclas {
+    flex-shrink: 0;
+    min-width: 84px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--lightHover);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.atajo-descripcion {
+    font-size: 13px;
+    color: var(--textSecondary);
+}

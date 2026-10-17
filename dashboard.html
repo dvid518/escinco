@@ -439,6 +439,28 @@
         </div>
     </template>
 
+    <!-- Atajos de teclado -->
+
+    <template id="tpl-atajos-modal">
+        <div class="atajos-modal">
+            <div class="atajos-grupos" data-tpl="grupos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-atajos-grupo">
+        <div class="atajos-grupo">
+            <h3 class="atajos-grupo-titulo" data-tpl="titulo"></h3>
+            <div class="atajos-lista" data-tpl="filas"></div>
+        </div>
+    </template>
+
+    <template id="tpl-atajo-fila">
+        <div class="atajo">
+            <span class="atajo-teclas" data-tpl="teclas"></span>
+            <span class="atajo-descripcion" data-tpl="descripcion"></span>
+        </div>
+    </template>
+
     <!-- Movimientos: selector de tipo, dirección de trade y confirmaciones -->
 
     <template id="tpl-grupo-tipos-destacados">
