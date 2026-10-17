@@ -9,6 +9,14 @@
 
 export const CHANGELOG = [
     {
+        version: "1.0.0-beta.28",
+        fecha: "2026-10-17",
+        cambios: [
+            { tipo: "nuevo", texto: "Las transferencias ya admiten cuentas en distintas divisas: indicas cuánto sale de la cuenta de origen y cuánto entra en la de destino, y la tasa queda anotada en el movimiento para revisarla." },
+            { tipo: "mejora", texto: "La app funciona sin conexión: tus datos se guardan en el dispositivo y se sincronizan solos al volver internet." }
+        ]
+    },
+    {
         version: "1.0.0-beta.27",
         fecha: "2026-09-13",
         cambios: [

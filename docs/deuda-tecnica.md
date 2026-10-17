@@ -1,6 +1,6 @@
 # Registro de deuda técnica
 
-Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.27)
+Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.28)
 
 ## Resumen
 
