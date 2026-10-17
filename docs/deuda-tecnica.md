@@ -38,7 +38,7 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-002 | Transferencias entre divisas distintas mueven el mismo nominal en ambos lados | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | **Mitigada en `f9ceb1a`: ahora se rechazan. Ver DEUDA-002b** | Alta |
 | DEUDA-002b | Transferencia no soporta `tasa` ni `montoDestino`, así que no puede cruzar divisas | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | No se puede mover dinero entre divisas si se desactiva *Cambio de divisa* | Media |
 | DEUDA-012 | Asimetría `create`/`update`: `create` no valida 11 campos que `update` sí | `firebase/firestore.rules` | Documentos que se pueden crear pero no editar | Alta |
-| DEUDA-013 | El `hasOnly` de `movimientos` es una lista manual ya desincronizada dos veces | `firebase/firestore.rules` | **Ya causó R-03 y R-05; reincidencia previsible** | Alta |
+| DEUDA-013 | El `hasOnly` de `movimientos` es una lista manual ya desincronizada dos veces | `firebase/firestore.rules` | **Resuelta**: comentarios en las reglas + tests ampliados a export/import | ~~Alta~~ Resuelta |
 | DEUDA-003 | `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` | `js/core/movimientos.js` | **Resuelta al unificar las dos funciones** | ~~Media~~ Resuelta |
 | DEUDA-004 | Tres copias de `esMovimientoPositivo`, todavía divergentes | `js/core/movimientos.js` | **Resuelta**: una sola función, con las tres ramas que faltaban | ~~Media~~ Resuelta |
 | DEUDA-006 | 18 exports sin un solo llamador | 13 archivos de `js/` | ~600 líneas de código muerto | Media |
@@ -225,7 +225,7 @@ Lo que está abierto y accionable ahora mismo está en
   |---|---|---|---|
   | 1 | `metaId` no estaba en la lista | *"Missing or insufficient permissions"* al aportar a una meta | R-05, `c014e94` |
   | 2 | `operacion` no estaba en la lista | Ídem, y además rompía el deshacer | R-03, `9c4cc4b` |
-  | 3 | `id` **sobra** en el historial | La importación de historial falla entera en cuentas nuevas | **BUG-030**, pendiente |
+  | 3 | `id` **sobra** en el historial | La importación de historial falla entera en cuentas nuevas | **BUG-030**, resuelto en `f05fef5` |
 
   En los dos primeros casos **faltaba** un campo que el código escribía. En el
   tercero **sobra** uno que el exportador escribe y la app nunca. Los dos casos
@@ -257,6 +257,18 @@ Lo que está abierto y accionable ahora mismo está en
   `js/services/ExportarServicio.js:116` (el `id` que se introduce),
   `js/services/ImportarServicio.js:388-394` (la escritura rechazada),
   `git show 9c4cc4b`, `git show c014e94` (los dos commits que la repararon)
+- **Resolución (2026-10-16)**: la lista sigue siendo manual —Firestore no
+  permite derivarla de `CONFIG_MOVIMIENTOS`—, así que el cierre es de
+  **vigilancia**, no de generación:
+  1. `tests/reglas.test.mjs` compara `CONFIG_MOVIMIENTOS` contra el `hasOnly`
+     de `movimientos` en las dos direcciones (desde la Fase 3) y ahora cubre
+     además la clase de **BUG-030**: el `hasOnly` de `historial` no admite
+     `id`, el exportador no lo inyecta y el importador lo descarta.
+  2. El `hasOnly` de `movimientos` e `historial` llevan un comentario que
+     recuerda la dependencia y el test que la vigila.
+  3. **BUG-030** (tercera aparición), cerrado: el export ya no transporta
+     `id` (`f05fef5`) y el importador lo descarta aunque venga en respaldos
+     anteriores, para que un `.dvid` viejo no rompa cuentas nuevas.
 
 ### DEUDA-004: Tres copias de `esMovimientoPositivo`, todavía divergentes — RESUELTA
 - **Módulo**: `js/core/movimientos.js`

@@ -4,7 +4,7 @@
 // mordieron: campos que el create rechaza pero el update admite (DEUDA-013), o
 // un update de snapshots con hasOnly que tiraría los documentos legacy
 // (PEND-001). El simulador real se cubre aparte en rules.test.mjs.
-import { leer, nuevoReporter } from "./helpers.mjs"
+import { leer, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../constants/tiposMovimiento.js"
 
 const COLECCIONES = ["cuentas", "movimientos", "posiciones", "estrategias", "metas", "pendientes", "snapshots", "trades", "ordenes", "activos", "historial"]
@@ -91,7 +91,7 @@ function camposUpdate(sentencia) {
     return refs
 }
 
-export default function ejecutar(t = nuevoReporter("reglas")) {
+export default async function ejecutar(t = nuevoReporter("reglas")) {
     const src = sinComentarios(leer("firebase/firestore.rules"))
 
     // Llaves equilibradas.
@@ -179,6 +179,34 @@ export default function ejecutar(t = nuevoReporter("reglas")) {
 
     const sinConfig = Object.values(TIPOS_MOVIMIENTO).filter(tp => !CONFIG_MOVIMIENTOS[tp])
     t.check("cada tipo de movimiento tiene configuración", sinConfig.length === 0, sinConfig.join(", "))
+
+    // BUG-030: el .dvid no debe llevar `id` al historial, y el importador debe
+    // descartarlo aunque venga (respaldos anteriores a f05fef5). La lista de las
+    // reglas es manual (DEUDA-013), así que un campo de mas rompe el create.
+    const hasOnlyHist = lista(capturarSentencia(bloqueDe(src, "historial"), "allow create:"), "hasOnly") || []
+    t.check("el hasOnly de historial no admite id (BUG-030)", !hasOnlyHist.includes("id"), hasOnlyHist.join(", "))
+
+    const exportador = sinComentarios(leer("js/services/ExportarServicio.js"))
+    t.check("el exportador no inyecta id en los documentos (BUG-030)", !/[{,]\s*id\s*:/.test(exportador))
+
+    const cuerpoHistorial = extraerFuncion(leer("js/services/ImportarServicio.js"), "importarHistorial")
+    const escrituras = []
+    const importarHistorial = new Function(
+        "buscarActivoPorSimbolo", "deserializarFechas", "doc", "db", "setDoc", "serverTimestamp",
+        `${cuerpoHistorial}\nreturn importarHistorial`
+    )(
+        async () => ({ id: "activo1" }),
+        (obj) => ({ ...obj }),
+        (_db, ...ruta) => ({ ruta }),
+        {},
+        async (_ref, datos) => { escrituras.push(datos) },
+        () => "SERVIDOR"
+    )
+    await importarHistorial("u1",
+        [{ activoSimbolo: "BTC", registros: [{ fecha: "2026-01-01", id: "2026-01-01", precio: 100 }] }],
+        { errores: [], historial: 0 })
+    t.check("el importador descarta id del historial (BUG-030)",
+        escrituras.length === 1 && !("id" in escrituras[0]), JSON.stringify(escrituras[0] || {}))
 
     return t
 }

@@ -182,6 +182,10 @@ service cloud.firestore {
         allow read: if esPropietario(uid);
 
         allow create: if esPropietario(uid)
+          // DEUDA-013: esta lista DEBE coincidir con CONFIG_MOVIMIENTOS
+          // (constants/tiposMovimiento.js). tests/reglas.test.mjs la compara en
+          // las dos direcciones; un campo de mas o de menos rompe el create con
+          // "Missing or insufficient permissions".
           && request.resource.data.keys().hasOnly([
             'tipo', 'cuenta', 'concepto', 'monto', 'divisa', 'fechaRealizacion',
             'fechaRegistro', 'cuentaOrigen', 'cuentaDestino', 'montoOrigen', 'montoDestino',
@@ -533,6 +537,7 @@ service cloud.firestore {
           allow read: if esPropietario(uid);
 
           allow create: if esPropietario(uid)
+            // Lista manual: el .dvid NO debe transportar `id` (BUG-030).
             && request.resource.data.keys().hasOnly([
               'fecha', 'precio', 'cerrado', 'actualizacion'
             ])

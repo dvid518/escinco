@@ -385,7 +385,8 @@ async function importarHistorial(uid, historial, resultado) {
                 const fecha = registro.fecha || registro.id
                 if (!fecha) continue
 
-                const datos = deserializarFechas(registro, ["actualizacion"])
+                const { id, ...registroLimpio } = registro
+                const datos = deserializarFechas(registroLimpio, ["actualizacion"])
                 const referencia = doc(db, "usuarios", uid, "activos", activo.id, "historial", fecha)
                 await setDoc(referencia, {
                     ...datos,
