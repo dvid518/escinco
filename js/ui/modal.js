@@ -370,6 +370,24 @@ ${cerrarConBotonX ? `
         document.addEventListener("keydown", escHandler)
     }
 
+    // ENTER: equivale a pulsar el botón principal (Aceptar/Confirmar). Solo si
+    // el modal tiene botón de confirmar. No se intercepta en controles que ya
+    // usan Enter por su cuenta (multilínea, botones, enlaces, selects) ni si
+    // otro handler ya lo ha consumido (p.ej. el buscador de activos).
+    let enterHandler = null
+    if (mostrarConfirmar) {
+        enterHandler = (e) => {
+            if (e.key !== "Enter" || e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return
+            if (e.defaultPrevented) return
+            if (persistente && !esFrente(overlay)) return
+            const activo = document.activeElement
+            if (activo && ["TEXTAREA", "BUTTON", "A", "SELECT"].includes(activo.tagName)) return
+            e.preventDefault()
+            confirmar()
+        }
+        document.addEventListener("keydown", enterHandler)
+    }
+
     // Traer al frente al hacer clic en la ventana (modo persistente).
     if (persistente) {
         overlay.addEventListener("pointerdown", () => sobreponer(overlay), true)
@@ -383,6 +401,7 @@ ${cerrarConBotonX ? `
         overlay,
         modalEl,
         escHandler,
+        enterHandler,
         tabHandler,
         prevFocus,
         limpiarDrag
@@ -415,6 +434,10 @@ export function cerrarModal({ silencioso = false, overlay = null } = {}) {
 
     if (registro.tabHandler) {
         document.removeEventListener("keydown", registro.tabHandler)
+    }
+
+    if (registro.enterHandler) {
+        document.removeEventListener("keydown", registro.enterHandler)
     }
 
     registro.limpiarDrag?.()
