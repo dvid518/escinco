@@ -268,6 +268,8 @@ function generarCampo(campo, contexto, opcional) {
                 valores: {
                     "grupo@class": grupo(claseAncho(campo)),
                     "etiqueta@for": "campo-monto",
+                    "titulo": "Monto",
+                    "simbolo@id": "simbolo-monto",
                     "campo@id": "campo-monto",
                     "campo@required": req
                 }
@@ -275,9 +277,27 @@ function generarCampo(campo, contexto, opcional) {
         case "operacion":
             return campoSelectOperacion(grupo(claseAncho(campo)), req)
         case "montoOrigen":
-            return campoNumero("montoOrigen", "Monto origen", "0.01", "0.01", "0.00", req, claseAncho(campo))
+            return contenidoDesdeTemplate("tpl-campo-monto", {
+                valores: {
+                    "grupo@class": grupo(claseAncho(campo)),
+                    "etiqueta@for": "campo-montoOrigen",
+                    "titulo": "Monto origen",
+                    "simbolo@id": "simbolo-montoOrigen",
+                    "campo@id": "campo-montoOrigen",
+                    "campo@required": req
+                }
+            })
         case "montoDestino":
-            return campoNumero("montoDestino", "Monto destino", "0.01", "0.01", "0.00", req, claseAncho(campo))
+            return contenidoDesdeTemplate("tpl-campo-monto", {
+                valores: {
+                    "grupo@class": grupo(claseAncho(campo)),
+                    "etiqueta@for": "campo-montoDestino",
+                    "titulo": "Monto destino",
+                    "simbolo@id": "simbolo-montoDestino",
+                    "campo@id": "campo-montoDestino",
+                    "campo@required": req
+                }
+            })
         case "cantidad":
             return campoNumero("cantidad", "Cantidad", "0.0001", "0.0001", "0", req, claseAncho(campo))
         case "precio":
@@ -472,7 +492,12 @@ export function activarSelectsBuscables(raiz = document) {
             aplicar()
             const visibles = Array.from(select.options).filter((o, i) => i > 0 && !o.hidden)
             if (normalizarBusqueda(entrada.value) && visibles.length === 1) {
+                const anterior = select.value
                 select.value = visibles[0].value
+                // Los filtros de compatibilidad (pago de tarjeta, transferencias)
+                // se enganchan al `change` del <select>. Al elegir por texto el
+                // valor cambia sin evento, así que lo emitimos para que reaccionen.
+                if (select.value !== anterior) select.dispatchEvent(new Event("change"))
             }
             // Si no hay opciones visibles, no borrar la selección en silencio:
             // el usuario puede borrar el texto manualmente para elegir "Todas".
@@ -526,18 +551,25 @@ export function vincularSimboloDivisa() {
     vincularSelectActivo()
     const ids = [...new Set(Object.values(CUENTA_FUENTE_DIVISA))]
 
-    const actualizar = () => {
-        const objetivo = document.getElementById("simbolo-monto")
-        if (!objetivo) return
+    const simboloDe = select => {
+        const moneda = select?.selectedOptions?.[0]?.dataset?.moneda
+        return moneda ? (SIMBOLO_MONEDA[moneda] || "$") : null
+    }
 
-        for (const id of ids) {
-            const select = document.getElementById(id)
-            if (!select) continue
-            const moneda = select.selectedOptions?.[0]?.dataset?.moneda
-            if (moneda) {
-                objetivo.textContent = SIMBOLO_MONEDA[moneda] || "$"
-            }
-        }
+    const pintar = (idElemento, simbolo) => {
+        if (!simbolo) return
+        const objetivo = document.getElementById(idElemento)
+        if (objetivo) objetivo.textContent = simbolo
+    }
+
+    const cuenta = document.getElementById("campo-cuenta")
+    const origen = document.getElementById("campo-cuentaOrigen")
+    const destino = document.getElementById("campo-cuentaDestino")
+
+    const actualizar = () => {
+        pintar("simbolo-monto", simboloDe(cuenta) || simboloDe(origen))
+        pintar("simbolo-montoOrigen", simboloDe(origen))
+        pintar("simbolo-montoDestino", simboloDe(destino))
     }
 
     ids.forEach(id => {
@@ -563,6 +595,10 @@ export function recogerDatosFormulario(tipo) {
     for (const campo of campos) {
         const input = document.getElementById(`campo-${campo}`)
         if (!input) continue
+
+        // Un campo oculto por otro (p. ej. `monto` cuando la transferencia cruza
+        // divisas) se deshabilita: no se recoge ni cuenta como obligatorio.
+        if (input.disabled) continue
 
         const esObligatorio = obligatorios.includes(campo)
         const valor = input.value.trim()

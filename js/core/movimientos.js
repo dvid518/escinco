@@ -36,7 +36,10 @@ export function montoDeMovimiento(m, cuentaId = null) {
         return esMovimientoPositivo(m, cuentaId) ? (total - comision) : (total + comision)
     }
 
-    if (m?.tipo === TIPOS_MOVIMIENTO.CAMBIO_DIVISA && cuentaId) {
+    if (
+        (m?.tipo === TIPOS_MOVIMIENTO.CAMBIO_DIVISA || m?.tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA) &&
+        cuentaId
+    ) {
         if (m.cuentaOrigen === cuentaId) return Number(m.montoOrigen) || 0
         if (m.cuentaDestino === cuentaId) return Number(m.montoDestino) || 0
     }

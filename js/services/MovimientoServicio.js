@@ -1,4 +1,3 @@
-import { sesion } from "../core/sesion.js"
 import {
     crearMovimiento,
     crearCuenta,
@@ -60,7 +59,7 @@ export async function registrarMovimiento(uid, tipo, datos) {
     // Los pagos de tarjeta se limitan a la deuda pendiente: si el monto la
     // supera, solo se registra lo necesario para pagarla por completo.
     await ajustarPagoDeTarjeta(uid, tipoFinal, datos)
-    await validarDivisaTransferencia(uid, tipoFinal, datos)
+    await validarTransferencia(uid, tipoFinal, datos)
 
     // 1. Crear el movimiento
     const movimiento = await crearMovimiento(uid, {
@@ -226,7 +225,7 @@ export async function actualizarMovimiento(uid, movimientoId, movimientoOriginal
     normalizarFechaFutura(datos)
 
     await ajustarPagoDeTarjeta(uid, tipoFinal, datos, movimientoOriginal)
-    await validarDivisaTransferencia(uid, tipoFinal, datos)
+    await validarTransferencia(uid, tipoFinal, datos)
 
     const metaVinculada = await resolverMetaDeMovimiento(uid, movimientoOriginal)
 
@@ -433,23 +432,25 @@ async function ajustarPagoDeTarjeta(uid, tipo, datos, movimientoOriginal = null)
 }
 
 /**
- * Una transferencia entre cuentas de distinta divisa movería el mismo nominal
- * en los dos lados: 100 USD saldrían de la cuenta en USD y entrarían 100 PEN
- * en la cuenta en PEN. `cambioDivisa` ya cubre ese caso con `tasa` y
- * `montoDestino` propios, así que aquí se rechaza en vez de convertir.
+ * Una transferencia tiene dos formas:
+ *
+ *  - Origen y destino comparten divisa: se mueve `monto` en los dos lados.
+ *  - Origen y destino usan divisas distintas: se mueven `montoOrigen` y
+ *    `montoDestino`, con `tasa` como dato informativo (DEUDA-002/002b). Así se
+ *    puede cruzar divisas sin el salto silencioso de nominal que denunciaba
+ *    DEUDA-002: 100 USD salen y entran, por ejemplo, 375 PEN.
  *
  * No se convierte con `convertirMonto` a propósito: la app tiene un único tipo
- * de cambio global (PEN/USD) y no uno por par, así que convertir en silencio
- * aplicaría una tasa que el usuario no eligió y que no podría revisar.
+ * de cambio global (PEN/USD) y no uno por par, así que la tasa aplicada es la
+ * que el usuario deja escrita en el movimiento y puede revisar.
  *
  * Valida además que ninguna de las dos cuentas sea una tarjeta de crédito
- * (BUG-028), que es la otra mitad del mismo problema: un `saldoInicial` que
- * se mueve en un campo que las tarjetas no usan.
+ * (BUG-028): una tarjeta no tiene saldo que mover.
  *
  * Solo se valida al crear y al editar, nunca al revertir: los movimientos
  * heredados que ya están corruptos deben poder borrarse y deshacerse.
  */
-async function validarDivisaTransferencia(uid, tipo, datos) {
+async function validarTransferencia(uid, tipo, datos) {
     if (tipo !== TIPOS_MOVIMIENTO.TRANSFERENCIA) return datos
 
     const origen = datos?.cuentaOrigen ? await obtenerCuenta(uid, datos.cuentaOrigen) : null
@@ -478,20 +479,25 @@ async function validarDivisaTransferencia(uid, tipo, datos) {
 
     const monedaOrigen = (origen.moneda || "pen").toLowerCase()
     const monedaDestino = (destino.moneda || "pen").toLowerCase()
-    if (monedaOrigen === monedaDestino) return datos
 
-    // Si el usuario desactivó "Cambio de divisa", el rechazo sin alternativa lo
-    // dejaría sin forma de mover dinero entre divisas: se le dice dónde
-    // reactivarlo. La etiqueta es la de Configuración, no la del selector.
-    const cambioDivisaActivo =
-        sesion.getPreferencias()?.tiposMovimiento?.cambioDivisa !== false
-    const alternativa = cambioDivisaActivo
-        ? 'Para mover dinero entre divisas, usa el tipo "Cambio de divisa".'
-        : 'Para mover dinero entre divisas, activa "Cambio de divisa" en Configuración → Apariencia → Tipos de movimiento en el selector.'
+    if (monedaOrigen === monedaDestino) {
+        const monto = Number(datos.monto) || 0
+        if (monto <= 0) throw new Error("El monto de la transferencia debe ser mayor a cero")
+        delete datos.montoOrigen
+        delete datos.montoDestino
+        delete datos.tasa
+        return datos
+    }
 
-    throw new Error(
-        `"${origen.nombre}" y "${destino.nombre}" no usan la misma divisa. ${alternativa}`
-    )
+    const montoOrigen = Number(datos.montoOrigen) || 0
+    const montoDestino = Number(datos.montoDestino) || 0
+    if (montoOrigen <= 0) throw new Error('Para transferir entre divisas, indica el monto de origen')
+    if (montoDestino <= 0) throw new Error('Para transferir entre divisas, indica el monto de destino')
+
+    const tasa = Number(datos.tasa) || 0
+    datos.tasa = tasa > 0 ? tasa : Number((montoOrigen / montoDestino).toFixed(6))
+    delete datos.monto
+    return datos
 }
 
 function esMovimientoDeActivo(tipo) {
@@ -506,6 +512,21 @@ function esMovimientoDeActivo(tipo) {
 // ============================================
 // ACTUALIZAR SALDOS SEGÚN TIPO
 // ============================================
+
+/**
+ * Devuelve cuánto mueve la transferencia de cada lado. Las transferencias
+ * nuevas entre divisas traen `montoOrigen`/`montoDestino`; las normales y las
+ * heredadas, un único `monto` que aplica a los dos lados.
+ */
+function montosDeTransferencia(datos) {
+    const origen = Number(datos?.montoOrigen)
+    const destino = Number(datos?.montoDestino)
+    if (Number.isFinite(origen) && origen > 0 && Number.isFinite(destino) && destino > 0) {
+        return { origen, destino }
+    }
+    const monto = Number(datos?.monto) || 0
+    return { origen: monto, destino: monto }
+}
 
 async function actualizarSaldos(uid, tipo, datos) {
     switch (tipo) {
@@ -525,10 +546,12 @@ async function actualizarSaldos(uid, tipo, datos) {
             break
         }
 
-        case TIPOS_MOVIMIENTO.TRANSFERENCIA:
-            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.monto, "restar")
-            await actualizarSaldoCuenta(uid, datos.cuentaDestino, datos.monto, "sumar")
+        case TIPOS_MOVIMIENTO.TRANSFERENCIA: {
+            const { origen, destino } = montosDeTransferencia(datos)
+            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, origen, "restar")
+            await actualizarSaldoCuenta(uid, datos.cuentaDestino, destino, "sumar")
             break
+        }
 
         case TIPOS_MOVIMIENTO.CAMBIO_DIVISA:
             await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.montoOrigen, "restar")
@@ -611,10 +634,12 @@ async function revertirSaldos(uid, tipo, datos) {
             break
         }
 
-        case TIPOS_MOVIMIENTO.TRANSFERENCIA:
-            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.monto, "sumar")
-            await actualizarSaldoCuenta(uid, datos.cuentaDestino, datos.monto, "restar")
+        case TIPOS_MOVIMIENTO.TRANSFERENCIA: {
+            const { origen, destino } = montosDeTransferencia(datos)
+            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, origen, "sumar")
+            await actualizarSaldoCuenta(uid, datos.cuentaDestino, destino, "restar")
             break
+        }
 
         case TIPOS_MOVIMIENTO.CAMBIO_DIVISA:
             await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.montoOrigen, "sumar")

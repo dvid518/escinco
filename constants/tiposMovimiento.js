@@ -36,14 +36,21 @@ export const CONFIG_MOVIMIENTOS = {
 
     transferencia: {
         nombre: "Transferencia",
+        // `monto` es el caso normal (origen y destino comparten divisa). Si las
+        // cuentas usan divisas distintas, el formulario cambia a
+        // `montoOrigen`/`montoDestino`/`tasa` —igual que `cambioDivisa`— y el
+        // servicio exige esos campos en vez de `monto` (DEUDA-002/002b).
         camposObligatorios: [
             "cuentaOrigen",
             "cuentaDestino",
-            "monto",
             "fechaRealizacion"
         ],
         camposOpcionales: [
-            "concepto"
+            "concepto",
+            "monto",
+            "montoOrigen",
+            "montoDestino",
+            "tasa"
         ]
     },
 

@@ -1067,37 +1067,60 @@ function filtrarCuentasPagoTarjeta() {
 }
 
 /**
- * Una transferencia solo puede mover dinero entre cuentas de la misma divisa
- * (ver `validarDivisaTransferencia`): el servicio mueve el mismo nominal en
- * los dos lados y no hay conversión. Oculta las opciones de destino que no
- * encajan con la divisa del origen, para no dejar elegir un movimiento que el
- * servicio va a rechazar.
+ * Ajusta el formulario de transferencia a la divisa de las cuentas: si
+ * comparten divisa, mueve un solo `monto`; si cruzan divisas, mueve
+ * `montoOrigen` y `montoDestino` con `tasa`. Antes ocultaba las cuentas de
+ * destino con divisa distinta (DEUDA-002 opción a); ya no hace falta porque el
+ * servicio soporta el cruce con conversión explícita.
  */
 function filtrarCuentasDestinoTransferencia() {
     const origen = document.getElementById("campo-cuentaOrigen")
     const destino = document.getElementById("campo-cuentaDestino")
     if (!origen || !destino) return
 
-    const actualizar = () => {
-        const moneda = origen.selectedOptions?.[0]?.dataset?.moneda
-        Array.from(destino.options).forEach((opcion, indice) => {
-            if (indice === 0) return
-            const compatible = !moneda || opcion.dataset.moneda === moneda
-            opcion.dataset.disponible = compatible ? "1" : "0"
-        })
-        // Al cambiar la divisa del origen, reiniciamos la búsqueda en destino
-        // para que el texto viejo no siga filtrando con la nueva disponibilidad.
-        destino.value = ""
-        if (destino._aplicarBusqueda) destino._aplicarBusqueda()
-        else Array.from(destino.options).forEach((opcion, indice) => {
-            if (indice === 0) return
-            opcion.hidden = opcion.disabled = opcion.dataset.disponible === "0"
-        })
-        if (destino.selectedOptions[0]?.disabled) destino.value = ""
+    origen.addEventListener("change", ajustarCamposTransferenciaCrucenDivisas)
+    destino.addEventListener("change", ajustarCamposTransferenciaCrucenDivisas)
+    ajustarCamposTransferenciaCrucenDivisas()
+}
+
+/**
+ * Muestra `montoOrigen`/`montoDestino`/`tasa` cuando las cuentas tienen divisas
+ * distintas; oculta y limpia `monto` en ese caso. Si comparten divisa, muestra
+ * `monto` y oculta los tres campos de cruce (igual que cambioDivisa).
+ */
+function ajustarCamposTransferenciaCrucenDivisas() {
+    const origen = document.getElementById("campo-cuentaOrigen")
+    const destino = document.getElementById("campo-cuentaDestino")
+    const inputMonto = document.getElementById("campo-monto")
+    const inputMontoOrigen = document.getElementById("campo-montoOrigen")
+    const inputMontoDestino = document.getElementById("campo-montoDestino")
+    const inputTasa = document.getElementById("campo-tasa")
+
+    const divisaOrigen = origen?.selectedOptions?.[0]?.dataset?.moneda || null
+    const divisaDestino = destino?.selectedOptions?.[0]?.dataset?.moneda || null
+    const cruzan = divisaOrigen && divisaDestino && divisaOrigen !== divisaDestino
+
+    const setDisabled = (el, disabled) => {
+        if (!el) return
+        el.disabled = disabled
+        const grupo = el.closest(".form-group")
+        if (grupo) grupo.hidden = disabled
     }
 
-    origen.addEventListener("change", actualizar)
-    actualizar()
+    if (cruzan) {
+        setDisabled(inputMonto, true)
+        setDisabled(inputMontoOrigen, false)
+        setDisabled(inputMontoDestino, false)
+        setDisabled(inputTasa, false)
+    } else {
+        setDisabled(inputMonto, false)
+        setDisabled(inputMontoOrigen, true)
+        setDisabled(inputMontoDestino, true)
+        setDisabled(inputTasa, true)
+        if (inputMontoOrigen) inputMontoOrigen.value = ""
+        if (inputMontoDestino) inputMontoDestino.value = ""
+        if (inputTasa) inputTasa.value = ""
+    }
 }
 
 function rellenarFormulario(tipo, m) {
