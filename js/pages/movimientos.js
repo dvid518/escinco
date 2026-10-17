@@ -181,6 +181,14 @@ function nombreCuentaDeMovimiento(m) {
     return cuenta?.nombre || ETIQUETA_CUENTA_ELIMINADA
 }
 
+// Construye un <option> con DOM API: el texto de usuario nunca pasa por HTML.
+function opcionSelect(valor, texto) {
+    const opcion = document.createElement("option")
+    opcion.value = valor
+    opcion.textContent = texto
+    return opcion
+}
+
 async function cargarCuentas() {
     try {
         cuentas = await obtenerCuentas(uid)
@@ -188,11 +196,10 @@ async function cargarCuentas() {
         if (select) {
             select.disabled = true
             select.setAttribute("aria-busy", "true")
-            select.innerHTML = `<option value="">Cargando cuentas...</option>`
-            select.innerHTML = `<option value="">Cuentas</option>` +
-                cuentas
-                    .map(c => `<option value="${c.id}">${c.nombre}</option>`)
-                    .join("")
+            select.replaceChildren(
+                opcionSelect("", "Cuentas"),
+                ...cuentas.map(c => opcionSelect(c.id, c.nombre))
+            )
         }
     } catch (error) {
         console.error("Error cargando cuentas:", error)
@@ -216,8 +223,10 @@ function actualizarOpcionesEtiquetas() {
     movimientos.forEach(m => (m.etiquetas || []).forEach(e => etiquetas.add(e)))
 
     const ordenadas = [...etiquetas].sort((a, b) => a.localeCompare(b, "es", { sensitivity: "base" }))
-    select.innerHTML = `<option value="">Etiquetas</option>` +
-        ordenadas.map(e => `<option value="${e}">${e}</option>`).join("")
+    select.replaceChildren(
+        opcionSelect("", "Etiquetas"),
+        ...ordenadas.map(e => opcionSelect(e, e))
+    )
 
     if (seleccionada) {
         select.value = ordenadas.includes(seleccionada) ? seleccionada : ""
@@ -249,30 +258,19 @@ async function cargarMovimientos() {
 function mostrarError() {
     const container = document.getElementById("lista-movimientos")
     if (!container) return
-    container.innerHTML = `<p class="lista-vacia error">Error al cargar movimientos</p>`
+    container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
+        valores: { texto: "Error al cargar movimientos" }
+    }))
 }
 
 // ============================================
 // RENDERIZADO
 // ============================================
 
-function plantillaVacio() {
-    return `
-        <p class="lista-vacia">
-            No hay movimientos registrados.
-            <br><br>
-            <span class="lista-vacia-hint">
-                Usa el botón <strong>"Movimiento"</strong> en la barra inferior
-                para registrar el primero.
-            </span>
-        </p>
-    `
-}
-
 // `cuentaId` es el ámbito desde el que se mira el movimiento: sin él, una
 // transferencia o un cambio de divisa se etiquetan siempre como salida, que es
 // el lado contrario del correcto en la cuenta de destino (BUG-025).
-function plantillaMovimiento(m, cuentaId = null) {
+function filaMovimiento(m, cuentaId = null) {
     const monto = montoDeMovimiento(m, cuentaId)
     const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "-"
@@ -281,32 +279,23 @@ function plantillaMovimiento(m, cuentaId = null) {
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
-    const seleccionada = seleccionados.has(m.id) ? " seleccionado" : ""
     const etiquetas = (m.etiquetas || []).filter(Boolean)
 
-    return `
-        <div class="card-item${seleccionada}" data-id="${m.id}">
-            <div class="card-item-main">
-                <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
-                    <span class="card-item-detalle">${[fecha, cuenta].filter(Boolean).join(" · ")}</span>
-                </div>
-                <div class="card-item-valor-wrap">
-                    <span class="card-item-valor ${clase}">
-                        ${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}
-                    </span>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar">
-                            ${icono("pencil", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar">
-                            ${icono("trash", 16)}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": `card-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
+            "item@data-id": m.id,
+            titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            detalle: [fecha, cuenta].filter(Boolean).join(" · "),
+            "valor@class": `card-item-valor ${clase}`,
+            "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+        },
+        html: {
+            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash", 16)
+        }
+    }
 }
 
 function formatearFecha(valor) {
@@ -704,13 +693,13 @@ function aplicarFiltro() {
     cardConAcciones = null
 
     if (filtrados.length === 0) {
-        container.innerHTML = movimientos.length === 0
-            ? plantillaVacio()
-            : `<p class="lista-vacia">No hay movimientos que coincidan con el filtro.</p>`
+        container.replaceChildren(movimientos.length === 0
+            ? contenidoDesdeTemplate("tpl-movimientos-vacio")
+            : contenidoDesdeTemplate("tpl-movimientos-vacio-filtro"))
         return
     }
 
-    container.innerHTML = filtrados.map(m => plantillaMovimiento(m, cuentaId)).join("")
+    container.replaceChildren(contenidoDesdeFilas("tpl-movimiento-card", filtrados, m => filaMovimiento(m, cuentaId)))
 }
 
 // ============================================
@@ -740,21 +729,18 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
         }
     })
 
-    const lineas = Object.entries(porDivisa)
-        .map(([divisa, totales]) => `
-            <span class="totales-item">
-                <span class="totales-positivo">+${totales.positivo.toFixed(2)}</span>
-                <span class="totales-sep">/</span>
-                <span class="totales-negativo">−${totales.negativo.toFixed(2)}</span>
-                <span class="totales-divisa">${divisa}</span>
-            </span>
-        `)
-        .join("")
+    const lineas = contenidoDesdeFilas("tpl-totales-mov-linea", Object.entries(porDivisa), ([divisa, totales]) => ({
+        valores: {
+            positivo: `+${totales.positivo.toFixed(2)}`,
+            negativo: `−${totales.negativo.toFixed(2)}`,
+            divisa
+        }
+    }))
 
     const totalMovimientos = filtrados.length
     // Ganancia total de los cambios de divisa en pantalla: destino menos
     // origen, convertido a la divisa principal.
-    let lineaGanancia = ""
+    let ganancia = null
     try {
         const { convertirMonto, getDivisaPrincipal } = await import("../services/DivisaServicio.js")
         const { obtenerCuentas } = await import("../../firebase/firestore.js")
@@ -762,7 +748,7 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
         const principal = getDivisaPrincipal()
         const cuentas = await obtenerCuentas(sesion.uid).catch(() => [])
         const monedaDe = new Map((cuentas || []).map(c => [c.id, (c.moneda || "pen").toLowerCase()]))
-        let ganancia = 0
+        let total = 0
         let hayCambios = false
         filtrados.forEach(m => {
             if (m.tipo !== "cambioDivisa") return
@@ -772,21 +758,27 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
             const divDestino = monedaDe.get(m.cuentaDestino) || m.divisa || "pen"
             const origen = convertirMonto(Number(m.montoOrigen) || 0, divOrigen, principal)
             const destino = convertirMonto(Number(m.montoDestino) || 0, divDestino, principal)
-            ganancia += destino - origen
+            total += destino - origen
         })
         if (hayCambios) {
-            const signo = ganancia >= 0 ? "+" : "−"
-            lineaGanancia = `<span class="totales-item"><span class="totales-ganancia">Ganancia ${signo}${Math.abs(ganancia).toFixed(2)}</span><span class="totales-divisa">${String(principal).toUpperCase()}</span></span>`
+            const signo = total >= 0 ? "+" : "−"
+            ganancia = contenidoDesdeTemplate("tpl-totales-mov-ganancia", {
+                valores: {
+                    ganancia: `Ganancia ${signo}${Math.abs(total).toFixed(2)}`,
+                    divisa: String(principal).toUpperCase()
+                }
+            })
         }
     } catch { /* sin ganancia si falla la conversión */ }
-    contenedor.innerHTML = `
-        <span class="totales-count">${totalMovimientos} movimientos</span>
-        ${lineas}
-        ${lineaGanancia}
-        <div class="totales-acciones">
-            <button type="button" class="totales-btn" id="btn-nuevo-movimiento" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus-circle", 16)}</button>
-        </div>
-    `
+
+    contenedor.replaceChildren(contenidoDesdeTemplate("tpl-totales-movimientos", {
+        valores: { count: `${totalMovimientos} movimientos` },
+        html: {
+            lineas,
+            ganancia,
+            "icono-nuevo": icono("plus-circle", 16)
+        }
+    }))
 
     document.getElementById("btn-nuevo-movimiento")?.addEventListener("click", () => {
         abrirSelectorTipoMovimiento()
@@ -991,7 +983,7 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
     const esEdicion = !!movimiento
     const alGuardar = opciones.alGuardar || null
     const valoresIniciales = opciones.valores || null
-    const html = await generarFormularioMovimiento(tipo, valoresIniciales?.divisa || null)
+    const formulario = await generarFormularioMovimiento(tipo, valoresIniciales?.divisa || null)
 
     const config = CONFIG_MOVIMIENTOS[tipo]
 
@@ -999,7 +991,7 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         titulo: esEdicion
             ? `Editar ${config?.nombre || tipo}`
             : `Nuevo ${config?.nombre || tipo}`,
-        contenido: html,
+        contenido: formulario,
         variante: "form",
         confirmText: esEdicion ? "Guardar cambios" : "Registrar movimiento",
         onConfirm: async () => {

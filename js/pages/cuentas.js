@@ -26,7 +26,7 @@ import {
     esAbstracta,
     normalizarNombre
 } from "../core/familiaCuentas.js"
-import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoServicio.js"
@@ -115,37 +115,18 @@ function iconoPorTipo(tipo) {
     return ICONOS_POR_TIPO[tipo] || "wallet"
 }
 
-// ============================================
-// MODELO DE SUBCUENTAS
-// ============================================
-// Las reglas de familia (que es una hija, quienes son las hijas, el total) viven
-// en js/core/familiaCuentas.js porque las necesita tambien el dashboard.
-// aqui queda solo lo propio de crear cuentas.
-
-// Las subcuentas se crean SIN nombre: el nombre se deriva del padre + la
-// divisa (familiaCuentas.nombrePorDefectoSubcuenta) en el punto de lectura, y
-// el usuario puede escribir uno propio al editarlas. Asi los nombres no se
-// petrifican si el padre cambia de nombre.
-
-// Un input de saldo por divisa. Cada pata de la familia nace con su propio
-// saldo, asi que hacer dos cuentas no puede exigir dos viajes al formulario.
-// Solo se ven los de las divisas elegidas en el toggle (conectarToggleDivisas
-// sincroniza la visibilidad). Sin subtítulo: el modal de crear cuenta es una
-// sola rejilla de dos columnas, sin secciones que la partan.
 function campoSaldosPorDivisa(divisaActiva = null) {
     const monedas = [["pen", "S/"], ["usd", "$"], ["eur", "€"], ["usdt", "₮"]]
-    return `
-        <div class="form-group full">
-            <div class="saldo-divisas" id="grupo-saldos">
-                ${monedas.map(([divisa, simbolo]) => `
-                    <div class="saldo-divisa" data-divisa="${divisa}"${divisa === divisaActiva ? "" : " hidden"}>
-                        <label for="campo-saldo-${divisa}">${simbolo}</label>
-                        <input type="number" id="campo-saldo-${divisa}" class="form-input" step="0.01" min="0" value="0">
-                    </div>
-                `).join("")}
-            </div>
-        </div>
-    `
+    const bloques = contenidoDesdeFilas("tpl-saldo-divisa", monedas, ([divisa, simbolo]) => ({
+        valores: {
+            "bloque@data-divisa": divisa,
+            "bloque@hidden": divisa !== divisaActiva,
+            "label@for": `campo-saldo-${divisa}`,
+            "label": simbolo,
+            "input@id": `campo-saldo-${divisa}`
+        }
+    }))
+    return contenidoDesdeTemplate("tpl-campo-saldos", { html: { saldos: bloques } })
 }
 
 // Saldos introducidos, indexados por divisa, solo de las visibiles.
@@ -348,18 +329,15 @@ function conectarVencimiento(raiz, prefijo) {
 /** Markup del par mes/año con la "/" dibujada entre los dos. */
 function campoVencimiento(prefijo, valor = "") {
     const { mes, anio } = partesVencimiento(valor)
-    return `
-        <div class="form-group">
-            <label for="${prefijo}-mes">Vencimiento</label>
-            <div class="vence-inputs">
-                <input type="text" id="${prefijo}-mes" class="form-input" inputmode="numeric"
-                    placeholder="MM" maxlength="2" value="${mes}" aria-label="Mes de vencimiento">
-                <span class="vence-sep" aria-hidden="true">/</span>
-                <input type="text" id="${prefijo}-anio" class="form-input" inputmode="numeric"
-                    placeholder="AA" maxlength="2" value="${anio}" aria-label="Año de vencimiento">
-            </div>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-campo-vencimiento", {
+        valores: {
+            "lbl-mes@for": `${prefijo}-mes`,
+            "mes@id": `${prefijo}-mes`,
+            "mes@value": mes,
+            "anio@id": `${prefijo}-anio`,
+            "anio@value": anio
+        }
+    })
 }
 
 // ============================================
@@ -528,8 +506,12 @@ async function cargarCuentas() {
         console.error("Error cargando cuentas:", error)
         const panel = document.getElementById("panel")
         const sidebar = document.getElementById("sidebar")
-        if (sidebar) sidebar.innerHTML = `<p class="lista-vacia">No se pudieron cargar las cuentas.</p>`
-        if (panel) panel.innerHTML = `<p class="lista-vacia error">Error al cargar cuentas</p>`
+        if (sidebar) sidebar.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio", {
+            valores: { texto: "No se pudieron cargar las cuentas." }
+        }))
+        if (panel) panel.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
+            valores: { texto: "Error al cargar cuentas" }
+        }))
         mostrarNotificacion("error", "No se pudieron cargar las cuentas")
     } finally {
         document.getElementById("sidebar")?.removeAttribute("aria-busy")
@@ -545,7 +527,7 @@ function renderizarSidebar() {
     const sidebar = document.getElementById("sidebar")
     if (!sidebar) return
 
-    sidebar.innerHTML = ""
+    sidebar.replaceChildren()
 
     // Las hijas no se listan: se llega a ellas por las tabs del padre.
     const visibles = cuentasVisibles(cuentas)
@@ -777,21 +759,14 @@ async function mostrarDetalleCuenta() {
         ? plantillaInfoTarjeta(visto, ciclo)
         : plantillaInfoNormal(visto, { laFamilia: familia, patrimonioTotal })
 
-    panel.innerHTML = `
-        <div class="cuenta-vista ${lateralidadInfo()}">
-            <div class="cuenta-vista-movimientos">
-                <div class="cuenta-mov-head">
-                    <div class="totales" id="totales-movimientos-cuenta"></div>
-                </div>
-                <div class="lista-cards" id="lista-movimientos-cuenta">
-                    ${skeletonMarkup({ rows: 3 })}
-                </div>
-            </div>
-            <div class="cuenta-vista-info">
-                ${panelInfo}
-            </div>
-        </div>
-    `
+    panel.replaceChildren(contenidoDesdeTemplate("tpl-cuenta-vista", {
+        valores: { "raiz@class": `cuenta-vista ${lateralidadInfo()}` },
+        html: {
+            info: panelInfo
+        }
+    }))
+    const listaMovsCuenta = panel.querySelector("#lista-movimientos-cuenta")
+    if (listaMovsCuenta) listaMovsCuenta.innerHTML = skeletonMarkup({ rows: 3 })
 
     await cargarMovimientosDeCuenta(visto, movimientos)
     panel.removeAttribute("aria-busy")
@@ -866,11 +841,14 @@ export async function modalizarCuentaActual() {
             .slice(0, 20)
         const cuerpo = modalEl.querySelector(".cuenta-modal-cuerpo")
         if (cuerpo) {
-            cuerpo.innerHTML = `
-                <div class="cuenta-modal-vista" data-vista="info">${info}</div>
-                <div class="cuenta-modal-vista" data-vista="movimientos" hidden>
-                    <div class="lista-cards">${movs.length ? movs.map(m => plantillaMovimiento(m, visto.id)).join("") : `<p class="lista-vacia">Sin movimientos.</p>`}</div>
-                </div>`
+            cuerpo.replaceChildren(contenidoDesdeTemplate("tpl-cuenta-modal-vistas", {
+                html: {
+                    info,
+                    movimientos: movs.length
+                        ? contenidoDesdeFilas("tpl-movimiento-card", movs, m => filaMovimiento(m, visto.id))
+                        : contenidoDesdeTemplate("tpl-lista-vacio", { valores: { texto: "Sin movimientos." } })
+                }
+            }))
         }
         mostrarVistaModal(modalEl, modalEl.querySelector(".cuenta-modal-tabs .cuenta-modal-tab.active")?.dataset.vista || "info")
         modalEl.querySelectorAll(".subcuentas-pills .badge").forEach(pill => {
@@ -935,35 +913,34 @@ function mostrarVistaModal(modalEl, vista) {
 // Pills de la familia: una por subcuenta. La etiqueta respeta el formato del
 // usuario (SOLES/DÓLARES con símbolo, PEN/USD con código), nunca solo "$".
 function plantillaTabsSubcuentas(familia, visto) {
-    return `
-        <span class="subcuentas-pills" role="tablist" aria-label="Subcuentas de la familia">
-            ${familia.map(c => {
+    return contenidoDesdeTemplate("tpl-tabs-subcuentas", {
+        html: {
+            pills: contenidoDesdeFilas("tpl-tabs-subcuentas-pill", familia, c => {
                 const activa = c.id === visto.id
-                return `
-                    <button type="button" role="tab" aria-selected="${activa}"
-                        class="badge badge--interactivo${activa ? " activo" : ""}"
-                        data-cuenta-id="${c.id}" title="${c.nombre}">
-                        ${etiquetaDivisa(c.moneda)}
-                    </button>
-                `
-            }).join("")}
-        </span>
-    `
+                return {
+                    valores: {
+                        "pill@aria-selected": String(activa),
+                        "pill@class": `badge badge--interactivo${activa ? " activo" : ""}`,
+                        "pill@data-cuenta-id": c.id,
+                        "pill@title": c.nombre,
+                        etiqueta: etiquetaDivisa(c.moneda)
+                    }
+                }
+            })
+        }
+    })
 }
 
 // "% del patrimonio" como item resumen propio, junto al saldo, con el mismo
 // estilo y en color normal.
 function tarjetaPorcentajePatrimonio(c, patrimonioTotal) {
-    if (patrimonioTotal == null || patrimonioTotal <= 0) return ""
+    if (patrimonioTotal == null || patrimonioTotal <= 0) return null
     const enPEN = convertirMonto(c.saldoInicial || 0, c.moneda, "pen")
-    if (enPEN <= 0) return ""
+    if (enPEN <= 0) return null
     const porcentaje = (enPEN / patrimonioTotal) * 100
-    return `
-        <div class="resumen-card">
-            <div class="resumen-label">Patrimonio</div>
-            <div class="resumen-valor">${porcentaje.toFixed(porcentaje < 10 ? 1 : 0)}%</div>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-porcentaje-patrimonio", {
+        valores: { valor: `${porcentaje.toFixed(porcentaje < 10 ? 1 : 0)}%` }
+    })
 }
 
 // ============================================
@@ -978,28 +955,52 @@ function tarjetaPorcentajePatrimonio(c, patrimonioTotal) {
  * margen para cambiarla) y negativa a partir del mes siguiente.
  *
  * @param {string} vence - "MM/AA"
- * @returns {string} badge con clase de color, o "" si no hay vencimiento
+ * @returns {DocumentFragment|null} badge con clase de color, o null si no hay vencimiento
  */
 function badgeVencimiento(vence) {
     const partes = /^(\d{2})\/(\d{2})$/.exec(String(vence || "").trim())
-    if (!partes) return ""
+    if (!partes) return null
 
     const mes = Number(partes[1])
     const anio = 2000 + Number(partes[2])
-    if (mes < 1 || mes > 12) return ""
+    if (mes < 1 || mes > 12) return null
 
     const hoy = new Date()
     const finDeVigencia = new Date(anio, mes, 0) // último día del mes
 
+    let clase = "badge--positive"
+    let texto = "Vigente"
+
     if (hoy > finDeVigencia) {
-        return '<span class="badge badge--negative">Caducada</span>'
+        clase = "badge--negative"
+        texto = "Caducada"
+    } else if (hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes) {
+        clase = "badge--aviso"
+        texto = "Caduca este mes"
     }
 
-    if (hoy.getFullYear() === anio && hoy.getMonth() + 1 === mes) {
-        return '<span class="badge badge--aviso">Caduca este mes</span>'
-    }
+    return contenidoDesdeTemplate("tpl-badge-vencimiento", {
+        valores: {
+            "badge@class": `badge ${clase}`,
+            texto
+        }
+    })
+}
 
-    return '<span class="badge badge--positive">Vigente</span>'
+function campoInfo(etiqueta, valor) {
+    return contenidoDesdeTemplate("tpl-campo-info", { valores: { etiqueta, valor } })
+}
+
+function campoInfoCopia(etiqueta, valor, aCopiar, titulo) {
+    return contenidoDesdeTemplate("tpl-campo-info-copia", {
+        valores: {
+            etiqueta,
+            valor,
+            "btn-copiar@data-copiar": aCopiar,
+            "btn-copiar@title": titulo
+        },
+        html: { "btn-copiar": icono("copy", 14) }
+    })
 }
 
 function plantillaInfoNormal(c, opciones = {}) {
@@ -1009,46 +1010,27 @@ function plantillaInfoNormal(c, opciones = {}) {
     const numero = c.num || c.numeroCuenta || ""
     const esSubcuenta = esHija(c)
 
-    return `
-        <div class="cuenta-perfil">
-            <div class="cuenta-perfil-icono">${icono(iconoPorTipo(c.tipo), 26)}</div>
-            <div class="cuenta-perfil-titulo">
-                <h3>${c.nombre}</h3>
-            </div>
-            <div class="cuenta-perfil-badges">
-                <span class="badge">${nombreTipo(c.tipo)}</span>
-                ${badgeVencimiento(c.vence)}
-                ${laFamilia && laFamilia.length > 1 ? plantillaTabsSubcuentas(laFamilia, c) : ""}
-            </div>
-        </div>
-
-        <div class="credito-resumen">
-            <div class="resumen-card">
-                <div class="resumen-label">Saldo actual</div>
-                <div class="resumen-valor ${esPositivo ? "positive" : "negative"}">${formatearMontoConDivisa(saldo, c.moneda)}</div>
-            </div>
-            ${tarjetaPorcentajePatrimonio(c, opciones.patrimonioTotal)}
-        </div>
-
-        <div class="cuenta-detalle">
-            ${esSubcuenta ? `<div class="field"><span class="label">Subcuenta</span><span class="value">${etiquetaDivisa(c.moneda)}</span></div>` : ""}
-            <div class="field">
-                <span class="label">Tipo</span>
-                <span class="value">${nombreTipo(c.tipo)}</span>
-            </div>
-            <div class="field">
-                <span class="label">Moneda</span>
-                <span class="value">${(c.moneda || "PEN").toUpperCase()}</span>
-            </div>
-            ${numero ? `<div class="field"><span class="label">Número</span><span class="value">${numero} <button type="button" class="btn-copiar" data-copiar="${numero}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
-            ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
-            ${c.cci ? `<div class="field"><span class="label">CCI</span><span class="value">${c.cci} <button type="button" class="btn-copiar" data-copiar="${c.cci}" title="Copiar CCI">${icono("copy", 14)}</button></span></div>` : ""}
-            <div class="field">
-                <span class="label">Patrimonio</span>
-                <span class="value">${c.esPatrimonio === false ? "No" : "Sí"}</span>
-            </div>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-cuenta-info-normal", {
+        valores: {
+            nombre: c.nombre,
+            tipo: nombreTipo(c.tipo),
+            "saldo@class": `resumen-valor ${esPositivo ? "positive" : "negative"}`,
+            "saldo-texto": formatearMontoConDivisa(saldo, c.moneda),
+            "tipo-detalle": nombreTipo(c.tipo),
+            moneda: (c.moneda || "PEN").toUpperCase(),
+            patrimonio: c.esPatrimonio === false ? "No" : "Sí"
+        },
+        html: {
+            icono: icono(iconoPorTipo(c.tipo), 26),
+            vencimiento: c.vence ? badgeVencimiento(c.vence) : null,
+            tabs: laFamilia && laFamilia.length > 1 ? plantillaTabsSubcuentas(laFamilia, c) : null,
+            porcentaje: tarjetaPorcentajePatrimonio(c, opciones.patrimonioTotal),
+            subcuenta: esSubcuenta ? campoInfo("Subcuenta", etiquetaDivisa(c.moneda)) : null,
+            numero: numero ? campoInfoCopia("Número", numero, numero, "Copiar número") : null,
+            vence: c.vence ? campoInfo("Vencimiento", c.vence) : null,
+            cci: c.cci ? campoInfoCopia("CCI", c.cci, c.cci, "Copiar CCI") : null
+        }
+    })
 }
 
 // ============================================
@@ -1078,74 +1060,37 @@ function plantillaInfoTarjeta(c, ciclo) {
     const pagoInfo = calcularDiasHasta(c.diaPago)
     const anualidad = proximaAnualidad(c)
 
-    return `
-        <div class="cuenta-perfil">
-            <div class="cuenta-perfil-icono">${icono("credit-card", 26)}</div>
-            <div class="cuenta-perfil-titulo">
-                <h3>${c.nombre}</h3>
-            </div>
-            <div class="cuenta-perfil-badges">
-                <span class="badge">Tarjeta de crédito</span>
-                <button type="button" class="badge badge--interactivo ${claseBadge}" title="¿Qué significa este estado?">${nivelTexto}</button>
-                ${badgeVencimiento(c.vence)}
-            </div>
-        </div>
-
-        <div class="credito-resumen">
-            <div class="resumen-card">
-                <div class="resumen-label">Crédito disponible</div>
-                <div class="resumen-valor ${disponible > 0 ? "positive" : "negative"}">${formatearMontoConDivisa(disponible, c.moneda)}</div>
-            </div>
-            <div class="resumen-card">
-                <div class="resumen-label">Consumos del ciclo</div>
-                <div class="resumen-valor ${claseEstado}">${formatearMontoConDivisa(estado.consumos, c.moneda)}</div>
-            </div>
-            <div class="resumen-card">
-                <div class="resumen-label">Saldo por pagar</div>
-                <div class="resumen-valor ${estado.restante > 0 ? "negative" : "positive"}">${formatearMontoConDivisa(estado.restante, c.moneda)}</div>
-            </div>
-        </div>
-
-        <div class="credito-uso">
-            <div class="aporte-progreso-wrap">
-                <div class="aporte-progreso">
-                    <div class="aporte-progreso-barra ${claseBarra}" style="--progreso:${Math.min(100, porcentaje).toFixed(1)}%"></div>
-                </div>
-                <span class="badge ${claseBadge}">${porcentaje.toFixed(0)}%</span>
-            </div>
-        </div>
-
-        <div class="cuenta-detalle">
-            ${esHija(c) ? `<div class="field"><span class="label">Subcuenta</span><span class="value">${etiquetaDivisa(c.moneda)}</span></div>` : ""}
-            <div class="field">
-                <span class="label">Línea de crédito</span>
-                <span class="value">${formatearMontoConDivisa(limite, c.moneda)}</span>
-            </div>
-            <div class="field">
-                <span class="label">Pagos del ciclo</span>
-                <span class="value">${formatearMontoConDivisa(estado.pagos, c.moneda)}</span>
-            </div>
-            <div class="field">
-                <span class="label">Próximo corte</span>
-                <span class="value">${corteInfo ? `en ${corteInfo.dias} días (${corteInfo.fecha})` : "No definido"}</span>
-            </div>
-            <div class="field">
-                <span class="label">Próximo pago</span>
-                <span class="value">${estado.pagadoCompleto ? "Ciclo pagado" : pagoInfo ? `en ${pagoInfo.dias} días (${pagoInfo.fecha})` : "No definido"}</span>
-            </div>
-            <div class="field">
-                <span class="label">Desgravamen</span>
-                <span class="value">${c.desgravamen || "0"}%</span>
-            </div>
-            ${c.anualidad ? `<div class="field"><span class="label">Anualidad</span><span class="value">${formatearMontoConDivisa(c.anualidad, c.moneda)}${anualidad ? ` · ${anualidad.fecha.toLocaleDateString("es-PE")}` : ""}</span></div>` : ""}
-            ${c.num ? `<div class="field"><span class="label">Número</span><span class="value">${agruparTarjeta(c.num)} <button type="button" class="btn-copiar" data-copiar="${soloDigitos(c.num)}" title="Copiar número">${icono("copy", 14)}</button></span></div>` : ""}
-            ${c.vence ? `<div class="field"><span class="label">Vencimiento</span><span class="value">${c.vence}</span></div>` : ""}
-            <div class="field">
-                <span class="label">Patrimonio</span>
-                <span class="value">${c.esPatrimonio === false ? "No" : "Sí"}</span>
-            </div>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-cuenta-info-tarjeta", {
+        valores: {
+            nombre: c.nombre,
+            "nivel@class": `badge badge--interactivo ${claseBadge}`,
+            "nivel-texto": nivelTexto,
+            "disponible@class": `resumen-valor ${disponible > 0 ? "positive" : "negative"}`,
+            "disponible-texto": formatearMontoConDivisa(disponible, c.moneda),
+            "consumos@class": `resumen-valor ${claseEstado}`,
+            "consumos-texto": formatearMontoConDivisa(estado.consumos, c.moneda),
+            "restante@class": `resumen-valor ${estado.restante > 0 ? "negative" : "positive"}`,
+            "restante-texto": formatearMontoConDivisa(estado.restante, c.moneda),
+            "barra@class": `aporte-progreso-barra ${claseBarra}`.trim(),
+            "barra@style": `--progreso:${Math.min(100, porcentaje).toFixed(1)}%`,
+            "porcentaje-badge@class": `badge ${claseBadge}`,
+            "porcentaje-texto": `${porcentaje.toFixed(0)}%`,
+            limite: formatearMontoConDivisa(limite, c.moneda),
+            pagos: formatearMontoConDivisa(estado.pagos, c.moneda),
+            corte: corteInfo ? `en ${corteInfo.dias} días (${corteInfo.fecha})` : "No definido",
+            pago: estado.pagadoCompleto ? "Ciclo pagado" : pagoInfo ? `en ${pagoInfo.dias} días (${pagoInfo.fecha})` : "No definido",
+            desgravamen: `${c.desgravamen || "0"}%`,
+            patrimonio: c.esPatrimonio === false ? "No" : "Sí"
+        },
+        html: {
+            icono: icono("credit-card", 26),
+            vencimiento: c.vence ? badgeVencimiento(c.vence) : null,
+            subcuenta: esHija(c) ? campoInfo("Subcuenta", etiquetaDivisa(c.moneda)) : null,
+            anualidad: c.anualidad ? campoInfo("Anualidad", `${formatearMontoConDivisa(c.anualidad, c.moneda)}${anualidad ? ` · ${anualidad.fecha.toLocaleDateString("es-PE")}` : ""}`) : null,
+            numero: c.num ? campoInfoCopia("Número", agruparTarjeta(c.num), soloDigitos(c.num), "Copiar número") : null,
+            vence: c.vence ? campoInfo("Vencimiento", c.vence) : null
+        }
+    })
 }
 
 // "Pagar tarjeta" abierto desde la propia tarjeta (no desde el selector de movimientos).
@@ -1190,7 +1135,7 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
             .sort(compararMovimientosPorFecha)
 
         if (contenedorTotales) {
-            contenedorTotales.innerHTML = renderizarTotalesCuenta(cuenta, involucradosOrdenados)
+            contenedorTotales.replaceChildren(renderizarTotalesCuenta(cuenta, involucradosOrdenados))
             vincularAccionesTotales(cuenta)
         }
 
@@ -1198,19 +1143,19 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
         movimientosCuentaActivos = recientes
 
         if (recientes.length === 0) {
-            contenedor.innerHTML = `
-                <p class="lista-vacia">
-                    No hay movimientos que involucren esta cuenta todavía.
-                </p>
-            `
+            contenedor.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio", {
+                valores: { texto: "No hay movimientos que involucren esta cuenta todavía." }
+            }))
             return
         }
 
-        contenedor.innerHTML = recientes.map(m => plantillaMovimiento(m, cuenta.id)).join("")
+        contenedor.replaceChildren(contenidoDesdeFilas("tpl-movimiento-card", recientes, m => filaMovimiento(m, cuenta.id)))
     } catch (error) {
         console.error("Error cargando movimientos de la cuenta:", error)
-        if (contenedorTotales) contenedorTotales.innerHTML = ""
-        contenedor.innerHTML = `<p class="lista-vacia error">Error al cargar movimientos</p>`
+            if (contenedorTotales) contenedorTotales.replaceChildren()
+        contenedor.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
+            valores: { texto: "Error al cargar movimientos" }
+        }))
     } finally {
         contenedor.removeAttribute("aria-busy")
     }
@@ -1233,19 +1178,20 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
         else porDivisa[divisa].negativo += monto
     })
 
-    const lineas = Object.entries(porDivisa)
-        .map(([divisa, totales]) => cuenta.tipo === "credito" ? `
-            <span class="totales-item">
-                <span class="totales-negativo">−${formatearMontoConDivisa(totales.negativo, divisa)}</span>
-            </span>
-        ` : `
-            <span class="totales-item">
-                <span class="totales-positivo">+${formatearMontoConDivisa(totales.positivo, divisa)}</span>
-                <span class="totales-sep">/</span>
-                <span class="totales-negativo">−${formatearMontoConDivisa(totales.negativo, divisa)}</span>
-            </span>
-        `)
-        .join("")
+    const esCredito = cuenta.tipo === "credito"
+
+    const lineas = contenidoDesdeFilas(
+        esCredito ? "tpl-totales-linea-credito" : "tpl-totales-linea-normal",
+        Object.entries(porDivisa),
+        ([divisa, totales]) => ({
+            valores: esCredito
+                ? { negativo: `−${formatearMontoConDivisa(totales.negativo, divisa)}` }
+                : {
+                    positivo: `+${formatearMontoConDivisa(totales.positivo, divisa)}`,
+                    negativo: `−${formatearMontoConDivisa(totales.negativo, divisa)}`
+                }
+        })
+    )
 
     // Las tarjetas de crédito solo registran gastos y pagos; el resto de
     // cuentas abre el selector con la cuenta ya preseleccionada.
@@ -1253,27 +1199,31 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
     // deuda saldada (BUG-027). `involucrados` es un superconjunto de lo que
     // necesita `movimientosDelCiclo`, así que el ciclo sale igual que en el
     // detalle de la tarjeta.
-    const ciclo = cuenta.tipo === "credito" ? estadoCicloDe(cuenta, involucrados) : null
+    const ciclo = esCredito ? estadoCicloDe(cuenta, involucrados) : null
     const puedePagarTarjeta = ciclo ? ciclo.pagadoCompleto !== true : true
 
-    const acciones = cuenta.estado === "archivada" ? "" : cuenta.tipo === "credito" ? `
-            <div class="totales-acciones">
-                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("picture-in-picture", 16)}</button>
-                <button type="button" class="totales-btn" id="btn-gasto-tarjeta" title="Registrar gasto" aria-label="Registrar gasto">${icono("arrow-up-right", 16)}</button>
-                ${puedePagarTarjeta ? `<button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>` : ""}
-            </div>
-        ` : `
-            <div class="totales-acciones">
-                <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal">${icono("picture-in-picture", 16)}</button>
-                <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento">${icono("plus", 16)}</button>
-            </div>
-        `
+    let acciones = null
+    if (cuenta.estado !== "archivada") {
+        acciones = esCredito
+            ? contenidoDesdeTemplate("tpl-totales-acciones-credito", {
+                html: {
+                    "icono-modal": icono("picture-in-picture", 16),
+                    "icono-gasto": icono("arrow-up-right", 16),
+                    pagar: puedePagarTarjeta ? contenidoDesdeTemplate("tpl-btn-pagar-tarjeta") : null
+                }
+            })
+            : contenidoDesdeTemplate("tpl-totales-acciones-normal", {
+                html: {
+                    "icono-modal": icono("picture-in-picture", 16),
+                    "icono-nuevo": icono("plus", 16)
+                }
+            })
+    }
 
-    return `
-        <span class="totales-count">${movimientosTotales.length} movimientos</span>
-        ${lineas}
-        ${acciones}
-    `
+    return contenidoDesdeTemplate("tpl-totales-cuenta", {
+        valores: { count: `${movimientosTotales.length} movimientos` },
+        html: { lineas, acciones }
+    })
 }
 
 function vincularAccionesTotales(cuenta) {
@@ -1310,42 +1260,33 @@ function movimientoInvolucra(m, cuentaId) {
     )
 }
 
-function plantillaMovimiento(m, cuentaId = null) {
+function filaMovimiento(m, cuentaId = null) {
     const monto = montoDeMovimiento(m, cuentaId)
     const esPositivo = esMovimientoPositivo(m, cuentaId)
     const signo = esPositivo ? "+" : "−"
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
-    const seleccionada = seleccionadosCuenta.has(m.id) ? " seleccionado" : ""
     const etiquetas = (m.etiquetas || []).filter(Boolean)
 
     // Determinar clase de color: error muestra en ambar
     let clase = esPositivo ? "positive" : "negative"
     if (m.tipo === "error") clase = "ambar"
 
-    return `
-        <div class="card-item${seleccionada}" data-id="${m.id}">
-            <div class="card-item-main">
-                <div class="card-item-info">
-                    <span class="card-item-titulo">${m.concepto || m.activo || tipoNombre || "Sin concepto"}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
-                    <span class="card-item-detalle">${fecha}</span>
-                </div>
-                <div class="card-item-valor-wrap">
-                    <span class="card-item-valor ${clase}">
-                        ${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}
-                    </span>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar">
-                            ${icono("pencil", 16)}
-                        </button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar">
-                            ${icono("trash", 16)}
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": `card-item${seleccionadosCuenta.has(m.id) ? " seleccionado" : ""}`,
+            "item@data-id": m.id,
+            titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            detalle: fecha,
+            "valor@class": `card-item-valor ${clase}`,
+            "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+        },
+        html: {
+            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash", 16)
+        }
+    }
 }
 
 // ============================================
@@ -1885,23 +1826,14 @@ function mostrarVacio() {
     // Si lo único que hay son cuentas archivadas, el mensaje tiene que decir
     // dónde recuperarlas: si no, el usuario ve un vacío sin salida.
     const hayArchivadas = cuentasArchivadas.length > 0
-    panel.innerHTML = hayArchivadas
-        ? `
-        <h2>No hay cuentas activas</h2>
-        <p class="lista-vacia">
-            Tienes ${cuentasArchivadas.length} cuenta${cuentasArchivadas.length === 1 ? "" : "s"} archivada${cuentasArchivadas.length === 1 ? "" : "s"}.
-            No se han borrado: siguen guardadas y conservan sus movimientos.
-        </p>
-        <p class="lista-vacia">
-            Puedes restaurarlas desde <strong>Configuración › Datos</strong>.
-        </p>
-    `
-        : `
-        <h2>No hay cuentas</h2>
-        <p class="lista-vacia">
-            Crea tu primera cuenta usando el botón <strong>"Cuenta"</strong> en la barra inferior.
-        </p>
-    `
+    if (hayArchivadas) {
+        const n = cuentasArchivadas.length
+        panel.replaceChildren(contenidoDesdeTemplate("tpl-cuentas-vacio-archivadas", {
+            valores: { cantidad: n, plural: n === 1 ? "" : "s", plural2: n === 1 ? "" : "s" }
+        }))
+    } else {
+        panel.replaceChildren(contenidoDesdeTemplate("tpl-cuentas-vacio"))
+    }
 }
 
 // ============================================
@@ -1930,25 +1862,28 @@ function configurarEventos() {
 const esTipoTarjeta = tipo => tipo === "credito" || tipo === "debito"
 
 function campoFechaAnualidad(id, value = "") {
-    return `
-        <div class="campo-fecha">
-            <input type="date" id="${id}" class="form-input" value="${value}">
-            <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                    <path d="M8 2v4"/>
-                    <path d="M16 2v4"/>
-                    <rect width="18" height="18" x="3" y="4" rx="2"/>
-                    <path d="M3 10h18"/>
-                    <path d="M8 14h.01"/>
-                    <path d="M12 14h.01"/>
-                    <path d="M16 14h.01"/>
-                    <path d="M8 18h.01"/>
-                    <path d="M12 18h.01"/>
-                    <path d="M16 18h.01"/>
-                </svg>
-            </button>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-campo-fecha-anualidad", {
+        valores: { "input@id": id, "input@value": value }
+    })
+}
+
+// Formulario completo de "Nueva cuenta" para un tipo. Lo comparten el flujo de
+// dos pasos y el formulario directo del selector de tipo: misma plantilla, mismos
+// huecos, una sola fuente de verdad.
+function plantillaFormCrearCuenta(tipo) {
+    return contenidoDesdeTemplate("tpl-form-crear-cuenta", {
+        valores: {
+            "tipo@value": tipo,
+            "nombre@placeholder": PLACEHOLDER_NOMBRE_POR_TIPO[tipo] || PLACEHOLDER_NOMBRE_POR_TIPO.broker,
+            "patrimonio@checked": tipo !== "credito",
+            "bloque-uid@hidden": tipo !== "exchange"
+        },
+        html: {
+            saldos: tipo === "credito" ? "" : campoSaldosPorDivisa("pen"),
+            vencimiento: campoVencimiento("campo"),
+            "anualidad-fecha": campoFechaAnualidad("campo-anualidad-fecha")
+        }
+    })
 }
 
 const TIPOS_CUENTA_CREACION = [
@@ -2003,86 +1938,20 @@ function _abrirModalCrearCuentaDosPasos() {
     let tipoSeleccionado = null
     let paso = 1
 
-    const paso1 = `
-        <div class="cuenta-tipos-grid">
-            ${TIPOS_CUENTA_CREACION.map(tipo => `
-                <button type="button" class="cuenta-tipo-opcion" data-tipo="${tipo.id}">
-                    <span class="cuenta-tipo-icono">${icono(tipo.icono, 22)}</span>
-                    <span class="cuenta-tipo-texto">${tipo.nombre}</span>
-                </button>
-            `).join("")}
-        </div>
-    `
+    const paso1 = () => contenidoDesdeTemplate("tpl-selector-tipo-cuenta", {
+        html: {
+            opciones: contenidoDesdeFilas("tpl-tipo-cuenta-opcion", TIPOS_CUENTA_CREACION, tipo => ({
+                valores: { "tipo@data-tipo": tipo.id, nombre: tipo.nombre },
+                html: { icono: icono(tipo.icono, 22) }
+            }))
+        }
+    })
 
-    const formulario = tipo => {
-        return `
-        <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
-            <input type="hidden" id="campo-tipo" value="${tipo}">
-            <div class="form-group" id="grupo-nombre">
-                <label for="campo-nombre">Nombre de la cuenta</label>
-                <input type="text" id="campo-nombre" class="form-input" placeholder="Ej: BBVA, BCP..." required>
-            </div>
-            <div class="form-group">
-                <label>Divisa de la cuenta</label>
-                <div class="toggle-group">
-                    <span class="toggle-option active" data-divisa="pen">PEN</span>
-                    <span class="toggle-option" data-divisa="usd">USD</span>
-                    <span class="toggle-option" data-divisa="eur">EUR</span>
-                    <span class="toggle-option" data-divisa="usdt">USDT</span>
-                </div>
-            </div>
-            ${tipo === "credito" ? "" : campoSaldosPorDivisa("pen")}
-            <div class="form-group">
-                <label for="campo-esPatrimonio">Incluir en mi patrimonio</label>
-                <label class="switch">
-                    <input type="checkbox" id="campo-esPatrimonio"${tipo === "credito" ? "" : " checked"}>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="form-group card-only" hidden>
-                <label for="campo-num-tarjeta">Número de tarjeta</label>
-                <input type="text" id="campo-num-tarjeta" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19">
-            </div>
-            <div class="card-only" hidden>${campoVencimiento("campo")}</div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-limite">Línea de crédito</label>
-                <input type="number" id="campo-limite" class="form-input" step="0.01" min="0" value="0">
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-anualidad">Anualidad</label>
-                <input type="number" id="campo-anualidad" class="form-input" step="0.01" min="0" value="0">
-            </div>
-            <div class="form-group credit-only full" hidden>
-                <label for="campo-anualidad-fecha">Fecha de anualidad</label>
-                ${campoFechaAnualidad("campo-anualidad-fecha")}
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-diaCorte">Día de corte</label>
-                <input type="number" id="campo-diaCorte" class="form-input" min="1" max="31" value="10">
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-diaPago">Día de pago</label>
-                <input type="number" id="campo-diaPago" class="form-input" min="1" max="31" value="6">
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-desgravamen">Desgravamen (%)</label>
-                <input type="number" id="campo-desgravamen" class="form-input" step="0.01" min="0" value="0.34">
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-umbralAviso">Umbral de advertencia (%)</label>
-                <input type="number" id="campo-umbralAviso" class="form-input" min="1" max="99" value="30">
-            </div>
-            <div class="form-group credit-only" hidden>
-                <label for="campo-umbralCritico">Umbral crítico (%)</label>
-                <input type="number" id="campo-umbralCritico" class="form-input" min="1" max="100" value="70">
-            </div>
-        </form>
-    `
-    }
+    const formulario = tipo => plantillaFormCrearCuenta(tipo)
 
     const modalEl = abrirModal({
         titulo: "Nueva cuenta",
-        contenido: paso1,
+        contenido: paso1(),
         variante: "wide",
         confirmText: null,
         cancelText: null,
@@ -2095,7 +1964,7 @@ function _abrirModalCrearCuentaDosPasos() {
                 }
                 paso = 2
                 modalEl.querySelector(".modal-title").textContent = "Nueva cuenta"
-                modalEl.querySelector(".modal-body").innerHTML = formulario(tipoSeleccionado)
+                modalEl.querySelector(".modal-body").replaceChildren(formulario(tipoSeleccionado))
                 const confirmar = modalEl.querySelector("#modal-confirm")
                 if (confirmar) confirmar.textContent = "Crear cuenta"
                 const esCredito = tipoSeleccionado === "credito"
@@ -2111,7 +1980,7 @@ function _abrirModalCrearCuentaDosPasos() {
                     paso = 1
                     tipoSeleccionado = null
                     modalEl.querySelector(".modal-title").textContent = "Nueva cuenta"
-                    modalEl.querySelector(".modal-body").innerHTML = paso1
+                    modalEl.querySelector(".modal-body").replaceChildren(paso1())
                     const boton = modalEl.querySelector("#modal-confirm")
                     if (boton) boton.textContent = "Continuar"
                     modalEl.querySelectorAll(".cuenta-tipo-opcion").forEach(opcion => {
@@ -2192,6 +2061,9 @@ function _abrirModalCrearCuentaDosPasos() {
                 datos.num = soloDigitos(modalEl.querySelector("#campo-num-tarjeta")?.value) || ""
                 datos.vence = leerVencimiento(modalEl, "campo")
             }
+            if (tipo === "exchange") {
+                datos.uid = modalEl.querySelector("#campo-uid")?.value.trim() || ""
+            }
 
             try {
                 // Padre + una hija por cada divisa extra, en una sola operacion.
@@ -2227,77 +2099,10 @@ function _abrirModalCrearCuentaDosPasos() {
 function abrirFormularioCrearCuenta(tipo) {
     const esCredito = tipo === "credito"
     const esTarjeta = esCredito || tipo === "debito"
-    const contenido = `
-        <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
-            <input type="hidden" id="campo-tipo" value="${tipo}">
-            <div class="form-group">
-                <label for="campo-nombre">Nombre de la cuenta</label>
-                <input type="text" id="campo-nombre" class="form-input" placeholder="${PLACEHOLDER_NOMBRE_POR_TIPO[tipo] || PLACEHOLDER_NOMBRE_POR_TIPO.broker}" required>
-            </div>
-            <div class="form-group">
-                <label>Divisa</label>
-                <div class="toggle-group">
-                    <span class="toggle-option active" data-divisa="pen">PEN</span>
-                    <span class="toggle-option" data-divisa="usd">USD</span>
-                    <span class="toggle-option" data-divisa="eur">EUR</span>
-                    <span class="toggle-option" data-divisa="usdt">USDT</span>
-                </div>
-            </div>
-            ${tipo === "credito" ? "" : campoSaldosPorDivisa("pen")}
-            <div class="form-group">
-                <label for="campo-esPatrimonio">Incluir en mi patrimonio</label>
-                <label class="switch">
-                    <input type="checkbox" id="campo-esPatrimonio"${tipo === "credito" ? "" : " checked"}>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            <div class="form-group" ${tipo === "exchange" ? "" : "hidden"}>
-                <label for="campo-uid">UID</label>
-                <input type="text" id="campo-uid" class="form-input" placeholder="UID del exchange">
-            </div>
-            <div class="form-group card-only" ${esTarjeta ? "" : "hidden"}>
-                <label for="campo-num-tarjeta">Número de tarjeta</label>
-                <input type="text" id="campo-num-tarjeta" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19">
-            </div>
-            <div class="card-only" ${esTarjeta ? "" : "hidden"}>${campoVencimiento("campo")}</div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-limite">Línea de crédito</label>
-                <input type="number" id="campo-limite" class="form-input" step="0.01" min="0" value="0">
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-anualidad">Anualidad</label>
-                <input type="number" id="campo-anualidad" class="form-input" step="0.01" min="0" value="0">
-            </div>
-            <div class="form-group credit-only full" ${esCredito ? "" : "hidden"}>
-                <label for="campo-anualidad-fecha">Fecha de anualidad</label>
-                ${campoFechaAnualidad("campo-anualidad-fecha")}
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-diaCorte">Día de corte</label>
-                <input type="number" id="campo-diaCorte" class="form-input" min="1" max="31" value="10">
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-diaPago">Día de pago</label>
-                <input type="number" id="campo-diaPago" class="form-input" min="1" max="31" value="6">
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-desgravamen">Desgravamen (%)</label>
-                <input type="number" id="campo-desgravamen" class="form-input" step="0.01" min="0" value="0.34">
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-umbralAviso">Umbral de advertencia (%)</label>
-                <input type="number" id="campo-umbralAviso" class="form-input" min="1" max="99" value="30">
-            </div>
-            <div class="form-group credit-only" ${esCredito ? "" : "hidden"}>
-                <label for="campo-umbralCritico">Umbral crítico (%)</label>
-                <input type="number" id="campo-umbralCritico" class="form-input" min="1" max="100" value="70">
-            </div>
-        </form>
-    `
 
     const modal = abrirModal({
         titulo: `Nueva cuenta · ${nombreTipo(tipo)}`,
-        contenido,
+        contenido: plantillaFormCrearCuenta(tipo),
         variante: "form",
         confirmText: "Crear cuenta",
         cancelText: "Cancelar",
@@ -2394,6 +2199,8 @@ function abrirFormularioCrearCuenta(tipo) {
             }
         }
     })
+    modal.querySelectorAll(".credit-only").forEach(el => { el.hidden = !esCredito })
+    modal.querySelectorAll(".card-only").forEach(el => { el.hidden = !esTarjeta })
     modal.querySelector("#campo-nombre")?.focus()
     ajustarAnchoNombre(modal.querySelector("#form-crear-cuenta"))
     conectarToggleDivisas(modal)
@@ -2403,9 +2210,9 @@ function abrirFormularioCrearCuenta(tipo) {
 // ============================================
 // AVISO · VERSIÓN INVERSIONISTA
 // ============================================
-// Al crear una cuenta, invita una sola vez a activar las páginas de
-// Inversiones y Trading (que un usuario nuevo tiene ocultas). El aviso se
-// recuerda en localStorage para no repetirlo en cada cuenta.
+// Al crear una cuenta, invita una sola vez a activar Inversiones y Trading
+// (que un usuario nuevo tiene ocultas). El aviso se recuerda en localStorage
+// para no repetirse en cada cuenta.
 
 const CLAVE_AVISO_INVERSIONISTA = "escinco_aviso_inversionista"
 
@@ -2416,7 +2223,7 @@ function avisarVersionInversionista() {
         return
     }
     const paginas = sesion.getPaginasVisibles()
-    // Solo si el usuario todavía no tiene la versión inversionista.
+    // Solo si el usuario todavia no tiene la version inversionista.
     if (paginas.inversiones !== false || paginas.trading !== false) return
     try {
         localStorage.setItem(CLAVE_AVISO_INVERSIONISTA, "1")
@@ -2499,27 +2306,45 @@ function _abrirModalEditarCuenta(cuenta) {
         ...miembros.map(m => ({ id: m.id, etiqueta: etiquetaDivisa(m.moneda) }))
     ]
 
+    const tabsHTML = contenidoDesdeFilas("tpl-edit-tab", tabs.map((t, i) => ({ ...t, activo: i === 0 })), t => ({
+        valores: {
+            "tab@data-tab": t.id,
+            "tab@class": `edit-tab${t.activo ? " active" : ""}`,
+            "tab@aria-selected": t.activo,
+            "tab": t.etiqueta
+        }
+    }))
+
+    const DIVISAS = ["pen", "usd", "eur", "usdt"]
+    const divisasHTML = permisoMoneda
+        ? contenidoDesdeTemplate("tpl-edit-divisas", {
+            html: {
+                opciones: contenidoDesdeFilas("tpl-divisa-toggle", DIVISAS, d => ({
+                    valores: {
+                        "toggle@data-divisa": d,
+                        "toggle@class": `toggle-option${divisasYaUsadas.includes(d) ? " active" : ""}`,
+                        "toggle": d.toUpperCase()
+                    }
+                }))
+            }
+        })
+        : null
+
     // Campos de número/CCI de una instancia según el tipo.
     const camposNumeroInstancia = (m, prefijo) => {
-        if (esBroker) return `
-            <div class="form-group">
-                <label for="${prefijo}-num">Número de cuenta</label>
-                <input type="text" id="${prefijo}-num" class="form-input" inputmode="numeric" value="${m.num || ""}">
-            </div>
-            <div class="form-group">
-                <label for="${prefijo}-cci">CCI</label>
-                <input type="text" id="${prefijo}-cci" class="form-input" inputmode="numeric" value="${m.cci || ""}">
-            </div>`
-        if (esDebito) return `
-            <div class="form-group">
-                <label for="${prefijo}-numcuenta">Número de cuenta</label>
-                <input type="text" id="${prefijo}-numcuenta" class="form-input" inputmode="numeric" value="${m.numeroCuenta || ""}">
-            </div>
-            <div class="form-group">
-                <label for="${prefijo}-cci">CCI</label>
-                <input type="text" id="${prefijo}-cci" class="form-input" inputmode="numeric" value="${m.cci || ""}">
-            </div>`
-        return ""
+        if (!esBroker && !esDebito) return null
+        const idNum = esBroker ? `${prefijo}-num` : `${prefijo}-numcuenta`
+        const valorNum = esBroker ? (m.num || "") : (m.numeroCuenta || "")
+        return contenidoDesdeTemplate("tpl-member-num", {
+            valores: {
+                "lbl-num@for": idNum,
+                "num@id": idNum,
+                "num@value": valorNum,
+                "lbl-cci@for": `${prefijo}-cci`,
+                "cci@id": `${prefijo}-cci`,
+                "cci@value": m.cci || ""
+            }
+        })
     }
 
     // Panel de una subcuenta: nombre propio (vacío = derivado), saldo,
@@ -2528,166 +2353,83 @@ function _abrirModalEditarCuenta(cuenta) {
         const esPadre = m.id === cuenta.id
         const etiqueta = etiquetaDivisa(m.moneda)
         const prefijo = `esub-${m.id}`
-        return `
-        <div class="edit-panel" data-panel="${m.id}" hidden>
-            <div class="form-movimiento form-movimiento-grid">
-            ${esPadre ? "" : `
-                <div class="form-group">
-                    <label for="${prefijo}-nombre">Nombre</label>
-                    <input type="text" id="${prefijo}-nombre" class="form-input"
-                        value="${(m.tieneNombrePropio ? m.nombre : "")}"
-                        placeholder="${cuenta.nombre} ${etiqueta}">
-                </div>`}
-                <div class="form-group">
-                    <label for="${prefijo}-saldo">Saldo inicial</label>
-                    <input type="number" id="${prefijo}-saldo" class="form-input" step="0.01" value="${m.saldoInicial || 0}">
-                </div>
-                ${camposNumeroInstancia(m, prefijo)}
-                <div class="form-group">
-                    <label for="${prefijo}-patrimonio">Incluir en mi patrimonio</label>
-                    <label class="switch">
-                        <input type="checkbox" id="${prefijo}-patrimonio" ${m.esPatrimonio === false ? "" : "checked"}>
-                        <span class="slider"></span>
-                    </label>
-                </div>
-            </div>
-        </div>`
+        return contenidoDesdeTemplate("tpl-member-panel", {
+            valores: {
+                "panel@data-panel": m.id,
+                "panel@hidden": true,
+                "lbl-saldo@for": `${prefijo}-saldo`,
+                "saldo@id": `${prefijo}-saldo`,
+                "saldo@value": m.saldoInicial || 0,
+                "lbl-patrimonio@for": `${prefijo}-patrimonio`,
+                "patrimonio@id": `${prefijo}-patrimonio`,
+                "patrimonio@checked": m.esPatrimonio !== false
+            },
+            html: {
+                nombre: esPadre ? null : contenidoDesdeTemplate("tpl-member-nombre", {
+                    valores: {
+                        "label@for": `${prefijo}-nombre`,
+                        "input@id": `${prefijo}-nombre`,
+                        "input@value": m.tieneNombrePropio ? m.nombre : "",
+                        "input@placeholder": `${cuenta.nombre} ${etiqueta}`
+                    }
+                }),
+                numeros: camposNumeroInstancia(m, prefijo)
+            }
+        })
     }
 
-    const html = `
-        <div class="edit-tabs" role="tablist" aria-label="Secciones de la cuenta">
-            ${tabs.map((t, i) => `
-                <button type="button" role="tab" aria-selected="${i === 0}"
-                    class="edit-tab${i === 0 ? " active" : ""}" data-tab="${t.id}">${t.etiqueta}</button>
-            `).join("")}
-        </div>
-        <form id="form-editar-cuenta" class="form-movimiento">
-        <div class="edit-panel" data-panel="general">
-            <div class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="edit-nombre">Nombre</label>
-                <input type="text" id="edit-nombre" class="form-input" value="${cuenta.nombre || ""}" required>
-            </div>
-            <div class="form-group">
-                <label for="edit-esPatrimonio">Incluir en mi patrimonio</label>
-                <label class="switch">
-                    <input type="checkbox" id="edit-esPatrimonio" ${cuenta.esPatrimonio === false ? "" : "checked"}>
-                    <span class="slider"></span>
-                </label>
-            </div>
-            ${!conFamilia ? `
-                <div class="form-group">
-                    <label for="edit-saldo">Saldo inicial</label>
-                    <input type="number" id="edit-saldo" class="form-input" step="0.01" value="${cuenta.saldoInicial || 0}">
-                </div>
-            ` : ""}
-            ${permisoMoneda ? `
-                <div class="form-group">
-                    <label>Divisa de la cuenta</label>
-                    <div class="toggle-group">
-                        <span class="toggle-option${divisasYaUsadas.includes("pen") ? " active" : ""}" data-divisa="pen">PEN</span>
-                        <span class="toggle-option${divisasYaUsadas.includes("usd") ? " active" : ""}" data-divisa="usd">USD</span>
-                        <span class="toggle-option${divisasYaUsadas.includes("eur") ? " active" : ""}" data-divisa="eur">EUR</span>
-                        <span class="toggle-option${divisasYaUsadas.includes("usdt") ? " active" : ""}" data-divisa="usdt">USDT</span>
-                    </div>
-                </div>
-            ` : ""}
-            ${esExchange ? `
-                <div class="form-group full">
-                    <label for="edit-crypto-nueva">Añadir criptomoneda</label>
-                    <div class="crypto-add">
-                        <input type="text" id="edit-crypto-nueva" class="form-input" placeholder="BTC" maxlength="12" style="text-transform:uppercase">
-                        <button type="button" class="glass-btn" id="btn-crypto-anadir">Añadir</button>
-                    </div>
-                </div>
-            ` : ""}
-            ${cuenta.tipo === "credito" ? `
-                <div class="form-group">
-                    <label for="edit-limite">Línea de crédito</label>
-                    <input type="number" id="edit-limite" class="form-input" step="0.01" value="${cuenta.limite || 0}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-desgravamen">Desgravamen (%)</label>
-                    <input type="number" id="edit-desgravamen" class="form-input" step="0.01" value="${cuenta.desgravamen || 0.34}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-diaCorte">Día de corte</label>
-                    <input type="number" id="edit-diaCorte" class="form-input" min="1" max="31" value="${cuenta.diaCorte || 10}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-diaPago">Día de pago</label>
-                    <input type="number" id="edit-diaPago" class="form-input" min="1" max="31" value="${cuenta.diaPago || 6}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-anualidad">Anualidad</label>
-                    <input type="number" id="edit-anualidad" class="form-input" min="0" step="0.01" value="${cuenta.anualidad || 0}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-anualidad-fecha">Fecha de anualidad</label>
-                    ${campoFechaAnualidad("edit-anualidad-fecha", anualidadFechaInput)}
-                </div>
-                <div class="form-group">
-                    <label for="edit-umbralAviso">Umbral de advertencia (%)</label>
-                    <input type="number" id="edit-umbralAviso" class="form-input" min="1" max="99" step="1" value="${cuenta.umbralAviso || 30}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-umbralCritico">Umbral crítico (%)</label>
-                    <input type="number" id="edit-umbralCritico" class="form-input" min="1" max="100" step="1" value="${cuenta.umbralCritico || 70}">
-                </div>
-            ` : ""}
-            ${cuenta.tipo === "credito" || cuenta.tipo === "debito" ? `
-                <div class="form-group">
-                    <label for="edit-num-tarjeta">Número de tarjeta</label>
-                    <input type="text" id="edit-num-tarjeta" class="form-input" maxlength="19" placeholder="0000 0000 0000 0000" value="${agruparTarjeta(cuenta.num || "")}">
-                </div>
-                ${campoVencimiento("edit", cuenta.vence || "")}
-            ` : ""}
-            ${cuenta.tipo === "broker" && !conFamilia ? `
-                <div class="form-group">
-                    <label for="edit-num">Número de cuenta</label>
-                    <input type="text" id="edit-num" class="form-input" inputmode="numeric" value="${cuenta.num || ""}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-cci">CCI</label>
-                    <input type="text" id="edit-cci" class="form-input" inputmode="numeric" value="${cuenta.cci || ""}">
-                </div>
-            ` : ""}
-            ${cuenta.tipo === "exchange" ? `
-                <div class="form-group">
-                    <label for="edit-uid">UID</label>
-                    <input type="text" id="edit-uid" class="form-input" value="${cuenta.uid || ""}">
-                </div>
-            ` : ""}
-            ${cuenta.tipo === "debito" && !conFamilia ? `
-                <div class="form-group">
-                    <label for="edit-num-cuenta">Número de cuenta</label>
-                    <input type="text" id="edit-num-cuenta" class="form-input" inputmode="numeric" value="${cuenta.numeroCuenta || ""}">
-                </div>
-                <div class="form-group">
-                    <label for="edit-cci-debito">CCI</label>
-                    <input type="text" id="edit-cci-debito" class="form-input" inputmode="numeric" value="${cuenta.cci || ""}">
-                </div>
-            ` : ""}
-            </div>
-        </div>
-        ${miembros.map(panelMiembro).join("")}
-        </form>
-    `
+    const miembrosFrag = document.createDocumentFragment()
+    miembros.forEach(m => miembrosFrag.appendChild(panelMiembro(m)))
+
+    const contenido = contenidoDesdeTemplate("tpl-editar-cuenta", {
+        valores: {
+            "nombre@value": cuenta.nombre || "",
+            "esPatrimonio@checked": cuenta.esPatrimonio !== false,
+            "bloque-saldo@hidden": conFamilia,
+            "saldo@value": cuenta.saldoInicial || 0,
+            "bloque-crypto@hidden": !esExchange,
+            "bloque-credito@hidden": !esCredito,
+            "limite@value": cuenta.limite || 0,
+            "desgravamen@value": cuenta.desgravamen || 0.34,
+            "diaCorte@value": cuenta.diaCorte || 10,
+            "diaPago@value": cuenta.diaPago || 6,
+            "anualidad@value": cuenta.anualidad || 0,
+            "umbralAviso@value": cuenta.umbralAviso || 30,
+            "umbralCritico@value": cuenta.umbralCritico || 70,
+            "bloque-tarjeta@hidden": !(esCredito || esDebito),
+            "numTarjeta@value": agruparTarjeta(cuenta.num || ""),
+            "bloque-broker@hidden": !(esBroker && !conFamilia),
+            "num@value": cuenta.num || "",
+            "cci@value": cuenta.cci || "",
+            "bloque-exchange@hidden": !esExchange,
+            "uid@value": cuenta.uid || "",
+            "bloque-debito@hidden": !(esDebito && !conFamilia),
+            "numeroCuenta@value": cuenta.numeroCuenta || "",
+            "cciDebito@value": cuenta.cci || ""
+        },
+        html: {
+            tabs: tabsHTML,
+            divisas: divisasHTML,
+            "anualidad-fecha": campoFechaAnualidad("edit-anualidad-fecha", anualidadFechaInput),
+            vencimiento: campoVencimiento("edit", cuenta.vence || ""),
+            miembros: miembrosFrag
+        }
+    })
 
     const modalEditar = abrirModal({
         titulo: `Editar ${cuenta.nombre}`,
-        contenido: html,
+        contenido,
         variante: "form",
         confirmText: "Guardar cambios",
         // Las acciones destructivas salen en el footer, a la izquierda de
         // Guardar, y no dentro del formulario: asi no se leen como un campo
         // mas y no se desplazan al final de un formulario largo.
-        footerExtra: `
-            <div class="modal-footer-acciones">
-                ${esArchivada ? "" : `<button type="button" class="modal-btn modal-btn-secondary" id="btn-editar-estado">Archivar</button>`}
-                ${saldoParaEliminar === 0 ? `<button type="button" class="modal-btn modal-btn-secondary modal-btn-danger" id="btn-editar-eliminar">Eliminar</button>` : ""}
-            </div>
-        `,
+        footerExtra: contenidoDesdeTemplate("tpl-editar-cuenta-footer", {
+            html: {
+                archivar: esArchivada ? null : contenidoDesdeTemplate("tpl-btn-archivar-cuenta"),
+                eliminar: saldoParaEliminar === 0 ? contenidoDesdeTemplate("tpl-btn-eliminar-cuenta") : null
+            }
+        }),
         onConfirm: async () => {
             const nombre = modalEditar.querySelector("#edit-nombre")?.value.trim()
 

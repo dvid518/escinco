@@ -76,11 +76,18 @@ async function cargarCuentasEnSelect(selectId, divisa = null) {
             ? `Sin cuentas en ${divisaObjetivo.toUpperCase()}`
             : "Seleccionar cuenta"
 
-        select.innerHTML = `<option value="">${placeholder}</option>` +
-            disponibles.map(c => {
-                const moneda = (c.moneda || "pen").toUpperCase()
-                return `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}">${c.nombre} (${moneda})</option>`
-            }).join("")
+        select.replaceChildren()
+        const primera = document.createElement("option")
+        primera.value = ""
+        primera.textContent = placeholder
+        select.appendChild(primera)
+        for (const c of disponibles) {
+            const opcion = document.createElement("option")
+            opcion.value = c.id
+            opcion.dataset.moneda = (c.moneda || "pen").toLowerCase()
+            opcion.textContent = `${c.nombre} (${(c.moneda || "pen").toUpperCase()})`
+            select.appendChild(opcion)
+        }
     } catch (error) {
         console.error("Error cargando cuentas en select:", error)
     }
@@ -440,54 +447,20 @@ export function abrirModalMeta(meta = null) {
     const valorFecha = meta?.fechaLimite ? fechaLocalISO(new Date(meta.fechaLimite)) : ""
 
     // Al crear, el monto inicial siempre es 0: los aportes van desde una cuenta.
-    const bloqueadoInicial = !esEdicion ? " disabled" : ""
+    const bloqueadoInicial = !esEdicion
 
-    const contenido = `
-        <form id="form-meta" class="form-movimiento">
-            <div class="form-group">
-                <label for="meta-nombre">Nombre *</label>
-                <input type="text" id="meta-nombre" class="form-input" placeholder="Ej: Fondo de emergencia" value="${meta?.nombre || ""}" required>
-            </div>
-            <div class="form-grupo-doble">
-                <div class="form-group">
-                    <label for="meta-objetivo">Monto objetivo *</label>
-                    <input type="number" id="meta-objetivo" class="form-input" step="0.01" min="0.01" placeholder="0.00" value="${meta?.montoObjetivo ?? ""}" required>
-                </div>
-                <div class="form-group">
-                    <label for="meta-actual">Monto actual</label>
-                    <input type="number" id="meta-actual" class="form-input" step="0.01" min="0" placeholder="0.00" value="${esEdicion ? (meta?.montoActual ?? 0) : 0}"${bloqueadoInicial}>
-                </div>
-            </div>
-            <div class="form-fila-fecha-divisa">
-                <div class="form-group form-fecha-flex">
-                    <label for="meta-fecha">Fecha límite</label>
-                    <div class="campo-fecha">
-                        <input type="date" id="meta-fecha" class="form-input" value="${valorFecha}">
-                        <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                                <path d="M8 2v4"/>
-                                <path d="M16 2v4"/>
-                                <rect width="18" height="18" x="3" y="4" rx="2"/>
-                                <path d="M3 10h18"/>
-                                <path d="M8 14h.01"/>
-                                <path d="M12 14h.01"/>
-                                <path d="M16 14h.01"/>
-                                <path d="M8 18h.01"/>
-                                <path d="M12 18h.01"/>
-                                <path d="M16 18h.01"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-                <div class="form-group form-divisa-auto">
-                    <label for="meta-divisa">Divisa *</label>
-                    <select id="meta-divisa" class="form-input">
-                        ${["pen", "usd", "usdt"].map(d => `<option value="${d}" ${d === valorDivisa ? "selected" : ""}>${d.toUpperCase()}</option>`).join("")}
-                    </select>
-                </div>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-meta", {
+        valores: {
+            "nombre@value": meta?.nombre || "",
+            "objetivo@value": meta?.montoObjetivo ?? "",
+            "actual@value": esEdicion ? (meta?.montoActual ?? 0) : 0,
+            "actual@disabled": bloqueadoInicial,
+            "fecha@value": valorFecha,
+            pen: valorDivisa === "pen",
+            usd: valorDivisa === "usd",
+            usdt: valorDivisa === "usdt"
+        }
+    })
 
     abrirModal({
         titulo: esEdicion ? "Editar meta" : "Nueva meta",
@@ -546,42 +519,14 @@ export function abrirModalAporteMeta(meta) {
     const actual = meta.montoActual || 0
     const pctActual = total > 0 ? Math.min(100, (actual / total) * 100) : 0
 
-    const contenido = `
-        <form id="form-aporte-meta" class="form-movimiento">
-            <div class="aporte-progreso-wrap">
-                <div class="aporte-progreso">
-                    <div class="aporte-progreso-barra" id="aporte-progreso-barra"></div>
-                </div>
-                <span class="badge badge--positive" id="aporte-progreso-badge">${pctActual.toFixed(0)}%</span>
-            </div>
-            <div class="aporte-valores">
-                <div class="aporte-valor">
-                    <span class="aporte-valor-label">Total</span>
-                    <span class="aporte-valor-fuerte">${formatearMontoConDivisa(total, meta.divisa)}</span>
-                </div>
-                <div class="aporte-valor">
-                    <span class="aporte-valor-label">Aportado</span>
-                    <span class="aporte-valor-fuerte">${formatearMontoConDivisa(actual, meta.divisa)}</span>
-                </div>
-                <div class="aporte-valor">
-                    <span class="aporte-valor-label">Fecha límite</span>
-                    <span class="aporte-valor-fuerte">${formatearFecha(meta.fechaLimite)}</span>
-                </div>
-            </div>
-            <div class="aporte-fila">
-                <div class="form-group aporte-monto-flex">
-                    <label for="aporte-monto">Monto del aporte *</label>
-                    <input type="number" id="aporte-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00" value="" required>
-                </div>
-                <div class="form-group aporte-cuenta-flex">
-                    <label for="aporte-cuenta">Cuenta de origen *</label>
-                    <select id="aporte-cuenta" class="form-input" required>
-                        <option value="">Seleccionar cuenta</option>
-                    </select>
-                </div>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-aporte-meta", {
+        valores: {
+            porcentaje: `${pctActual.toFixed(0)}%`,
+            total: formatearMontoConDivisa(total, meta.divisa),
+            aportado: formatearMontoConDivisa(actual, meta.divisa),
+            limite: formatearFecha(meta.fechaLimite)
+        }
+    })
 
     const modalEl = abrirModal({
         titulo: `Aportar a ${meta.nombre}`,

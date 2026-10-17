@@ -26,7 +26,7 @@ import {
     historialParaGrafico
 } from "../services/PrecioServicio.js"
 import { crearGraficoEvolucionPrecio, destruirGrafico } from "../ui/graficos.js"
-import { abrirModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
+import { abrirModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { obtenerCuentas, restaurarDocumento } from "../../firebase/firestore.js"
@@ -168,7 +168,7 @@ export async function cargarPosiciones() {
         if (vistaActual !== "posiciones") return
         const container = document.getElementById("lista-posiciones")
         if (container) {
-            container.innerHTML = `<p class="lista-vacia error">Error al cargar posiciones</p>`
+            container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", { valores: { texto: "Error al cargar posiciones" } }))
         }
     } finally {
         finalizarCargaVisible()
@@ -192,7 +192,7 @@ async function cargarEstrategias() {
         if (vistaActual !== "estrategias") return
         const container = document.getElementById("lista-posiciones")
         if (container) {
-            container.innerHTML = `<p class="lista-vacia error">Error al cargar estrategias</p>`
+            container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", { valores: { texto: "Error al cargar estrategias" } }))
         }
     } finally {
         finalizarCargaVisible()
@@ -215,26 +215,16 @@ function renderizarPosiciones() {
     ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
 
     if (posiciones.length === 0) {
-        container.innerHTML = plantillaVacio()
+        container.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio-hint", {
+            valores: { texto: "No hay posiciones activas." },
+            html: { hint: 'Usa el botón <strong>"Comprar"</strong> en la barra inferior para agregar tu primera inversión.' }
+        }))
         return
     }
 
-    container.innerHTML = posiciones.map(plantillaPosicion).join("")
+    container.replaceChildren(contenidoDesdeFilas("tpl-posicion-item", posiciones, plantillaPosicion))
     enlazarListaPosiciones(container)
     cardConAcciones = null
-}
-
-function plantillaVacio() {
-    return `
-        <p class="lista-vacia">
-            No hay posiciones activas.
-            <br><br>
-            <span class="lista-vacia-hint">
-                Usa el botón <strong>"Comprar"</strong> en la barra inferior
-                para agregar tu primera inversión.
-            </span>
-        </p>
-    `
 }
 
 function plantillaPosicion(p) {
@@ -248,38 +238,28 @@ function plantillaPosicion(p) {
     const fuente = activo?.fuente || "manual"
     const fuenteLabel = fuente === "api" ? "Auto" : "Manual"
     const fuenteClase = fuente === "api" ? "badge--positive" : "badge--neutral"
+    const etiquetaFavorito = esFavorito ? "Quitar de favoritos" : "Marcar como favorito"
 
-    return `
-        <div class="posicion-item${seleccionadas.has(p.id) ? " seleccionado" : ""}" data-posicion-id="${p.id}" data-activo-id="${p.activoId}">
-            <button
-                type="button"
-                class="posicion-favorito ${esFavorito ? "es-favorito" : ""}"
-                data-activo-id="${p.activoId}"
-                aria-label="${esFavorito ? "Quitar de favoritos" : "Marcar como favorito"}"
-                title="${esFavorito ? "Quitar de favoritos" : "Marcar como favorito"}"
-            >${icono("star", 16)}</button>
-            <div class="posicion-info">
-                <div class="posicion-nombre">
-                    ${activo?.nombre || p.activoId}
-                    <span class="posicion-simbolo">${activo?.simbolo || ""}</span>
-                    <span class="badge ${fuenteClase}">${fuenteLabel}</span>
-                </div>
-                <div class="posicion-detalle">
-                    ${recortarDecimales(p.cantidad)} · Precio: ${formatearMontoMinimo(activo?.ultimoPrecio || 0, p.divisa)}
-                </div>
-            </div>
-            <div class="card-item-valor-wrap">
-                <div class="posicion-valores">
-                    <div class="posicion-valor">
-                        ${formatearMontoMinimo(valor, p.divisa)}
-                    </div>
-                    <div class="posicion-rendimiento ${esGanancia ? "positive" : "negative"}">
-                        ${esGanancia ? "+" : ""}${rendimiento.toFixed(2)}%
-                    </div>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": `posicion-item${seleccionadas.has(p.id) ? " seleccionado" : ""}`,
+            "item@data-posicion-id": p.id,
+            "item@data-activo-id": p.activoId,
+            "favorito@class": `posicion-favorito${esFavorito ? " es-favorito" : ""}`,
+            "favorito@data-activo-id": p.activoId,
+            "favorito@aria-label": etiquetaFavorito,
+            "favorito@title": etiquetaFavorito,
+            "nombre": activo?.nombre || p.activoId,
+            "simbolo": activo?.simbolo || "",
+            "fuente@class": `badge ${fuenteClase}`,
+            "fuente": fuenteLabel,
+            "detalle": `${recortarDecimales(p.cantidad)} · Precio: ${formatearMontoMinimo(activo?.ultimoPrecio || 0, p.divisa)}`,
+            "valor": formatearMontoMinimo(valor, p.divisa),
+            "rendimiento@class": `posicion-rendimiento ${esGanancia ? "positive" : "negative"}`,
+            "rendimiento": `${esGanancia ? "+" : ""}${rendimiento.toFixed(2)}%`
+        },
+        html: { "icono-favorito": icono("star", 16) }
+    }
 }
 
 // Resuelve una card de posiciones o de estrategias: su id de selección y la
@@ -736,20 +716,14 @@ function renderizarEstrategias() {
     ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
 
     if (estrategiasData.length === 0) {
-        container.innerHTML = `
-            <p class="lista-vacia">
-                No hay estrategias de compra programada.
-                <br><br>
-                <span class="lista-vacia-hint">
-                    Usa <strong>"Nueva estrategia"</strong> para programar
-                    compras automáticas (DCA) de tus activos.
-                </span>
-            </p>
-        `
+        container.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio-hint", {
+            valores: { texto: "No hay estrategias de compra programada." },
+            html: { hint: 'Usa <strong>"Nueva estrategia"</strong> para programar compras automáticas (DCA) de tus activos.' }
+        }))
         return
     }
 
-    container.innerHTML = estrategiasData.map(plantillaEstrategia).join("")
+    container.replaceChildren(contenidoDesdeFilas("tpl-estrategia-item", estrategiasData, plantillaEstrategia))
     enlazarAccionesEstrategias(container)
     cardConAcciones = null
 }
@@ -757,31 +731,30 @@ function renderizarEstrategias() {
 function plantillaEstrategia(estrategia) {
     const simboloDivisa = DIVISAS_SYMBOLS[String(estrategia.divisa).toLowerCase()] || String(estrategia.divisa).toUpperCase()
 
-    return `
-        <div class="estrategia-item ${estrategia.activa ? "" : "pausada"}${seleccionadas.has(estrategia.id) ? " seleccionado" : ""}" data-id="${estrategia.id}">
-            <div class="estrategia-info">
-                <div class="estrategia-nombre">
-                    ${estrategia.nombre}
-                    <span class="estrategia-simbolo">${estrategia.activoSimbolo}</span>
-                </div>
-                <div class="estrategia-detalle">
-                    ${estrategia.frecuenciaTexto} · ${estrategia.divisa.toUpperCase()}
-                </div>
-            </div>
-            <div class="card-item-valor-wrap">
-                <div class="posicion-valores">
-                    <div class="posicion-valor">${simboloDivisa} ${estrategia.montoFormateado}</div>
-                    <div class="posicion-rendimiento">${estrategia.activa ? "Activa" : "Pausada"}</div>
-                </div>
-                <div class="card-item-acciones">
-                    <button type="button" class="card-action-btn estrategia-ejecutar" data-accion="ejecutar" data-id="${estrategia.id}" title="Ejecutar ahora" aria-label="Ejecutar ahora">${icono("play", 16)}</button>
-                    <button type="button" class="card-action-btn estrategia-editar" data-accion="editar" data-id="${estrategia.id}" title="Editar" aria-label="Editar">${icono("pencil", 16)}</button>
-                    <button type="button" class="card-action-btn estrategia-pausar" data-accion="${estrategia.activa ? "pausar" : "reanudar"}" data-id="${estrategia.id}" title="${estrategia.activa ? "Pausar" : "Reanudar"}" aria-label="${estrategia.activa ? "Pausar" : "Reanudar"}">${icono(estrategia.activa ? "pause" : "play", 16)}</button>
-                    <button type="button" class="card-action-btn danger estrategia-eliminar" data-accion="eliminar" data-id="${estrategia.id}" title="Eliminar" aria-label="Eliminar">${icono("trash-2", 16)}</button>
-                </div>
-            </div>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": `estrategia-item${estrategia.activa ? "" : " pausada"}${seleccionadas.has(estrategia.id) ? " seleccionado" : ""}`,
+            "item@data-id": estrategia.id,
+            "nombre": estrategia.nombre,
+            "simbolo": estrategia.activoSimbolo,
+            "detalle": `${estrategia.frecuenciaTexto} · ${estrategia.divisa.toUpperCase()}`,
+            "monto": `${simboloDivisa} ${estrategia.montoFormateado}`,
+            "estado": estrategia.activa ? "Activa" : "Pausada",
+            "ejecutar@data-id": estrategia.id,
+            "editar@data-id": estrategia.id,
+            "pausar@data-accion": estrategia.activa ? "pausar" : "reanudar",
+            "pausar@data-id": estrategia.id,
+            "pausar@title": estrategia.activa ? "Pausar" : "Reanudar",
+            "pausar@aria-label": estrategia.activa ? "Pausar" : "Reanudar",
+            "eliminar@data-id": estrategia.id
+        },
+        html: {
+            "icono-ejecutar": icono("play", 16),
+            "icono-editar": icono("pencil", 16),
+            "icono-pausar": icono(estrategia.activa ? "pause" : "play", 16),
+            "icono-eliminar": icono("trash-2", 16)
+        }
+    }
 }
 
 function enlazarAccionesEstrategias(container) {
@@ -885,67 +858,27 @@ export function abrirModalEstrategia(estrategia = null) {
     const frecuencia = estrategia?.frecuencia || "mensual"
     const divisa = estrategia?.divisa || "pen"
 
-    const html = `
-        <form id="form-estrategia" class="form-movimiento form-movimiento-grid estrategia-form">
-            <div class="form-group full">
-                <label for="estrategia-nombre">Nombre de la estrategia *</label>
-                <input type="text" id="estrategia-nombre" class="form-input"
-                    placeholder="Ej: DCA mensual VOO" value="${estrategia?.nombre || ""}" required>
-            </div>
-            <div class="form-group">
-                <label for="estrategia-simbolo">Símbolo del activo *</label>
-                <input type="text" id="estrategia-simbolo" class="form-input"
-                    placeholder="Ej: VOO, BTC, AAPL" value="${estrategia?.activoSimbolo || ""}" required>
-            </div>
-            <div class="form-group">
-                <label for="estrategia-cuenta">Cuenta de origen *</label>
-                <select id="estrategia-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="estrategia-monto">Monto fijo por compra *</label>
-                <input type="number" id="estrategia-monto" class="form-input" step="0.01" min="0.01"
-                    placeholder="0.00" value="${estrategia?.montoFijo ?? ""}" required>
-            </div>
-            <div class="form-group">
-                <label for="estrategia-divisa">Divisa *</label>
-                <select id="estrategia-divisa" class="form-input" required>
-                    <option value="pen" ${divisa === "pen" ? "selected" : ""}>PEN</option>
-                    <option value="usd" ${divisa === "usd" ? "selected" : ""}>USD</option>
-                    <option value="usdt" ${divisa === "usdt" ? "selected" : ""}>USDT</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="estrategia-frecuencia">Frecuencia *</label>
-                <select id="estrategia-frecuencia" class="form-input">
-                    <option value="diaria" ${frecuencia === "diaria" ? "selected" : ""}>Diaria</option>
-                    <option value="semanal" ${frecuencia === "semanal" ? "selected" : ""}>Semanal</option>
-                    <option value="mensual" ${frecuencia === "mensual" ? "selected" : ""}>Mensual</option>
-                </select>
-            </div>
-            <div class="form-group" id="estrategia-dia-semana-group" hidden>
-                <label for="estrategia-dia-semana">Día de la semana</label>
-                <select id="estrategia-dia-semana" class="form-input">
-                    ${DIAS_SEMANA.map((dia, indice) => `
-                        <option value="${indice}">${dia}</option>
-                    `).join("")}
-                </select>
-            </div>
-            <div class="form-group" id="estrategia-dia-mes-group" hidden>
-                <label for="estrategia-dia-mes">Día del mes</label>
-                <input type="number" id="estrategia-dia-mes" class="form-input" min="1" max="31" value="1">
-            </div>
-            <div class="form-group">
-                <label>Próxima ejecución</label>
-                <div class="form-static" id="estrategia-proxima-preview">—</div>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-estrategia", {
+        valores: {
+            "nombre@value": estrategia?.nombre || "",
+            "simbolo@value": estrategia?.activoSimbolo || "",
+            "monto@value": estrategia?.montoFijo ?? "",
+            pen: divisa === "pen",
+            usd: divisa === "usd",
+            usdt: divisa === "usdt",
+            diaria: frecuencia === "diaria",
+            semanal: frecuencia === "semanal",
+            mensual: frecuencia === "mensual"
+        },
+        html: {
+            // Días de la semana: constante propia, no texto del usuario.
+            dias: DIAS_SEMANA.map((dia, indice) => `<option value="${indice}">${dia}</option>`).join("")
+        }
+    })
 
     abrirModal({
         titulo: esEdicion ? "Editar estrategia" : "Nueva estrategia",
-        contenido: html,
+        contenido,
         confirmText: esEdicion ? "Guardar" : "Crear",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1122,20 +1055,16 @@ export async function mostrarGraficoActivo(activoId, activo, posicion) {
         return
     }
 
-    const html = `
-        <div class="grafico-container">
-            <canvas id="grafico-activo"></canvas>
-        </div>
-        <div class="grafico-info">
-            <div class="grafico-nombre">${activo?.nombre || ""} (${activo?.simbolo || ""})</div>
-            <div class="grafico-precio">${recortarDecimales(activo?.ultimoPrecio || 0)}</div>
-            <div class="grafico-periodo">Últimos 7 días</div>
-        </div>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-grafico-activo", {
+        valores: {
+            nombre: `${activo?.nombre || ""} (${activo?.simbolo || ""})`,
+            precio: recortarDecimales(activo?.ultimoPrecio || 0)
+        }
+    })
 
     abrirModal({
         titulo: "Historial de precios",
-        contenido: html,
+        contenido,
         headerExtra: `
             <button type="button" class="modal-header-btn btn-actualizar-precio" title="Actualizar precio" aria-label="Actualizar precio">${icono("refresh-cw", 16)}</button>
             <button type="button" class="modal-header-btn danger btn-eliminar-posicion" title="Eliminar posición" aria-label="Eliminar posición">${icono("trash-2", 16)}</button>
@@ -1178,26 +1107,17 @@ function abrirModalActualizarPrecio(activo, posicion) {
     const precioActual = activo?.ultimoPrecio || posicion?.precioPromedio || ""
     const esAuto = activo?.fuente === "api"
 
-    const html = `
-        <form class="form-movimiento">
-            ${esAuto ? `
-                <div class="modal-message">
-                    <p class="modal-message-desc">
-                        Este activo usa <strong>precio automático</strong>.
-                        Puedes actualizarlo desde la API o ingresar un precio manual.
-                    </p>
-                </div>
-            ` : ""}
-            <div class="form-group">
-                <label for="precio-manual">Nuevo precio (${nombre})</label>
-                <input type="number" id="precio-manual" class="form-input" step="0.01" min="0.01" value="${precioActual}" placeholder="0.00" required>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-precio-manual", {
+        valores: {
+            "aviso@hidden": !esAuto,
+            nombre,
+            "precio@value": precioActual
+        }
+    })
 
     abrirModal({
         titulo: "Actualizar precio",
-        contenido: html,
+        contenido,
         confirmText: "Guardar",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1320,7 +1240,7 @@ function configurarEventos() {
             if (!container) return
 
             if (filtradas.length === 0) {
-                container.innerHTML = `<p class="lista-vacia">No hay posiciones de este tipo.</p>`
+                container.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio", { valores: { texto: "No hay posiciones de este tipo." } }))
                 return
             }
 
@@ -1329,7 +1249,7 @@ function configurarEventos() {
             seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
             ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
 
-            container.innerHTML = filtradas.map(plantillaPosicion).join("")
+            container.replaceChildren(contenidoDesdeFilas("tpl-posicion-item", filtradas, plantillaPosicion))
             enlazarListaPosiciones(container)
         })
     })
@@ -1387,80 +1307,13 @@ export async function actualizarPrecios() {
 export function abrirModalCompra() {
     const hoy = getFechaHoy()
 
-    const html = `
-        <form id="form-comprar" class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="compra-simbolo">Símbolo del activo *</label>
-                <input type="text" id="compra-simbolo" class="form-input" placeholder="Ej: VOO, BTC, AAPL" required>
-            </div>
-            <div class="form-group">
-                <label for="compra-nombre">Nombre del activo (solo si es nuevo)</label>
-                <input type="text" id="compra-nombre" class="form-input" placeholder="Ej: Vanguard S&P 500 ETF">
-            </div>
-            <div class="form-group">
-                <label for="compra-tipo">Tipo (solo si es nuevo)</label>
-                <select id="compra-tipo" class="form-input">
-                    <option value="accion">Acción</option>
-                    <option value="etf">ETF</option>
-                    <option value="crypto">Cripto</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="compra-fuente">Precio (solo si es nuevo)</label>
-                <select id="compra-fuente" class="form-input">
-                    <option value="manual">Manual</option>
-                    <option value="api">Automático (Binance/Yahoo)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="compra-apisimbolo">Símbolo API (solo si es nuevo)</label>
-                <input type="text" id="compra-apisimbolo" class="form-input" placeholder="Vacío = mismo símbolo">
-            </div>
-            <div class="form-group">
-                <label for="compra-cantidad">Cantidad *</label>
-                <input type="number" id="compra-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
-            </div>
-            <div class="form-group">
-                <label for="compra-precio">Precio unitario *</label>
-                <input type="number" id="compra-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-            <div class="form-group">
-                <label for="compra-comision">Comisión</label>
-                <input type="number" id="compra-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
-            </div>
-            <div class="form-group">
-                <label for="compra-cuenta">Cuenta de origen</label>
-                <select id="compra-cuenta" class="form-input">
-                    <option value="">Sin cuenta (solo posición)</option>
-                </select>
-                <span class="form-hint">Opcional: sin cuenta, la posición se registra sin afectar saldos.</span>
-            </div>
-            <div class="form-group">
-                <label for="compra-fecha">Fecha</label>
-                <div class="campo-fecha">
-                    <input type="date" id="compra-fecha" class="form-input" value="${hoy}" max="${hoy}">
-                    <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                            <path d="M8 2v4"/>
-                            <path d="M16 2v4"/>
-                            <rect width="18" height="18" x="3" y="4" rx="2"/>
-                            <path d="M3 10h18"/>
-                            <path d="M8 14h.01"/>
-                            <path d="M12 14h.01"/>
-                            <path d="M16 14h.01"/>
-                            <path d="M8 18h.01"/>
-                            <path d="M12 18h.01"/>
-                            <path d="M16 18h.01"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-compra", {
+        html: { fecha: contenidoDesdeTemplate("tpl-grupo-campo-fecha", { valores: campoFecha("compra-fecha", hoy) }) }
+    })
 
     abrirModal({
         titulo: "Comprar activo",
-        contenido: html,
+        contenido,
         confirmText: "Comprar",
         onConfirm: async () => {
             const simbolo = document.getElementById("compra-simbolo")?.value.trim().toUpperCase()
@@ -1532,66 +1385,15 @@ export function abrirModalVenta() {
         return
     }
 
-    const options = posiciones.map(p => {
-        const activo = p.activo
-        return `<option value="${p.id}">${activo?.nombre || p.activoId} (${p.cantidad.toFixed(4)} disponibles)</option>`
-    }).join("")
-
     const hoy = getFechaHoy()
 
-    const html = `
-        <form id="form-vender" class="form-movimiento form-movimiento-grid">
-            <div class="form-group span-full">
-                <label for="venta-posicion">Seleccionar posición *</label>
-                <select id="venta-posicion" class="form-input" required>
-                    <option value="">Seleccionar...</option>
-                    ${options}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="venta-cantidad">Cantidad a vender *</label>
-                <input type="number" id="venta-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
-            </div>
-            <div class="form-group">
-                <label for="venta-precio">Precio de venta *</label>
-                <input type="number" id="venta-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-            <div class="form-group">
-                <label for="venta-comision">Comisión</label>
-                <input type="number" id="venta-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
-            </div>
-            <div class="form-group">
-                <label for="venta-cuenta">Cuenta de destino *</label>
-                <select id="venta-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="venta-fecha">Fecha</label>
-                <div class="campo-fecha">
-                    <input type="date" id="venta-fecha" class="form-input" value="${hoy}" max="${hoy}">
-                    <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                            <path d="M8 2v4"/>
-                            <path d="M16 2v4"/>
-                            <rect width="18" height="18" x="3" y="4" rx="2"/>
-                            <path d="M3 10h18"/>
-                            <path d="M8 14h.01"/>
-                            <path d="M12 14h.01"/>
-                            <path d="M16 14h.01"/>
-                            <path d="M8 18h.01"/>
-                            <path d="M12 18h.01"/>
-                            <path d="M16 18h.01"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-venta", {
+        html: { fecha: contenidoDesdeTemplate("tpl-grupo-campo-fecha", { valores: campoFecha("venta-fecha", hoy) }) }
+    })
 
-    abrirModal({
+    const modal = abrirModal({
         titulo: "Vender activo",
-        contenido: html,
+        contenido,
         confirmText: "Vender",
         onConfirm: async () => {
             const posicionId = document.getElementById("venta-posicion")?.value
@@ -1637,7 +1439,27 @@ export function abrirModalVenta() {
         }
     })
 
+    // El nombre del activo es del usuario: las opciones se construyen con
+    // createElement y textContent, nunca con innerHTML.
+    llenarSelectPosiciones(modal.querySelector("#venta-posicion"), posiciones)
+
     setTimeout(() => cargarCuentasEnSelect("venta-cuenta"), 200)
+}
+
+// Opciones de un <select> de posiciones (venta, venta parcial...).
+function llenarSelectPosiciones(select, posiciones) {
+    if (!select) return
+    for (const p of posiciones) {
+        const opcion = document.createElement("option")
+        opcion.value = p.id
+        opcion.textContent = `${p.activo?.nombre || p.activoId} (${p.cantidad.toFixed(4)} disponibles)`
+        select.appendChild(opcion)
+    }
+}
+
+// Valores del grupo de fecha (tpl-grupo-campo-fecha).
+function campoFecha(idCampo, hoy) {
+    return { "etiqueta@for": idCampo, "campo@id": idCampo, "campo@value": hoy, "campo@max": hoy }
 }
 
 // ============================================
@@ -1663,12 +1485,20 @@ async function cargarCuentasEnSelect(selectId) {
         if (!select) return
 
         const activas = cuentas.filter(c => c.estado !== "archivada" && c.tipo !== "credito")
-        select.innerHTML = `
-            <option value="">Seleccionar cuenta</option>
-            ${activas.map(c => `
-                <option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}">${c.nombre} (${c.moneda?.toUpperCase() || "PEN"})</option>
-            `).join("")}
-        `
+        // Con createElement y textContent: el nombre de la cuenta es del usuario
+        // y no debe pasar por innerHTML.
+        select.replaceChildren()
+        const vacia = document.createElement("option")
+        vacia.value = ""
+        vacia.textContent = "Seleccionar cuenta"
+        select.appendChild(vacia)
+        for (const c of activas) {
+            const opcion = document.createElement("option")
+            opcion.value = c.id
+            opcion.dataset.moneda = (c.moneda || "pen").toLowerCase()
+            opcion.textContent = `${c.nombre} (${c.moneda?.toUpperCase() || "PEN"})`
+            select.appendChild(opcion)
+        }
     } catch (error) {
         console.error("Error cargando cuentas:", error)
     }

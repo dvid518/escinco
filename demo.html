@@ -1,0 +1,2749 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+
+<head>
+    <base href="/">
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>escinco | Demo interactiva</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name="description"
+        content="Prueba escinco con datos de ejemplo: dashboard, cuentas, movimientos, inversiones y trading. Todo se guarda en tu navegador.">
+    <meta name="theme-color" content="#141414">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
+    <link rel="canonical" href="https://escinco.web.app/demo/dashboard">
+
+    <!-- Estilos del armazón (shell) + estilos propios de la demo. -->
+    <link rel='stylesheet' type='text/css' media='screen' href='css/style.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/componentes.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/navegacion.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/configuracion.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/modal.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/pendientes.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/iconos.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/demo.css'>
+
+    <!-- La demo no habla con Firebase: redirigimos el SDK a mocks locales.
+         Debe ir antes de cualquier <script type="module">. -->
+    <script type="importmap">
+        {
+            "imports": {
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js": "/firebase/demo/app.js",
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js": "/firebase/demo/auth.js",
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js": "/firebase/demo/firestore.js"
+            }
+        }
+    </script>
+</head>
+
+<body class="loading">
+    <div class="demo-aviso" role="note">
+        <span><strong>escinco demo.</strong> Datos de prueba guardados solo en este navegador.</span>
+        <span class="demo-aviso-acciones">
+            <button type="button" class="demo-link" id="demo-reset">Reiniciar demo</button>
+            <button type="button" class="demo-link" id="demo-salir">Salir</button>
+        </span>
+    </div>
+
+    <!-- NAVBAR -->
+    <header class="nav-section">
+        <div class="logo-container glass tab">
+            <a href="/demo/dashboard" data-page="dashboard">
+                <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="80px" height="80px" id="logo" viewBox="0 0 32 31">
+                    <g id="text3035" fill="currentColor">
+                        <path id="path3063" d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469"/>
+                    </g>
+                </svg>
+            </a>
+        </div>
+        <div class="nav-container">
+            <a href="/demo/dashboard" class="glass tab" data-page="dashboard">Dashboard</a>
+            <a href="/demo/cuentas" class="glass tab" data-page="cuentas">Cuentas</a>
+            <a href="/demo/movimientos" class="glass tab" data-page="movimientos">Movimientos</a>
+            <a href="/demo/inversiones" class="glass tab" data-page="inversiones">Inversiones</a>
+            <a href="/demo/trading" class="glass tab" data-page="trading">Trading</a>
+        </div>
+        <div class="user-container glass tab">
+            <a href="/demo/configuracion" data-abrir-configuracion aria-label="Configuración" title="Configuración">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" id="conf-icon">
+                    <path d="M11 10.27 7 3.34"/>
+                    <path d="m11 13.73-4 6.93"/>
+                    <path d="M12 22v-2"/>
+                    <path d="M12 2v2"/>
+                    <path d="M14 12h8"/>
+                    <path d="m17 20.66-1-1.73"/>
+                    <path d="m17 3.34-1 1.73"/>
+                    <path d="M2 12h2"/>
+                    <path d="m20.66 17-1.73-1"/>
+                    <path d="m20.66 7-1.73 1"/>
+                    <path d="m3.34 17 1.73-1"/>
+                    <path d="m3.34 7 1.73 1"/>
+                    <circle cx="12" cy="12" r="2"/>
+                    <circle cx="12" cy="12" r="8"/>
+                </svg>
+            </a>
+        </div>
+    </header>
+
+    <!-- CONTENIDO DINÁMICO -->
+    <main id="app-content"></main>
+
+    <!-- LASTRAR -->
+    <footer id="app-footer"></footer>
+
+    <!-- PLANTILLAS DE MODAL · INICIO
+         Cuerpos de modal declarados en HTML. Se clonan con
+         contenidoDesdeTemplate() (js/ui/modal.js), que rellena los huecos
+         [data-tpl] con textContent: sin XSS y sin peticiones extra.
+         El service worker ya precachea este archivo. El bloque entero se
+         replica en demo.html (la demo carga las mismas páginas);
+         tests/plantillas.test.mjs verifica que no se desincronicen. -->
+
+    <template id="tpl-confirmar-eliminar">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Eliminar este movimiento?</p>
+            <p class="modal-message-desc">
+                <strong data-tpl="concepto"></strong> ·
+                <span data-tpl="fecha"></span>
+            </p>
+        </div>
+    </template>
+
+    <!-- Genéricos reutilizables por varios modales -->
+
+    <template id="tpl-mensaje">
+        <div class="modal-message">
+            <p class="modal-message-desc" data-tpl="mensaje"></p>
+        </div>
+    </template>
+
+    <template id="tpl-error">
+        <div class="modal-message">
+            <p class="modal-message-error" data-tpl="error"></p>
+        </div>
+    </template>
+
+    <template id="tpl-cargando">
+        <div class="modal-loading">
+            <span data-tpl="logo"></span>
+            <p class="modal-loading-text" data-tpl="texto"></p>
+        </div>
+    </template>
+
+    <template id="tpl-resultado-simple">
+        <div class="modal-message">
+            <p class="modal-message-desc" data-tpl="descripcion"></p>
+            <div class="modal-resultado">
+                <div class="preview-item">
+                    <span data-tpl="etiqueta-total"></span>
+                    <span class="preview-number" data-tpl="total"></span>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Configuración: cuenta, datos y reautenticación -->
+
+    <template id="tpl-form-password">
+        <form class="form-movimiento" data-tpl="form" data-tpl-attr="id">
+            <div class="form-group">
+                <label for="nueva-password">Nueva contraseña</label>
+                <input type="password" id="nueva-password" class="form-input" autocomplete="new-password" required>
+                <span class="form-hint">Mínimo 6 caracteres</span>
+            </div>
+            <div class="form-group">
+                <label for="confirmar-password" data-tpl="etiqueta-confirmar">Confirmar contraseña</label>
+                <input type="password" id="confirmar-password" class="form-input" autocomplete="new-password" required>
+            </div>
+            <div id="password-error" class="modal-message-error" hidden></div>
+        </form>
+    </template>
+
+    <template id="tpl-confirmar-logout">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Estás seguro de que quieres cerrar sesión?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-restaurar-cuentas">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Elige las cuentas archivadas que quieres volver a activas.
+            </p>
+            <p class="modal-message-hint">
+                Recuperan su sitio en el sidebar y vuelven a sumar en el patrimonio
+                y el dashboard. Sus movimientos no se han tocado.
+            </p>
+        </div>
+        <div class="dashboard-editor-grid" data-tpl="opciones"></div>
+    </template>
+
+    <template id="tpl-cuenta-archivable">
+        <label class="dashboard-card-opcion">
+            <input type="checkbox" data-tpl="id" data-tpl-attr="value" checked>
+            <span>
+                <span data-tpl="nombre">Cuenta</span>
+                <small data-tpl="saldo"></small>
+            </span>
+        </label>
+    </template>
+
+    <template id="tpl-archivo-invalido">
+        <div class="modal-message">
+            <p class="modal-message-error" data-tpl="error"></p>
+            <p class="modal-message-desc">
+                Asegúrate de que sea un archivo .dvid generado por escinco.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-preview-importacion">
+        <div class="modal-preview">
+            <div class="preview-row">
+                <span class="preview-label">Formato</span>
+                <span class="preview-value" data-tpl="formato"></span>
+            </div>
+            <div class="preview-row">
+                <span class="preview-label">Versión mínima</span>
+                <span class="preview-value" data-tpl="version-minima"></span>
+            </div>
+            <div class="preview-row">
+                <span class="preview-label">Exportado</span>
+                <span class="preview-value" data-tpl="exportado"></span>
+            </div>
+
+            <div class="preview-content">
+                <div class="preview-content-title">CONTENIDO</div>
+                <div class="preview-item">
+                    <span>Cuentas</span>
+                    <span class="preview-number" data-tpl="cuentas"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Movimientos</span>
+                    <span class="preview-number" data-tpl="movimientos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Activos</span>
+                    <span class="preview-number" data-tpl="activos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Pendientes</span>
+                    <span class="preview-number" data-tpl="pendientes"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Inversiones</span>
+                    <span class="preview-number" data-tpl="posiciones"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Historial precios</span>
+                    <span class="preview-number" data-tpl="historial"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Snapshots</span>
+                    <span class="preview-number" data-tpl="snapshots"></span>
+                </div>
+            </div>
+
+            <div class="modal-warning">
+                Los datos se <strong>agregarán</strong> a los existentes. No se eliminará nada.
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-resultado-importacion">
+        <div class="modal-message">
+            <div class="modal-resultado">
+                <div class="preview-item">
+                    <span>Cuentas</span>
+                    <span class="preview-number" data-tpl="cuentas"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Movimientos</span>
+                    <span class="preview-number" data-tpl="movimientos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Activos</span>
+                    <span class="preview-number" data-tpl="activos"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Pendientes</span>
+                    <span class="preview-number" data-tpl="pendientes"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Inversiones</span>
+                    <span class="preview-number" data-tpl="posiciones"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Historial precios</span>
+                    <span class="preview-number" data-tpl="historial"></span>
+                </div>
+                <div class="preview-item">
+                    <span>Snapshots</span>
+                    <span class="preview-number" data-tpl="snapshots"></span>
+                </div>
+            </div>
+            <p class="modal-message-warning" data-tpl="errores" data-tpl-oculto hidden></p>
+        </div>
+    </template>
+
+    <template id="tpl-eliminar-todos">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Estás seguro?</p>
+            <p class="modal-message-desc">Se eliminarán <strong>todos</strong> tus datos de escinco:</p>
+            <div class="modal-list">
+                • Cuentas<br>
+                • Movimientos<br>
+                • Inversiones<br>
+                • Pendientes<br>
+                • Snapshots<br>
+                • Trades
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-eliminar-cuenta">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Estás seguro?</p>
+            <p class="modal-message-desc">
+                Se eliminará tu <strong>cuenta</strong> y <strong>todos tus datos</strong> de escinco permanentemente:
+            </p>
+            <div class="modal-list">
+                • Cuentas<br>
+                • Movimientos<br>
+                • Inversiones<br>
+                • Pendientes<br>
+                • Snapshots<br>
+                • Trades
+            </div>
+            <p class="modal-message-desc">
+                Antes de borrar se descargará automáticamente un respaldo <strong>.dvid</strong>.
+            </p>
+            <p class="modal-message-error">Esta acción no se puede deshacer.</p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-escritura">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">Última oportunidad</p>
+            <p class="modal-message-desc">
+                Para confirmar, escribe <strong class="text-danger">ELIMINAR</strong> a continuación:
+            </p>
+            <input type="text" data-tpl="campo" data-tpl-attr="id"
+                   class="form-input modal-input-confirm"
+                   placeholder="Escribe ELIMINAR"
+                   autocomplete="off">
+        </div>
+    </template>
+
+    <template id="tpl-reauth-password">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Por seguridad, confirma tu contraseña antes de continuar:
+            </p>
+            <input type="password" id="reauth-password"
+                   class="form-input modal-input-confirm"
+                   placeholder="Tu contraseña"
+                   autocomplete="current-password">
+            <p class="modal-message-error" id="reauth-error" hidden></p>
+        </div>
+    </template>
+
+    <template id="tpl-reauth-google">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                Por seguridad, vuelve a iniciar sesión con Google para continuar.
+            </p>
+        </div>
+    </template>
+
+    <!-- Confirmaciones con un dato en negrita -->
+
+    <template id="tpl-confirmar-meta">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar la meta <strong data-tpl="nombre"></strong>?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-pendiente">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar el pendiente "<strong data-tpl="concepto"></strong>"?
+            </p>
+        </div>
+    </template>
+
+    <!-- Respaldo y crédito -->
+
+    <template id="tpl-respaldo-exportado">
+        <div class="modal-message">
+            <p class="modal-message-title" data-tpl="archivo"></p>
+            <p class="modal-message-desc">
+                El archivo se ha descargado correctamente.<br>
+                Guárdalo en un lugar seguro.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-credito-educativo">
+        <div class="credito-educativo">
+            <!-- La clase de nivel (normal/aviso/critico) y el ancho de la barra los
+                 añade el JS sobre el fragmento: un elemento no puede llevar dos
+                 data-tpl y aquí hacen falta clase y estilo a la vez. -->
+            <div class="credito-educativo-cifra">
+                <span class="label">Uso de la línea de crédito</span>
+                <span class="valor" data-tpl="porcentaje"></span>
+            </div>
+            <div class="aporte-progreso-wrap">
+                <div class="aporte-progreso">
+                    <div class="aporte-progreso-barra"></div>
+                </div>
+                <span class="badge" data-tpl="badge"></span>
+            </div>
+            <p class="credito-educativo-detalle" data-tpl="detalle"></p>
+            <div class="credito-educativo-niveles">
+                <div class="credito-educativo-fila">
+                    <span class="punto normal"></span>
+                    <span>Menos del <strong data-tpl="aviso"></strong> de la línea: uso saludable.</span>
+                </div>
+                <div class="credito-educativo-fila">
+                    <span class="punto aviso"></span>
+                    <span>Entre <strong data-tpl="aviso"></strong> y <strong data-tpl="critico"></strong>: uso elevado; las entidades pueden verlo como riesgo en tu historial crediticio.</span>
+                </div>
+                <div class="credito-educativo-fila">
+                    <span class="punto critico"></span>
+                    <span>Más del <strong data-tpl="critico"></strong>: uso excesivo o peligroso; conviene reducir la deuda cuanto antes.</span>
+                </div>
+            </div>
+            <p class="credito-educativo-tip">Tip: paga más que el mínimo, respeta tu día de pago y limita los consumos con la tarjeta para mantener una utilización sana.</p>
+        </div>
+    </template>
+
+    <!-- Aviso de la versión inversionista -->
+
+    <template id="tpl-info-inversionista">
+        <div class="info-inversionista">
+            <p>Escinco tiene una versión inversionista con dos páginas extra para seguir tu cartera además de tus cuentas:</p>
+            <ul class="info-inversionista-lista">
+                <li class="info-inversionista-item">
+                    <span class="info-inversionista-icono" data-tpl="icono-inversiones"></span>
+                    <span class="info-inversionista-texto">
+                        <strong>Inversiones</strong>
+                        <span>Portafolio, posiciones, precios y P&L de tus activos, con su evolución en el tiempo.</span>
+                    </span>
+                </li>
+                <li class="info-inversionista-item">
+                    <span class="info-inversionista-icono" data-tpl="icono-trading"></span>
+                    <span class="info-inversionista-texto">
+                        <strong>Trading</strong>
+                        <span>Trades, órdenes y operaciones P2P, con su historial y su estado.</span>
+                    </span>
+                </li>
+            </ul>
+            <p>Puedes activarlas o desactivarlas cuando quieras desde Configuración.</p>
+        </div>
+    </template>
+
+    <!-- Buscador global -->
+
+    <template id="tpl-buscador-global">
+        <div class="buscador-global">
+            <div class="buscador-header">
+                <span class="buscador-header-icono" data-tpl="icono"></span>
+                <input type="text" id="buscador-input" class="buscador-input"
+                       placeholder="Buscar en páginas, cuentas, movimientos y activos..."
+                       aria-label="Buscar global" autocomplete="off">
+            </div>
+            <div class="buscador-resultados" role="listbox">
+                <p class="lista-vacia">Escribe para buscar…</p>
+            </div>
+        </div>
+    </template>
+
+    <!-- Atajos de teclado -->
+
+    <template id="tpl-atajos-modal">
+        <div class="atajos-modal">
+            <div class="atajos-grupos" data-tpl="grupos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-atajos-grupo">
+        <div class="atajos-grupo">
+            <h3 class="atajos-grupo-titulo" data-tpl="titulo"></h3>
+            <div class="atajos-lista" data-tpl="filas"></div>
+        </div>
+    </template>
+
+    <template id="tpl-atajo-fila">
+        <div class="atajo">
+            <span class="atajo-teclas" data-tpl="teclas"></span>
+            <span class="atajo-descripcion" data-tpl="descripcion"></span>
+        </div>
+    </template>
+
+    <!-- Movimientos: selector de tipo, dirección de trade y confirmaciones -->
+
+    <template id="tpl-grupo-tipos-destacados">
+        <div class="selector-tipos selector-tipos-destacados" data-tpl="botones"></div>
+    </template>
+
+    <template id="tpl-grupo-tipos-secundarios">
+        <div class="selector-tipos selector-tipos-secundarios" data-tpl="botones"></div>
+    </template>
+
+    <!-- El destacado es un <button>, no un div que envuelve a otro button:
+         con el div exterior la zona sensible era el cuadrado entero de la celda
+         y quedaba fuera del recorrido del teclado (BUG-016). -->
+    <template id="tpl-tipo-principal">
+        <button class="tipo-movimiento-btn tipo-principal" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo,aria-label">
+            <span class="tipo-icono" aria-hidden="true" data-tpl="icono"></span>
+            <span class="tipo-texto" data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <template id="tpl-tipo-secundario">
+        <button class="tipo-movimiento-btn tipo-secundario" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo">
+            <span data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <!-- Si la cantidad de secundarios es impar, el último (error) ocupa ambas columnas. -->
+    <template id="tpl-tipo-secundario-full">
+        <button class="tipo-movimiento-btn tipo-secundario span-full" type="button"
+                data-tpl="tipo" data-tpl-attr="data-tipo">
+            <span data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <template id="tpl-direccion-trade">
+        <div class="selector-tipos selector-tipos-secundarios">
+            <button class="tipo-movimiento-btn tipo-secundario" data-direccion="long" type="button">Largo (Long)</button>
+            <button class="tipo-movimiento-btn tipo-secundario" data-direccion="short" type="button">Corto (Short)</button>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-eliminar-varios">
+        <div class="modal-message">
+            <p class="modal-message-title-danger" data-tpl="pregunta"></p>
+        </div>
+    </template>
+
+    <template id="tpl-detalle-movimiento">
+        <div data-tpl="formulario"></div>
+        <div class="movimiento-detalle-acciones" id="detalle-acciones"></div>
+    </template>
+
+    <!-- Cuentas -->
+
+    <template id="tpl-confirmar-cuenta">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                <span data-tpl="pregunta"></span> <strong data-tpl="nombre"></strong>?
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-archivar-en-cero">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                La cuenta <strong data-tpl="nombre"></strong> tiene un saldo distinto de 0.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-archivar-en-cero-credito">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                La tarjeta <strong data-tpl="nombre"></strong> tiene una deuda pendiente.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-modal-cuenta">
+        <div class="cuenta-modal-tabs" role="tablist" aria-label="Vista de la cuenta">
+            <button type="button" role="tab" class="cuenta-modal-tab active" data-vista="info">Información</button>
+            <button type="button" role="tab" class="cuenta-modal-tab" data-vista="movimientos">Movimientos</button>
+        </div>
+        <div class="cuenta-modal-cuerpo"></div>
+        <div class="cuenta-modal-flechas">
+            <button type="button" class="glass-btn cuenta-modal-ant" aria-label="Anterior" data-tpl="anterior"></button>
+            <button type="button" class="glass-btn cuenta-modal-sig" aria-label="Siguiente" data-tpl="siguiente"></button>
+        </div>
+    </template>
+
+    <!-- Dashboard: editor de cards, patrimonio y evolución -->
+
+    <template id="tpl-dashboard-editor">
+        <div class="dashboard-editor">
+            <div class="dashboard-editor-grid" data-tpl="cards"></div>
+            <div data-tpl="cuentas"></div>
+            <div data-tpl="activos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-editor-bloque">
+        <div class="dashboard-editor-bloque">
+            <span class="dashboard-editor-titulo" data-tpl="titulo"></span>
+            <p class="dashboard-editor-hint" data-tpl="descripcion"></p>
+            <div class="dashboard-editor-grid" data-tpl="opciones" data-tpl-oculto></div>
+            <p class="dashboard-editor-hint" data-tpl="vacio" data-tpl-oculto></p>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-card">
+        <label class="dashboard-card-opcion" data-tpl="card" data-tpl-attr="data-card">
+            <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked">
+            <span data-tpl="etiqueta"></span>
+        </label>
+    </template>
+
+    <template id="tpl-dashboard-card-instancia">
+        <label data-tpl="instancia" data-tpl-attr="class">
+            <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked,disabled">
+            <span>
+                <span data-tpl="nombre"></span>
+                <small data-tpl="tipo"></small>
+            </span>
+        </label>
+    </template>
+
+    <template id="tpl-patrimonio-loading">
+        <div class="patrimonio-modal-loading" data-tpl="logo"></div>
+    </template>
+
+    <template id="tpl-patrimonio">
+        <p class="patrimonio-modal-caption patrimonio-modal-owner">
+            <span data-tpl="nombre"></span>, posees
+        </p>
+        <div data-tpl="total" data-tpl-attr="class">
+            <span data-tpl="patrimonio"></span>
+        </div>
+        <div class="patrimonio-modal-stats">
+            <div class="patrimonio-modal-stat">
+                <span>Disponible</span>
+                <strong data-tpl="disponible"></strong>
+            </div>
+            <div class="patrimonio-modal-stat">
+                <span>Inmovil / invertido</span>
+                <strong data-tpl="invertido"></strong>
+            </div>
+            <div class="patrimonio-modal-stat">
+                <span>Deudas</span>
+                <strong data-tpl="deudas"></strong>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-evolucion">
+        <div class="evolucion-modal-grafico">
+            <canvas id="grafico-patrimonio-modal"></canvas>
+        </div>
+        <div class="toggle-group grafico-periodos-modal" id="grafico-periodos-modal" data-tpl="periodos"></div>
+    </template>
+
+    <template id="tpl-periodo-grafico">
+        <span class="toggle-option" data-tpl="periodo" data-tpl-attr="data-periodo" data-tpl="etiqueta"></span>
+    </template>
+
+    <!-- Inversiones y trading -->
+
+    <template id="tpl-confirmar-eliminar-inversion">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Eliminar <span data-tpl="elemento"></span> <strong data-tpl="nombre"></strong>
+                (<span data-tpl="detalle"></span>)?
+            </p>
+            <p class="modal-message-warning" data-tpl="aviso"></p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-reabrir-trade">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Reabrir el trade de <span data-tpl="activo"></span> (<span data-tpl="tipo"></span>)?
+                Se eliminará la salida registrada.
+            </p>
+        </div>
+    </template>
+
+    <template id="tpl-confirmar-eliminar-documento">
+        <div class="modal-message">
+            <p class="modal-message-desc">
+                ¿Estás seguro de que quieres eliminar <span data-tpl="articulo"></span>
+                <span data-tpl="elemento"></span>?
+            </p>
+        </div>
+    </template>
+
+    <!-- while (DEUDA-017): el botón existe y no hace nada todavía. -->
+    <template id="tpl-broker-desarrollo">
+        <div class="modal-message">
+            <p class="modal-message-desc">Configuración de brokers (en desarrollo)</p>
+        </div>
+    </template>
+
+    <!-- Listas de metas y pendientes -->
+
+    <template id="tpl-lista-metas">
+        <div class="pendientes-cabecera">
+            <span class="pendientes-contador" id="metas-contador" data-tpl="contador"></span>
+            <div class="pendientes-cabecera-acciones">
+                <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-metas-lote" disabled>
+                    Eliminar seleccionadas
+                </button>
+                <button class="glass pendiente-crear-btn" id="btn-crear-meta">
+                    + Nueva meta
+                </button>
+            </div>
+        </div>
+        <div class="pendientes-lista">
+            <p class="pendiente-vacio" data-tpl="vacio" data-tpl-oculto>No hay metas registradas.</p>
+            <div data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-meta-card">
+        <div class="card-item meta-card" data-tpl="meta" data-tpl-attr="data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo">
+                        <span data-tpl="nombre"></span>
+                        <span class="pendiente-vencido" data-tpl="estado" data-tpl-oculto></span>
+                    </span>
+                    <span class="card-item-detalle">
+                        Faltan <span data-tpl="restante"></span>
+                    </span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor"></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="aportar" title="Aportar" aria-label="Aportar" data-tpl="icono-aportar"></button>
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-lista-pendientes">
+        <div class="pendientes-cabecera">
+            <span class="pendientes-contador" id="pendientes-contador" data-tpl="contador"></span>
+            <div class="pendientes-cabecera-acciones">
+                <button class="glass pendiente-lote-btn pendiente-eliminar-lote-btn" id="btn-eliminar-lote" disabled>
+                    Eliminar seleccionados
+                </button>
+                <button class="glass pendiente-crear-btn" id="btn-crear-pendiente">
+                    + Nuevo pendiente
+                </button>
+            </div>
+        </div>
+        <div class="pendientes-lista">
+            <p class="pendiente-vacio" data-tpl="vacio" data-tpl-oculto>No hay pendientes registrados.</p>
+            <div data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-pendiente-card">
+        <div class="card-item pendiente-card" data-tpl="pendiente" data-tpl-attr="data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo" data-tpl="concepto"></span>
+                    <span class="card-item-detalle">
+                        <span data-tpl="vence" data-tpl-oculto></span>
+                        <span class="text-muted" data-tpl="sin-fecha" data-tpl-oculto>Sin fecha de vencimiento</span>
+                        <span class="pendiente-vencido" data-tpl="vencido" data-tpl-oculto> · VENCIDO</span>
+                    </span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor" data-tpl-attr="class"></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="consolidar" title="Consolidar" aria-label="Consolidar" data-tpl="icono-consolidar"></button>
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Trading: trades y órdenes -->
+
+    <template id="tpl-form-nuevo-trade">
+        <form class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label for="trade-activo">Activo *</label>
+                <input type="text" id="trade-activo" class="form-input" placeholder="Ej: BTC, ETH, AAPL" required>
+            </div>
+            <div class="form-group">
+                <label for="trade-cuenta">Cuenta *</label>
+                <select id="trade-cuenta" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="trade-entrada">Entrada *</label>
+                <input type="number" id="trade-entrada" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label for="trade-lotaje">Lotaje *</label>
+                <input type="number" id="trade-lotaje" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
+            </div>
+            <div class="form-group">
+                <label for="trade-sl">Stop Loss</label>
+                <input type="number" id="trade-sl" class="form-input" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="trade-tp">Take Profit</label>
+                <input type="number" id="trade-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-form-cerrar-trade">
+        <form class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label>Activo</label>
+                <span class="form-static" data-tpl="activo"></span>
+            </div>
+            <div class="form-group">
+                <label>Entrada</label>
+                <span class="form-static" data-tpl="entrada"></span>
+            </div>
+            <div class="form-group">
+                <label>Lotaje</label>
+                <span class="form-static" data-tpl="lotaje"></span>
+            </div>
+            <div class="form-group full">
+                <label for="cerrar-salida">Precio de salida *</label>
+                <input type="number" id="cerrar-salida" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-form-editar-trade">
+        <form class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label for="editar-trade-activo">Activo *</label>
+                <input type="text" id="editar-trade-activo" class="form-input" data-tpl="activo" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-trade-tipo">Dirección</label>
+                <select id="editar-trade-tipo" class="form-input">
+                    <option value="long" data-tpl="largo" data-tpl-attr="selected">Largo (Long)</option>
+                    <option value="short" data-tpl="corto" data-tpl-attr="selected">Corto (Short)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editar-trade-entrada">Entrada *</label>
+                <input type="number" id="editar-trade-entrada" class="form-input" step="0.01" min="0.01" data-tpl="entrada" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-trade-lotaje">Lotaje *</label>
+                <input type="number" id="editar-trade-lotaje" class="form-input" step="0.0001" min="0.0001" data-tpl="lotaje" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-trade-sl">Stop Loss</label>
+                <input type="number" id="editar-trade-sl" class="form-input" step="0.01" min="0" data-tpl="sl" data-tpl-attr="value" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="editar-trade-tp">Take Profit</label>
+                <input type="number" id="editar-trade-tp" class="form-input" step="0.01" min="0" data-tpl="tp" data-tpl-attr="value" placeholder="0.00">
+            </div>
+            <div class="form-group full" data-tpl="bloque-salida" data-tpl-attr="hidden">
+                <label for="editar-trade-salida">Precio de salida</label>
+                <input type="number" id="editar-trade-salida" class="form-input" step="0.01" min="0"
+                       data-tpl="salida" data-tpl-attr="value,placeholder">
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-form-nueva-orden">
+        <form class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label for="orden-activo">Activo *</label>
+                <input type="text" id="orden-activo" class="form-input" placeholder="Ej: BTC, ETH, AAPL" required>
+            </div>
+            <div class="form-group">
+                <label for="orden-cuenta">Cuenta *</label>
+                <select id="orden-cuenta" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="orden-tipo">Tipo de orden *</label>
+                <select id="orden-tipo" class="form-input">
+                    <option value="limite">Límite</option>
+                    <option value="stop">Stop</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="orden-direccion">Dirección *</label>
+                <select id="orden-direccion" class="form-input">
+                    <option value="long">Compra (Largo)</option>
+                    <option value="short">Venta (Corto)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="orden-precio">Precio de disparo *</label>
+                <input type="number" id="orden-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label for="orden-lotaje">Lotaje *</label>
+                <input type="number" id="orden-lotaje" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
+            </div>
+            <div class="form-group">
+                <label for="orden-sl">Stop Loss</label>
+                <input type="number" id="orden-sl" class="form-input" step="0.01" min="0" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="orden-tp">Take Profit</label>
+                <input type="number" id="orden-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-detalle-orden">
+        <div class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label>Activo</label>
+                <span class="form-static" data-tpl="activo"></span>
+            </div>
+            <div class="form-group">
+                <label>Tipo de orden</label>
+                <span class="form-static" data-tpl="tipo"></span>
+            </div>
+            <div class="form-group">
+                <label>Estado</label>
+                <span class="form-static" data-tpl="estado"></span>
+            </div>
+            <div class="form-group">
+                <label>Precio de disparo</label>
+                <span class="form-static" data-tpl="precio"></span>
+            </div>
+            <div class="form-group">
+                <label>Lotaje</label>
+                <span class="form-static" data-tpl="lotaje"></span>
+            </div>
+            <div class="form-group">
+                <label>Stop Loss</label>
+                <span class="form-static" data-tpl="sl"></span>
+            </div>
+            <div class="form-group">
+                <label>Take Profit</label>
+                <span class="form-static" data-tpl="tp"></span>
+            </div>
+            <div class="form-group" data-tpl="bloque-ejecucion" data-tpl-attr="hidden">
+                <label>Precio ejecutado</label>
+                <span class="form-static" data-tpl="ejecucion"></span>
+            </div>
+            <div class="form-group">
+                <label>Creada el</label>
+                <span class="form-static" data-tpl="creada"></span>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-form-editar-orden">
+        <form class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label for="editar-orden-activo">Activo *</label>
+                <input type="text" id="editar-orden-activo" class="form-input" data-tpl="activo" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-cuenta">Cuenta *</label>
+                <select id="editar-orden-cuenta" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-tipo">Tipo de orden *</label>
+                <select id="editar-orden-tipo" class="form-input">
+                    <option value="limite" data-tpl="limite" data-tpl-attr="selected">Límite</option>
+                    <option value="stop" data-tpl="stop" data-tpl-attr="selected">Stop</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-direccion">Dirección *</label>
+                <select id="editar-orden-direccion" class="form-input">
+                    <option value="long" data-tpl="largo" data-tpl-attr="selected">Compra (Largo)</option>
+                    <option value="short" data-tpl="corto" data-tpl-attr="selected">Venta (Corto)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-precio">Precio de disparo *</label>
+                <input type="number" id="editar-orden-precio" class="form-input" step="0.01" min="0.01" data-tpl="precio" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-lotaje">Lotaje *</label>
+                <input type="number" id="editar-orden-lotaje" class="form-input" step="0.0001" min="0.0001" data-tpl="lotaje" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-sl">Stop Loss</label>
+                <input type="number" id="editar-orden-sl" class="form-input" step="0.01" min="0" data-tpl="sl" data-tpl-attr="value" placeholder="0.00">
+            </div>
+            <div class="form-group">
+                <label for="editar-orden-tp">Take Profit</label>
+                <input type="number" id="editar-orden-tp" class="form-input" step="0.01" min="0" data-tpl="tp" data-tpl-attr="value" placeholder="0.00">
+            </div>
+        </form>
+    </template>
+
+    <!-- Inversiones: estrategia, gráfico, precio, compra y venta -->
+
+    <template id="tpl-form-estrategia">
+        <form id="form-estrategia" class="form-movimiento form-movimiento-grid estrategia-form">
+            <div class="form-group full">
+                <label for="estrategia-nombre">Nombre de la estrategia *</label>
+                <input type="text" id="estrategia-nombre" class="form-input"
+                       placeholder="Ej: DCA mensual VOO" data-tpl="nombre" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="estrategia-simbolo">Símbolo del activo *</label>
+                <input type="text" id="estrategia-simbolo" class="form-input"
+                       placeholder="Ej: VOO, BTC, AAPL" data-tpl="simbolo" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="estrategia-cuenta">Cuenta de origen *</label>
+                <select id="estrategia-cuenta" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="estrategia-monto">Monto fijo por compra *</label>
+                <input type="number" id="estrategia-monto" class="form-input" step="0.01" min="0.01"
+                       placeholder="0.00" data-tpl="monto" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label for="estrategia-divisa">Divisa *</label>
+                <select id="estrategia-divisa" class="form-input" required>
+                    <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
+                    <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
+                    <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="estrategia-frecuencia">Frecuencia *</label>
+                <select id="estrategia-frecuencia" class="form-input">
+                    <option value="diaria" data-tpl="diaria" data-tpl-attr="selected">Diaria</option>
+                    <option value="semanal" data-tpl="semanal" data-tpl-attr="selected">Semanal</option>
+                    <option value="mensual" data-tpl="mensual" data-tpl-attr="selected">Mensual</option>
+                </select>
+            </div>
+            <div class="form-group" id="estrategia-dia-semana-group" hidden>
+                <label for="estrategia-dia-semana">Día de la semana</label>
+                <select id="estrategia-dia-semana" class="form-input" data-tpl="dias"></select>
+            </div>
+            <div class="form-group" id="estrategia-dia-mes-group" hidden>
+                <label for="estrategia-dia-mes">Día del mes</label>
+                <input type="number" id="estrategia-dia-mes" class="form-input" min="1" max="31" value="1">
+            </div>
+            <div class="form-group">
+                <label>Próxima ejecución</label>
+                <div class="form-static" id="estrategia-proxima-preview">—</div>
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-grafico-activo">
+        <div class="grafico-container">
+            <canvas id="grafico-activo"></canvas>
+        </div>
+        <div class="grafico-info">
+            <div class="grafico-nombre" data-tpl="nombre"></div>
+            <div class="grafico-precio" data-tpl="precio"></div>
+            <div class="grafico-periodo">Últimos 7 días</div>
+        </div>
+    </template>
+
+    <template id="tpl-form-precio-manual">
+        <form class="form-movimiento">
+            <div class="modal-message" data-tpl="aviso" data-tpl-attr="hidden">
+                <p class="modal-message-desc">
+                    Este activo usa <strong>precio automático</strong>.
+                    Puedes actualizarlo desde la API o ingresar un precio manual.
+                </p>
+            </div>
+            <div class="form-group">
+                <label for="precio-manual">
+                    Nuevo precio (<span data-tpl="nombre"></span>)
+                </label>
+                <input type="number" id="precio-manual" class="form-input" step="0.01" min="0.01"
+                       data-tpl="precio" data-tpl-attr="value" placeholder="0.00" required>
+            </div>
+        </form>
+    </template>
+
+    <!-- Grupo de fecha, compartido por compra y venta. -->
+    <template id="tpl-grupo-campo-fecha">
+        <div class="form-group">
+            <label for="fecha" data-tpl="etiqueta" data-tpl-attr="for">Fecha</label>
+            <div class="campo-fecha">
+                <input type="date" data-tpl="campo" data-tpl-attr="id,value,max">
+                <button type="button" class="btn-calendario" aria-label="Abrir calendario">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
+                        <path d="M8 2v4"/>
+                        <path d="M16 2v4"/>
+                        <rect width="18" height="18" x="3" y="4" rx="2"/>
+                        <path d="M3 10h18"/>
+                        <path d="M8 14h.01"/>
+                        <path d="M12 14h.01"/>
+                        <path d="M16 14h.01"/>
+                        <path d="M8 18h.01"/>
+                        <path d="M12 18h.01"/>
+                        <path d="M16 18h.01"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-form-compra">
+        <form id="form-comprar" class="form-movimiento form-movimiento-grid">
+            <div class="form-group">
+                <label for="compra-simbolo">Símbolo del activo *</label>
+                <input type="text" id="compra-simbolo" class="form-input" placeholder="Ej: VOO, BTC, AAPL" required>
+            </div>
+            <div class="form-group">
+                <label for="compra-nombre">Nombre del activo (solo si es nuevo)</label>
+                <input type="text" id="compra-nombre" class="form-input" placeholder="Ej: Vanguard S&P 500 ETF">
+            </div>
+            <div class="form-group">
+                <label for="compra-tipo">Tipo (solo si es nuevo)</label>
+                <select id="compra-tipo" class="form-input">
+                    <option value="accion">Acción</option>
+                    <option value="etf">ETF</option>
+                    <option value="crypto">Cripto</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="compra-fuente">Precio (solo si es nuevo)</label>
+                <select id="compra-fuente" class="form-input">
+                    <option value="manual">Manual</option>
+                    <option value="api">Automático (Binance/Yahoo)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="compra-apisimbolo">Símbolo API (solo si es nuevo)</label>
+                <input type="text" id="compra-apisimbolo" class="form-input" placeholder="Vacío = mismo símbolo">
+            </div>
+            <div class="form-group">
+                <label for="compra-cantidad">Cantidad *</label>
+                <input type="number" id="compra-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
+            </div>
+            <div class="form-group">
+                <label for="compra-precio">Precio unitario *</label>
+                <input type="number" id="compra-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label for="compra-comision">Comisión</label>
+                <input type="number" id="compra-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
+            </div>
+            <div class="form-group">
+                <label for="compra-cuenta">Cuenta de origen</label>
+                <select id="compra-cuenta" class="form-input">
+                    <option value="">Sin cuenta (solo posición)</option>
+                </select>
+                <span class="form-hint">Opcional: sin cuenta, la posición se registra sin afectar saldos.</span>
+            </div>
+            <div data-tpl="fecha" data-tpl-reemplazar></div>
+        </form>
+    </template>
+
+    <template id="tpl-form-venta">
+        <form id="form-vender" class="form-movimiento form-movimiento-grid">
+            <div class="form-group span-full">
+                <label for="venta-posicion">Seleccionar posición *</label>
+                <select id="venta-posicion" class="form-input" required>
+                    <option value="">Seleccionar...</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="venta-cantidad">Cantidad a vender *</label>
+                <input type="number" id="venta-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
+            </div>
+            <div class="form-group">
+                <label for="venta-precio">Precio de venta *</label>
+                <input type="number" id="venta-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+                <label for="venta-comision">Comisión</label>
+                <input type="number" id="venta-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
+            </div>
+            <div class="form-group">
+                <label for="venta-cuenta">Cuenta de destino *</label>
+                <select id="venta-cuenta" class="form-input" required>
+                    <option value="">Seleccionar cuenta</option>
+                </select>
+            </div>
+            <div data-tpl="fecha" data-tpl-reemplazar></div>
+        </form>
+    </template>
+
+    <!-- Formulario de movimiento: el contenedor y los tipos de campo.
+     Los campos se insertan con insertBefore justo antes del grupo de
+     etiquetas (data-tpl="etiquetas"), sin envolturas que rompan la rejilla. -->
+
+    <template id="tpl-form-movimiento">
+        <form id="form-movimiento" class="form-movimiento form-movimiento-grid">
+            <div class="form-group span-full" data-tpl="etiquetas">
+                <label for="campo-etiquetas">Etiquetas</label>
+                <input type="text" id="campo-etiquetas" class="form-input" placeholder="Ej: viaje, comida" autocomplete="off">
+                <span class="form-hint">Sepáralas con comas. Sirven para filtrar la lista.</span>
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-campo-select-buscable">
+        <div class="form-group span-full">
+            <label data-tpl="etiqueta" data-tpl-attr="for"></label>
+            <input type="text" class="form-input form-buscador" placeholder=""
+                   autocomplete="off" spellcheck="false" data-tpl="buscador" data-tpl-attr="data-select">
+            <!-- Las <option> no se pueden envolver en un div dentro de un
+                 <select>: el HTML las descarta. Se añaden al select ya creado. -->
+            <select class="form-input" data-tpl="select" data-tpl-attr="id,required">
+                <option value="" data-tpl="placeholder"></option>
+            </select>
+        </div>
+    </template>
+
+    <template id="tpl-campo-select">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label data-tpl="etiqueta" data-tpl-attr="for"></label>
+            <select class="form-input" data-tpl="select" data-tpl-attr="id,required"></select>
+        </div>
+    </template>
+
+    <template id="tpl-campo-texto">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label data-tpl="etiqueta" data-tpl-attr="for"></label>
+            <input type="text" class="form-input" data-tpl="campo" data-tpl-attr="id,placeholder,required">
+        </div>
+    </template>
+
+    <template id="tpl-campo-numero">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label data-tpl="etiqueta" data-tpl-attr="for"></label>
+            <input type="number" class="form-input" data-tpl="campo"
+                   data-tpl-attr="id,step,min,placeholder,value,required">
+        </div>
+    </template>
+
+    <template id="tpl-campo-monto">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label data-tpl="etiqueta" data-tpl-attr="for">
+                Monto (<span id="simbolo-monto" class="simbolo-divisa">S/</span>)
+            </label>
+            <input type="number" class="form-input" step="0.01" min="0.01" placeholder="0.00"
+                   data-tpl="campo" data-tpl-attr="id,required">
+        </div>
+    </template>
+
+    <template id="tpl-campo-activo">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label for="campo-activo">Activo</label>
+            <input type="text" id="campo-activo" class="form-input" list="lista-activos"
+                   placeholder="Ej: VOO, BTC..." autocomplete="off" spellcheck="false"
+                   data-tpl="requerido" data-tpl-attr="required">
+            <datalist id="lista-activos" data-tpl="activos"></datalist>
+            <input type="text" id="campo-activo-nombre" class="form-input form-input-bloqueado"
+                   placeholder="Nombre del activo" readonly tabindex="-1">
+        </div>
+    </template>
+
+    <template id="tpl-campo-fecha">
+        <div data-tpl="grupo" data-tpl-attr="class">
+            <label data-tpl="etiqueta" data-tpl-attr="for"></label>
+            <div class="campo-fecha">
+                <input type="date" class="form-input" data-tpl="campo" data-tpl-attr="id,value,max,required">
+                <button type="button" class="btn-calendario" aria-label="Abrir calendario">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
+                        <path d="M8 2v4"/>
+                        <path d="M16 2v4"/>
+                        <rect width="18" height="18" x="3" y="4" rx="2"/>
+                        <path d="M3 10h18"/>
+                        <path d="M8 14h.01"/>
+                        <path d="M12 14h.01"/>
+                        <path d="M16 14h.01"/>
+                        <path d="M8 18h.01"/>
+                        <path d="M12 18h.01"/>
+                        <path d="M16 18h.01"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </template>
+
+    <!-- Opciones de los select y del datalist de activos -->
+
+    <template id="tpl-opcion-cuenta">
+        <option data-tpl="opcion" data-tpl-attr="value,data-moneda,data-tipo" data-tpl="texto"></option>
+    </template>
+
+    <template id="tpl-opcion-activo">
+        <option data-tpl="opcion" data-tpl-attr="value,label"></option>
+    </template>
+
+    <!-- Pendientes: formulario, vista de detalle -->
+
+    <template id="tpl-form-pendiente">
+        <form id="form-crear-pendiente" class="form-movimiento">
+            <div class="form-group">
+                <label for="pendiente-concepto">Concepto *</label>
+                <input type="text" id="pendiente-concepto" class="form-input" placeholder="Ej: Venta de celular" required
+                       data-tpl="concepto" data-tpl-attr="value">
+            </div>
+            <div class="form-group">
+                <label for="pendiente-tipo">Tipo *</label>
+                <select id="pendiente-tipo" class="form-input" required>
+                    <option value="true" data-tpl="cobrar" data-tpl-attr="selected">Cobrar (deuda a favor)</option>
+                    <option value="false" data-tpl="pagar" data-tpl-attr="selected">Pagar (deuda en contra)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="pendiente-monto">Monto *</label>
+                <input type="number" id="pendiente-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00" required
+                       data-tpl="monto" data-tpl-attr="value">
+            </div>
+            <div class="form-group">
+                <label for="pendiente-divisa">Divisa *</label>
+                <select id="pendiente-divisa" class="form-input" required>
+                    <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
+                    <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
+                    <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                </select>
+            </div>
+            <div data-tpl="vencimiento"></div>
+            <div class="pendiente-hint">
+                * Campos obligatorios
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-detalle-pendiente">
+        <div data-tpl="formulario"></div>
+        <div class="movimiento-detalle-acciones" id="detalle-pendiente-acciones"></div>
+    </template>
+
+    <!-- Metas: crear/editar y aporte -->
+
+    <template id="tpl-form-meta">
+        <form id="form-meta" class="form-movimiento">
+            <div class="form-group">
+                <label for="meta-nombre">Nombre *</label>
+                <input type="text" id="meta-nombre" class="form-input" placeholder="Ej: Fondo de emergencia" required
+                       data-tpl="nombre" data-tpl-attr="value">
+            </div>
+            <div class="form-grupo-doble">
+                <div class="form-group">
+                    <label for="meta-objetivo">Monto objetivo *</label>
+                    <input type="number" id="meta-objetivo" class="form-input" step="0.01" min="0.01" placeholder="0.00" required
+                           data-tpl="objetivo" data-tpl-attr="value">
+                </div>
+                <div class="form-group">
+                    <label for="meta-actual">Monto actual</label>
+                    <input type="number" id="meta-actual" class="form-input" step="0.01" min="0" placeholder="0.00"
+                           data-tpl="actual" data-tpl-attr="value,disabled">
+                </div>
+            </div>
+            <div class="form-fila-fecha-divisa">
+                <div class="form-group form-fecha-flex">
+                    <label for="meta-fecha">Fecha límite</label>
+                    <div class="campo-fecha">
+                        <input type="date" id="meta-fecha" class="form-input" data-tpl="fecha" data-tpl-attr="value">
+                        <button type="button" class="btn-calendario" aria-label="Abrir calendario">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
+                                <path d="M8 2v4"/>
+                                <path d="M16 2v4"/>
+                                <rect width="18" height="18" x="3" y="4" rx="2"/>
+                                <path d="M3 10h18"/>
+                                <path d="M8 14h.01"/>
+                                <path d="M12 14h.01"/>
+                                <path d="M16 14h.01"/>
+                                <path d="M8 18h.01"/>
+                                <path d="M12 18h.01"/>
+                                <path d="M16 18h.01"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="form-group form-divisa-auto">
+                    <label for="meta-divisa">Divisa *</label>
+                    <select id="meta-divisa" class="form-input">
+                        <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
+                        <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
+                        <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-form-aporte-meta">
+        <form id="form-aporte-meta" class="form-movimiento">
+            <div class="aporte-progreso-wrap">
+                <div class="aporte-progreso">
+                    <div class="aporte-progreso-barra" id="aporte-progreso-barra"></div>
+                </div>
+                <span class="badge badge--positive" id="aporte-progreso-badge" data-tpl="porcentaje"></span>
+            </div>
+            <div class="aporte-valores">
+                <div class="aporte-valor">
+                    <span class="aporte-valor-label">Total</span>
+                    <span class="aporte-valor-fuerte" data-tpl="total"></span>
+                </div>
+                <div class="aporte-valor">
+                    <span class="aporte-valor-label">Aportado</span>
+                    <span class="aporte-valor-fuerte" data-tpl="aportado"></span>
+                </div>
+                <div class="aporte-valor">
+                    <span class="aporte-valor-label">Fecha límite</span>
+                    <span class="aporte-valor-fuerte" data-tpl="limite"></span>
+                </div>
+            </div>
+            <div class="aporte-fila">
+                <div class="form-group aporte-monto-flex">
+                    <label for="aporte-monto">Monto del aporte *</label>
+                    <input type="number" id="aporte-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00" value="" required>
+                </div>
+                <div class="form-group aporte-cuenta-flex">
+                    <label for="aporte-cuenta">Cuenta de origen *</label>
+                    <select id="aporte-cuenta" class="form-input" required>
+                        <option value="">Seleccionar cuenta</option>
+                    </select>
+                </div>
+            </div>
+        </form>
+    </template>
+
+    <!-- Cuentas: selector de tipo (paso 1) y formulario de creación (paso 2) -->
+
+    <template id="tpl-selector-tipo-cuenta">
+        <div class="cuenta-tipos-grid" data-tpl="opciones"></div>
+    </template>
+
+    <template id="tpl-tipo-cuenta-opcion">
+        <button type="button" class="cuenta-tipo-opcion" data-tpl="tipo" data-tpl-attr="data-tipo">
+            <span class="cuenta-tipo-icono" data-tpl="icono"></span>
+            <span class="cuenta-tipo-texto" data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <!-- Los grupos condicionales (card-only, credit-only) van ocultos de serie
+         y el JS los muestra según el tipo elegido. Los bloques que salen de
+         helpers (saldos por divisa, vencimiento, fecha de anualidad) se
+         insertan ya construidos. -->
+    <template id="tpl-form-crear-cuenta">
+        <form id="form-crear-cuenta" class="form-movimiento form-movimiento-grid">
+            <input type="hidden" id="campo-tipo" data-tpl="tipo" data-tpl-attr="value">
+            <div class="form-group" id="grupo-nombre">
+                <label for="campo-nombre">Nombre de la cuenta</label>
+                <input type="text" id="campo-nombre" class="form-input" placeholder="Ej: BBVA, BCP..." required data-tpl="nombre" data-tpl-attr="placeholder">
+            </div>
+            <div class="form-group">
+                <label>Divisa de la cuenta</label>
+                <div class="toggle-group">
+                    <span class="toggle-option active" data-divisa="pen">PEN</span>
+                    <span class="toggle-option" data-divisa="usd">USD</span>
+                    <span class="toggle-option" data-divisa="eur">EUR</span>
+                    <span class="toggle-option" data-divisa="usdt">USDT</span>
+                </div>
+            </div>
+            <div data-tpl="saldos" data-tpl-oculto data-tpl-reemplazar></div>
+            <div class="form-group">
+                <label for="campo-esPatrimonio">Incluir en mi patrimonio</label>
+                <label class="switch">
+                    <input type="checkbox" id="campo-esPatrimonio" data-tpl="patrimonio" data-tpl-attr="checked">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="form-group" data-tpl="bloque-uid" data-tpl-attr="hidden">
+                <label for="campo-uid">UID</label>
+                <input type="text" id="campo-uid" class="form-input" placeholder="UID del exchange">
+            </div>
+            <div class="form-group card-only" hidden>
+                <label for="campo-num-tarjeta">Número de tarjeta</label>
+                <input type="text" id="campo-num-tarjeta" class="form-input" placeholder="0000 0000 0000 0000" maxlength="19">
+            </div>
+            <div class="card-only" hidden data-tpl="vencimiento"></div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-limite">Línea de crédito</label>
+                <input type="number" id="campo-limite" class="form-input" step="0.01" min="0" value="0">
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-anualidad">Anualidad</label>
+                <input type="number" id="campo-anualidad" class="form-input" step="0.01" min="0" value="0">
+            </div>
+            <div class="form-group credit-only full" hidden>
+                <label for="campo-anualidad-fecha">Fecha de anualidad</label>
+                <div data-tpl="anualidad-fecha"></div>
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-diaCorte">Día de corte</label>
+                <input type="number" id="campo-diaCorte" class="form-input" min="1" max="31" value="10">
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-diaPago">Día de pago</label>
+                <input type="number" id="campo-diaPago" class="form-input" min="1" max="31" value="6">
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-desgravamen">Desgravamen (%)</label>
+                <input type="number" id="campo-desgravamen" class="form-input" step="0.01" min="0" value="0.34">
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-umbralAviso">Umbral de advertencia (%)</label>
+                <input type="number" id="campo-umbralAviso" class="form-input" min="1" max="99" value="30">
+            </div>
+            <div class="form-group credit-only" hidden>
+                <label for="campo-umbralCritico">Umbral crítico (%)</label>
+                <input type="number" id="campo-umbralCritico" class="form-input" min="1" max="100" value="70">
+            </div>
+        </form>
+    </template>
+
+    <template id="tpl-editar-cuenta">
+        <div class="edit-tabs" role="tablist" aria-label="Secciones de la cuenta" data-tpl="tabs"></div>
+        <form id="form-editar-cuenta" class="form-movimiento">
+            <div class="edit-panel" data-panel="general">
+                <div class="form-movimiento form-movimiento-grid">
+                    <div class="form-group">
+                        <label for="edit-nombre">Nombre</label>
+                        <input type="text" id="edit-nombre" class="form-input" data-tpl="nombre" data-tpl-attr="value" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-esPatrimonio">Incluir en mi patrimonio</label>
+                        <label class="switch">
+                            <input type="checkbox" id="edit-esPatrimonio" data-tpl="esPatrimonio" data-tpl-attr="checked">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group" data-tpl="bloque-saldo" data-tpl-attr="hidden">
+                        <label for="edit-saldo">Saldo inicial</label>
+                        <input type="number" id="edit-saldo" class="form-input" step="0.01" data-tpl="saldo" data-tpl-attr="value">
+                    </div>
+                    <div data-tpl="divisas" data-tpl-reemplazar></div>
+                    <div class="form-group full" data-tpl="bloque-crypto" data-tpl-attr="hidden">
+                        <label for="edit-crypto-nueva">Añadir criptomoneda</label>
+                        <div class="crypto-add">
+                            <input type="text" id="edit-crypto-nueva" class="form-input" placeholder="BTC" maxlength="12" style="text-transform:uppercase">
+                            <button type="button" class="glass-btn" id="btn-crypto-anadir">Añadir</button>
+                        </div>
+                    </div>
+                    <div data-tpl="bloque-credito" data-tpl-attr="hidden" style="display:contents">
+                        <div class="form-group">
+                            <label for="edit-limite">Línea de crédito</label>
+                            <input type="number" id="edit-limite" class="form-input" step="0.01" data-tpl="limite" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-desgravamen">Desgravamen (%)</label>
+                            <input type="number" id="edit-desgravamen" class="form-input" step="0.01" data-tpl="desgravamen" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-diaCorte">Día de corte</label>
+                            <input type="number" id="edit-diaCorte" class="form-input" min="1" max="31" data-tpl="diaCorte" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-diaPago">Día de pago</label>
+                            <input type="number" id="edit-diaPago" class="form-input" min="1" max="31" data-tpl="diaPago" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-anualidad">Anualidad</label>
+                            <input type="number" id="edit-anualidad" class="form-input" min="0" step="0.01" data-tpl="anualidad" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-anualidad-fecha">Fecha de anualidad</label>
+                            <div data-tpl="anualidad-fecha"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-umbralAviso">Umbral de advertencia (%)</label>
+                            <input type="number" id="edit-umbralAviso" class="form-input" min="1" max="99" step="1" data-tpl="umbralAviso" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-umbralCritico">Umbral crítico (%)</label>
+                            <input type="number" id="edit-umbralCritico" class="form-input" min="1" max="100" step="1" data-tpl="umbralCritico" data-tpl-attr="value">
+                        </div>
+                    </div>
+                    <div data-tpl="bloque-tarjeta" data-tpl-attr="hidden" style="display:contents">
+                        <div class="form-group">
+                            <label for="edit-num-tarjeta">Número de tarjeta</label>
+                            <input type="text" id="edit-num-tarjeta" class="form-input" maxlength="19" placeholder="0000 0000 0000 0000" data-tpl="numTarjeta" data-tpl-attr="value">
+                        </div>
+                        <div data-tpl="vencimiento"></div>
+                    </div>
+                    <div data-tpl="bloque-broker" data-tpl-attr="hidden" style="display:contents">
+                        <div class="form-group">
+                            <label for="edit-num">Número de cuenta</label>
+                            <input type="text" id="edit-num" class="form-input" inputmode="numeric" data-tpl="num" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-cci">CCI</label>
+                            <input type="text" id="edit-cci" class="form-input" inputmode="numeric" data-tpl="cci" data-tpl-attr="value">
+                        </div>
+                    </div>
+                    <div class="form-group" data-tpl="bloque-exchange" data-tpl-attr="hidden">
+                        <label for="edit-uid">UID</label>
+                        <input type="text" id="edit-uid" class="form-input" data-tpl="uid" data-tpl-attr="value">
+                    </div>
+                    <div data-tpl="bloque-debito" data-tpl-attr="hidden" style="display:contents">
+                        <div class="form-group">
+                            <label for="edit-num-cuenta">Número de cuenta</label>
+                            <input type="text" id="edit-num-cuenta" class="form-input" inputmode="numeric" data-tpl="numeroCuenta" data-tpl-attr="value">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-cci-debito">CCI</label>
+                            <input type="text" id="edit-cci-debito" class="form-input" inputmode="numeric" data-tpl="cciDebito" data-tpl-attr="value">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div data-tpl="miembros" data-tpl-reemplazar></div>
+        </form>
+    </template>
+
+    <!-- Pestañas del modal de editar cuenta: una por divisa (más "Cuenta"). -->
+    <template id="tpl-edit-tab">
+        <button type="button" role="tab" data-tpl="tab" data-tpl-attr="aria-selected,class,data-tab"></button>
+    </template>
+
+    <!-- Bloque de divisas del modal de editar cuenta (solo si el tipo lo permite). -->
+    <template id="tpl-edit-divisas">
+        <div class="form-group">
+            <label>Divisa de la cuenta</label>
+            <div class="toggle-group" data-tpl="opciones"></div>
+        </div>
+    </template>
+
+    <template id="tpl-divisa-toggle">
+        <span class="toggle-option" data-tpl="toggle" data-tpl-attr="data-divisa,class"></span>
+    </template>
+
+    <!-- Una fila de saldo inicial por divisa. La visible la decide el toggle. -->
+    <template id="tpl-campo-saldos">
+        <div class="form-group full">
+            <div class="saldo-divisas" id="grupo-saldos" data-tpl="saldos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-saldo-divisa">
+        <div class="saldo-divisa" data-tpl="bloque" data-tpl-attr="data-divisa,hidden">
+            <label data-tpl="label" data-tpl-attr="for"></label>
+            <input type="number" class="form-input" step="0.01" min="0" value="0" data-tpl="input" data-tpl-attr="id">
+        </div>
+    </template>
+
+    <!-- Vencimiento MM/AA de las tarjetas. -->
+    <template id="tpl-campo-vencimiento">
+        <div class="form-group">
+            <label data-tpl="lbl-mes" data-tpl-attr="for">Vencimiento</label>
+            <div class="vence-inputs">
+                <input type="text" class="form-input" inputmode="numeric" placeholder="MM" maxlength="2" aria-label="Mes de vencimiento" data-tpl="mes" data-tpl-attr="id,value">
+                <span class="vence-sep" aria-hidden="true">/</span>
+                <input type="text" class="form-input" inputmode="numeric" placeholder="AA" maxlength="2" aria-label="Año de vencimiento" data-tpl="anio" data-tpl-attr="id,value">
+            </div>
+        </div>
+    </template>
+
+    <!-- Fecha de anualidad de las tarjetas de crédito. -->
+    <template id="tpl-campo-fecha-anualidad">
+        <div class="campo-fecha">
+            <input type="date" class="form-input" data-tpl="input" data-tpl-attr="id,value">
+            <button type="button" class="btn-calendario" aria-label="Abrir calendario">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
+                    <path d="M8 2v4"/>
+                    <path d="M16 2v4"/>
+                    <rect width="18" height="18" x="3" y="4" rx="2"/>
+                    <path d="M3 10h18"/>
+                    <path d="M8 14h.01"/>
+                    <path d="M12 14h.01"/>
+                    <path d="M16 14h.01"/>
+                    <path d="M8 18h.01"/>
+                    <path d="M12 18h.01"/>
+                    <path d="M16 18h.01"/>
+                </svg>
+            </button>
+        </div>
+    </template>
+
+    <!-- Panel de una subcuenta dentro del modal de editar cuenta. -->
+    <template id="tpl-member-panel">
+        <div class="edit-panel" data-tpl="panel" data-tpl-attr="data-panel,hidden">
+            <div class="form-movimiento form-movimiento-grid">
+                <span data-tpl="nombre" data-tpl-reemplazar></span>
+                <div class="form-group">
+                    <label data-tpl="lbl-saldo" data-tpl-attr="for">Saldo inicial</label>
+                    <input type="number" class="form-input" step="0.01" data-tpl="saldo" data-tpl-attr="id,value">
+                </div>
+                <span data-tpl="numeros" data-tpl-reemplazar></span>
+                <div class="form-group">
+                    <label data-tpl="lbl-patrimonio" data-tpl-attr="for">Incluir en mi patrimonio</label>
+                    <label class="switch">
+                        <input type="checkbox" data-tpl="patrimonio" data-tpl-attr="id,checked">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-member-nombre">
+        <div class="form-group">
+            <label data-tpl="label" data-tpl-attr="for">Nombre</label>
+            <input type="text" class="form-input" data-tpl="input" data-tpl-attr="id,value,placeholder">
+        </div>
+    </template>
+
+    <template id="tpl-member-num">
+        <div class="form-group">
+            <label data-tpl="lbl-num" data-tpl-attr="for">Número de cuenta</label>
+            <input type="text" class="form-input" inputmode="numeric" data-tpl="num" data-tpl-attr="id,value">
+        </div>
+        <div class="form-group">
+            <label data-tpl="lbl-cci" data-tpl-attr="for">CCI</label>
+            <input type="text" class="form-input" inputmode="numeric" data-tpl="cci" data-tpl-attr="id,value">
+        </div>
+    </template>
+
+    <!-- Botones extra del pie del modal de editar cuenta. -->
+    <template id="tpl-editar-cuenta-footer">
+        <div class="modal-footer-acciones">
+            <span data-tpl="archivar" data-tpl-reemplazar></span>
+            <span data-tpl="eliminar" data-tpl-reemplazar></span>
+        </div>
+    </template>
+
+    <template id="tpl-btn-archivar-cuenta">
+        <button type="button" class="modal-btn modal-btn-secondary" id="btn-editar-estado">Archivar</button>
+    </template>
+
+    <template id="tpl-btn-eliminar-cuenta">
+        <button type="button" class="modal-btn modal-btn-secondary modal-btn-danger" id="btn-editar-eliminar">Eliminar</button>
+    </template>
+
+    <template id="tpl-configuracion">
+        <div class="config-modal" aria-busy="true">
+            <div id="configuracion-cargando" data-tpl="skeleton" data-tpl-reemplazar></div>
+            <div id="configuracion-contenido" class="configuracion-cargando" hidden>
+                <div class="config-layout">
+                <nav class="config-nav" aria-label="Secciones de configuración">
+                    <div data-tpl="nav-botones" data-tpl-reemplazar></div>
+                    <div class="config-nav-pie">
+                        <a class="footer-brand" href="/" target="_blank" rel="noopener noreferrer" data-tpl="footer-nombre"></a>
+                        <button class="footer-version" id="config-version" type="button" data-tpl="footer-version"></button>
+                        <span class="footer-copy" data-tpl="footer-copy"></span>
+                        <span class="footer-legal"><a href="/privacidad" target="_blank" rel="noopener noreferrer">Privacidad</a> · <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos</a></span>
+                    </div>
+                </nav>
+                <div class="config-body">
+
+            <!-- APARIENCIA -->
+            <div class="panel-section hidden-section" id="section-apariencia">
+
+                <div class="config-group">
+                    <span class="config-label">Tema</span>
+                    <div class="toggle-group" id="toggle-tema">
+                        <span class="toggle-option" data-tema="dark">Oscuro</span>
+                        <span class="toggle-option" data-tema="light">Claro</span>
+                        <span class="toggle-option" data-tema="system">Sistema</span>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Resaltar patrimonio</span>
+                    <div class="toggle-group" id="resaltar-patrimonio">
+                        <span class="toggle-option active" data-nivel="0">0</span>
+                        <span class="toggle-option" data-nivel="1">1</span>
+                        <span class="toggle-option" data-nivel="2">2</span>
+                    </div>
+                    <span class="config-hint">0 sin resalte · 1 resalte tenue · 2 resalte intenso</span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label visible-pages">Páginas visibles</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Dashboard</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-dashboard" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Movimientos</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-movimientos" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Inversiones</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-inversiones" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Trading</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-trading" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Últimos movimientos en el dashboard</span>
+                    <div class="toggle-group" id="movimientos-recientes" role="group" aria-label="Cantidad de últimos movimientos en el dashboard" data-tpl="movimientos-recientes" data-tpl-reemplazar></div>
+                    <span class="config-hint">
+                        Cantidad de movimientos a mostrar en la tarjeta
+                        "Últimos movimientos" del dashboard.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Tipos de movimiento en el selector</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Cambio de divisa</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-cambio-divisa" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Compra de activo</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-compra-activo">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Venta de activo</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-venta-activo">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Pago de tarjeta</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-pago-tarjeta">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Compra P2P</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-p2p-compra" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Venta P2P</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-p2p-venta" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="toggle-row">
+                            <span>Trade</span>
+                            <label class="switch">
+                                <input type="checkbox" id="toggle-tipo-trade" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <span class="config-hint">
+                        Qué tipos se ofrecen al crear un movimiento nuevo. Compra/venta de activo y pago de
+                        tarjeta solo se registran desde sus propias páginas salvo que los actives aquí.
+                    </span>
+                </div>
+
+                </div>
+
+            <!-- MONEDA -->
+            <div class="panel-section hidden-section" id="section-moneda">
+
+                <div class="config-group">
+                    <span class="config-label">Divisa principal</span>
+                    <select class="select" id="divisa-principal">
+                        <option value="pen">PEN (S/)</option>
+                        <option value="usd">USD ($)</option>
+                        <option value="usdt">USDT (₮)</option>
+                        <option value="eur">EUR (€)</option>
+                    </select>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Formato de divisa</span>
+                    <div class="toggle-group" id="formato-divisa">
+                        <span class="toggle-option active" data-formato="simbolo">Símbolo ($)</span>
+                        <span class="toggle-option" data-formato="codigo">Código (USD)</span>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Periodo de evolución patrimonial</span>
+                    <div class="toggle-group" id="periodo-evolucion">
+                        <span class="toggle-option" data-periodo="7d">7D</span>
+                        <span class="toggle-option" data-periodo="30d">30D</span>
+                        <span class="toggle-option" data-periodo="90d">90D</span>
+                        <span class="toggle-option" data-periodo="1a">1A</span>
+                        <span class="toggle-option" data-periodo="todo">Todo</span>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Tipo de cambio</span>
+
+                    <div class="toggle-group" id="tc-modo">
+                        <span class="toggle-option" data-modo="manual">Manual</span>
+                        <span class="toggle-option" data-modo="auto">Automático</span>
+                    </div>
+
+                    <div class="exchange-rate-inputs" id="tc-input-manual" hidden>
+                        <div class="exchange-input">
+                            <label>1 USD =</label>
+                            <input type="number" id="tc-pen-usd" class="form-input" step="0.01" min="0.01" data-tpl="tc-pen-usd" data-tpl-attr="placeholder">
+                            <span>PEN</span>
+                        </div>
+                        <div class="exchange-input">
+                            <label>1 USD =</label>
+                            <input type="number" id="tc-eur-usd" class="form-input" step="0.01" min="0.01" data-tpl="tc-eur-usd" data-tpl-attr="placeholder">
+                            <span>EUR</span>
+                        </div>
+                    </div>
+
+                    <div class="tc-auto-box" id="tc-input-auto" hidden>
+                        <div class="exchange-notes">
+                            <p class="exchange-note" id="tc-valor-auto"></p>
+                            <p class="exchange-note" id="tc-fecha-auto"></p>
+                        </div>
+                        <div class="tc-auto-actions">
+                            <button class="glass-btn" id="tc-actualizar-btn">
+                                <span class="tc-btn-text">Actualizar ahora</span>
+                            </button>
+                            <span class="tc-status" id="tc-status" hidden></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Precios de activos</span>
+                    <div class="toggle-row">
+                        <span>Actualizar automáticamente al entrar a Inversiones</span>
+                        <label class="switch">
+                            <input type="checkbox" id="toggle-precios-auto">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CUENTA -->
+            <div class="panel-section" id="section-cuenta">
+
+                <div class="config-group">
+                    <span class="config-label">Usuario</span>
+                    <input type="text" id="cuenta-nombre" class="form-input" placeholder="Tu nombre" maxlength="50">
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Correo</span>
+                    <span class="config-value" id="cuenta-email">—</span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Contraseña</span>
+                    <button class="glass-btn" id="password-btn">Configurar contraseña</button>
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Sesión</span>
+                    <button class="glass-btn danger" id="logout-btn">Cerrar sesión</button>
+                </div>
+                <div class="config-group danger-zone">
+                    <span class="config-label danger">Eliminar cuenta</span>
+                    <button class="glass-btn danger" id="delete-account">Eliminar cuenta</button>
+                    <span class="config-hint">Se eliminarán todos tus datos permanentemente</span>
+                </div>
+            </div>
+
+            <!-- SEGURIDAD -->
+            <div class="panel-section hidden-section" id="section-seguridad">
+
+                <div class="config-group">
+                    <span class="config-label">Cerrar sesión por inactividad</span>
+                    <select class="select" id="seg-inactividad">
+                        <option value="5">5 minutos</option>
+                        <option value="15">15 minutos</option>
+                        <option value="30">30 minutos</option>
+                        <option value="60">1 hora</option>
+                        <option value="0">Nunca</option>
+                    </select>
+                    <span class="config-hint">
+                        Si no hay actividad durante este tiempo, la sesión se cierra automáticamente.
+                        Con "Nunca", la sesión permanece abierta hasta que la cierres manualmente.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Sesión en el navegador</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Cerrar sesión al cerrar la pestaña</span>
+                            <label class="switch">
+                                <input type="checkbox" id="seg-cerrar-pestana" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <span class="config-hint">
+                        Activado: la sesión se cierra al cerrar la pestaña o ventana (más seguro).
+                        Desactivado: la sesión se mantiene hasta que cierres sesión manualmente.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Operaciones sensibles</span>
+                    <span class="config-hint">
+                        Eliminar la cuenta, eliminar todos los datos y cambiar la contraseña piden
+                        confirmar tu identidad si la sesión tiene más de 5 minutos.
+                    </span>
+                </div>
+            </div>
+
+            <!-- ACCESIBILIDAD -->
+            <div class="panel-section hidden-section" id="section-accesibilidad">
+
+                <div class="config-group">
+                    <span class="config-label">Configuración como</span>
+                    <div class="toggle-group" id="toggle-config-modo">
+                        <span class="toggle-option active" data-config-modo="panel">Panel</span>
+                        <span class="toggle-option" data-config-modo="modal">Modal</span>
+                    </div>
+                    <span class="config-hint">
+                        Panel: los ajustes van dentro del panel de la app, con su
+                        ruta <strong>/configuración</strong> y el pie fijo abajo.
+                        Modal: se abre como ventana grande sobre la página en la
+                        que estás, sin cambiar de ruta.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Modales persistentes</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Habilitar ventanas de modales que no bloquean la app</span>
+                            <label class="switch">
+                                <input type="checkbox" id="acc-modales-persistentes">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <span class="config-hint">
+                        Desactiva el overlay oscuro de los modales: podrás seguir usando la aplicación
+                        mientras están abiertos y abrir varios a la vez, como ventanas.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Habilitar escinco doodles</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Habilitar doodles</span>
+                            <label class="switch">
+                                <input type="checkbox" id="acc-doodles">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Un click para seleccionar</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Seleccionar con un click</span>
+                            <label class="switch">
+                                <input type="checkbox" id="acc-un-click-seleccion">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <span class="config-hint">
+                        Con la opción activa, el doble click abre el detalle del movimiento en lugar de
+                        seleccionarlo. Desactivada, el click abre el detalle como siempre. En móvil se
+                        mantiene desactivada por defecto.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Lateralidad de la información de cuenta</span>
+                    <div class="toggle-group toggle-lateralidad-cuenta" id="toggle-lateralidad-cuenta">
+                        <span class="toggle-option" data-lateralidad="izquierda">Izquierda</span>
+                        <span class="toggle-option active" data-lateralidad="derecha">Derecha</span>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Lastbar auto-hide</span>
+                    <div class="toggle-group" id="toggle-lastbar">
+                        <span class="toggle-option" data-lastbar="hide">Ocultar</span>
+                        <span class="toggle-option" data-lastbar="show">Siempre visible</span>
+                    </div>
+                    <span class="config-hint">
+                        Ocultar: los botones aparecen al pasar el mouse. Siempre visible: los botones se muestran siempre.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Resaltar ingreso y gasto</span>
+                    <div class="pages-toggle-group">
+                        <div class="toggle-row">
+                            <span>Mostrar Ingreso y Gasto resaltados en el selector</span>
+                            <label class="switch">
+                                <input type="checkbox" id="acc-resaltar-ingreso-gasto" checked>
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <span class="config-hint">
+                        Con la opción activa, Ingreso y Gasto se muestran como botones destacados en el
+                        selector de movimientos. Desactivada, se ven como los demás tipos.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Atajos de teclado</span>
+                    <button class="glass-btn" id="abrir-atajos" type="button">Ver atajos de teclado</button>
+                    <span class="config-hint">
+                        Consulta todas las combinaciones de teclas disponibles.
+                    </span>
+                </div>
+            </div>
+
+            <!-- DATOS -->
+            <div class="panel-section hidden-section" id="section-datos">
+                <div class="config-group">
+                    <span class="config-label">Exportar respaldo</span>
+                    <button class="glass-btn" id="export-dvid">Exportar .dvid</button>
+                    <span class="config-hint">Respaldo completo de todos tus datos</span>
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Importar respaldo</span>
+                    <button class="glass-btn" id="import-dvid">Importar .dvid</button>
+                    <span class="config-hint">Solo archivos .dvid generados por escinco</span>
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Cuentas archivadas</span>
+                    <button class="glass-btn" id="restore-cuentas">Restaurar cuentas archivadas</button>
+                    <span class="config-hint" id="restore-cuentas-hint">
+                        Ocultas, no borradas. Sus movimientos y saldos se conservan
+                        tal cual y vuelven a aparecer al restaurarlas.
+                    </span>
+                </div>
+<div class="config-group danger-zone">
+                    <span class="config-label danger">Eliminar datos</span>
+                    <button class="glass-btn danger" id="delete-data">Eliminar todos los datos</button>
+                    <span class="config-hint">Esta acción no se puede deshacer</span>
+                </div>
+                </div>
+
+                </div>
+            </div>
+    </div>
+    </div>
+    </template>
+
+    <!-- Trading · lista de trades/órdenes -->
+
+    <template id="tpl-trade-card">
+        <div class="posicion-item trade-item" data-tpl="item" data-tpl-attr="class,data-trade-id">
+            <div class="card-item-main">
+                <div class="posicion-info">
+                    <div class="posicion-nombre">
+                        <span class="trade-activo" data-tpl="activo"></span>
+                        <span class="badge" data-tpl="badge" data-tpl-attr="class"></span>
+                    </div>
+                    <div class="posicion-detalle">
+                        Lotaje: <span data-tpl="lotaje"></span> · <span data-tpl="estado"></span>
+                    </div>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <div class="posicion-valores">
+                        <div data-tpl="cerrado" data-tpl-attr="hidden" hidden>
+                            <div class="posicion-valor" data-tpl="cerrado-valor" data-tpl-attr="class"><span data-tpl="cerrado-valor-texto"></span></div>
+                            <div class="posicion-rendimiento" data-tpl="cerrado-rend" data-tpl-attr="class"><span data-tpl="cerrado-rend-texto"></span></div>
+                        </div>
+                        <div data-tpl="flotante" data-tpl-attr="hidden" hidden>
+                            <div class="posicion-valor" data-tpl="flotante-valor" data-tpl-attr="class"><span data-tpl="flotante-valor-texto"></span></div>
+                            <div class="posicion-rendimiento" data-tpl="flotante-rend" data-tpl-attr="class">P&amp;L flotante</div>
+                        </div>
+                        <div data-tpl="abierto" data-tpl-attr="hidden" hidden>
+                            <div class="posicion-valor">Abierto</div>
+                        </div>
+                    </div>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="cerrar" title="Cerrar" aria-label="Cerrar" data-tpl="btn-cerrar" data-tpl-attr="hidden,data-id"><span data-tpl="icono-cerrar"></span></button>
+                        <button type="button" class="card-action-btn" data-accion="reabrir" title="Reabrir" aria-label="Reabrir" data-tpl="btn-reabrir" data-tpl-attr="hidden,data-id"><span data-tpl="icono-reabrir"></span></button>
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar" data-tpl-attr="data-id"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar" data-tpl-attr="data-id"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-orden-card">
+        <div class="posicion-item trade-item orden-item" data-tpl="item" data-tpl-attr="class,data-orden-id">
+            <div class="card-item-main">
+                <div class="posicion-info">
+                    <div class="posicion-nombre">
+                        <span data-tpl="activo"></span>
+                        <span class="posicion-simbolo" data-tpl="direccion"></span>
+                        <span class="badge" data-tpl="estado" data-tpl-attr="class"></span>
+                    </div>
+                    <div class="posicion-detalle">
+                        Lotaje: <span data-tpl="lotaje"></span>
+                    </div>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <div class="posicion-valores">
+                        <div class="posicion-valor" data-tpl="precio"></div>
+                        <div class="posicion-rendimiento" data-tpl="tipo" data-tpl-attr="class"><span data-tpl="tipo-texto"></span></div>
+                    </div>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="btn-editar" data-tpl-attr="hidden,data-id"><span data-tpl="icono-editar"></span></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar" data-tpl-attr="data-id"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-trading-vacio-trades">
+        <p class="lista-vacia">
+            No hay trades registrados.
+            <br><br>
+            <span class="lista-vacia-hint">Usa los botones <strong>"Largo"</strong> o <strong>"Corto"</strong> en la barra inferior para registrar tu primer trade.</span>
+        </p>
+    </template>
+
+    <template id="tpl-trading-vacio-ordenes">
+        <p class="lista-vacia">
+            No hay órdenes registradas.
+            <br><br>
+            <span class="lista-vacia-hint">Usa <strong>"Nueva orden"</strong> para programar una compra o venta límite/stop.</span>
+        </p>
+    </template>
+
+    <template id="tpl-lista-error">
+        <p class="lista-vacia error"><span data-tpl="texto"></span></p>
+    </template>
+
+    <template id="tpl-lista-vacio">
+        <p class="lista-vacia"><span data-tpl="texto"></span></p>
+    </template>
+
+    <template id="tpl-badge-etiqueta"> <span class="badge" data-tpl="badge"></span></template>
+
+    <template id="tpl-movimiento-card">
+        <div class="card-item" data-tpl="item" data-tpl-attr="class,data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo"><span data-tpl="titulo"></span><span data-tpl="etiquetas"></span></span>
+                    <span class="card-item-detalle" data-tpl="detalle"></span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor" data-tpl-attr="class"><span data-tpl="valor-texto"></span></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-movimientos-vacio">
+        <p class="lista-vacia">
+            No hay movimientos registrados.
+            <br><br>
+            <span class="lista-vacia-hint">
+                Usa el botón <strong>"Movimiento"</strong> en la barra inferior
+                para registrar el primero.
+            </span>
+        </p>
+    </template>
+
+    <template id="tpl-movimientos-vacio-filtro">
+        <p class="lista-vacia">No hay movimientos que coincidan con el filtro.</p>
+    </template>
+
+    <!-- ··· CUENTA ··· -->
+
+    <template id="tpl-campo-info">
+        <div class="field"><span class="label" data-tpl="etiqueta"></span><span class="value" data-tpl="valor"></span></div>
+    </template>
+
+    <template id="tpl-campo-info-copia">
+        <div class="field">
+            <span class="label" data-tpl="etiqueta"></span>
+            <span class="value"><span data-tpl="valor"></span> <button type="button" class="btn-copiar" data-tpl="btn-copiar" data-tpl-attr="data-copiar,title"></button></span>
+        </div>
+    </template>
+
+    <template id="tpl-badge-vencimiento">
+        <span class="badge" data-tpl="badge" data-tpl-attr="class"><span data-tpl="texto"></span></span>
+    </template>
+
+    <template id="tpl-tabs-subcuentas-pill">
+        <button type="button" role="tab" class="badge badge--interactivo" data-tpl="pill" data-tpl-attr="aria-selected,class,data-cuenta-id,title"><span data-tpl="etiqueta"></span></button>
+    </template>
+
+    <template id="tpl-tabs-subcuentas">
+        <span class="subcuentas-pills" role="tablist" aria-label="Subcuentas de la familia" data-tpl="pills"></span>
+    </template>
+
+    <template id="tpl-porcentaje-patrimonio">
+        <div class="resumen-card">
+            <div class="resumen-label">Patrimonio</div>
+            <div class="resumen-valor" data-tpl="valor"></div>
+        </div>
+    </template>
+
+    <template id="tpl-cuenta-info-normal">
+        <div class="cuenta-perfil">
+            <div class="cuenta-perfil-icono" data-tpl="icono"></div>
+            <div class="cuenta-perfil-titulo">
+                <h3 data-tpl="nombre"></h3>
+            </div>
+            <div class="cuenta-perfil-badges">
+                <span class="badge" data-tpl="tipo"></span>
+                <span data-tpl="vencimiento" data-tpl-reemplazar></span>
+                <span data-tpl="tabs" data-tpl-reemplazar></span>
+            </div>
+        </div>
+
+        <div class="credito-resumen">
+            <div class="resumen-card">
+                <div class="resumen-label">Saldo actual</div>
+                <div class="resumen-valor" data-tpl="saldo" data-tpl-attr="class"><span data-tpl="saldo-texto"></span></div>
+            </div>
+            <span data-tpl="porcentaje" data-tpl-reemplazar></span>
+        </div>
+
+        <div class="cuenta-detalle">
+            <span data-tpl="subcuenta" data-tpl-reemplazar></span>
+            <div class="field">
+                <span class="label">Tipo</span>
+                <span class="value" data-tpl="tipo-detalle"></span>
+            </div>
+            <div class="field">
+                <span class="label">Moneda</span>
+                <span class="value" data-tpl="moneda"></span>
+            </div>
+            <span data-tpl="numero" data-tpl-reemplazar></span>
+            <span data-tpl="vence" data-tpl-reemplazar></span>
+            <span data-tpl="cci" data-tpl-reemplazar></span>
+            <div class="field">
+                <span class="label">Patrimonio</span>
+                <span class="value" data-tpl="patrimonio"></span>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-cuenta-info-tarjeta">
+        <div class="cuenta-perfil">
+            <div class="cuenta-perfil-icono" data-tpl="icono"></div>
+            <div class="cuenta-perfil-titulo">
+                <h3 data-tpl="nombre"></h3>
+            </div>
+            <div class="cuenta-perfil-badges">
+                <span class="badge">Tarjeta de crédito</span>
+                <button type="button" class="badge badge--interactivo" title="¿Qué significa este estado?" data-tpl="nivel" data-tpl-attr="class"><span data-tpl="nivel-texto"></span></button>
+                <span data-tpl="vencimiento" data-tpl-reemplazar></span>
+            </div>
+        </div>
+
+        <div class="credito-resumen">
+            <div class="resumen-card">
+                <div class="resumen-label">Crédito disponible</div>
+                <div class="resumen-valor" data-tpl="disponible" data-tpl-attr="class"><span data-tpl="disponible-texto"></span></div>
+            </div>
+            <div class="resumen-card">
+                <div class="resumen-label">Consumos del ciclo</div>
+                <div class="resumen-valor" data-tpl="consumos" data-tpl-attr="class"><span data-tpl="consumos-texto"></span></div>
+            </div>
+            <div class="resumen-card">
+                <div class="resumen-label">Saldo por pagar</div>
+                <div class="resumen-valor" data-tpl="restante" data-tpl-attr="class"><span data-tpl="restante-texto"></span></div>
+            </div>
+        </div>
+
+        <div class="credito-uso">
+            <div class="aporte-progreso-wrap">
+                <div class="aporte-progreso">
+                    <div class="aporte-progreso-barra" data-tpl="barra" data-tpl-attr="class,style"></div>
+                </div>
+                <span class="badge" data-tpl="porcentaje-badge" data-tpl-attr="class"><span data-tpl="porcentaje-texto"></span></span>
+            </div>
+        </div>
+
+        <div class="cuenta-detalle">
+            <span data-tpl="subcuenta" data-tpl-reemplazar></span>
+            <div class="field">
+                <span class="label">Línea de crédito</span>
+                <span class="value" data-tpl="limite"></span>
+            </div>
+            <div class="field">
+                <span class="label">Pagos del ciclo</span>
+                <span class="value" data-tpl="pagos"></span>
+            </div>
+            <div class="field">
+                <span class="label">Próximo corte</span>
+                <span class="value" data-tpl="corte"></span>
+            </div>
+            <div class="field">
+                <span class="label">Próximo pago</span>
+                <span class="value" data-tpl="pago"></span>
+            </div>
+            <div class="field">
+                <span class="label">Desgravamen</span>
+                <span class="value" data-tpl="desgravamen"></span>
+            </div>
+            <span data-tpl="anualidad" data-tpl-reemplazar></span>
+            <span data-tpl="numero" data-tpl-reemplazar></span>
+            <span data-tpl="vence" data-tpl-reemplazar></span>
+            <div class="field">
+                <span class="label">Patrimonio</span>
+                <span class="value" data-tpl="patrimonio"></span>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-cuenta-vista">
+        <div class="cuenta-vista" data-tpl="raiz" data-tpl-attr="class">
+            <div class="cuenta-vista-movimientos">
+                <div class="cuenta-mov-head">
+                    <div class="totales" id="totales-movimientos-cuenta"></div>
+                </div>
+                <div class="lista-cards" id="lista-movimientos-cuenta"></div>
+            </div>
+            <div class="cuenta-vista-info" data-tpl="info"></div>
+        </div>
+    </template>
+
+    <template id="tpl-cuenta-modal-vistas">
+        <div class="cuenta-modal-vista" data-vista="info" data-tpl="info"></div>
+        <div class="cuenta-modal-vista" data-vista="movimientos" hidden>
+            <div class="lista-cards" data-tpl="movimientos"></div>
+        </div>
+    </template>
+
+    <template id="tpl-totales-linea-credito">
+        <span class="totales-item">
+            <span class="totales-negativo" data-tpl="negativo"></span>
+        </span>
+    </template>
+
+    <template id="tpl-totales-linea-normal">
+        <span class="totales-item">
+            <span class="totales-positivo" data-tpl="positivo"></span>
+            <span class="totales-sep">/</span>
+            <span class="totales-negativo" data-tpl="negativo"></span>
+        </span>
+    </template>
+
+    <template id="tpl-totales-acciones-credito">
+        <div class="totales-acciones">
+            <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal" data-tpl="icono-modal"></button>
+            <button type="button" class="totales-btn" id="btn-gasto-tarjeta" title="Registrar gasto" aria-label="Registrar gasto" data-tpl="icono-gasto"></button>
+            <span data-tpl="pagar" data-tpl-reemplazar></span>
+        </div>
+    </template>
+
+    <template id="tpl-totales-acciones-normal">
+        <div class="totales-acciones">
+            <button type="button" class="totales-btn" id="btn-ver-modal-cuenta" title="Ver en modal" aria-label="Ver en modal" data-tpl="icono-modal"></button>
+            <button type="button" class="totales-btn" id="btn-nuevo-movimiento-cuenta" title="Nuevo movimiento" aria-label="Nuevo movimiento" data-tpl="icono-nuevo"></button>
+        </div>
+    </template>
+
+    <template id="tpl-btn-pagar-tarjeta">
+        <button type="button" class="totales-btn pagar-tarjeta-btn" id="btn-pagar-tarjeta" title="Pagar tarjeta" aria-label="Pagar tarjeta">Pagar tarjeta</button>
+    </template>
+
+    <template id="tpl-totales-cuenta">
+        <span class="totales-count" data-tpl="count"></span>
+        <span data-tpl="lineas"></span>
+        <span data-tpl="acciones" data-tpl-reemplazar></span>
+    </template>
+
+    <template id="tpl-totales-movimientos">
+        <span class="totales-count" data-tpl="count"></span>
+        <span data-tpl="lineas"></span>
+        <span data-tpl="ganancia"></span>
+        <div class="totales-acciones">
+            <button type="button" class="totales-btn" id="btn-nuevo-movimiento" title="Nuevo movimiento" aria-label="Nuevo movimiento" data-tpl="icono-nuevo"></button>
+        </div>
+    </template>
+
+    <template id="tpl-totales-mov-linea">
+        <span class="totales-item">
+            <span class="totales-positivo" data-tpl="positivo"></span>
+            <span class="totales-sep">/</span>
+            <span class="totales-negativo" data-tpl="negativo"></span>
+            <span class="totales-divisa" data-tpl="divisa"></span>
+        </span>
+    </template>
+
+    <template id="tpl-totales-mov-ganancia">
+        <span class="totales-item">
+            <span class="totales-ganancia" data-tpl="ganancia"></span>
+            <span class="totales-divisa" data-tpl="divisa"></span>
+        </span>
+    </template>
+
+    <!-- ··· DASHBOARD ··· -->
+
+    <template id="tpl-card-vacio">
+        <p class="card-vacio"><span data-tpl="texto"></span></p>
+    </template>
+
+    <template id="tpl-card-dato">
+        <div class="card-dato">
+            <span class="card-dato-label" data-tpl="label"></span>
+            <span class="card-dato-valor" data-tpl="valor"></span>
+        </div>
+    </template>
+
+    <template id="tpl-card-comprimir">
+        <button type="button" class="card-comprimir" data-card-comprimir aria-expanded="true" aria-label="Comprimir tarjeta" title="Comprimir tarjeta"><span data-tpl="icono"></span></button>
+    </template>
+
+    <template id="tpl-dashboard-card-uso">
+        <div class="card-uso">
+            <div class="card-uso-barra"><span data-tpl="barra" data-tpl-attr="id"></span></div>
+            <span class="card-uso-pct" data-tpl="porcentaje" data-tpl-attr="id"></span>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-card-cuenta">
+        <div class="glass card card-navegable card-cuenta" data-tpl="card" data-tpl-attr="id,data-dashboard-card,class,aria-label" role="group" tabindex="0">
+            <div class="card-header">
+                <span class="card-title" data-tpl="titulo"></span>
+                <div class="card-header-controles">
+                    <span class="badge" data-tpl="estado" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-badge" aria-hidden="true"></span></span>
+                    <span data-tpl="comprimir" data-tpl-reemplazar></span>
+                </div>
+            </div>
+            <div class="card-value" data-tpl="valor" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-value" aria-hidden="true"></span></div>
+            <div class="card-sub" data-tpl="detalle" data-tpl-attr="id"><span class="skeleton skeleton-text" aria-hidden="true"></span></div>
+            <span data-tpl="uso" data-tpl-reemplazar></span>
+            <div class="card-datos" data-tpl="datos" data-tpl-attr="id"></div>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-card-activo">
+        <div class="glass card card-navegable card-activo" data-tpl="card" data-tpl-attr="id,data-dashboard-card" role="group" tabindex="0">
+            <div class="card-header">
+                <span class="card-title" data-tpl="nombre" data-tpl-attr="id"></span>
+                <div class="card-header-controles">
+                    <span class="badge" data-tpl="estado" data-tpl-attr="id"></span>
+                    <span data-tpl="comprimir" data-tpl-reemplazar></span>
+                </div>
+            </div>
+            <div class="card-value" data-tpl="valor" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-value" aria-hidden="true"></span></div>
+            <div class="card-sub" data-tpl="detalle" data-tpl-attr="id"><span class="skeleton skeleton-text" aria-hidden="true"></span></div>
+            <div class="card-datos" data-tpl="datos" data-tpl-attr="id"></div>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-card-edicion">
+        <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card" data-tpl="handle"></span>
+        <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="subir" data-tpl-attr="data-id" data-direccion="-1" aria-label="Mover card hacia arriba">↑</button>
+        <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="bajar" data-tpl-attr="data-id" data-direccion="1" aria-label="Mover card hacia abajo">↓</button>
+    </template>
+
+    <template id="tpl-grafico-cargando">
+        <div class="skeleton skeleton-chart" role="status" aria-label="Cargando gráfico" aria-busy="true"><span class="skeleton skeleton-grafico-bloque" aria-hidden="true"></span></div>
+    </template>
+
+    <template id="tpl-grafico-vacio">
+        <div class="grafico-vacio">
+            <p class="grafico-vacio-texto" data-tpl="texto"></p>
+            <p class="grafico-vacio-hint" data-tpl="hint" data-tpl-oculto></p>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-list-item">
+        <div class="dashboard-list-item" data-tpl="item" data-tpl-attr="class">
+            <div class="dashboard-list-info">
+                <span class="dashboard-list-title" data-tpl="titulo"></span>
+                <span class="dashboard-list-detail" data-tpl="detalle" data-tpl-attr="class"></span>
+                <span data-tpl="extra" data-tpl-reemplazar></span>
+            </div>
+            <span class="dashboard-list-value" data-tpl="valor" data-tpl-attr="class"><span data-tpl="valor-texto"></span></span>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-estrategia-cuenta">
+        <button type="button" class="estrategia-cuenta" data-tpl="btn" data-tpl-attr="data-dashboard-cuenta-estrategia"><span data-tpl="icono"></span> <span data-tpl="nombre"></span></button>
+    </template>
+
+    <template id="tpl-distribucion-item">
+        <div class="distribucion-item">
+            <div class="distribucion-cabecera">
+                <span data-tpl="etiqueta"></span>
+                <strong data-tpl="porcentaje"></strong>
+            </div>
+            <div class="distribucion-barra">
+                <span data-tpl="barra" data-tpl-attr="class,style"></span>
+            </div>
+            <span class="distribucion-valor" data-tpl="valor"></span>
+        </div>
+    </template>
+
+    <template id="tpl-alerta-item">
+        <div class="alerta-item" data-tpl="alerta" data-tpl-attr="class">
+            <span data-tpl="icono"></span>
+            <div>
+                <span data-tpl="titulo"></span>
+                <small data-tpl="detalle"></small>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-movimiento">
+        <div class="movimiento-item" data-tpl="item" data-tpl-attr="data-movimiento-id" role="button" tabindex="0" title="Ver movimiento">
+            <div class="movimiento-info">
+                <span class="movimiento-titulo"><span data-tpl="titulo"></span><span data-tpl="etiquetas"></span></span>
+                <span class="movimiento-detalle" data-tpl="detalle"></span>
+            </div>
+            <span class="movimiento-monto" data-tpl="monto" data-tpl-attr="class"><span data-tpl="monto-texto"></span></span>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-favorito">
+        <div class="favorito-item" data-tpl="item" data-tpl-attr="data-activo-id" role="button" tabindex="0" title="Ver historial de precios">
+            <div class="favorito-info">
+                <span class="favorito-nombre" data-tpl="nombre"></span>
+                <span class="favorito-simbolo" data-tpl="simbolo"></span>
+            </div>
+            <span class="favorito-precio" data-tpl="precio"></span>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-meta">
+        <div data-tpl="item" data-tpl-attr="class,data-meta-id" role="button" tabindex="0" title="Aportar a la meta">
+            <div class="meta-info">
+                <span class="meta-nombre" data-tpl="nombre"></span>
+                <span class="meta-cantidad" data-tpl="cantidad"></span>
+            </div>
+            <span class="meta-porcentaje" data-tpl="porcentaje"></span>
+        </div>
+    </template>
+
+    <template id="tpl-dashboard-vencimiento">
+        <div class="card-item vencimiento-item" data-tpl="item" data-tpl-attr="class,data-tipo,data-id" role="button" tabindex="0">
+            <div class="card-item-info">
+                <span class="card-item-titulo" data-tpl="titulo"></span>
+                <span class="card-item-detalle" data-tpl="detalle"></span>
+            </div>
+            <span class="card-item-valor" data-tpl="valor" data-tpl-attr="class"><span data-tpl="valor-texto"></span></span>
+        </div>
+    </template>
+
+    <template id="tpl-vencimientos-vacio">
+        <div class="modal-message">
+            <p class="modal-message-desc">Sin vencimientos en los próximos <span data-tpl="dias"></span> días.</p>
+        </div>
+    </template>
+
+    <template id="tpl-modal-mensaje">
+        <div class="modal-message"><p class="modal-message-desc" data-tpl="texto"></p></div>
+    </template>
+
+    <template id="tpl-lista-vacio-hint">
+        <p class="lista-vacia">
+            <span data-tpl="texto"></span>
+            <br><br>
+            <span class="lista-vacia-hint" data-tpl="hint"></span>
+        </p>
+    </template>
+
+    <template id="tpl-cuentas-vacio">
+        <h2>No hay cuentas</h2>
+        <p class="lista-vacia">
+            Crea tu primera cuenta usando el botón <strong>"Cuenta"</strong> en la barra inferior.
+        </p>
+    </template>
+
+    <template id="tpl-cuentas-vacio-archivadas">
+        <h2>No hay cuentas activas</h2>
+        <p class="lista-vacia">
+            Tienes <span data-tpl="cantidad"></span> cuenta<span data-tpl="plural"></span> archivada<span data-tpl="plural2"></span>.
+            No se han borrado: siguen guardadas y conservan sus movimientos.
+        </p>
+        <p class="lista-vacia">
+            Puedes restaurarlas desde <strong>Configuración › Datos</strong>.
+        </p>
+    </template>
+
+    <template id="tpl-posicion-item">
+        <div class="posicion-item" data-tpl="item" data-tpl-attr="class,data-posicion-id,data-activo-id">
+            <button type="button" class="posicion-favorito" data-tpl="favorito" data-tpl-attr="class,data-activo-id,aria-label,title"><span data-tpl="icono-favorito"></span></button>
+            <div class="posicion-info">
+                <div class="posicion-nombre">
+                    <span data-tpl="nombre"></span>
+                    <span class="posicion-simbolo" data-tpl="simbolo"></span>
+                    <span class="badge" data-tpl="fuente" data-tpl-attr="class"></span>
+                </div>
+                <div class="posicion-detalle" data-tpl="detalle"></div>
+            </div>
+            <div class="card-item-valor-wrap">
+                <div class="posicion-valores">
+                    <div class="posicion-valor" data-tpl="valor"></div>
+                    <div class="posicion-rendimiento" data-tpl="rendimiento" data-tpl-attr="class"></div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-estrategia-item">
+        <div class="estrategia-item" data-tpl="item" data-tpl-attr="class,data-id">
+            <div class="estrategia-info">
+                <div class="estrategia-nombre">
+                    <span data-tpl="nombre"></span>
+                    <span class="estrategia-simbolo" data-tpl="simbolo"></span>
+                </div>
+                <div class="estrategia-detalle" data-tpl="detalle"></div>
+            </div>
+            <div class="card-item-valor-wrap">
+                <div class="posicion-valores">
+                    <div class="posicion-valor" data-tpl="monto"></div>
+                    <div class="posicion-rendimiento" data-tpl="estado"></div>
+                </div>
+                <div class="card-item-acciones">
+                    <button type="button" class="card-action-btn estrategia-ejecutar" data-accion="ejecutar" data-tpl="ejecutar" data-tpl-attr="data-id" title="Ejecutar ahora" aria-label="Ejecutar ahora"><span data-tpl="icono-ejecutar"></span></button>
+                    <button type="button" class="card-action-btn estrategia-editar" data-accion="editar" data-tpl="editar" data-tpl-attr="data-id" title="Editar" aria-label="Editar"><span data-tpl="icono-editar"></span></button>
+                    <button type="button" class="card-action-btn estrategia-pausar" data-tpl="pausar" data-tpl-attr="data-accion,data-id,title,aria-label"><span data-tpl="icono-pausar"></span></button>
+                    <button type="button" class="card-action-btn danger estrategia-eliminar" data-accion="eliminar" data-tpl="eliminar" data-tpl-attr="data-id" title="Eliminar" aria-label="Eliminar"><span data-tpl="icono-eliminar"></span></button>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- PLANTILLAS DE MODAL · FIN -->
+
+    <script type="module" src="js/demo/demo.js"></script>
+</body>
+
+</html>

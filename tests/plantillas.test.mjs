@@ -5,20 +5,20 @@
 // formas de romperlo sin tocar el navegador:
 //   1. llamar a un template que no está en el HTML (el modal no abre),
 //   2. pasar un hueco que el template no tiene (el texto se pierde en silencio),
-//   3. dejar un template fuera de dashboard.html o tester.html (se rompe la demo).
+//   3. dejar un template fuera de dashboard.html o demo.html (se rompe la demo).
 import { readdirSync, statSync } from "node:fs"
 import { join, relative } from "node:path"
 import { leer, RAIZ, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 
 // Documentos que sirven la app (los dos precacheados por sw.js).
-const DOCUMENTOS = ["dashboard.html", "tester.html"]
+const DOCUMENTOS = ["dashboard.html", "demo.html"]
 
 // ----------------------------------------------------------------------
 // Lectura del HTML
 // ----------------------------------------------------------------------
 
 // Cuerpo de un <template>...</template> por id, tal cual aparece en el HTML.
-// Los finales de línea se normalizan: dashboard.html va en CRLF y tester.html en
+// Los finales de línea se normalizan: dashboard.html va en CRLF y demo.html en
 // LF, y eso no es una diferencia de contenido.
 function templatesDe(html) {
     const mapa = new Map()
@@ -64,11 +64,26 @@ function saltarCadena(src, i) {
     return i
 }
 
+// Un comentario no es código: se salta entero.
+function saltarComentario(src, i) {
+    if (src[i + 1] === "/") {
+        const fin = src.indexOf("\n", i)
+        return fin === -1 ? src.length : fin
+    }
+    const fin = src.indexOf("*/", i + 2)
+    return fin === -1 ? src.length : fin + 2
+}
+
+function esComentario(src, i) {
+    return src[i] === "/" && (src[i + 1] === "/" || src[i + 1] === "*")
+}
+
 // Texto de una llamada: desde el paréntesis hasta su cierre, contando anidados.
 function argumentosDe(src, inicio) {
     let nivel = 0
     for (let i = inicio; i < src.length; i++) {
         const ch = src[i]
+        if (esComentario(src, i)) { i = saltarComentario(src, i) - 1; continue }
         if (ch === '"' || ch === "'" || ch === "`") { i = saltarCadena(src, i) - 1; continue }
         if (ch === "(" || ch === "{" || ch === "[") nivel++
         else if (ch === ")" || ch === "}" || ch === "]") {
@@ -85,11 +100,15 @@ function clavesDeObjeto(src, pos) {
     const claves = []
     let nivel = 0
     let esperarClave = true
+    // Profundidad de `? ... :` sin cerrar: su `:` no separa una clave, así que
+    // no debe confundirse con el de un objeto (`cond ? null : x`).
+    let ternarios = 0
     for (let i = pos; i < src.length; i++) {
         const ch = src[i]
+        if (esComentario(src, i)) { i = saltarComentario(src, i) - 1; continue }
         if (ch === '"' || ch === "'" || ch === "`") {
             const fin = saltarCadena(src, i)
-            if (nivel === 1 && ch === '"' && esperarClave) {
+            if (nivel === 1 && ch === '"' && esperarClave && ternarios === 0) {
                 // clave entre comillas, o valor: se ve por lo que sigue
                 let j = fin
                 while (j < src.length && /\s/.test(src[j])) j++
@@ -109,6 +128,18 @@ function clavesDeObjeto(src, pos) {
             if (nivel === 0) break
             continue
         }
+        // `?` de un ternario, sin confundirlo con `?.` (opcional) ni `??` (nulo).
+        if (ch === "?" && (src[i + 1] === "." || src[i + 1] === "?")) { i++; continue }
+        if (ch === "?") {
+            ternarios++
+            esperarClave = false
+            continue
+        }
+        if (ch === ":" && nivel === 1 && ternarios > 0) {
+            ternarios--
+            esperarClave = false
+            continue
+        }
         if (ch === "," && nivel === 1) { esperarClave = true; continue }
         if (/[\w$]/.test(ch)) {
             let j = i
@@ -116,9 +147,9 @@ function clavesDeObjeto(src, pos) {
             const palabra = src.slice(i, j)
             let k = j
             while (k < src.length && /\s/.test(src[k])) k++
-            if (nivel === 1 && src[k] === ":") claves.push(palabra)
+            if (nivel === 1 && src[k] === ":" && ternarios === 0) claves.push(palabra)
             // Atajo: { mensaje } sin dos puntos.
-            else if (nivel === 1 && esperarClave) claves.push(palabra)
+            else if (nivel === 1 && esperarClave && ternarios === 0) claves.push(palabra)
             i = j - 1
             esperarClave = false
             continue
@@ -176,13 +207,13 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
     // las mismas páginas y no puede quedarse sin ellos.
     const sincronia = []
     for (const [id, cuerpo] of docs["dashboard.html"]) {
-        if (!docs["tester.html"].has(id)) sincronia.push(`${id} falta en tester.html`)
-        else if (docs["tester.html"].get(id) !== cuerpo) sincronia.push(`${id} difiere entre dashboard y tester`)
+        if (!docs["demo.html"].has(id)) sincronia.push(`${id} falta en demo.html`)
+        else if (docs["demo.html"].get(id) !== cuerpo) sincronia.push(`${id} difiere entre dashboard y demo`)
     }
-    for (const id of docs["tester.html"].keys()) {
-        if (!docs["dashboard.html"].has(id)) sincronia.push(`${id} sobra en tester.html`)
+    for (const id of docs["demo.html"].keys()) {
+        if (!docs["dashboard.html"].has(id)) sincronia.push(`${id} sobra en demo.html`)
     }
-    t.check("dashboard.html y tester.html declaran los mismos templates", sincronia.length === 0, sincronia.join(" | "))
+    t.check("dashboard.html y demo.html declaran los mismos templates", sincronia.length === 0, sincronia.join(" | "))
 
     const llamadas = llamadasEnJs()
     t.check("hay al menos una llamada a contenidoDesdeTemplate", llamadas.length > 0, `${llamadas.length} llamada(s)`)
@@ -209,6 +240,18 @@ export default function ejecutar(t = nuevoReporter("plantillas")) {
     }
     t.check("toda llamada apunta a un template existente", sinTemplate.length === 0, sinTemplate.join(" | "))
     t.check("todo hueco pasado existe en su template", huesPerdidos.length === 0, huesPerdidos.join(" | "))
+
+    // El hueco del template es SOLO el nombre: "data-tpl=\"nombre\"" (el atributo
+    // va documentado aparte, en data-tpl-attr). rellenarHuecos() busca el elemento
+    // por ese nombre exacto, así que un "data-tpl=\"nombre@value\"" no lo
+    // encontraría y el valor se perdería en silencio.
+    const huecosPegados = []
+    for (const [id, cuerpo] of docs["dashboard.html"]) {
+        for (const m of cuerpo.matchAll(/data-tpl="([^"]*@[^"]*)"/g)) {
+            huecosPegados.push(`${id}: ${m[1]}`)
+        }
+    }
+    t.check("los huecos no llevan @ en data-tpl (va en data-tpl-attr)", huecosPegados.length === 0, huecosPegados.join(" | "))
 
     // Los templates no son HTML muerto: cada uno se usa.
     const huerfanos = [...docs["dashboard.html"].keys()]

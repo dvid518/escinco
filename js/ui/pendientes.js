@@ -500,62 +500,37 @@ function htmlFormularioPendiente(p) {
         const dato = p?.[campo]
         return (dato === null || dato === undefined) ? porDefecto : dato
     }
-    const vencimiento = p?.fechaVencimiento
-        ? (vencimiento instanceof Date
-            ? vencimiento.toISOString().split("T")[0]
-            : String(vencimiento).slice(0, 10))
+    // Antes se preguntaba `vencimiento instanceof Date` dentro de su propio
+    // inicializador (zona muerta temporal): editar un pendiente con fecha
+    // lanzaba ReferenceError. La fecha llega como cadena o Timestamp.
+    const fechaVencimiento = p?.fechaVencimiento
+    const vencimiento = fechaVencimiento
+        ? (typeof fechaVencimiento?.toDate === "function"
+            ? fechaVencimiento.toDate().toISOString().split("T")[0]
+            : String(fechaVencimiento).slice(0, 10))
         : ""
 
-    return `
-        <form id="form-crear-pendiente" class="form-movimiento">
-            <div class="form-group">
-                <label for="pendiente-concepto">Concepto *</label>
-                <input type="text" id="pendiente-concepto" class="form-input" placeholder="Ej: Venta de celular" value="${valor('concepto')}" required>
-            </div>
-            <div class="form-group">
-                <label for="pendiente-tipo">Tipo *</label>
-                <select id="pendiente-tipo" class="form-input" required>
-                    <option value="true" ${p?.tipo === true ? 'selected' : ''}>Cobrar (deuda a favor)</option>
-                    <option value="false" ${p?.tipo === false ? 'selected' : ''}>Pagar (deuda en contra)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="pendiente-monto">Monto *</label>
-                <input type="number" id="pendiente-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00" value="${valor('monto')}" required>
-            </div>
-            <div class="form-group">
-                <label for="pendiente-divisa">Divisa *</label>
-                <select id="pendiente-divisa" class="form-input" required>
-                    ${[DIVISAS.PEN, DIVISAS.USD, DIVISAS.USDT].map(c =>
-                        `<option value="${c}" ${p?.divisa === c ? 'selected' : ''}>${c.toUpperCase()}</option>`
-                    ).join('')}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="pendiente-vencimiento">Fecha de vencimiento</label>
-                <div class="campo-fecha">
-                    <input type="date" id="pendiente-vencimiento" class="form-input" value="${vencimiento}">
-                    <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                            <path d="M8 2v4"/>
-                            <path d="M16 2v4"/>
-                            <rect width="18" height="18" x="3" y="4" rx="2"/>
-                            <path d="M3 10h18"/>
-                            <path d="M8 14h.01"/>
-                            <path d="M12 14h.01"/>
-                            <path d="M16 14h.01"/>
-                            <path d="M8 18h.01"/>
-                            <path d="M12 18h.01"/>
-                            <path d="M16 18h.01"/>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-            <div class="pendiente-hint">
-                * Campos obligatorios
-            </div>
-        </form>
-    `
+    return contenidoDesdeTemplate("tpl-form-pendiente", {
+        valores: {
+            "concepto@value": valor("concepto"),
+            cobrar: p?.tipo === true,
+            pagar: p?.tipo === false,
+            "monto@value": valor("monto"),
+            pen: p?.divisa === DIVISAS.PEN,
+            usd: p?.divisa === DIVISAS.USD,
+            usdt: p?.divisa === DIVISAS.USDT
+        },
+        html: {
+            vencimiento: contenidoDesdeTemplate("tpl-campo-fecha", {
+                valores: {
+                    etiqueta: "Fecha de vencimiento",
+                    "etiqueta@for": "pendiente-vencimiento",
+                    "campo@id": "pendiente-vencimiento",
+                    "campo@value": vencimiento
+                }
+            })
+        }
+    })
 }
 
 function abrirFormularioCrearPendiente() {
@@ -621,10 +596,9 @@ export function abrirVistaPendiente(pendiente, uidOrigen = sesion.uid) {
 
     const modalEl = abrirModal({
         titulo: `Pendiente: ${pendiente.concepto}`,
-        contenido: `
-            ${htmlFormularioPendiente(pendiente)}
-            <div class="movimiento-detalle-acciones" id="detalle-pendiente-acciones"></div>
-        `,
+        contenido: contenidoDesdeTemplate("tpl-detalle-pendiente", {
+            html: { formulario: htmlFormularioPendiente(pendiente) }
+        }),
         variante: "form",
         confirmText: null,
         cancelText: null,

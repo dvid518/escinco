@@ -41,6 +41,11 @@ import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
 
 asegurarEstilos("dashboard")
 
+// Estado vacío de las listas del dashboard: `<p class="card-vacio">`.
+function tarjetaVacia(texto) {
+    return contenidoDesdeTemplate("tpl-card-vacio", { valores: { texto } })
+}
+
 // ============================================
 // ESTADO
 // ============================================
@@ -343,13 +348,10 @@ function montarCardsInstanciadas() {
 function construirCardInstancia(id) {
     const entidad = entidadDeInstancia(id)
     if (!entidad) return null
-    const html = entidad.tipo === "cuenta"
+    const fragmento = entidad.tipo === "cuenta"
         ? plantillaCardCuenta(entidad.cuenta)
         : plantillaCardActivo(entidad.posicion)
-    if (!html || typeof html !== "string") return null
-    const contenedor = document.createElement("div")
-    contenedor.innerHTML = html.trim()
-    return contenedor.firstElementChild
+    return fragmento?.firstElementChild || null
 }
 
 function cantidadDeActivo(valor) {
@@ -361,13 +363,8 @@ function cantidadDeActivo(valor) {
 }
 
 function filaDato(etiqueta, valor) {
-    if (!valor) return ""
-    return `
-        <div class="card-dato">
-            <span class="card-dato-label">${etiqueta}</span>
-            <span class="card-dato-valor">${valor}</span>
-        </div>
-    `
+    if (!valor) return null
+    return contenidoDesdeTemplate("tpl-card-dato", { valores: { label: etiqueta, valor } })
 }
 
 // ============================================
@@ -428,12 +425,9 @@ function alternarCompresionCard(card, id) {
 // Botón del encabezado. El chevron apunta a la acción: arriba para comprimir,
 // y al girar 180° (CSS) queda abajo para volver a desplegar.
 function botonComprimirCard() {
-    return `
-        <button type="button" class="card-comprimir" data-card-comprimir
-            aria-expanded="true" aria-label="${ETIQUETA_COMPRIMIR}" title="${ETIQUETA_COMPRIMIR}">
-            ${icono("chevron-up", 14)}
-        </button>
-    `
+    return contenidoDesdeTemplate("tpl-card-comprimir", {
+        html: { icono: icono("chevron-up", 14) }
+    })
 }
 
 // Card de una cuenta. No lista movimientos ni cantidades de operación: solo
@@ -443,32 +437,33 @@ function plantillaCardCuenta(cuenta) {
     const esCredito = cuenta.tipo === "credito"
     const prefijo = `cuenta-card-${cuenta.id}`
     const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
-    // Una cuenta con subcuentas muestra el total de la familia en su card; las
-    // hijas no tienen card propia, asi que el conjunto no se ve partido.
-    const conHijas = tieneHijas(cuenta, cuentas)
 
-    return `
-        <div class="glass card card-navegable card-cuenta${esCredito ? " card-cuenta-credito" : ""}"
-            id="card-${prefijo}" data-dashboard-card="${idCardCuenta(cuenta.id)}"
-            role="group" tabindex="0" aria-label="${cuenta.nombre || etiqueta}">
-            <div class="card-header">
-                <span class="card-title">${etiqueta}</span>
-                <div class="card-header-controles">
-                    <span class="badge" id="${prefijo}-estado">${skeletonText("skeleton-badge")}</span>
-                    ${botonComprimirCard()}
-                </div>
-            </div>
-            <div class="card-value" id="${prefijo}-valor">${skeletonText("skeleton-value")}</div>
-            <div class="card-sub" id="${prefijo}-detalle">${skeletonText()}</div>
-            ${esCredito ? `
-                <div class="card-uso">
-                    <div class="card-uso-barra"><span id="${prefijo}-barra"></span></div>
-                    <span class="card-uso-pct" id="${prefijo}-porcentaje"></span>
-                </div>
-            ` : ""}
-            <div class="card-datos" id="${prefijo}-datos"></div>
-        </div>
-    `
+    const uso = esCredito
+        ? contenidoDesdeTemplate("tpl-dashboard-card-uso", {
+            valores: {
+                "barra@id": `${prefijo}-barra`,
+                "porcentaje@id": `${prefijo}-porcentaje`
+            }
+        })
+        : null
+
+    return contenidoDesdeTemplate("tpl-dashboard-card-cuenta", {
+        valores: {
+            "card@id": `card-${prefijo}`,
+            "card@data-dashboard-card": idCardCuenta(cuenta.id),
+            "card@class": `glass card card-navegable card-cuenta${esCredito ? " card-cuenta-credito" : ""}`,
+            "card@aria-label": cuenta.nombre || etiqueta,
+            "titulo": etiqueta,
+            "estado@id": `${prefijo}-estado`,
+            "valor@id": `${prefijo}-valor`,
+            "detalle@id": `${prefijo}-detalle`,
+            "datos@id": `${prefijo}-datos`
+        },
+        html: {
+            comprimir: botonComprimirCard(),
+            uso
+        }
+    })
 }
 
 // Card de un activo con posición abierta: valor, resultado y desglose de la
@@ -476,22 +471,18 @@ function plantillaCardCuenta(cuenta) {
 function plantillaCardActivo(posicion) {
     const prefijo = `activo-card-${posicion.activoId}`
 
-    return `
-        <div class="glass card card-navegable card-activo"
-            id="card-${prefijo}" data-dashboard-card="${idCardActivo(posicion.activoId)}"
-            role="group" tabindex="0">
-            <div class="card-header">
-                <span class="card-title" id="${prefijo}-nombre"></span>
-                <div class="card-header-controles">
-                    <span class="badge" id="${prefijo}-estado"></span>
-                    ${botonComprimirCard()}
-                </div>
-            </div>
-            <div class="card-value" id="${prefijo}-valor">${skeletonText("skeleton-value")}</div>
-            <div class="card-sub" id="${prefijo}-detalle">${skeletonText()}</div>
-            <div class="card-datos" id="${prefijo}-datos"></div>
-        </div>
-    `
+    return contenidoDesdeTemplate("tpl-dashboard-card-activo", {
+        valores: {
+            "card@id": `card-${prefijo}`,
+            "card@data-dashboard-card": idCardActivo(posicion.activoId),
+            "nombre@id": `${prefijo}-nombre`,
+            "estado@id": `${prefijo}-estado`,
+            "valor@id": `${prefijo}-valor`,
+            "detalle@id": `${prefijo}-detalle`,
+            "datos@id": `${prefijo}-datos`
+        },
+        html: { comprimir: botonComprimirCard() }
+    })
 }
 
 function pintarCardInstancia(id, card) {
@@ -558,7 +549,7 @@ function pintarCardCuenta(cuenta, card) {
         }
 
         if (datosEl) {
-            datosEl.innerHTML = [
+            datosEl.replaceChildren(...[
                 filaDato("Ciclo", [corte, pago].filter(Boolean).join(" · ") || "Sin fechas definidas"),
                 filaDato("Por pagar", ciclo.pagadoCompleto
                     ? "Estado de cuenta pagado"
@@ -570,7 +561,7 @@ function pintarCardCuenta(cuenta, card) {
                     : cuenta.desgravamen
                         ? `Desgravamen ${cuenta.desgravamen}%`
                         : "")
-            ].join("")
+            ].filter(Boolean))
         }
         return
     }
@@ -605,10 +596,10 @@ if (detalleEl) {
     }
 
     if (datosEl) {
-        datosEl.innerHTML = [
+        datosEl.replaceChildren(...[
             filaDato("Divisa", presentarDivisa(moneda)),
             filaDato("Alta", cuenta.fechaCreacion ? formatearFecha(cuenta.fechaCreacion) : "")
-        ].join("")
+        ].filter(Boolean))
     }
 }
 
@@ -651,11 +642,11 @@ function pintarCardActivo(posicion, card) {
     }
 
     if (datosEl) {
-        datosEl.innerHTML = [
+        datosEl.replaceChildren(...[
             filaDato("Cantidad", `${cantidadDeActivo(cantidad)} ${activo.simbolo || ""}`.trim()),
             filaDato("Precio", `${formatearMontoConDivisa(ultimoPrecio, divisa)} · prom. ${formatearMontoConDivisa(precioPromedio, divisa)}`),
             filaDato("Tipo", ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "")
-        ].join("")
+        ].filter(Boolean))
     }
 }
 
@@ -990,11 +981,13 @@ function prepararEdicionCardsDashboard() {
         }
         const controles = document.createElement("div")
         controles.className = "dashboard-card-edicion"
-        controles.innerHTML = `
-            <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card">${icono("grip", 16)}</span>
-            <button type="button" class="dashboard-card-mover" data-dashboard-mover data-id="${id}" data-direccion="-1" aria-label="Mover card hacia arriba">↑</button>
-            <button type="button" class="dashboard-card-mover" data-dashboard-mover data-id="${id}" data-direccion="1" aria-label="Mover card hacia abajo">↓</button>
-        `
+        controles.append(contenidoDesdeTemplate("tpl-dashboard-card-edicion", {
+            valores: {
+                "subir@data-id": id,
+                "bajar@data-id": id
+            },
+            html: { handle: icono("grip", 16) }
+        }))
         card.appendChild(controles)
     })
 }
@@ -1706,10 +1699,6 @@ function configurarRefreshDashboard() {
     })
 }
 
-// ============================================
-// RECARGAR (invocado por "Actualizar" del lastbar)
-// ============================================
-
 export async function recargarDatos() {
     activarSpinLogo()
     mostrarEsqueletosDashboard()
@@ -2319,7 +2308,7 @@ function mostrarErrorCarga() {
     if (detalleEl) detalleEl.textContent = "Error al cargar datos"
     LISTAS_DASHBOARD.forEach(({ id }) => {
         const lista = document.getElementById(id)
-        if (lista) lista.innerHTML = `<p class="card-vacio">No se pudieron cargar estos datos.</p>`
+        if (lista) lista.replaceChildren(tarjetaVacia("No se pudieron cargar estos datos."))
     })
     VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
@@ -2342,26 +2331,25 @@ function actualizarPendientes() {
 
     if (cantidadEl) cantidadEl.textContent = pendientesData.length
     if (pendientesData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">No tienes cobros ni pagos pendientes.</p>`
+        lista.replaceChildren(tarjetaVacia("No tienes cobros ni pagos pendientes."))
         return
     }
 
-    lista.innerHTML = pendientesData.map(pendiente => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData, pendiente => {
         const clase = pendiente.tipo ? "positive" : "negative"
         const signo = pendiente.tipo ? "+" : "−"
         const detalle = pendiente.fechaVencimiento
             ? `Vence ${formatearFecha(pendiente.fechaVencimiento)}`
             : pendiente.tipoTexto
-        return `
-            <div class="dashboard-list-item">
-                <div class="dashboard-list-info">
-                    <span class="dashboard-list-title">${pendiente.concepto}</span>
-                    <span class="dashboard-list-detail">${detalle}</span>
-                </div>
-                <span class="dashboard-list-value ${clase}">${signo} ${formatearMontoConDivisa(pendiente.monto, pendiente.divisa)}</span>
-            </div>
-        `
-    }).join("")
+        return {
+            valores: {
+                "titulo": pendiente.concepto,
+                "detalle": detalle,
+                "valor@class": `dashboard-list-value ${clase}`,
+                "valor-texto": `${signo} ${formatearMontoConDivisa(pendiente.monto, pendiente.divisa)}`
+            }
+        }
+    }))
 }
 
 // ============================================
@@ -2423,13 +2411,13 @@ function actualizarOrdenes() {
     }
 
     if (pendientes.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">No tienes órdenes pendientes.</p>`
+        lista.replaceChildren(tarjetaVacia("No tienes órdenes pendientes."))
         return
     }
 
     const precios = preciosPorSimbolo()
 
-    lista.innerHTML = pendientes.slice(0, ORDENES_MAX_FILAS).map(orden => {
+    const fragmento = contenidoDesdeFilas("tpl-dashboard-list-item", pendientes.slice(0, ORDENES_MAX_FILAS), orden => {
         const precioActual = precios.get(String(orden.activo || "").toUpperCase()) || 0
         const distancia = distanciaAlDisparo(orden, precioActual)
         // Por debajo del 2% la orden está a punto de saltar: se resalta.
@@ -2438,18 +2426,19 @@ function actualizarOrdenes() {
             ? `${orden.tipoLabel} · ${orden.direccionLabel} · sin precio`
             : `${orden.tipoLabel} · ${orden.direccionLabel} · a ${Math.abs(distancia).toFixed(1)}% del disparo`
 
-        return `
-        <div class="dashboard-list-item">
-            <div class="dashboard-list-info">
-                <span class="dashboard-list-title">${orden.activo}</span>
-                <span class="dashboard-list-detail ${claseDistancia}">${detalle}</span>
-            </div>
-            <span class="dashboard-list-value">${formatearMontoConDivisa(orden.precioDisparo, orden.divisa)}</span>
-        </div>
-    `
-    }).join("") + (pendientes.length > ORDENES_MAX_FILAS
-        ? `<p class="card-vacio">y ${pendientes.length - ORDENES_MAX_FILAS} más…</p>`
-        : "")
+        return {
+            valores: {
+                "titulo": orden.activo,
+                "detalle@class": claseDistancia ? `dashboard-list-detail ${claseDistancia}` : "dashboard-list-detail",
+                "detalle": detalle,
+                "valor-texto": formatearMontoConDivisa(orden.precioDisparo, orden.divisa)
+            }
+        }
+    })
+    if (pendientes.length > ORDENES_MAX_FILAS) {
+        fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - ORDENES_MAX_FILAS} más…`))
+    }
+    lista.replaceChildren(fragmento)
 }
 
 function actualizarEstrategias() {
@@ -2459,28 +2448,31 @@ function actualizarEstrategias() {
 
     if (cantidadEl) cantidadEl.textContent = estrategiasData.length
     if (estrategiasData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">No tienes estrategias activas.</p>`
+        lista.replaceChildren(tarjetaVacia("No tienes estrategias activas."))
         return
     }
 
-    lista.innerHTML = estrategiasData.map(estrategia => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", estrategiasData, estrategia => {
         const cuenta = cuentas.find(item => item.id === estrategia.cuentaId)
-        const controlCuenta = cuenta ? `
-            <button type="button" class="estrategia-cuenta" data-dashboard-cuenta-estrategia="${estrategia.cuentaId}">
-                ${icono("landmark", 11)} ${cuenta.nombre}
-            </button>
-        ` : ""
-        return `
-            <div class="dashboard-list-item estrategia-dashboard-item">
-                <div class="dashboard-list-info">
-                    <span class="dashboard-list-title">${estrategia.nombre}</span>
-                    <span class="dashboard-list-detail">${estrategia.activoSimbolo} · ${formatearProximaEjecucion(estrategia.proximaEjecucion)}</span>
-                    ${controlCuenta}
-                </div>
-                <span class="dashboard-list-value">${formatearMontoConDivisa(estrategia.montoFijo, estrategia.divisa)}</span>
-            </div>
-        `
-    }).join("")
+        const controlCuenta = cuenta
+            ? contenidoDesdeTemplate("tpl-dashboard-estrategia-cuenta", {
+                valores: {
+                    "btn@data-dashboard-cuenta-estrategia": estrategia.cuentaId,
+                    "nombre": cuenta.nombre
+                },
+                html: { icono: icono("landmark", 11) }
+            })
+            : null
+        return {
+            valores: {
+                "item@class": "dashboard-list-item estrategia-dashboard-item",
+                "titulo": estrategia.nombre,
+                "detalle": `${estrategia.activoSimbolo} · ${formatearProximaEjecucion(estrategia.proximaEjecucion)}`,
+                "valor-texto": formatearMontoConDivisa(estrategia.montoFijo, estrategia.divisa)
+            },
+            html: { extra: controlCuenta }
+        }
+    }))
 }
 
 function pluralizarMovimientos(cantidad) {
@@ -2573,7 +2565,7 @@ async function dibujarDonaDistribucion(items) {
     const contenedor = document.getElementById("distribucion-dona-placeholder")
     if (!contenedor) return
     if (!items || items.length === 0) {
-        contenedor.innerHTML = ""
+        contenedor.replaceChildren()
         return
     }
 
@@ -2585,7 +2577,7 @@ async function dibujarDonaDistribucion(items) {
     if (!canvas) {
         // Quitar el esqueleto antes de pintar: si no, dona y esqueleto se
         // superponen en el mismo contenedor.
-        contenedor.innerHTML = ""
+        contenedor.replaceChildren()
         canvas = document.createElement("canvas")
         canvas.id = "distribucion-dona"
         contenedor.appendChild(canvas)
@@ -2607,18 +2599,15 @@ function actualizarDistribucion() {
     if (!lista || !analiticaData) return
 
     if (totalEl) totalEl.textContent = formatearMontoConDivisa(analiticaData.brutoDistribucion, divisaActual)
-    lista.innerHTML = analiticaData.distribucion.map(item => `
-        <div class="distribucion-item">
-            <div class="distribucion-cabecera">
-                <span>${item.label}</span>
-                <strong>${item.porcentaje.toFixed(0)}%</strong>
-            </div>
-            <div class="distribucion-barra">
-                <span class="${item.clase}" style="width: ${Math.max(0, Math.min(100, item.porcentaje))}%"></span>
-            </div>
-            <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, divisaActual)}</span>
-        </div>
-    `).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", analiticaData.distribucion, item => ({
+        valores: {
+            "etiqueta": item.label,
+            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+            "barra@class": item.clase,
+            "barra@style": `width: ${Math.max(0, Math.min(100, item.porcentaje))}%`,
+            "valor": formatearMontoConDivisa(item.valor, divisaActual)
+        }
+    })))
 
     dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
 }
@@ -2643,7 +2632,7 @@ function actualizarDistribucionActivos() {
     if (!lista) return
 
     if (!posicionesData || posicionesData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">No tienes posiciones abiertas.</p>`
+        lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
         return
     }
 
@@ -2678,23 +2667,20 @@ function actualizarDistribucionActivos() {
 
     const total = items.reduce((suma, item) => suma + item.valor, 0)
     if (items.length === 0 || total <= 0) {
-        lista.innerHTML = `<p class="card-vacio">No hay nada valorable que repartir.</p>`
+        lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
         return
     }
     for (const item of items) item.porcentaje = (item.valor / total) * 100
 
-    lista.innerHTML = items.map(item => `
-        <div class="distribucion-item">
-            <div class="distribucion-cabecera">
-                <span>${item.label}</span>
-                <strong>${item.porcentaje.toFixed(0)}%</strong>
-            </div>
-            <div class="distribucion-barra">
-                <span class="${item.clase}" style="width: ${Math.max(0, Math.min(100, item.porcentaje))}%"></span>
-            </div>
-            <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, divisaActual)}</span>
-        </div>
-    `).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", items, item => ({
+        valores: {
+            "etiqueta": item.label,
+            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+            "barra@class": item.clase,
+            "barra@style": `width: ${Math.max(0, Math.min(100, item.porcentaje))}%`,
+            "valor": formatearMontoConDivisa(item.valor, divisaActual)
+        }
+    })))
 }
 
 // ============================================
@@ -2717,7 +2703,7 @@ function actualizarPatrimonioDivisa() {
     if (!lista) return
 
     if (!patrimonioStats) {
-        lista.innerHTML = `<p class="card-vacio">No se pudo calcular el patrimonio.</p>`
+        lista.replaceChildren(tarjetaVacia("No se pudo calcular el patrimonio."))
         return
     }
 
@@ -2747,26 +2733,23 @@ function actualizarPatrimonioDivisa() {
     )
 
     if (total <= 0) {
-        lista.innerHTML = `<p class="card-vacio">Sin patrimonio registrado.</p>`
+        lista.replaceChildren(tarjetaVacia("Sin patrimonio registrado."))
         return
     }
 
-    lista.innerHTML = items.map(item => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", items, item => {
         const equivalente = convertirMonto(item.valor, item.clave, divisaActual)
         const porcentaje = Math.max(0, Math.min(100, (equivalente / total) * 100))
-        return `
-        <div class="distribucion-item">
-            <div class="distribucion-cabecera">
-                <span>${item.etiqueta}</span>
-                <strong>${porcentaje.toFixed(0)}%</strong>
-            </div>
-            <div class="distribucion-barra">
-                <span class="${item.clave}" style="width: ${porcentaje}%"></span>
-            </div>
-            <span class="distribucion-valor">${formatearMontoConDivisa(item.valor, item.clave)}</span>
-        </div>
-    `
-    }).join("")
+        return {
+            valores: {
+                "etiqueta": item.etiqueta,
+                "porcentaje": `${porcentaje.toFixed(0)}%`,
+                "barra@class": item.clave,
+                "barra@style": `width: ${porcentaje}%`,
+                "valor": formatearMontoConDivisa(item.valor, item.clave)
+            }
+        }
+    }))
 }
 
 function actualizarProgramados() {
@@ -2776,19 +2759,17 @@ function actualizarProgramados() {
 
     if (cantidadEl) cantidadEl.textContent = analiticaData.programados.length
     if (analiticaData.programados.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">No hay movimientos programados próximos.</p>`
+        lista.replaceChildren(tarjetaVacia("No hay movimientos programados próximos."))
         return
     }
 
-    lista.innerHTML = analiticaData.programados.map(item => `
-        <div class="dashboard-list-item">
-            <div class="dashboard-list-info">
-                <span class="dashboard-list-title">${item.titulo}</span>
-                <span class="dashboard-list-detail">${formatearProximaEjecucion(item.fecha)}</span>
-            </div>
-            <span class="dashboard-list-value">${formatearMontoConDivisa(item.monto, divisaActual)}</span>
-        </div>
-    `).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", analiticaData.programados, item => ({
+        valores: {
+            "titulo": item.titulo,
+            "detalle": formatearProximaEjecucion(item.fecha),
+            "valor-texto": formatearMontoConDivisa(item.monto, divisaActual)
+        }
+    })))
 }
 
 function actualizarAlertas() {
@@ -2803,19 +2784,18 @@ function actualizarAlertas() {
     cardEl?.classList.toggle("positive", alertas.length === 0)
 
     if (alertas.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">Todo en orden. No hay alertas.</p>`
+        lista.replaceChildren(tarjetaVacia("Todo en orden. No hay alertas."))
         return
     }
 
-    lista.innerHTML = alertas.map(alerta => `
-        <div class="alerta-item ${alerta.nivel}">
-            ${icono("triangle-alert", 14)}
-            <div>
-                <span>${alerta.titulo}</span>
-                <small>${alerta.detalle}</small>
-            </div>
-        </div>
-    `).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-alerta-item", alertas, alerta => ({
+        valores: {
+            "alerta@class": `alerta-item ${alerta.nivel}`,
+            "titulo": alerta.titulo,
+            "detalle": alerta.detalle
+        },
+        html: { icono: icono("triangle-alert", 14) }
+    })))
 }
 
 function formatearProximaEjecucion(fecha) {
@@ -2836,11 +2816,11 @@ function actualizarMovimientos() {
     if (!lista) return
 
     if (movimientosData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">Sin movimientos por ahora.</p>`
+        lista.replaceChildren(tarjetaVacia("Sin movimientos por ahora."))
         return
     }
 
-    lista.innerHTML = movimientosData.map(plantillaMovimiento).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-movimiento", movimientosData, plantillaMovimiento))
     enlazarMovimientos(lista)
 }
 
@@ -2870,15 +2850,22 @@ function plantillaMovimiento(m) {
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Movimiento"
     const etiquetas = (m.etiquetas || []).filter(Boolean)
 
-    return `
-        <div class="movimiento-item" data-movimiento-id="${m.id}" role="button" tabindex="0" title="Ver movimiento">
-            <div class="movimiento-info">
-                <span class="movimiento-titulo">${m.concepto || m.activo || tipoNombre}${etiquetas.map(e => ` <span class="badge">${e}</span>`).join("")}</span>
-                <span class="movimiento-detalle">${formatearFecha(fechaDeMovimiento(m))}</span>
-            </div>
-            <span class="movimiento-monto ${clase}">${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}</span>
-        </div>
-    `
+    const etiquetasFrag = document.createDocumentFragment()
+    for (const e of etiquetas) {
+        etiquetasFrag.append(" ")
+        etiquetasFrag.append(contenidoDesdeTemplate("tpl-badge-etiqueta", { valores: { badge: e } }))
+    }
+
+    return {
+        valores: {
+            "item@data-movimiento-id": m.id,
+            "titulo": m.concepto || m.activo || tipoNombre,
+            "detalle": formatearFecha(fechaDeMovimiento(m)),
+            "monto@class": `movimiento-monto ${clase}`,
+            "monto-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+        },
+        html: { etiquetas: etiquetasFrag }
+    }
 }
 
 function fechaDeMovimiento(m) {
@@ -3114,23 +3101,33 @@ async function abrirModalEvolucionDashboard() {
     } catch (error) {
         const body = modal?.querySelector(".modal-body")
         if (!body || !modal.isConnected || cancelado) return
-        body.innerHTML = `<p class="modal-message-desc">No se pudo cargar la evolución: ${error.message || "error desconocido"}</p>`
+        const parrafo = document.createElement("p")
+        parrafo.className = "modal-message-desc"
+        parrafo.textContent = `No se pudo cargar la evolución: ${error.message || "error desconocido"}`
+        body.replaceChildren(parrafo)
     }
 }
 
 function abrirModalProgramados() {
     const items = analiticaData?.programados || []
-    const contenido = items.length > 0
-        ? `<div class="modal-lista-dashboard">${items.map(item => `
-            <div class="dashboard-list-item">
-                <div class="dashboard-list-info">
-                    <span class="dashboard-list-title">${item.titulo}</span>
-                    <span class="dashboard-list-detail">${formatearFecha(item.fecha)}</span>
-                </div>
-                <span class="dashboard-list-value">${formatearMontoConDivisa(item.monto, divisaActual)}</span>
-            </div>
-        `).join("")}</div>`
-        : `<div class="modal-message"><p class="modal-message-desc">No hay movimientos programados próximos.</p></div>`
+
+    let contenido
+    if (items.length === 0) {
+        contenido = contenidoDesdeTemplate("tpl-modal-mensaje", {
+            valores: { texto: "No hay movimientos programados próximos." }
+        })
+    } else {
+        const wrapper = document.createElement("div")
+        wrapper.className = "modal-lista-dashboard"
+        wrapper.append(contenidoDesdeFilas("tpl-dashboard-list-item", items, item => ({
+            valores: {
+                "titulo": item.titulo,
+                "detalle": formatearFecha(item.fecha),
+                "valor-texto": formatearMontoConDivisa(item.monto, divisaActual)
+            }
+        })))
+        contenido = wrapper
+    }
 
     abrirModal({
         titulo: "Movimientos programados",
@@ -3143,17 +3140,25 @@ function abrirModalProgramados() {
 
 function abrirModalAlertas() {
     const items = analiticaData?.alertas || []
-    const contenido = items.length > 0
-        ? `<div class="modal-lista-dashboard">${items.map(alerta => `
-            <div class="alerta-item ${alerta.nivel}">
-                ${icono("triangle-alert", 16)}
-                <div>
-                    <span>${alerta.titulo}</span>
-                    <small>${alerta.detalle}</small>
-                </div>
-            </div>
-        `).join("")}</div>`
-        : `<div class="modal-message"><p class="modal-message-desc">Todo en orden. No hay alertas.</p></div>`
+
+    let contenido
+    if (items.length === 0) {
+        contenido = contenidoDesdeTemplate("tpl-modal-mensaje", {
+            valores: { texto: "Todo en orden. No hay alertas." }
+        })
+    } else {
+        const wrapper = document.createElement("div")
+        wrapper.className = "modal-lista-dashboard"
+        wrapper.append(contenidoDesdeFilas("tpl-alerta-item", items, alerta => ({
+            valores: {
+                "alerta@class": `alerta-item ${alerta.nivel}`,
+                "titulo": alerta.titulo,
+                "detalle": alerta.detalle
+            },
+            html: { icono: icono("triangle-alert", 16) }
+        })))
+        contenido = wrapper
+    }
 
     abrirModal({
         titulo: "Alertas",
@@ -3169,17 +3174,14 @@ async function abrirModalVencimientos() {
 
     let contenido
     if (items.length === 0) {
-        contenido = `
-            <div class="modal-message">
-                <p class="modal-message-desc">
-                    Sin vencimientos en los próximos ${DIAS_VENCIMIENTO} días.
-                </p>
-            </div>
-        `
+        contenido = contenidoDesdeTemplate("tpl-vencimientos-vacio", {
+            valores: { dias: DIAS_VENCIMIENTO }
+        })
     } else {
-        contenido = `<div class="lista-cards vencimientos-lista">
-            ${items.map(plantillaVencimiento).join("")}
-        </div>`
+        const wrapper = document.createElement("div")
+        wrapper.className = "lista-cards vencimientos-lista"
+        wrapper.append(contenidoDesdeFilas("tpl-dashboard-vencimiento", items, plantillaVencimiento))
+        contenido = wrapper
     }
 
     const modalEl = abrirModal({
@@ -3236,20 +3238,17 @@ function plantillaVencimiento(v) {
         ? (v.esCobrar ? "positive" : "negative")
         : (v.vencido ? "negative" : "")
 
-    return `
-        <div class="card-item vencimiento-item ${v.vencido ? "vencido" : ""} ${accionable ? "clickeable" : ""}"
-            data-tipo="${v.tipo}" data-id="${v.id}" role="button" tabindex="0">
-            <div class="card-item-info">
-                <span class="card-item-titulo">${v.titulo} ${v.vencido ? "· VENCIDO" : ""}</span>
-                <span class="card-item-detalle">
-                    ${v.subtitulo} · ${textoDias(v.diasRestantes)}
-                </span>
-            </div>
-            <span class="card-item-valor ${claseValor}">
-                ${signo ? `${signo} ` : ""}${formatearMontoConDivisa(v.monto, v.divisa)}
-            </span>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": `card-item vencimiento-item${v.vencido ? " vencido" : ""}${accionable ? " clickeable" : ""}`,
+            "item@data-tipo": v.tipo,
+            "item@data-id": v.id,
+            "titulo": `${v.titulo}${v.vencido ? " · VENCIDO" : ""}`,
+            "detalle": `${v.subtitulo} · ${textoDias(v.diasRestantes)}`,
+            "valor@class": `card-item-valor ${claseValor}`.trim(),
+            "valor-texto": `${signo ? `${signo} ` : ""}${formatearMontoConDivisa(v.monto, v.divisa)}`
+        }
+    }
 }
 
 function textoDias(dias) {
@@ -3271,11 +3270,11 @@ function actualizarFavoritos() {
     if (cantidadEl) cantidadEl.textContent = favoritosData.length
 
     if (favoritosData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">Marca activos con la estrella en Inversiones.</p>`
+        lista.replaceChildren(tarjetaVacia("Marca activos con la estrella en Inversiones."))
         return
     }
 
-    lista.innerHTML = favoritosData.map(plantillaFavorito).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-favorito", favoritosData, plantillaFavorito))
     enlazarFavoritos(lista)
 }
 
@@ -3301,15 +3300,14 @@ function plantillaFavorito(posicion) {
     const activo = posicion.activo || {}
     const precio = (activo.ultimoPrecio || 0).toFixed(2)
 
-    return `
-        <div class="favorito-item" data-activo-id="${posicion.activoId}" role="button" tabindex="0" title="Ver historial de precios">
-            <div class="favorito-info">
-                <span class="favorito-nombre">${activo.nombre || posicion.activoId}</span>
-                <span class="favorito-simbolo">${activo.simbolo || ""}</span>
-            </div>
-            <span class="favorito-precio">${formatearMontoConDivisa(precio, posicion.divisa)}</span>
-        </div>
-    `
+    return {
+        valores: {
+            "item@data-activo-id": posicion.activoId,
+            "nombre": activo.nombre || posicion.activoId,
+            "simbolo": activo.simbolo || "",
+            "precio": formatearMontoConDivisa(precio, posicion.divisa)
+        }
+    }
 }
 
 // ============================================
@@ -3344,11 +3342,11 @@ function actualizarMetas() {
     if (!lista) return
 
     if (metasData.length === 0) {
-        lista.innerHTML = `<p class="card-vacio">Crea tu primera meta de ahorro.</p>`
+        lista.replaceChildren(tarjetaVacia("Crea tu primera meta de ahorro."))
         return
     }
 
-    lista.innerHTML = metasData.map(plantillaMeta).join("")
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-meta", metasData, plantillaMeta))
     enlazarListaMetas(lista)
 }
 
@@ -3361,15 +3359,15 @@ function plantillaMeta(meta) {
         meta.activa ? "" : "pausada"
     ].filter(Boolean).join(" ")
 
-    return `
-        <div class="${clases}" data-meta-id="${meta.id}" role="button" tabindex="0" title="Aportar a la meta">
-            <div class="meta-info">
-                <span class="meta-nombre">${meta.nombre}</span>
-                <span class="meta-cantidad">${formatearMontoConDivisa(meta.montoActual, meta.divisa)}</span>
-            </div>
-            <span class="meta-porcentaje">${meta.porcentaje.toFixed(0)}%</span>
-        </div>
-    `
+    return {
+        valores: {
+            "item@class": clases,
+            "item@data-meta-id": meta.id,
+            "nombre": meta.nombre,
+            "cantidad": formatearMontoConDivisa(meta.montoActual, meta.divisa),
+            "porcentaje": `${meta.porcentaje.toFixed(0)}%`
+        }
+    }
 }
 
 function enlazarListaMetas(lista) {
@@ -3561,14 +3559,9 @@ function mostrarEstadoGrafico(tipo, texto, hint = "") {
     const estado = document.getElementById("grafico-estado")
     if (!estado) return
 
-    estado.innerHTML = tipo === "cargando"
-        ? skeletonMarkup({ variant: "chart", label: "Cargando gráfico" })
-        : `
-            <div class="grafico-vacio">
-                <p class="grafico-vacio-texto">${texto}</p>
-                ${hint ? `<p class="grafico-vacio-hint">${hint}</p>` : ""}
-            </div>
-        `
+    estado.replaceChildren(tipo === "cargando"
+        ? contenidoDesdeTemplate("tpl-grafico-cargando")
+        : contenidoDesdeTemplate("tpl-grafico-vacio", { valores: { texto, hint } }))
     estado.hidden = false
 }
 
@@ -3576,7 +3569,7 @@ function ocultarEstadoGrafico() {
     const estado = document.getElementById("grafico-estado")
     if (!estado) return
     estado.hidden = true
-    estado.innerHTML = ""
+    estado.replaceChildren()
 }
 
 function mostrarCanvas() {

@@ -8,7 +8,7 @@ import {
     borrarOrden,
     evaluarOrdenesPendientes
 } from "../services/OrdenServicio.js"
-import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "../ui/modal.js"
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
@@ -173,7 +173,9 @@ export async function cargarTrades() {
         if (vistaActual !== "trades") return
         const container = document.getElementById('lista-trades')
         if (container) {
-            container.innerHTML = `<p class="lista-vacia error">Error al cargar trades</p>`
+            container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
+                valores: { texto: "Error al cargar trades" }
+            }))
         }
     } finally {
         finalizarCargaVisible()
@@ -198,7 +200,9 @@ async function cargarOrdenes() {
         if (vistaActual !== "ordenes") return
         const container = document.getElementById('lista-trades')
         if (container) {
-            container.innerHTML = `<p class="lista-vacia error">Error al cargar órdenes</p>`
+            container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
+                valores: { texto: "Error al cargar órdenes" }
+            }))
         }
     } finally {
         finalizarCargaVisible()
@@ -217,69 +221,60 @@ function renderizarTrades() {
     ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
 
     if (lista.length === 0) {
-        container.innerHTML = `
-            <p class="lista-vacia">
-                No hay trades registrados.
-                <br><br>
-                <span class="lista-vacia-hint">Usa los botones <strong>"Largo"</strong> o <strong>"Corto"</strong> en la barra inferior para registrar tu primer trade.</span>
-            </p>
-        `
+        container.replaceChildren(contenidoDesdeTemplate("tpl-trading-vacio-trades"))
         return
     }
 
-    container.innerHTML = lista.map(t => {
-        const pnl = t.pnl
-        const pnlPct = t.pnlPorcentaje
-        const esGanancia = pnl >= 0
-        return `
-            <div class="posicion-item trade-item${seleccionadas.has(t.id) ? " seleccionado" : ""}" data-trade-id="${t.id}">
-                <div class="card-item-main">
-                    <div class="posicion-info">
-                        <div class="posicion-nombre">
-                            <span class="trade-activo">${t.activo}</span>
-                            <span class="badge ${t.tipo === "long" ? "badge--positive" : "badge--negative"}">${t.tipoLabel}</span>
-                        </div>
-                        <div class="posicion-detalle">
-                            Lotaje: ${t.lotaje} · ${t.estaCerrado ? "Cerrado" : "Abierto"}
-                        </div>
-                    </div>
-                    <div class="card-item-valor-wrap">
-                        <div class="posicion-valores">
-                            ${t.estaCerrado ? `
-                                <div class="posicion-valor ${esGanancia ? 'positive' : 'negative'}">
-                                    ${esGanancia ? '+' : ''}${formatearMontoConDivisa(Math.abs(pnl), t.divisa)}
-                                </div>
-                                <div class="posicion-rendimiento ${esGanancia ? 'positive' : 'negative'}">
-                                    ${esGanancia ? '+' : ''}${pnlPct.toFixed(2)}%
-                                </div>
-                            ` : t.pnlFlotante !== null && t.pnlFlotante !== undefined ? `
-                                <div class="posicion-valor ${t.pnlFlotante >= 0 ? 'positive' : 'negative'}">
-                                    ${t.pnlFlotante >= 0 ? '+' : ''}${formatearMontoConDivisa(Math.abs(t.pnlFlotante), t.divisa)}
-                                </div>
-                                <div class="posicion-rendimiento ${t.pnlFlotante >= 0 ? 'positive' : 'negative'}">
-                                    P&L flotante
-                                </div>
-                            ` : `
-                                <div class="posicion-valor">Abierto</div>
-                            `}
-                        </div>
-                        <div class="card-item-acciones">
-                            ${t.estaAbierto ? `
-                                <button type="button" class="card-action-btn" data-accion="cerrar" data-id="${t.id}" title="Cerrar" aria-label="Cerrar">${icono("x", 16)}</button>
-                            ` : `
-                                <button type="button" class="card-action-btn" data-accion="reabrir" data-id="${t.id}" title="Reabrir" aria-label="Reabrir">${icono("refresh-cw", 16)}</button>
-                            `}
-                            <button type="button" class="card-action-btn" data-accion="editar" data-id="${t.id}" title="Editar" aria-label="Editar">${icono("pencil", 16)}</button>
-                            <button type="button" class="card-action-btn danger" data-accion="eliminar" data-id="${t.id}" title="Eliminar" aria-label="Eliminar">${icono("trash-2", 16)}</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `
-    }).join('')
+    container.replaceChildren(contenidoDesdeFilas("tpl-trade-card", lista, filaTrade))
 
     // Las acciones ahora las maneja el contenedor (delegadas).
     cardConAcciones = null
+}
+
+function filaTrade(t) {
+    const pnl = t.pnl
+    const pnlPct = t.pnlPorcentaje
+    const esGanancia = pnl >= 0
+    const pnlFlotante = t.pnlFlotante
+    const tieneFlotante = pnlFlotante !== null && pnlFlotante !== undefined
+    const esFlotantePositivo = pnlFlotante >= 0
+    const signo = valor => valor ? "+" : ""
+    const clase = positivo => positivo ? "positive" : "negative"
+    const marca = t.estaCerrado ? "cerrado" : (tieneFlotante ? "flotante" : "abierto")
+
+    return {
+        valores: {
+            "item@class": `posicion-item trade-item${seleccionadas.has(t.id) ? " seleccionado" : ""}`,
+            "item@data-trade-id": t.id,
+            activo: t.activo,
+            "badge@class": `badge ${t.tipo === "long" ? "badge--positive" : "badge--negative"}`,
+            badge: t.tipoLabel,
+            lotaje: t.lotaje,
+            estado: t.estaCerrado ? "Cerrado" : "Abierto",
+            "cerrado@hidden": marca !== "cerrado",
+            "cerrado-valor@class": `posicion-valor ${clase(esGanancia)}`,
+            "cerrado-valor-texto": `${signo(esGanancia)}${formatearMontoConDivisa(Math.abs(pnl), t.divisa)}`,
+            "cerrado-rend@class": `posicion-rendimiento ${clase(esGanancia)}`,
+            "cerrado-rend-texto": `${signo(esGanancia)}${pnlPct.toFixed(2)}%`,
+            "flotante@hidden": marca !== "flotante",
+            "flotante-valor@class": `posicion-valor ${clase(esFlotantePositivo)}`,
+            "flotante-valor-texto": `${signo(esFlotantePositivo)}${formatearMontoConDivisa(Math.abs(pnlFlotante), t.divisa)}`,
+            "flotante-rend@class": `posicion-rendimiento ${clase(esFlotantePositivo)}`,
+            "abierto@hidden": marca !== "abierto",
+            "btn-cerrar@hidden": !t.estaAbierto,
+            "btn-cerrar@data-id": t.id,
+            "btn-reabrir@hidden": t.estaAbierto,
+            "btn-reabrir@data-id": t.id,
+            "icono-editar@data-id": t.id,
+            "icono-eliminar@data-id": t.id
+        },
+        html: {
+            "icono-cerrar": icono("x", 16),
+            "icono-reabrir": icono("refresh-cw", 16),
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash-2", 16)
+        }
+    }
 }
 
 // ============================================
@@ -298,56 +293,41 @@ function renderizarOrdenes() {
     ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
 
     if (lista.length === 0) {
-        container.innerHTML = `
-            <p class="lista-vacia">
-                No hay órdenes registradas.
-                <br><br>
-                <span class="lista-vacia-hint">Usa <strong>"Nueva orden"</strong> para programar una compra o venta límite/stop.</span>
-            </p>
-        `
+        container.replaceChildren(contenidoDesdeTemplate("tpl-trading-vacio-ordenes"))
         return
     }
 
-    container.innerHTML = lista.map(o => {
-        const claseDireccion = o.direccion === "long" ? "positive" : "negative"
-        const claseEstado = o.estaPendiente ? "badge--neutral" : (o.fueEjecutada ? "badge--positive" : "badge--negative")
-
-        return `
-            <div class="posicion-item trade-item orden-item${seleccionadas.has(o.id) ? " seleccionado" : ""}" data-orden-id="${o.id}">
-                <div class="card-item-main">
-                    <div class="posicion-info">
-                        <div class="posicion-nombre">
-                            ${o.activo}
-                            <span class="posicion-simbolo">${o.direccion === "long" ? "Largo" : "Corto"}</span>
-                            <span class="badge ${claseEstado}">${o.estadoTexto}</span>
-                        </div>
-                        <div class="posicion-detalle">
-                            Lotaje: ${o.lotaje}
-                        </div>
-                    </div>
-                    <div class="card-item-valor-wrap">
-                        <div class="posicion-valores">
-                            <div class="posicion-valor">
-                                ${formatearMontoConDivisa(o.precioDisparo, o.divisa)}
-                            </div>
-                            <div class="posicion-rendimiento ${claseDireccion}">
-                                ${o.tipoLabel}
-                            </div>
-                        </div>
-                        <div class="card-item-acciones">
-                            ${o.estaPendiente ? `
-                                <button type="button" class="card-action-btn" data-accion="editar" data-id="${o.id}" title="Editar" aria-label="Editar">${icono("pencil", 16)}</button>
-                            ` : ''}
-                            <button type="button" class="card-action-btn danger" data-accion="eliminar" data-id="${o.id}" title="Eliminar" aria-label="Eliminar">${icono("trash-2", 16)}</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `
-    }).join('')
+    container.replaceChildren(contenidoDesdeFilas("tpl-orden-card", lista, filaOrden))
 
     // Las acciones ahora las maneja el contenedor (delegadas).
     cardConAcciones = null
+}
+
+function filaOrden(o) {
+    const claseDireccion = o.direccion === "long" ? "positive" : "negative"
+    const claseEstado = o.estaPendiente ? "badge--neutral" : (o.fueEjecutada ? "badge--positive" : "badge--negative")
+
+    return {
+        valores: {
+            "item@class": `posicion-item trade-item orden-item${seleccionadas.has(o.id) ? " seleccionado" : ""}`,
+            "item@data-orden-id": o.id,
+            activo: o.activo,
+            direccion: o.direccion === "long" ? "Largo" : "Corto",
+            "estado@class": `badge ${claseEstado}`,
+            estado: o.estadoTexto,
+            lotaje: o.lotaje,
+            precio: formatearMontoConDivisa(o.precioDisparo, o.divisa),
+            "tipo@class": `posicion-rendimiento ${claseDireccion}`,
+            "tipo-texto": o.tipoLabel,
+            "btn-editar@hidden": !o.estaPendiente,
+            "btn-editar@data-id": o.id,
+            "icono-eliminar@data-id": o.id
+        },
+        html: {
+            "icono-editar": icono("pencil", 16),
+            "icono-eliminar": icono("trash-2", 16)
+        }
+    }
 }
 
 function actualizarResumen() {
@@ -794,40 +774,11 @@ export function abrirModalNuevoTrade(tipo) {
     const esLong = tipo === 'long'
     const titulo = esLong ? 'Nuevo trade largo' : 'Nuevo trade corto'
 
-    const html = `
-        <form class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="trade-activo">Activo *</label>
-                <input type="text" id="trade-activo" class="form-input" placeholder="Ej: BTC, ETH, AAPL" required>
-            </div>
-            <div class="form-group">
-                <label for="trade-cuenta">Cuenta *</label>
-                <select id="trade-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="trade-entrada">Entrada *</label>
-                <input type="number" id="trade-entrada" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-            <div class="form-group">
-                <label for="trade-lotaje">Lotaje *</label>
-                <input type="number" id="trade-lotaje" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
-            </div>
-            <div class="form-group">
-                <label for="trade-sl">Stop Loss</label>
-                <input type="number" id="trade-sl" class="form-input" step="0.01" min="0" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label for="trade-tp">Take Profit</label>
-                <input type="number" id="trade-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-nuevo-trade")
 
     abrirModal({
         titulo,
-        contenido: html,
+        contenido,
         confirmText: 'Registrar trade',
         onConfirm: async () => {
             const activo = document.getElementById('trade-activo')?.value.trim().toUpperCase()
@@ -879,30 +830,17 @@ function abrirModalCerrarTrade(tradeId) {
     const trade = datosTrades?.trades.find(t => t.id === tradeId)
     if (!trade) return
 
-    const html = `
-        <form class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label>Activo</label>
-                <span class="form-static">${trade.activo} (${trade.tipoLabel})</span>
-            </div>
-            <div class="form-group">
-                <label>Entrada</label>
-                <span class="form-static">${trade.entrada.toFixed(2)}</span>
-            </div>
-            <div class="form-group">
-                <label>Lotaje</label>
-                <span class="form-static">${trade.lotaje}</span>
-            </div>
-            <div class="form-group full">
-                <label for="cerrar-salida">Precio de salida *</label>
-                <input type="number" id="cerrar-salida" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-cerrar-trade", {
+        valores: {
+            activo: `${trade.activo} (${trade.tipoLabel})`,
+            entrada: trade.entrada.toFixed(2),
+            lotaje: trade.lotaje
+        }
+    })
 
     abrirModal({
         titulo: `Cerrar ${trade.activo}`,
-        contenido: html,
+        contenido,
         confirmText: 'Cerrar trade',
         onConfirm: async () => {
             const salida = parseFloat(document.getElementById('cerrar-salida')?.value)
@@ -966,47 +904,24 @@ function abrirModalEditarTrade(tradeId) {
 
     const simbolo = formatearMontoConDivisa(0, trade.divisa)
 
-    const html = `
-        <form class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="editar-trade-activo">Activo *</label>
-                <input type="text" id="editar-trade-activo" class="form-input" value="${trade.activo.replace(/</g, "&lt;")}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-trade-tipo">Dirección</label>
-                <select id="editar-trade-tipo" class="form-input">
-                    <option value="long" ${trade.tipo === 'long' ? 'selected' : ''}>Largo (Long)</option>
-                    <option value="short" ${trade.tipo === 'short' ? 'selected' : ''}>Corto (Short)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="editar-trade-entrada">Entrada *</label>
-                <input type="number" id="editar-trade-entrada" class="form-input" step="0.01" min="0.01" value="${trade.entrada}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-trade-lotaje">Lotaje *</label>
-                <input type="number" id="editar-trade-lotaje" class="form-input" step="0.0001" min="0.0001" value="${trade.lotaje}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-trade-sl">Stop Loss</label>
-                <input type="number" id="editar-trade-sl" class="form-input" step="0.01" min="0" value="${trade.sl || ''}" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label for="editar-trade-tp">Take Profit</label>
-                <input type="number" id="editar-trade-tp" class="form-input" step="0.01" min="0" value="${trade.tp || ''}" placeholder="0.00">
-            </div>
-            ${trade.estaCerrado ? `
-                <div class="form-group full">
-                    <label for="editar-trade-salida">Precio de salida</label>
-                    <input type="number" id="editar-trade-salida" class="form-input" step="0.01" min="0" value="${trade.salida || ''}" placeholder="${simbolo} 0.00">
-                </div>
-            ` : ''}
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-editar-trade", {
+        valores: {
+            "activo@value": trade.activo,
+            largo: trade.tipo === "long",
+            corto: trade.tipo === "short",
+            "entrada@value": trade.entrada,
+            "lotaje@value": trade.lotaje,
+            "sl@value": trade.sl || "",
+            "tp@value": trade.tp || "",
+            "bloque-salida@hidden": !trade.estaCerrado,
+            "salida@value": trade.salida || "",
+            "salida@placeholder": `${simbolo} 0.00`
+        }
+    })
 
     abrirModal({
         titulo: `Editar ${trade.activo}`,
-        contenido: html,
+        contenido,
         confirmText: "Guardar cambios",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1092,55 +1007,12 @@ function confirmarEliminarTrade(tradeId) {
 // ÓRDENES · NUEVA
 // ============================================
 
-export function abrirModalNuevaOrden() {
-    const html = `
-        <form class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="orden-activo">Activo *</label>
-                <input type="text" id="orden-activo" class="form-input" placeholder="Ej: BTC, ETH, AAPL" required>
-            </div>
-            <div class="form-group">
-                <label for="orden-cuenta">Cuenta *</label>
-                <select id="orden-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="orden-tipo">Tipo de orden *</label>
-                <select id="orden-tipo" class="form-input">
-                    <option value="limite">Límite</option>
-                    <option value="stop">Stop</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="orden-direccion">Dirección *</label>
-                <select id="orden-direccion" class="form-input">
-                    <option value="long">Compra (Largo)</option>
-                    <option value="short">Venta (Corto)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="orden-precio">Precio de disparo *</label>
-                <input type="number" id="orden-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00" required>
-            </div>
-            <div class="form-group">
-                <label for="orden-lotaje">Lotaje *</label>
-                <input type="number" id="orden-lotaje" class="form-input" step="0.0001" min="0.0001" placeholder="0" required>
-            </div>
-            <div class="form-group">
-                <label for="orden-sl">Stop Loss</label>
-                <input type="number" id="orden-sl" class="form-input" step="0.01" min="0" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label for="orden-tp">Take Profit</label>
-                <input type="number" id="orden-tp" class="form-input" step="0.01" min="0" placeholder="0.00">
-            </div>
-        </form>
-    `
+    export function abrirModalNuevaOrden() {
+    const contenido = contenidoDesdeTemplate("tpl-form-nueva-orden")
 
     abrirModal({
         titulo: "Nueva orden",
-        contenido: html,
+        contenido,
         confirmText: 'Crear orden',
         onConfirm: async () => {
             const activo = document.getElementById('orden-activo')?.value.trim().toUpperCase()
@@ -1197,52 +1069,25 @@ function abrirModalDetalleOrden(ordenId) {
     const orden = ordenesData.find(o => o.id === ordenId)
     if (!orden) return
 
-    const html = `
-        <div class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label>Activo</label>
-                <span class="form-static">${orden.activo} (${orden.direccion === "long" ? "Largo" : "Corto"})</span>
-            </div>
-            <div class="form-group">
-                <label>Tipo de orden</label>
-                <span class="form-static">${orden.tipoLabel}</span>
-            </div>
-            <div class="form-group">
-                <label>Estado</label>
-                <span class="form-static">${orden.estadoTexto}</span>
-            </div>
-            <div class="form-group">
-                <label>Precio de disparo</label>
-                <span class="form-static">${formatearMontoConDivisa(orden.precioDisparo, orden.divisa)}</span>
-            </div>
-            <div class="form-group">
-                <label>Lotaje</label>
-                <span class="form-static">${orden.lotaje}</span>
-            </div>
-            <div class="form-group">
-                <label>Stop Loss</label>
-                <span class="form-static">${orden.sl ? formatearMontoConDivisa(orden.sl, orden.divisa) : "—"}</span>
-            </div>
-            <div class="form-group">
-                <label>Take Profit</label>
-                <span class="form-static">${orden.tp ? formatearMontoConDivisa(orden.tp, orden.divisa) : "—"}</span>
-            </div>
-            ${orden.fueEjecutada && orden.precioEjecucion ? `
-                <div class="form-group">
-                    <label>Precio ejecutado</label>
-                    <span class="form-static">${formatearMontoConDivisa(orden.precioEjecucion, orden.divisa)}</span>
-                </div>
-            ` : ''}
-            <div class="form-group">
-                <label>Creada el</label>
-                <span class="form-static">${formatearFechaOrden(orden.fechaCreacion)}</span>
-            </div>
-        </div>
-    `
+    const ejecutado = Boolean(orden.fueEjecutada && orden.precioEjecucion)
+    const contenido = contenidoDesdeTemplate("tpl-detalle-orden", {
+        valores: {
+            activo: `${orden.activo} (${orden.direccion === "long" ? "Largo" : "Corto"})`,
+            tipo: orden.tipoLabel,
+            estado: orden.estadoTexto,
+            precio: formatearMontoConDivisa(orden.precioDisparo, orden.divisa),
+            lotaje: orden.lotaje,
+            sl: orden.sl ? formatearMontoConDivisa(orden.sl, orden.divisa) : "—",
+            tp: orden.tp ? formatearMontoConDivisa(orden.tp, orden.divisa) : "—",
+            "bloque-ejecucion@hidden": !ejecutado,
+            ejecucion: ejecutado ? formatearMontoConDivisa(orden.precioEjecucion, orden.divisa) : "",
+            creada: formatearFechaOrden(orden.fechaCreacion)
+        }
+    })
 
     abrirModal({
         titulo: `Orden · ${orden.activo}`,
-        contenido: html,
+        contenido,
         variante: "info",
         confirmText: "Editar",
         footerExtra: `
@@ -1286,54 +1131,23 @@ function abrirModalEditarOrden(ordenId) {
     const orden = ordenesData.find(o => o.id === ordenId)
     if (!orden) return
 
-    const html = `
-        <form class="form-movimiento form-movimiento-grid">
-            <div class="form-group">
-                <label for="editar-orden-activo">Activo *</label>
-                <input type="text" id="editar-orden-activo" class="form-input" value="${(orden.activo || "").replace(/</g, "&lt;")}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-cuenta">Cuenta *</label>
-                <select id="editar-orden-cuenta" class="form-input" required>
-                    <option value="">Seleccionar cuenta</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-tipo">Tipo de orden *</label>
-                <select id="editar-orden-tipo" class="form-input">
-                    <option value="limite" ${orden.tipoOrden === "limite" ? "selected" : ""}>Límite</option>
-                    <option value="stop" ${orden.tipoOrden === "stop" ? "selected" : ""}>Stop</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-direccion">Dirección *</label>
-                <select id="editar-orden-direccion" class="form-input">
-                    <option value="long" ${orden.direccion === "long" ? "selected" : ""}>Compra (Largo)</option>
-                    <option value="short" ${orden.direccion === "short" ? "selected" : ""}>Venta (Corto)</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-precio">Precio de disparo *</label>
-                <input type="number" id="editar-orden-precio" class="form-input" step="0.01" min="0.01" value="${orden.precioDisparo}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-lotaje">Lotaje *</label>
-                <input type="number" id="editar-orden-lotaje" class="form-input" step="0.0001" min="0.0001" value="${orden.lotaje}" required>
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-sl">Stop Loss</label>
-                <input type="number" id="editar-orden-sl" class="form-input" step="0.01" min="0" value="${orden.sl || ''}" placeholder="0.00">
-            </div>
-            <div class="form-group">
-                <label for="editar-orden-tp">Take Profit</label>
-                <input type="number" id="editar-orden-tp" class="form-input" step="0.01" min="0" value="${orden.tp || ''}" placeholder="0.00">
-            </div>
-        </form>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-editar-orden", {
+        valores: {
+            "activo@value": orden.activo || "",
+            limite: orden.tipoOrden === "limite",
+            stop: orden.tipoOrden === "stop",
+            largo: orden.direccion === "long",
+            corto: orden.direccion === "short",
+            "precio@value": orden.precioDisparo,
+            "lotaje@value": orden.lotaje,
+            "sl@value": orden.sl || "",
+            "tp@value": orden.tp || ""
+        }
+    })
 
     abrirModal({
         titulo: `Editar orden · ${orden.activo}`,
-        contenido: html,
+        contenido,
         confirmText: "Guardar cambios",
         cancelText: "Cancelar",
         onConfirm: async () => {
@@ -1433,12 +1247,20 @@ async function cargarCuentasEnSelect(selectId) {
         if (!select) return
 
         const activas = cuentas.filter(c => c.estado !== 'archivada' && c.tipo !== 'credito')
-        select.innerHTML = `
-            <option value="">Seleccionar cuenta</option>
-            ${activas.map(c => `
-                <option value="${c.id}" data-moneda="${(c.moneda || 'pen').toLowerCase()}">${c.nombre} (${c.moneda?.toUpperCase() || 'PEN'})</option>
-            `).join('')}
-        `
+        // Con createElement y textContent: el nombre de la cuenta es del usuario
+        // y no debe pasar por innerHTML.
+        select.replaceChildren()
+        const vacia = document.createElement('option')
+        vacia.value = ''
+        vacia.textContent = 'Seleccionar cuenta'
+        select.appendChild(vacia)
+        for (const c of activas) {
+            const opcion = document.createElement('option')
+            opcion.value = c.id
+            opcion.dataset.moneda = (c.moneda || 'pen').toLowerCase()
+            opcion.textContent = `${c.nombre} (${c.moneda?.toUpperCase() || 'PEN'})`
+            select.appendChild(opcion)
+        }
     } catch (error) {
         console.error('Error cargando cuentas:', error)
     }

@@ -34,7 +34,7 @@ function sobreponer(overlay) {
 /**
  * Construye el cuerpo de un modal clonando un <template> del documento y
  * rellenando sus huecos. Los templates viven en el HTML principal
- * (dashboard.html, tester.html), que el service worker ya precachea: no hay
+ * (dashboard.html, demo.html), que el service worker ya precachea: no hay
  * peticiones extra ni framework.
  *
  * El HTML editable se queda en el HTML, el texto se inserta escapado por
@@ -52,8 +52,12 @@ function sobreponer(overlay) {
  *              marca la casilla. El atributo `data-tpl-attr="a,b"` del template
  *              no hace falta para el relleno: documenta qué se rellena.
  *   html       pares { hueco: markup } para el mismo atributo. Solo para iconos
- *              del catálogo (`icono()`, `LOGO_ESCINCO_CARGA`): markup que genera
- *              el propio código. Nunca texto de usuario: ahí va `valores`.
+ *              del catálogo (`icono()`, `LOGO_ESCINCO_CARGA`) o para otro
+ *              fragmento ya construido: markup que genera el propio código.
+ *              Nunca texto de usuario: ahí va `valores`. Un hueco con
+ *              `data-tpl-reemplazar` no envuelve el contenido: se sustituye por
+ *              él (para bloques que son un form-group entero y no pueden llevar
+ *              un div alrededor sin romper la rejilla del formulario).
  *
  * @param {string} id            id del <template>
  * @param {Object} [opciones]    { valores, html }
@@ -92,6 +96,15 @@ function clonarTemplate(id) {
     return tpl.content.cloneNode(true)
 }
 
+// Un hueco reemplazable admite un nodo, un fragmento o markup en texto.
+function nodosDe(markup) {
+    if (markup instanceof DocumentFragment) return [...markup.childNodes]
+    if (markup instanceof Node) return [markup]
+    const envoltorio = document.createElement("template")
+    envoltorio.innerHTML = markup == null ? "" : String(markup)
+    return [...envoltorio.content.childNodes]
+}
+
 // Atributos que en realidad son propiedades del elemento: se escriben como
 // `destino[propiedad] = valor`, para poder poner y quitar checked/disabled.
 const PROPIEDADES = ["checked", "disabled", "selected", "hidden", "indeterminate"]
@@ -115,7 +128,17 @@ function rellenarHuecos(fragmento, { valores = {}, html = {} } = {}) {
         const [hueco] = clave.split("@")
         const destino = fragmento.querySelector(`[data-tpl="${hueco}"]`)
         if (!destino) continue
-        destino.innerHTML = markup == null ? "" : String(markup)
+        // data-tpl-reemplazar: el hueco no envuelve el contenido, se sustituye
+        // por él. Para bloques que son un form-group entero y no pueden llevar
+        // un div alrededor sin romper la rejilla del formulario.
+        if (destino.hasAttribute("data-tpl-reemplazar")) {
+            destino.replaceWith(...nodosDe(markup))
+            continue
+        }
+        // Un fragmento ya construido (otro template) se inserta tal cual; el
+        // markup del catálogo de iconos va como texto.
+        if (markup instanceof Node) destino.appendChild(markup)
+        else destino.innerHTML = markup == null ? "" : String(markup)
         if (destino.hasAttribute("data-tpl-oculto")) destino.hidden = !markup
     }
 }
@@ -165,8 +188,14 @@ export function abrirModal(opciones) {
     overlay.style.setProperty("--z-modal", ++zContador)
 
     const textoTitulo = titulo == null || String(titulo).trim().toLowerCase() === "null" ? "escinco" : String(titulo)
-    const textoHeaderExtra = headerExtra == null ? "" : headerExtra
-    const textoFooterExtra = footerExtra == null ? "" : String(footerExtra).trim()
+    // footerExtra/headerExtra aceptan markup en texto (los botones del catálogo)
+    // o un nodo ya construido (otro template). El nodo se inserta en su sitio
+    // del pie/cabecera tras montar el modal.
+    const nodoHeaderExtra = headerExtra instanceof Node ? headerExtra : null
+    const textoHeaderExtra = nodoHeaderExtra ? "" : (headerExtra == null ? "" : headerExtra)
+    const nodoFooterExtra = footerExtra instanceof Node ? footerExtra : null
+    const textoFooterExtra = nodoFooterExtra ? "" : (footerExtra == null ? "" : String(footerExtra).trim())
+    const hayFooterExtra = !!nodoFooterExtra || textoFooterExtra !== ""
     const textoCancelar = cancelText == null ? "" : String(cancelText)
     const textoConfirmar = confirmText == null || String(confirmText).trim().toLowerCase() === "null"
         ? "Aceptar"
@@ -178,13 +207,13 @@ export function abrirModal(opciones) {
         textoCancelar.trim() !== "" &&
         textoCancelar.trim().toLowerCase() !== "cerrar"
     const mostrarConfirmar = typeof onConfirm === "function" && textoConfirmar.trim() !== ""
-    const soloCerrar = mostrarConfirmar && !mostrarCancelar && textoFooterExtra === "" && textoConfirmar.trim().toLowerCase() === "cerrar"
-    const mostrarFooter = !soloCerrar && (mostrarCancelar || mostrarConfirmar || !!textoFooterExtra)
+    const soloCerrar = mostrarConfirmar && !mostrarCancelar && !hayFooterExtra && textoConfirmar.trim().toLowerCase() === "cerrar"
+    const mostrarFooter = !soloCerrar && (mostrarCancelar || mostrarConfirmar || hayFooterExtra)
 
     overlay.innerHTML = `
         <div class="modal glass modal-${variante}" role="dialog" aria-modal="true" tabindex="-1">
             <div class="modal-header">
-                <h2 class="modal-title">${textoTitulo}</h2>
+                <h2 class="modal-title"></h2>
                 <div class="modal-header-controls">
                     <div class="modal-header-acciones">
                         ${textoHeaderExtra}
@@ -202,14 +231,20 @@ ${cerrarConBotonX ? `
             ${mostrarFooter ? `
             <div class="modal-footer">
                 ${mostrarCancelar ? `<button class="modal-btn modal-btn-secondary" id="modal-cancel"
-                    type="button">${textoCancelar}</button>` : ""}
+                    type="button"></button>` : ""}
                 ${textoFooterExtra}
                 ${mostrarConfirmar ? `<button class="modal-btn modal-btn-primary" id="modal-confirm"
-                    type="button">${textoConfirmar}</button>` : ""}
+                    type="button"></button>` : ""}
             </div>
             ` : ""}
         </div>
     `
+
+    // El título y las etiquetas de los botones pueden llevar datos de usuario
+    // (nombre de cuenta, activo del trade…): van con textContent, nunca innerHTML.
+    overlay.querySelector(".modal-title").textContent = textoTitulo
+    if (mostrarCancelar) overlay.querySelector("#modal-cancel").textContent = textoCancelar
+    if (mostrarConfirmar) overlay.querySelector("#modal-confirm").textContent = textoConfirmar
 
     document.body.appendChild(overlay)
 
@@ -222,6 +257,18 @@ ${cerrarConBotonX ? `
         bodyEl.appendChild(contenido)
     } else if (contenido != null && String(contenido) !== "") {
         bodyEl.innerHTML = String(contenido)
+    }
+
+    // Los extras que llegan como nodo se colocan en su posición real: la
+    // cabecera dentro de .modal-header-acciones y el pie entre "Cancelar" y
+    // "Confirmar". Así los botones fijos de un modal pueden venir de un
+    // <template> sin pasar por innerHTML.
+    if (nodoHeaderExtra) {
+        overlay.querySelector(".modal-header-acciones")?.appendChild(nodoHeaderExtra)
+    }
+    if (nodoFooterExtra && mostrarFooter) {
+        const footer = overlay.querySelector(".modal-footer")
+        footer?.insertBefore(nodoFooterExtra, footer.querySelector("#modal-confirm") || null)
     }
 
     // En modo persistente, cada nueva ventana baja un poco de la anterior

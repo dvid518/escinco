@@ -6,23 +6,22 @@ import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { etiquetaDivisa, formatearMontoConDivisa, getDivisaPrincipal } from "../services/DivisaServicio.js"
+import { contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 
 // Activos del usuario cargados al abrir el formulario, indexados por símbolo
 // en mayúsculas. La página no mantiene el modelo a mano: se rellena cada vez.
 let activosPorSimbolo = new Map()
 
-function escaparAtributo(valor) {
-    return String(valor ?? "")
-        .replace(/&/g, "&amp;")
-        .replace(/"/g, "&quot;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-}
-
 // ============================================
 // GENERAR FORMULARIO SEGÚN TIPO
 // ============================================
 
+/**
+ * Genera el <form> del tipo pedido como fragmento, listo para
+ * `abrirModal({ contenido })`. Los campos se clonan de los <template> de
+ * dashboard.html y sus textos van por textContent: el nombre de una cuenta o de
+ * un activo nunca pasa por innerHTML.
+ */
 export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = null) {
     const uid = sesion.uid
     const config = CONFIG_MOVIMIENTOS[tipo]
@@ -56,56 +55,62 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
         ? cuentasActivas.filter(c => c.tipo !== "credito" && (!divisaObjetivo || comparteDivisa(c)))
         : cuentasActivas
 
-    const cuentasOptions = cuentasElegibles
-        .map(c => `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}" data-tipo="${c.tipo || "otro"}">${c.nombre} (${etiquetaDivisa(c.moneda || "pen")})</option>`)
-        .join("")
+    const contexto = {
+        cuentasOptions: contenidoDesdeFilas("tpl-opcion-cuenta", cuentasElegibles, c => ({
+            valores: {
+                "opcion@value": c.id,
+                "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
+                "opcion@data-tipo": c.tipo || "otro",
+                texto: `${c.nombre} (${etiquetaDivisa(c.moneda || "pen")})`
+            }
+        })),
 
-    // Las tarjetas solo se filtran por divisa (siguen disponibles para pagar
-    // el saldo de una tarjeta concreta de la misma moneda).
-    const tarjetas = divisaObjetivo
-        ? cuentasActivas.filter(c => c.tipo === "credito" && comparteDivisa(c))
-        : cuentasActivas.filter(c => c.tipo === "credito")
-    const tarjetasOptions = tarjetas
-        .map(c => `<option value="${c.id}" data-moneda="${(c.moneda || "pen").toLowerCase()}">${c.nombre} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})</option>`)
-        .join("")
+        // Las tarjetas solo se filtran por divisa (siguen disponibles para pagar
+        // el saldo de una tarjeta concreta de la misma moneda).
+        tarjetasOptions: contenidoDesdeFilas(
+            "tpl-opcion-cuenta",
+            divisaObjetivo
+                ? cuentasActivas.filter(c => c.tipo === "credito" && comparteDivisa(c))
+                : cuentasActivas.filter(c => c.tipo === "credito"),
+            c => ({
+                valores: {
+                    "opcion@value": c.id,
+                    "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
+                    "opcion@data-tipo": "credito",
+                    texto: `${c.nombre} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
+                }
+            })
+        ),
 
-    const hoy = getFechaHoy()
+        hoy: getFechaHoy()
+    }
+
     const obligatorios = config.camposObligatorios || []
     const opcionales = config.camposOpcionales || []
     const campos = [...new Set([...obligatorios, ...opcionales])]
 
     // El selector de activo ofrece en un datalist los símbolos que ya existen,
     // mostrando su nombre como descripción.
-    let activosDatalist = ""
     if (campos.includes("activo")) {
-        activosDatalist = await cargarActivosDatalist(uid)
+        contexto.activosDatalist = await cargarActivosDatalist(uid)
     }
 
-    let html = `
-        <form id="form-movimiento" class="form-movimiento form-movimiento-grid">
-    `
+    const contenido = contenidoDesdeTemplate("tpl-form-movimiento")
+    const form = contenido.querySelector("#form-movimiento")
+    const etiquetas = form.querySelector("[data-tpl='etiquetas']")
 
     for (const campo of campos) {
-        html += generarCampo(campo, { cuentasOptions, tarjetasOptions, activosDatalist, hoy }, !obligatorios.includes(campo))
+        const nodo = generarCampo(campo, contexto, !obligatorios.includes(campo))
+        if (nodo) form.insertBefore(nodo, etiquetas)
     }
 
-    // Las etiquetas valen para cualquier tipo de movimiento: van siempre, no
-    // dentro de `campos` (que es lo que el servicio valida como obligatorio).
-    html += `
-        <div class="form-group span-full">
-            <label for="campo-etiquetas">Etiquetas</label>
-            <input type="text" id="campo-etiquetas" class="form-input" placeholder="Ej: viaje, comida" autocomplete="off">
-            <span class="form-hint">Sepáralas con comas. Sirven para filtrar la lista.</span>
-        </div>
-    `
-
-    html += `</form>`
-    return html
+    return contenido
 }
 
 /**
- * Carga los activos del usuario y devuelve el HTML del datalist. Deja también
- * el índice símbolo→nombre en `activosPorSimbolo` para el nombre bloqueado.
+ * Carga los activos del usuario y devuelve los <option> del datalist como
+ * fragmento. Deja también el índice símbolo→nombre en `activosPorSimbolo` para
+ * el nombre bloqueado.
  */
 async function cargarActivosDatalist(uid) {
     try {
@@ -116,15 +121,13 @@ async function cargarActivosDatalist(uid) {
             if (!simbolo) return
             activosPorSimbolo.set(simbolo, activo.nombre || activo.simbolo)
         })
-        return [...activosPorSimbolo.entries()]
-            .map(([simbolo, nombre]) =>
-                `<option value="${escaparAtributo(simbolo)}" label="${escaparAtributo(nombre)}"></option>`
-            )
-            .join("")
+        return contenidoDesdeFilas("tpl-opcion-activo", [...activosPorSimbolo.entries()], ([simbolo, nombre]) => ({
+            valores: { "opcion@value": simbolo, "opcion@label": nombre }
+        }))
     } catch (error) {
         console.warn("No se pudieron cargar los activos para el selector:", error)
         activosPorSimbolo = new Map()
-        return ""
+        return null
     }
 }
 
@@ -178,26 +181,32 @@ function claseAncho(campo) {
     return CAMPOS_ANCHO_COMPLETO.includes(campo) ? " span-full" : ""
 }
 
-// Select con buscador: un input de texto filtra las opciones del <select>, que
-// sigue siendo la fuente del id. Así todos los lectores actuales
-// (.selectedOptions) siguen funcionando sin cambios.
+// Generador de campos: reemplaza el switch de generarCampo por templates.
 function plantillaSelectBuscable({ id, etiqueta, opciones, req, placeholderSelect, placeholderBuscar }) {
-    return `
-        <div class="form-group span-full">
-            <label for="${id}">${etiqueta}</label>
-            <input type="text" class="form-input form-buscador" data-select="${id}" placeholder="${placeholderBuscar}" autocomplete="off" spellcheck="false">
-            <select id="${id}" class="form-input"${req}>
-                <option value="">${placeholderSelect}</option>
-                ${opciones}
-            </select>
-        </div>
-    `
+    const contenido = contenidoDesdeTemplate("tpl-campo-select-buscable", {
+        valores: {
+            "etiqueta@for": id,
+            etiqueta,
+            "buscador@data-select": id,
+            "select@id": id,
+            "select@required": req,
+            placeholder: placeholderSelect
+        }
+    })
+    // Las <option> van dentro del <select>, que no admite otro elemento.
+    const buscador = contenido.querySelector("[data-tpl='buscador']")
+    buscador.placeholder = placeholderBuscar
+    const select = contenido.querySelector("[data-tpl='select']")
+    if (opciones) select.appendChild(opciones)
+    return contenido
 }
 
 function generarCampo(campo, contexto, opcional) {
     const { cuentasOptions, tarjetasOptions, activosDatalist, hoy } = contexto
-    const ancho = claseAncho(campo)
-    const req = opcional ? "" : " required"
+    const req = !opcional
+
+    // Un solo <div class="form-group"> con el ancho que le toca al campo.
+    const grupo = (extra = "") => `form-group${extra ? ` ${extra}` : ""}`
 
     switch (campo) {
         case "cuenta":
@@ -236,153 +245,145 @@ function generarCampo(campo, contexto, opcional) {
                 placeholderSelect: "Seleccionar tarjeta",
                 placeholderBuscar: "Buscar tarjeta..."
             })
-        case "activo":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-activo">Activo</label>
-                    <input type="text" id="campo-activo" class="form-input" list="lista-activos" placeholder="Ej: VOO, BTC..." autocomplete="off" spellcheck="false"${req}>
-                    <datalist id="lista-activos">${activosDatalist || ""}</datalist>
-                    <input type="text" id="campo-activo-nombre" class="form-input form-input-bloqueado" placeholder="Nombre del activo" readonly tabindex="-1">
-                </div>
-            `
+        case "activo": {
+            const contenido = contenidoDesdeTemplate("tpl-campo-activo", {
+                valores: { "grupo@class": grupo(claseAncho(campo)), requerido: req },
+                html: { activos: activosDatalist || "" }
+            })
+            return contenido
+        }
         case "concepto":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-concepto">Concepto</label>
-                    <input type="text" id="campo-concepto" class="form-input" placeholder="Descripción"${req}>
-                </div>
-            `
+            return contenidoDesdeTemplate("tpl-campo-texto", {
+                valores: {
+                    "grupo@class": grupo(claseAncho(campo)),
+                    "etiqueta@for": "campo-concepto",
+                    etiqueta: "Concepto",
+                    "campo@id": "campo-concepto",
+                    "campo@placeholder": "Descripción",
+                    "campo@required": req
+                }
+            })
         case "monto":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-monto">Monto (<span id="simbolo-monto" class="simbolo-divisa">S/</span>)</label>
-                    <input type="number" id="campo-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00"${req}>
-                </div>
-            `
+            return contenidoDesdeTemplate("tpl-campo-monto", {
+                valores: {
+                    "grupo@class": grupo(claseAncho(campo)),
+                    "etiqueta@for": "campo-monto",
+                    "campo@id": "campo-monto",
+                    "campo@required": req
+                }
+            })
         case "operacion":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-operacion">Operación</label>
-                    <select id="campo-operacion" class="form-input"${req}>
-                        <option value="sumar">Suma al saldo (+)</option>
-                        <option value="restar">Resta del saldo (−)</option>
-                    </select>
-                </div>
-            `
+            return campoSelectOperacion(grupo(claseAncho(campo)), req)
         case "montoOrigen":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-montoOrigen">Monto origen</label>
-                    <input type="number" id="campo-montoOrigen" class="form-input" step="0.01" min="0.01" placeholder="0.00"${req}>
-                </div>
-            `
+            return campoNumero("montoOrigen", "Monto origen", "0.01", "0.01", "0.00", req, claseAncho(campo))
         case "montoDestino":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-montoDestino">Monto destino</label>
-                    <input type="number" id="campo-montoDestino" class="form-input" step="0.01" min="0.01" placeholder="0.00"${req}>
-                </div>
-            `
+            return campoNumero("montoDestino", "Monto destino", "0.01", "0.01", "0.00", req, claseAncho(campo))
         case "cantidad":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cantidad">Cantidad</label>
-                    <input type="number" id="campo-cantidad" class="form-input" step="0.0001" min="0.0001" placeholder="0"${req}>
-                </div>
-            `
+            return campoNumero("cantidad", "Cantidad", "0.0001", "0.0001", "0", req, claseAncho(campo))
         case "precio":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-precio">Precio unitario</label>
-                    <input type="number" id="campo-precio" class="form-input" step="0.01" min="0.01" placeholder="0.00"${req}>
-                </div>
-            `
+            return campoNumero("precio", "Precio unitario", "0.01", "0.01", "0.00", req, claseAncho(campo))
         case "comision":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-comision">Comisión</label>
-                    <input type="number" id="campo-comision" class="form-input" step="0.01" min="0" placeholder="0.00" value="0">
-                </div>
-            `
+            return campoNumero("comision", "Comisión", "0.01", "0", "0.00", true, claseAncho(campo), "0")
         case "divisa":
-            return ""
+            return null
         case "tasa":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-tasa">Tasa de cambio</label>
-                    <input type="number" id="campo-tasa" class="form-input" step="0.0001" min="0.0001" placeholder="0.00"${req}>
-                    <span class="form-hint">Se calcula automáticamente al completar montos</span>
-                </div>
-            `
+            return campoTasa(grupo(claseAncho(campo)), req)
         case "exchange":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-exchange">Exchange</label>
-                    <input type="text" id="campo-exchange" class="form-input" placeholder="Ej: Binance, Kraken"${req}>
-                </div>
-            `
+            return campoTexto("exchange", "Exchange", "Ej: Binance, Kraken", req, claseAncho(campo))
         case "nombreVendedor":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-nombreVendedor">Nombre del vendedor</label>
-                    <input type="text" id="campo-nombreVendedor" class="form-input" placeholder="Nombre"${req}>
-                </div>
-            `
+            return campoTexto("nombreVendedor", "Nombre del vendedor", "Nombre", req, claseAncho(campo))
         case "nombreComprador":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-nombreComprador">Nombre del comprador</label>
-                    <input type="text" id="campo-nombreComprador" class="form-input" placeholder="Nombre"${req}>
-                </div>
-            `
+            return campoTexto("nombreComprador", "Nombre del comprador", "Nombre", req, claseAncho(campo))
         case "cuentaPago":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cuentaPago">Cuenta de pago</label>
-                    <input type="text" id="campo-cuentaPago" class="form-input" placeholder="Número de cuenta"${req}>
-                </div>
-            `
+            return campoTexto("cuentaPago", "Cuenta de pago", "Número de cuenta", req, claseAncho(campo))
         case "cuentaCobro":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-cuentaCobro">Cuenta de cobro</label>
-                    <input type="text" id="campo-cuentaCobro" class="form-input" placeholder="Número de cuenta"${req}>
-                </div>
-            `
+            return campoTexto("cuentaCobro", "Cuenta de cobro", "Número de cuenta", req, claseAncho(campo))
         case "fechaRealizacion":
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-fecha">Fecha de realización</label>
-                    <div class="campo-fecha">
-                        <input type="date" id="campo-fecha" class="form-input" value="${hoy}" max="${hoy}"${req}>
-                        <button type="button" class="btn-calendario" aria-label="Abrir calendario">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-calendar-days preview-icon">
-                                <path d="M8 2v4"/>
-                                <path d="M16 2v4"/>
-                                <rect width="18" height="18" x="3" y="4" rx="2"/>
-                                <path d="M3 10h18"/>
-                                <path d="M8 14h.01"/>
-                                <path d="M12 14h.01"/>
-                                <path d="M16 14h.01"/>
-                                <path d="M8 18h.01"/>
-                                <path d="M12 18h.01"/>
-                                <path d="M16 18h.01"/>
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-            `
+            return contenidoDesdeTemplate("tpl-campo-fecha", {
+                valores: {
+                    "grupo@class": grupo(claseAncho(campo)),
+                    "etiqueta@for": "campo-fecha",
+                    etiqueta: "Fecha de realización",
+                    "campo@id": "campo-fecha",
+                    "campo@value": hoy,
+                    "campo@max": hoy,
+                    "campo@required": req
+                }
+            })
         default:
-            return `
-                <div class="form-group${ancho}">
-                    <label for="campo-${campo}">${campo}</label>
-                    <input type="text" id="campo-${campo}" class="form-input" placeholder="${campo}"${req}>
-                </div>
-            `
+            return campoTexto(campo, campo, campo, req, claseAncho(campo))
     }
 }
 
-// ============================================
+function campoTexto(campo, etiqueta, placeholder, req, ancho) {
+    return contenidoDesdeTemplate("tpl-campo-texto", {
+        valores: {
+            "grupo@class": `form-group${ancho ? ` ${ancho}` : ""}`,
+            "etiqueta@for": `campo-${campo}`,
+            etiqueta,
+            "campo@id": `campo-${campo}`,
+            "campo@placeholder": placeholder,
+            "campo@required": req
+        }
+    })
+}
+
+function campoNumero(campo, etiqueta, step, min, placeholder, req, ancho, valor = "") {
+    return contenidoDesdeTemplate("tpl-campo-numero", {
+        valores: {
+            "grupo@class": `form-group${ancho ? ` ${ancho}` : ""}`,
+            "etiqueta@for": `campo-${campo}`,
+            etiqueta,
+            "campo@id": `campo-${campo}`,
+            "campo@step": step,
+            "campo@min": min,
+            "campo@placeholder": placeholder,
+            "campo@value": valor,
+            "campo@required": req
+        }
+    })
+}
+
+function campoSelectOperacion(claseGrupo, req) {
+    const contenido = contenidoDesdeTemplate("tpl-campo-select", {
+        valores: {
+            "grupo@class": claseGrupo,
+            "etiqueta@for": "campo-operacion",
+            etiqueta: "Operación",
+            "select@id": "campo-operacion",
+            "select@required": req
+        }
+    })
+    const select = contenido.querySelector("[data-tpl='select']")
+    for (const [valor, texto] of [["sumar", "Suma al saldo (+)"], ["restar", "Resta del saldo (−)"]]) {
+        const opcion = document.createElement("option")
+        opcion.value = valor
+        opcion.textContent = texto
+        select.appendChild(opcion)
+    }
+    return contenido
+}
+
+function campoTasa(claseGrupo, req) {
+    const contenido = contenidoDesdeTemplate("tpl-campo-numero", {
+        valores: {
+            "grupo@class": claseGrupo,
+            "etiqueta@for": "campo-tasa",
+            etiqueta: "Tasa de cambio",
+            "campo@id": "campo-tasa",
+            "campo@step": "0.0001",
+            "campo@min": "0.0001",
+            "campo@placeholder": "0.00",
+            "campo@required": req
+        }
+    })
+    const grupo = contenido.querySelector("[data-tpl='grupo']")
+    const pista = document.createElement("span")
+    pista.className = "form-hint"
+    pista.textContent = "Se calcula automáticamente al completar montos"
+    grupo.appendChild(pista)
+    return contenido
+}// ============================================
 // SÍMBOLO DE DIVISA SEGÚN CUENTA
 // ============================================
 

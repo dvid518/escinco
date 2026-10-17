@@ -12,7 +12,7 @@ const CACHE_RUNTIME = `${VERSION_APP}-runtime`
 const SHELL_ASSETS = [
     "/",
     "/index.html",
-    "/tester.html",
+    "/demo.html",
     "/dashboard.html",
     "/auth.html",
     "/reset-password.html",
