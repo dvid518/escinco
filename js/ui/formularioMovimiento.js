@@ -7,6 +7,7 @@ import { getFechaHoy } from "../core/fechas.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { etiquetaDivisa, formatearMontoConDivisa, getDivisaPrincipal } from "../services/DivisaServicio.js"
 import { contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
+import { escapeHtml } from "../core/escape.js"
 
 // Activos del usuario cargados al abrir el formulario, indexados por símbolo
 // en mayúsculas. La página no mantiene el modelo a mano: se rellena cada vez.
@@ -61,7 +62,7 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
                 "opcion@value": c.id,
                 "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
                 "opcion@data-tipo": c.tipo || "otro",
-                texto: `${c.nombre} (${etiquetaDivisa(c.moneda || "pen")})`
+                texto: `${escapeHtml(c.nombre)} (${etiquetaDivisa(c.moneda || "pen")})`
             }
         })),
 
@@ -77,7 +78,7 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
                     "opcion@value": c.id,
                     "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
                     "opcion@data-tipo": "credito",
-                    texto: `${c.nombre} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
+                    texto: `${escapeHtml(c.nombre)} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
                 }
             })
         ),

@@ -57,6 +57,7 @@ const SHELL_ASSETS = [
     "/js/core/movimientos.js",
     "/js/core/familiaCuentas.js",
     "/js/core/atajos.js",
+    "/js/core/escape.js",
 
     // JS pages
     "/js/pages/index.js",

@@ -18,6 +18,7 @@ import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
+import { escapeHtml } from "../core/escape.js"
 
 asegurarEstilos("movimientos")
 
@@ -1223,7 +1224,7 @@ export async function abrirFormularioDetalle(m) {
     })
 
     const modalEl = abrirModal({
-        titulo: `${tipoNombre} · ${formatearFecha(m.fechaRealizacion)}`,
+        titulo: `${tipoNombre} · ${escapeHtml(formatearFecha(m.fechaRealizacion))}`,
         contenido: formulario,
         variante: "form",
         confirmText: null,
@@ -1457,7 +1458,7 @@ export async function exportarExtractoCSV() {
                 CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido",
                 m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
                 nombreCuentaDeMovimiento(m),
-                `${esMovimientoPositivo(m) ? "+" : "-"}${Math.abs(montoDeMovimiento(m)).toFixed(2)}`,
+                `${esMovimientoPositivo(m) ? "+" : "-"}${escapeHtml(Math.abs(montoDeMovimiento(m)).toFixed(2))}`,
                 (m.divisa || "PEN").toUpperCase(),
                 (m.etiquetas || []).filter(Boolean).join(", ")
             ])
