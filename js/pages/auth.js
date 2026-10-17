@@ -152,7 +152,7 @@ let redirigiendo = false
 function irAlDashboard() {
     if (redirigiendo) return
     redirigiendo = true
-    window.location.replace("/dashboard")
+    window.location.replace("/")
 }
 
 /**

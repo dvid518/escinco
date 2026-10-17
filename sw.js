@@ -265,18 +265,20 @@ function esFuente(url) {
 // HTML DE RESPALDO SIN CONEXIÓN
 // ============================================
 // Cuando una navegación falla y no hay nada en caché, se sirve una página HTML
-// precacheada. Antes era siempre dashboard.html, porque era la única que
-// necesitaba estar disponible sin red. Con "/" sirviendo la landing, un visitante
-// sin conexión tiene que ver la landing y no el panel de la app: si no, la
-// página_cacheada de la app lo tiraría a /login.
+// precacheada. El mismo repositorio sirve dos sitios: la landing (www.escinco.com)
+// y la app (app.escinco.com). En la landing "/" es la portada; en la app "/" es el
+// panel, así que el respaldo depende del host. Si en la app se devolviera index.html,
+// la landing cacheada tiraría al visitante a un sitio que no es la app.
 //
-// Las rutas que no son públicas (/app, /dashboard, /cuentas…) siguen cayendo en
-// dashboard.html, que es justo lo que necesitan: son la app, y la app con la
-// caché de por sí ya funciona sin red.
+// Las rutas que no son públicas (/dashboard, /cuentas…) caen en dashboard.html, que
+// es lo que la app necesita para funcionar sin red.
+const HOSTS_APP = ["app.escinco.com", "app-escinco.web.app"]
+
 function htmlRespaldo(ruta) {
+    if (ruta.startsWith("/demo")) return "/demo.html"
+    if (HOSTS_APP.includes(self.location.hostname)) return "/dashboard.html"
     const publica = ruta === "/" || ruta === "/index.html"
     if (publica) return "/index.html"
-    if (ruta === "/tester" || ruta.startsWith("/demo")) return "/tester.html"
     return "/dashboard.html"
 }
 

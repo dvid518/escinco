@@ -1,5 +1,18 @@
 {
   "projects": {
     "default": "cinco-96064"
-  }
+  },
+  "targets": {
+    "cinco-96064": {
+      "hosting": {
+        "landing": [
+          "escinco"
+        ],
+        "app": [
+          "app-escinco"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
