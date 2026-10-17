@@ -62,6 +62,9 @@ const crear = (token, uid, fecha, datos) =>
 const actualizar = (token, uid, fecha, datos) =>
     pedir("PATCH", `${BASE}/usuarios/${uid}/snapshots/${fecha}`, token, { fields: encode(datos) })
 
+const crearEn = (token, uid, col, id, datos) =>
+    pedir("POST", `${BASE}/usuarios/${uid}/${col}?documentId=${id}`, token, { fields: encode(datos) })
+
 export default async function ejecutar(t) {
     if (!(await alcanzable(`http://${HOST_FS}/`)) || !(await alcanzable(`http://${HOST_AUTH}/`))) {
         console.log(`  -- SKIP: emuladores no disponibles (firestore ${HOST_FS}, auth ${HOST_AUTH})`)
@@ -94,6 +97,25 @@ export default async function ejecutar(t) {
 
     const r7 = await actualizar(a.token, a.uid, FECHA, { ...valido, patrimonioPEN: "mucho" })
     t.check("tipo erróneo en update se rechaza", r7.status === 400 || r7.status === 403, `HTTP ${r7.status}`)
+
+    // DEUDA-012: create y update de movimientos validan los MISMOS tipos, así
+    // que un campo mal tipado se rechaza en las dos ramas. Antes el create
+    // admitía `tarjeta` como número y dejaba un documento sin poder corregirse.
+    const mov = {
+        tipo: "ingreso", fechaRegistro: new Date("2026-10-08T12:00:00Z"),
+        cuenta: "c1", concepto: "sueldo", monto: 10, etiquetas: ["trabajo"]
+    }
+    const m1 = await crearEn(a.token, a.uid, "movimientos", "m1", mov)
+    t.check("movimientos: create válido se acepta", m1.status === 200 || m1.status === 201, `HTTP ${m1.status}`)
+
+    const m2 = await crearEn(a.token, a.uid, "movimientos", "m2", { ...mov, tarjeta: 123 })
+    t.check("movimientos: create rechaza `tarjeta` numérica (DEUDA-012)", m2.status === 400 || m2.status === 403, `HTTP ${m2.status}`)
+
+    const m3 = await crearEn(a.token, a.uid, "movimientos", "m3", { ...mov, tarjeta: "visa" })
+    t.check("movimientos: create acepta `tarjeta` de texto", m3.status === 200 || m3.status === 201, `HTTP ${m3.status}`)
+
+    const m4 = await pedir("PATCH", `${BASE}/usuarios/${a.uid}/movimientos/m1`, a.token, { fields: encode({ tarjeta: 123 }) })
+    t.check("movimientos: update rechaza `tarjeta` numérica (DEUDA-012)", m4.status === 400 || m4.status === 403, `HTTP ${m4.status}`)
 
     return t
 }

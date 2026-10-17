@@ -86,9 +86,18 @@ function lista(sentencia, fn) {
 
 function camposUpdate(sentencia) {
     const refs = new Set()
-    for (const m of sentencia.matchAll(/ifPresente\w*\s*\(\s*request\.resource\.data\s*,\s*'([^']+)'/g)) refs.add(m[1])
+    for (const m of sentencia.matchAll(/ifPresente\w*\s*\(\s*[\w.]+\s*,\s*'([^']+)'/g)) refs.add(m[1])
+    for (const m of sentencia.matchAll(/'([^']+)'\s+in\s+\w+/g)) refs.add(m[1])
     if (/ifPresenteEtiquetas\s*\(/.test(sentencia)) refs.add("etiquetas")
     return refs
+}
+
+// Nombre de la función de validación que invoca una sentencia create/update
+// (p. ej. validarCamposMovimiento), o null si valida los campos en línea.
+function validadorDe(sentencia) {
+    if (!sentencia) return null
+    const m = sentencia.match(/\b(validar\w+)\s*\(\s*request\.resource\.data\s*\)/)
+    return m ? m[1] : null
 }
 
 export default async function ejecutar(t = nuevoReporter("reglas")) {
@@ -136,17 +145,28 @@ export default async function ejecutar(t = nuevoReporter("reglas")) {
             if (sentencia && !/esPropietario\s*\(\s*uid\s*\)/.test(sentencia)) sinPropietario.push(`${col}.${accion}`)
         }
 
+        // DEUDA-012: create y update pueden compartir una función de validación
+        // (validarCamposMovimiento/validarCamposCuenta). Si la comparten, los
+        // campos que se validan son los del cuerpo de esa función; si no, los
+        // que aparecen en línea en el update.
+        const validador = validadorDe(update)
+        const compartida = !!validador && validadorDe(create) === validador
+        const camposValidador = compartida ? camposUpdate(extraerFuncion(src, validador)) : null
+
         // Cada campo que el update valida debe estar permitido en el create
         // (si no, se puede crear un doc que luego nunca se deja actualizar).
         if (permitidos) {
-            const fuera = [...camposUpdate(update || "")].filter(f => !permitidos.includes(f))
-            if (fuera.length) asimetrias.push(`${col}: update referencia ${fuera.join(", ")} fuera de hasOnly`)
+            const fuentes = compartida ? camposValidador : camposUpdate(update || "")
+            const fuera = [...fuentes].filter(f => !permitidos.includes(f))
+            if (fuera.length) asimetrias.push(`${col}: referencia ${fuera.join(", ")} fuera del hasOnly`)
         }
 
-        // Cada campo obligatorio del create debe validarse (tipo) en el create.
+        // Cada campo obligatorio del create debe validarse (tipo) en el create
+        // o en la función compartida.
         if (requeridos) {
             for (const f of requeridos) {
-                if (!new RegExp(`\\.${f}\\b`).test(create)) hasAllSinValidar.push(`${col}.${f}`)
+                const enLinea = new RegExp(`\\.${f}\\b`).test(create)
+                if (!enLinea && !(camposValidador && camposValidador.has(f))) hasAllSinValidar.push(`${col}.${f}`)
             }
         }
 
@@ -161,6 +181,22 @@ export default async function ejecutar(t = nuevoReporter("reglas")) {
     t.check("update no usa campos fuera del hasOnly del create", asimetrias.length === 0, asimetrias.join(" | "))
     t.check("campos obligatorios del create están validados", hasAllSinValidar.length === 0, hasAllSinValidar.join(", "))
     t.check("snapshots no usa hasOnly en update (PEND-001)", snapshotsSinHasOnlyUpdate)
+
+    // DEUDA-012: create y update validan los MISMOS campos a través de una
+    // función común. Atrapamos las dos derivas: que dejen de compartirla, y que
+    // el validador toque un campo que el create no deja entrar.
+    for (const col of ["movimientos", "cuentas"]) {
+        const bloque = bloqueDe(src, col)
+        const vCreate = validadorDe(capturarSentencia(bloque, "allow create:"))
+        const vUpdate = validadorDe(capturarSentencia(bloque, "allow update:"))
+        t.check(`${col}: create y update comparten el validador (DEUDA-012)`,
+            !!vCreate && vCreate === vUpdate, `${vCreate} / ${vUpdate}`)
+        if (vCreate && vCreate === vUpdate) {
+            const permitidos = lista(capturarSentencia(bloque, "allow create:"), "hasOnly") || []
+            const fuera = [...camposUpdate(extraerFuncion(src, vCreate))].filter(f => !permitidos.includes(f))
+            t.check(`${col}: el validador no usa campos fuera del hasOnly (DEUDA-012)`, fuera.length === 0, fuera.join(", "))
+        }
+    }
 
     // DEUDA-013: el hasOnly de movimientos es una lista manual que se queda
     // atrás (o delante) de CONFIG_MOVIMIENTOS. Comparamos ambos lados.

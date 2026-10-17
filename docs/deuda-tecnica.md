@@ -37,7 +37,7 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-001 | `cambioDivisa` sin signo ni monto correctos en la cuenta destino | `js/core/movimientos.js` | **Resuelta al unificar `esMovimientoPositivo`** | ~~Alta~~ Resuelta |
 | DEUDA-002 | Transferencias entre divisas distintas mueven el mismo nominal en ambos lados | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | **Mitigada en `f9ceb1a`: ahora se rechazan. Ver DEUDA-002b** | Alta |
 | DEUDA-002b | Transferencia no soporta `tasa` ni `montoDestino`, así que no puede cruzar divisas | `constants/tiposMovimiento.js`, `js/services/MovimientoServicio.js` | No se puede mover dinero entre divisas si se desactiva *Cambio de divisa* | Media |
-| DEUDA-012 | Asimetría `create`/`update`: `create` no valida 11 campos que `update` sí | `firebase/firestore.rules` | Documentos que se pueden crear pero no editar | Alta |
+| DEUDA-012 | Asimetría `create`/`update`: `create` no valida 11 campos que `update` sí | `firebase/firestore.rules` | **Resuelta**: validación compartida por `validarCamposMovimiento`/`validarCamposCuenta` | ~~Alta~~ Resuelta |
 | DEUDA-013 | El `hasOnly` de `movimientos` es una lista manual ya desincronizada dos veces | `firebase/firestore.rules` | **Resuelta**: comentarios en las reglas + tests ampliados a export/import | ~~Alta~~ Resuelta |
 | DEUDA-003 | `montoDeMovimiento` llama a `esMovimientoPositivo` sin `cuentaId` | `js/core/movimientos.js` | **Resuelta al unificar las dos funciones** | ~~Media~~ Resuelta |
 | DEUDA-004 | Tres copias de `esMovimientoPositivo`, todavía divergentes | `js/core/movimientos.js` | **Resuelta**: una sola función, con las tres ramas que faltaban | ~~Media~~ Resuelta |
@@ -199,20 +199,20 @@ Lo que está abierto y accionable ahora mismo está en
   ninguna regla los señale, y `normalizarFechaFutura` deja de aplicarse en las
   rutas que escriben `Date` (**DEUDA-011** / **BUG-020**). Un usuario podría
   dejar un documento que ya no puede corregir él mismo.
-- **Prioridad**: Alta
-- **Solución propuesta**: derivar la validación de un único origen. Definir una
-  función `validarCamposMovimiento(data)` con el `hasOnly` y los validadores, y
-  aplicarla tanto en `create` como en `update`. Las reglas admiten funciones de
-  nivel superior, así que es un refactor contenido dentro del archivo.
-- **Evidencia**: `firebase/firestore.rules:155-174` (`create` de movimientos),
-  `firebase/firestore.rules:176-200` (`update` de movimientos),
-  `firebase/firestore.rules:99-120` (`create` de cuentas),
-  `firebase/firestore.rules:144` (`update` de cuentas)
-- **Nota (Fase 3)**: sigue abierta la parte de *tipos* (create admite valores
-  que update rechazaría), pero la dirección peligrosa —campos que update valida
-  y create no deja pasar— ya está vigilada offline por
-  `tests/reglas.test.mjs` ("update no usa campos fuera del hasOnly del create").
-  Un test con emulador (`npm run test:rules`) cubre además el caso real.
+- **Prioridad**: ~~Alta~~ Resuelta
+- **Estado**: **RESUELTA**. `create` y `update` ya no llevan listas paralelas:
+  ambos llaman a `validarCamposMovimiento`/`validarCamposCuenta`, que son la
+  única fuente del TIPO de cada campo. El `create` conserva su `hasOnly`/`hasAll`
+  y las restricciones propias del alta (`orden >= 0`, `anualidad >= 0`,
+  `anualidadFecha` con `MM-DD`).
+- **Evidencia**: `firebase/firestore.rules` (funciones `validarCamposMovimiento`
+  y `validarCamposCuenta`, usadas por `create` y `update`); `tests/reglas.test.mjs`
+  ("create y update comparten el validador" y "el validador no usa campos fuera
+  del hasOnly"); `tests/rules.test.mjs` (caso real de `tarjeta` numérica).
+- **Nota (Fase 3)**: la dirección peligrosa —campos que update valida y create no
+  deja pasar— ya está vigilada offline por `tests/reglas.test.mjs`. El test con
+  emulador (`npm run test:rules`) cubre el caso real, pero se SALTA si los
+  emuladores no están levantados (falta el bloque `emulators` en `firebase.json`).
 
 ### DEUDA-013: El `hasOnly` de `movimientos` es una lista manual ya desincronizada
 - **Módulo**: `firebase/firestore.rules`, `constants/tiposMovimiento.js`,
