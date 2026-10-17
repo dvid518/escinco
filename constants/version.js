@@ -5,7 +5,6 @@ export const VERSION = {
     ano: 2026,
     autor: "david",
     
-    // Metadatos internos
     fechaLanzamiento: "2026-09-13",
     fase: "beta"
 }
