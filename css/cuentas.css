@@ -390,6 +390,65 @@
 }
 
 /* --------------------------------------------
+   AVISO · VERSIÓN INVERSIONISTA
+   -------------------------------------------- */
+
+.info-inversionista {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.info-inversionista p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--textSecondary);
+}
+
+.info-inversionista-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.info-inversionista-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.info-inversionista-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: var(--lightHover);
+    color: var(--text);
+}
+
+.info-inversionista-texto {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.info-inversionista-texto strong {
+    font-size: 14px;
+    color: var(--text);
+}
+
+.info-inversionista-texto span {
+    font-size: 13px;
+    color: var(--textSecondary);
+}
+
+/* --------------------------------------------
    CABECERA DEL DETALLE
    -------------------------------------------- */
 

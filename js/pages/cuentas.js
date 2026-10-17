@@ -12,7 +12,8 @@ import {
     reordenarCuentas,
     restaurarDocumento,
     actualizarMovimientoDoc,
-    deleteField
+    deleteField,
+    aplicarPreferenciasDiff
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { DIVISAS_LABELS, DIVISAS_SYMBOLS } from "../../constants/divisas.js"
@@ -2205,6 +2206,7 @@ function _abrirModalCrearCuentaDosPasos() {
                         ? `Cuenta creada con ${datos.divisasExtras.length + 1} subcuentas`
                         : "Cuenta creada"
                 )
+                avisarVersionInversionista()
                 return true
             } catch (error) {
                 console.error("Error creando cuenta:", error)
@@ -2383,6 +2385,7 @@ function abrirFormularioCrearCuenta(tipo) {
                         ? `Cuenta creada con ${datos.divisasExtras.length + 1} subcuentas`
                         : "Cuenta creada"
                 )
+                avisarVersionInversionista()
                 return true
             } catch (error) {
                 console.error("Error creando cuenta:", error)
@@ -2395,6 +2398,74 @@ function abrirFormularioCrearCuenta(tipo) {
     ajustarAnchoNombre(modal.querySelector("#form-crear-cuenta"))
     conectarToggleDivisas(modal)
     conectarVencimiento(modal, "campo")
+}
+
+// ============================================
+// AVISO · VERSIÓN INVERSIONISTA
+// ============================================
+// Al crear una cuenta, invita una sola vez a activar las páginas de
+// Inversiones y Trading (que un usuario nuevo tiene ocultas). El aviso se
+// recuerda en localStorage para no repetirlo en cada cuenta.
+
+const CLAVE_AVISO_INVERSIONISTA = "escinco_aviso_inversionista"
+
+function avisarVersionInversionista() {
+    try {
+        if (localStorage.getItem(CLAVE_AVISO_INVERSIONISTA) === "1") return
+    } catch (e) {
+        return
+    }
+    const paginas = sesion.getPaginasVisibles()
+    // Solo si el usuario todavía no tiene la versión inversionista.
+    if (paginas.inversiones !== false || paginas.trading !== false) return
+    try {
+        localStorage.setItem(CLAVE_AVISO_INVERSIONISTA, "1")
+    } catch (e) {}
+    mostrarNotificacion(
+        "info",
+        "¿Eres inversionista? Esto te interesa",
+        0,
+        [{ texto: "Ver qué incluye", primaria: true, alClick: abrirModalVersionInversionista }]
+    )
+}
+
+function abrirModalVersionInversionista() {
+    abrirModal({
+        titulo: "Versión inversionista",
+        variante: "narrow",
+        contenido: contenidoDesdeTemplate("tpl-info-inversionista", {
+            html: {
+                "icono-inversiones": icono("chart-candlestick", 18),
+                "icono-trading": icono("coins", 18)
+            }
+        }),
+        confirmText: "Habilitar estas funciones",
+        cancelText: "Ahora no",
+        onConfirm: async () => {
+            await habilitarVersionInversionista()
+            return true
+        }
+    })
+}
+
+async function habilitarVersionInversionista() {
+    try {
+        if (sesion.uid) {
+            await aplicarPreferenciasDiff(sesion.uid, {
+                set: { "paginas.inversiones": true, "paginas.trading": true }
+            })
+        }
+    } catch (error) {
+        console.error("No se pudo habilitar la versión inversionista:", error)
+        mostrarNotificacion("error", "No se pudieron habilitar las funciones")
+        return
+    }
+    sesion.setPreferencias({ paginas: { inversiones: true, trading: true } })
+    document.querySelectorAll(".nav-container a").forEach(link => {
+        const page = link.dataset.page
+        if (page === "inversiones" || page === "trading") link.classList.remove("nav-oculto")
+    })
+    mostrarNotificacion("exito", "Inversiones y Trading habilitados")
 }
 
 // ============================================
