@@ -223,6 +223,20 @@
     border-radius: 50px;
 }
 
+/* La versión abre el modal de novedades: es un botón, no un enlace. */
+.panel-version-boton {
+    font: inherit;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.panel-version-boton:hover {
+    color: var(--text);
+    border-color: var(--textSecondary);
+}
+
 /* --------------------------------------------
    RESPONSIVE
    -------------------------------------------- */

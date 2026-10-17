@@ -809,11 +809,20 @@
     opacity: 0.6;
 }
 
+/* Botón de versión: abre el modal de novedades. */
 .home-footer-version {
     font-family: var(--font-secondary);
     font-size: 11px;
     color: var(--textSecondary);
     opacity: 0.6;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.home-footer-version:hover {
+    opacity: 1;
 }
 
 /* --------------------------------------------

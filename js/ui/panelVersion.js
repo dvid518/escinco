@@ -21,8 +21,11 @@ export function pintarVersionPanel() {
         destino.innerHTML = `
             <a class="panel-version-link" href="/" aria-label="Conoce más sobre ${VERSION.nombre}">
                 <span class="panel-version-brand">${VERSION.nombre}</span>
-                <span class="panel-version-numero">v${VERSION.numero}</span>
             </a>
+            <button class="panel-version-numero panel-version-boton" type="button" aria-label="Ver las novedades de esta versión">v${VERSION.numero}</button>
         `
+        destino.querySelector(".panel-version-boton")?.addEventListener("click", () => {
+            import("./changelog.js").then(m => m.abrirModalChangelog())
+        })
     }
 }

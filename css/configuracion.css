@@ -548,6 +548,18 @@
 .footer-version {
     font-family: var(--font-secondary);
     font-size: 12px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--textSecondary);
+    text-align: left;
+    cursor: pointer;
+    transition: color 0.2s ease;
+}
+
+.footer-version:hover {
+    color: var(--text);
+    text-decoration: underline;
 }
 
 .footer-copy {

@@ -71,6 +71,7 @@ const SHELL_ASSETS = [
 
     // JS UI
     "/js/ui/modal.js",
+    "/js/ui/changelog.js",
     "/js/ui/configuracion.js",
     "/js/ui/panelVersion.js",
     "/js/ui/formularioMovimiento.js",
@@ -140,6 +141,7 @@ const SHELL_ASSETS = [
 
     // JS constants
     "/constants/version.js",
+    "/constants/changelog.js",
     "/constants/tiposMovimiento.js",
     "/constants/divisas.js",
 

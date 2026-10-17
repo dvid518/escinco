@@ -164,7 +164,11 @@ function initFaq() {
 
 function initVersion() {
     const destino = document.getElementById("home-version")
-    if (destino) destino.textContent = `v${VERSION.numero}`
+    if (!destino) return
+    destino.textContent = `v${VERSION.numero}`
+    destino.addEventListener("click", () => {
+        import("../ui/changelog.js").then(m => m.abrirModalChangelog())
+    })
 }
 
 // ============================================

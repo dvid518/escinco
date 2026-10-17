@@ -83,7 +83,7 @@ function plantillaConfiguracion() {
                     `).join("")}
                     <div class="config-nav-pie">
                         <a class="footer-brand" href="/" target="_blank" rel="noopener noreferrer">${VERSION.nombre}</a>
-                        <span class="footer-version">v${VERSION.numero}</span>
+                        <button class="footer-version" id="config-version" type="button">v${VERSION.numero}</button>
                         <span class="footer-copy">© ${VERSION.ano} ${VERSION.nombre}</span>
                         <span class="footer-legal"><a href="/privacidad" target="_blank" rel="noopener noreferrer">Privacidad</a> · <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos</a></span>
                     </div>
@@ -1704,6 +1704,9 @@ function configurarBotones() {
     document.getElementById("restore-cuentas")?.addEventListener("click", abrirRestaurarCuentasArchivadas)
     document.getElementById("abrir-atajos")?.addEventListener("click", () => {
         import("../core/atajos.js").then(m => m.abrirModalAtajos())
+    })
+    document.getElementById("config-version")?.addEventListener("click", () => {
+        import("./changelog.js").then(m => m.abrirModalChangelog())
     })
 }
 

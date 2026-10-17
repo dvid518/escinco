@@ -801,3 +801,66 @@
     font-size: 13px;
     color: var(--textSecondary);
 }
+
+/* ============================================
+   NOVEDADES (CHANGELOG)
+   ============================================
+   Modal de novedades: un bloque por versión, con su fecha y la lista de
+   cambios. La etiqueta de tipo reutiliza el color de .badge--positive/… */
+
+.changelog {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+}
+
+.changelog-version {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.changelog-cabecera {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--lightBorder);
+}
+
+.changelog-numero {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.changelog-fecha {
+    font-size: 12px;
+    color: var(--textSecondary);
+}
+
+.changelog-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.changelog-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.changelog-tipo {
+    flex-shrink: 0;
+}
+
+.changelog-texto {
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--textSecondary);
+}
