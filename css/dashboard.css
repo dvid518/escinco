@@ -399,18 +399,11 @@ body.dashboard-card-dragging * {
     border-radius: 10px;
 }
 
-/* ============================================
-   CARD HEADER (para patrimonio con combo)
-   ============================================ */
-
 .patrimonio-card.resaltado-1 {
     background-color: var(--lightHover);
     color: var(--border);
 }
 
-/* En claro, el fondo del resaltado es `--border` (gris) y las líneas/glow que
-   lo rodean cogen `--lightBorder`/`--shadow`: aquí se fuerzan a las versiones
-   tenues de la propia paleta para que el borde no compita con la superficie. */
 .patrimonio-card.resaltado-2 {
     background-color: var(--border);
     --lightBorder: var(--lightGraphite);
@@ -440,10 +433,6 @@ body.dashboard-card-dragging * {
 .patrimonio-card .card-header .card-title {
     margin-bottom: 0;
 }
-
-/* ============================================
-   DIVISA SELECT
-   ============================================ */
 
 .divisa-select {
     background-color: var(--background);

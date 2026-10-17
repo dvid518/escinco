@@ -14,13 +14,13 @@
     padding: 8px 16px;
     font-size: 13px;
     color: var(--textSecondary);
-    background: var(--onyx);
+    background: var(--background);
     border-bottom: 1px solid var(--surface);
     backdrop-filter: blur(8px);
 }
 
 .demo-aviso strong {
-    color: var(--whiteSmoke);
+    color: var(--text);
 }
 
 .demo-aviso-acciones {
