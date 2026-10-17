@@ -1,0 +1,28 @@
+name: Tests
+
+# Ejecuta la suite en cada push a main y en cada PR (DEUDA-024).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # La suite estática es Node puro: package.json no declara dependencias.
+      - name: Tests estáticos
+        run: npm test
+
+      # Las reglas de Firestore se prueban contra los emuladores de
+      # Firestore + Auth. Sin este paso el test se salta solo. Java, que el
+      # emulador necesita, viene preinstalado en ubuntu-latest.
+      - name: Reglas contra emuladores
+        run: npx --yes firebase-tools@latest emulators:exec --only firestore,auth -- "node tests/run.mjs rules"

@@ -6,14 +6,14 @@ Proyecto: **escinco** · Fase: **beta** (1.0.0-beta.28)
 
 - Total de ítems: **27**
 - Prioridad alta: **1**
-- Prioridad media: **10**
+- Prioridad media: **9**
 - Prioridad baja: **7**
-- De los anteriores, **8 están resueltos** (DEUDA-001, DEUDA-002, DEUDA-002b,
-  DEUDA-003, DEUDA-004, DEUDA-009, DEUDA-012, DEUDA-013) y conservan su
-  prioridad original tachada, para que se vea qué eran.
+- De los anteriores, **9 están resueltos** (DEUDA-001, DEUDA-002, DEUDA-002b,
+  DEUDA-003, DEUDA-004, DEUDA-009, DEUDA-012, DEUDA-013, DEUDA-024) y conservan
+  su prioridad original tachada, para que se vea qué eran.
 
-Los conteos del resumen son de la tabla, no al revés: 1 + 10 + 7 = 18 con
-prioridad (DEUDA-021 no la tiene); resueltas: 8.
+Los conteos del resumen son de la tabla, no al revés: 1 + 9 + 7 = 17 con
+prioridad (DEUDA-021 no la tiene); resueltas: 9.
 
 ### Criterio de prioridad
 
@@ -59,7 +59,7 @@ Lo que está abierto y accionable ahora mismo está en
 | DEUDA-020 | `docs/informe-info.md` pesa 137 KB | `docs/` | Ilegible como documento de referencia | Baja |
 | DEUDA-021 | Sin scripts de `lint` ni `typecheck`; tests manuales con `npm test`, sin CI (ver DEUDA-024) | `package.json` | Los tests existen (`tests/`, 158 comprobaciones) pero corren a mano |
 | DEUDA-023 | Sin tags de Git: la versión vive solo en `constants/version.js` y mensajes de commit | raíz | Releases no reproducibles; imposible volver a "la beta.25" con certeza | Media |
-| DEUDA-024 | Sin CI: los tests no se ejecutan automáticamente en push/PR | raíz | Una regresión puede llegar a producción sin que nadie ejecute `npm test` | Media |
+| DEUDA-024 | Sin CI: los tests no se ejecutan automáticamente en push/PR | raíz | **Resuelta**: `.github/workflows/test.yml` corre `npm test` y las reglas contra emuladores en push/PR | ~~Media~~ Resuelta |
 | DEUDA-025 | `docs/requisitos.md` desfasado en 4 puntos | `docs/requisitos.md` | El briefing induce a decisiones equivocadas | Baja |
 | DEUDA-026 | Cuerpos de modal escritos como HTML dentro del JS | `dashboard.html`, `demo.html`, 9 archivos de `js/` | Editar la UI exige bucear en el código; el texto del usuario pasaba por `innerHTML` | Media |
 
