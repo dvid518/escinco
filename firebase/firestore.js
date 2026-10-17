@@ -10,7 +10,8 @@ import {
     deleteDoc,
     serverTimestamp,
     writeBatch,
-    deleteField
+    deleteField,
+    enableIndexedDbPersistence
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
@@ -18,6 +19,14 @@ import { sesion } from "../js/core/sesion.js"
 import { resolverNombresCuentas } from "../js/core/familiaCuentas.js"
 
 const db = getFirestore(app)
+
+// Persistencia offline con IndexedDB: las lecturas y escrituras se guardan en
+// local y se sincronizan al volver la conexión. Si falla (navegador sin
+// IndexedDB, pestañas múltiples sobre la misma base, etc.) la app sigue
+// funcionando solo con la capa de caché, así que el fallo no es fatal.
+enableIndexedDbPersistence(db).catch(error => {
+    console.warn("[WARN] Persistencia offline no disponible:", error?.code || error)
+})
 
 // Re-exportamos utilidades de Firestore para que el resto de la app
 // no importe desde la CDN directamente (punto único de acceso).

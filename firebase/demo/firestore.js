@@ -168,6 +168,12 @@ export function serverTimestamp() {
     return new Date()
 }
 
+// La demo ya vive en localStorage; el real lo ofrece el SDK. Aquí no hace
+// nada, pero debe existir para que `firebase/firestore.js` importe bien.
+export function enableIndexedDbPersistence() {
+    return Promise.resolve()
+}
+
 export function deleteField() {
     return ELIMINAR
 }
