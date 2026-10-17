@@ -154,11 +154,13 @@ function mostrarAvisoBoot(mensaje) {
     const contenido = document.getElementById("app-content")
     if (!contenido) return
     avisoBootVisible = true
-    contenido.innerHTML = `
-        <div class="lista-vacia" id="aviso-boot">
-            <p>${mensaje}</p>
-        </div>
-    `
+    const aviso = document.createElement("div")
+    aviso.className = "lista-vacia"
+    aviso.id = "aviso-boot"
+    const parrafo = document.createElement("p")
+    parrafo.textContent = mensaje
+    aviso.append(parrafo)
+    contenido.replaceChildren(aviso)
 }
 
 function ocultarAvisoBoot() {
@@ -170,12 +172,15 @@ function ocultarAvisoBoot() {
 function mostrarErrorBoot(error) {
     const contenido = document.getElementById("app-content")
     if (!contenido) return
-    contenido.innerHTML = `
-        <div class="lista-vacia error">
-            <p>No se pudo cargar la aplicación.</p>
-            <p class="lista-vacia-hint">${error?.message || "Error desconocido"}</p>
-        </div>
-    `
+    const aviso = document.createElement("div")
+    aviso.className = "lista-vacia error"
+    const titulo = document.createElement("p")
+    titulo.textContent = "No se pudo cargar la aplicación."
+    const detalle = document.createElement("p")
+    detalle.className = "lista-vacia-hint"
+    detalle.textContent = error?.message || "Error desconocido"
+    aviso.append(titulo, detalle)
+    contenido.replaceChildren(aviso)
 }
 
 document.addEventListener("DOMContentLoaded", initApp)

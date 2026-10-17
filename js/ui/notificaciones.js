@@ -241,11 +241,14 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
         <span class="notificacion-icono">${icono(config.icono, 20)}</span>
         <span class="notificacion-mensaje"></span>
         ${acciones.map(a => `
-            <button type="button" class="notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}">${a.texto}</button>
+            <button type="button" class="notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}"></button>
         `).join("")}
         <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">${icono("x", 16)}</button>
     `
     notificacion.querySelector(".notificacion-mensaje").textContent = mensaje
+    notificacion.querySelectorAll(".notificacion-accion").forEach((btn, i) => {
+        btn.textContent = acciones[i]?.texto ?? "Aceptar"
+    })
 
     contenedor.appendChild(notificacion)
 

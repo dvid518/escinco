@@ -26,6 +26,7 @@ function baseActual() {
 }
 
 function rutaConBase(page) {
+    if (page === "dashboard") return baseActual() || "/"
     return `${baseActual()}/${page}`
 }
 
@@ -314,13 +315,20 @@ function mostrarErrorPagina(page, error) {
         ? "Error en la sintaxis."
         : (error?.message || "Error desconocido al cargar la página.")
 
-    container.innerHTML = `
-        <div class="lista-vacia error">
-            <p>No se pudo cargar la página "${page}".</p>
-            <p class="lista-vacia-hint">${detalle}</p>
-            <button class="btn-sm" id="btn-reintentar-pagina" type="button">Reintentar</button>
-        </div>
-    `
+    const wrapper = document.createElement("div")
+    wrapper.className = "lista-vacia error"
+    const titulo = document.createElement("p")
+    titulo.textContent = `No se pudo cargar la página "${page}".`
+    const hint = document.createElement("p")
+    hint.className = "lista-vacia-hint"
+    hint.textContent = detalle
+    const boton = document.createElement("button")
+    boton.className = "btn-sm"
+    boton.id = "btn-reintentar-pagina"
+    boton.type = "button"
+    boton.textContent = "Reintentar"
+    wrapper.append(titulo, hint, boton)
+    container.replaceChildren(wrapper)
 
     // Quitar la pantalla de carga para que el error sea visible
     document.body.classList.remove("loading")
