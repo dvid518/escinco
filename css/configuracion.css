@@ -164,6 +164,9 @@
    el padding de página: dentro del panel los ajustes van de borde a borde. */
 .config-pagina {
     gap: 0;
+    /* Sin padding inferior: el pie sticky debe tocar el borde del panel para
+       que no quede una franja por la que se cuele el contenido. */
+    padding-bottom: 0;
 }
 
 /* En modo página el layout es de una sola columna: el sidebar vive en
@@ -186,18 +189,18 @@
 }
 
 /* Pie de versión en modo página: a todo el ancho del panel y al final,
-   en línea horizontal. En modal sigue dentro de la columna del nav. */
+   apilado en columna. Se pega al fondo del panel (el contenedor de scroll)
+   con `sticky`, y lleva el mismo fondo que el panel para que las secciones
+   que pasan por detrás no se transparenten. En modal sigue dentro de la
+   columna del nav. */
 .config-pagina .config-pie-pagina {
     display: flex;
-    flex-direction: row;
-    flex-wrap: wrap;
-    align-items: baseline;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
     text-align: center;
-    column-gap: 10px;
-    row-gap: 4px;
+    gap: 2px;
     margin-top: 24px;
-    padding: 16px 4px 4px;
+    padding: 12px 4px;
     border-top: 1px solid var(--border);
     font-size: 12px;
 }
@@ -212,14 +215,22 @@
 }
 
 /* Pie del menú lateral: la versión queda bajo la columna de secciones, en vez
-   de ser una barra de ancho completo bajo el modal (BUG-017). */
+   de ser una barra de ancho completo bajo el modal (BUG-017). Se pega al fondo
+   del contenedor que scrollea (`sticky`), con el mismo fondo que el panel, para
+   que la versión quede siempre visible y el contenido no se transparente. */
 .config-nav-pie {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     gap: 2px;
     margin-top: 12px;
     padding: 12px 18px 0;
     border-top: 1px solid var(--border);
+    background-color: var(--glass-frosted);
+    -webkit-backdrop-filter: blur(var(--blur-frosted, 10px));
+    backdrop-filter: blur(var(--blur-frosted, 10px));
     font-size: 12px;
     color: var(--textSecondary);
 }
