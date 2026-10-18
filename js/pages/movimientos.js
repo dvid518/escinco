@@ -405,7 +405,7 @@ function opcionSelect(valor, texto) {
 }
 
 async function cargarCuentas() {
-    const uidActual = sesion.uid
+    const uidActual = uid || sesion.uid
     if (!uidActual) {
         console.warn("[WARN] cargarCuentas: no hay UID de sesión")
         return
@@ -418,7 +418,7 @@ async function cargarCuentas() {
             select.setAttribute("aria-busy", "true")
             select.replaceChildren(
                 opcionSelect("", "Cuentas"),
-                ...cuentas.map(c => opcionSelect(c.id, c.nombre))
+                ...cuentas.map(c => opcionSelect(c.id, c.nombre || c.id))
             )
         }
     } catch (error) {
@@ -1012,44 +1012,11 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
     }))
 
     const totalMovimientos = filtrados.length
-    // Ganancia total de los cambios de divisa en pantalla: destino menos
-    // origen, convertido a la divisa principal.
-    let ganancia = null
-    try {
-        const { convertirMonto, getDivisaPrincipal } = await import("../services/DivisaServicio.js")
-        const { obtenerCuentas } = await import("../../firebase/firestore.js")
-        const { sesion } = await import("../core/sesion.js")
-        const principal = getDivisaPrincipal()
-        const cuentas = await obtenerCuentas(sesion.uid).catch(() => [])
-        const monedaDe = new Map((cuentas || []).map(c => [c.id, (c.moneda || "pen").toLowerCase()]))
-        let total = 0
-        let hayCambios = false
-        filtrados.forEach(m => {
-            if (m.tipo !== "cambioDivisa") return
-            if (m.montoOrigen == null || m.montoDestino == null) return
-            hayCambios = true
-            const divOrigen = monedaDe.get(m.cuentaOrigen) || m.divisa || "pen"
-            const divDestino = monedaDe.get(m.cuentaDestino) || m.divisa || "pen"
-            const origen = convertirMonto(Number(m.montoOrigen) || 0, divOrigen, principal)
-            const destino = convertirMonto(Number(m.montoDestino) || 0, divDestino, principal)
-            total += destino - origen
-        })
-        if (hayCambios) {
-            const signo = total >= 0 ? "+" : "−"
-            ganancia = contenidoDesdeTemplate("tpl-totales-mov-ganancia", {
-                valores: {
-                    ganancia: `Ganancia ${signo}${Math.abs(total).toFixed(2)}`,
-                    divisa: String(principal).toUpperCase()
-                }
-            })
-        }
-    } catch { /* sin ganancia si falla la conversión */ }
 
     contenedor.replaceChildren(contenidoDesdeTemplate("tpl-totales-movimientos", {
         valores: { count: `${totalMovimientos} movimientos` },
         html: {
             lineas,
-            ganancia,
             "icono-nuevo": icono("plus-circle", 16)
         }
     }))
@@ -1861,7 +1828,7 @@ export async function eliminarSeleccionadosFavoritos() {
 // (doble click y click fuera).
 
 async function abrirModalEliminarVariosFavoritos(lista) {
-    abrirModal({
+    const modalEl = abrirModal({
         titulo: "Eliminar favorito(s)",
         contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-varios", {
             valores: { pregunta: `¿Eliminar ${lista.length} favorito(s)?` }
@@ -1876,30 +1843,39 @@ async function abrirModalEliminarVariosFavoritos(lista) {
                     favorito: { ...f },
                     movimientosVinculados: movimientos.filter(m => m.favoritoId === f.id).map(m => m.id)
                 }))
+                let eliminados = 0
                 for (const f of lista) {
-                    await eliminarFavoritoConDesvinculacion(uid, f.id)
+                    try {
+                        await eliminarFavoritoConDesvinculacion(uid, f.id)
+                        eliminados++
+                    } catch (error) {
+                        console.error(`Error eliminando favorito ${f.id}:`, error)
+                    }
                 }
                 await cargarMovimientos()
-                ofrecerDeshacer({
-                    mensaje: `${lista.length} favorito(s) eliminado(s). ¿Deshacer?`,
-                    restaurar: async () => {
-                        for (const s of snapshots) {
-                            const id = await crearFavorito(uid, {
-                                nombre: s.favorito.nombre,
-                                tipo: s.favorito.tipo,
-                                cuenta: s.favorito.cuenta,
-                                monto: s.favorito.monto,
-                                divisa: s.favorito.divisa,
-                                concepto: s.favorito.concepto || '',
-                                etiquetas: s.favorito.etiquetas || []
-                            })
-                            for (const movimientoId of s.movimientosVinculados) {
-                                await actualizarMovimientoDoc(uid, movimientoId, { favoritoId: id })
+                if (eliminados > 0) {
+                    mostrarNotificacion("exito", `${eliminados} favorito(s) eliminado(s)`)
+                    ofrecerDeshacer({
+                        mensaje: `${eliminados} favorito(s) eliminado(s). ¿Deshacer?`,
+                        restaurar: async () => {
+                            for (const s of snapshots) {
+                                const id = await crearFavorito(uid, {
+                                    nombre: s.favorito.nombre,
+                                    tipo: s.favorito.tipo,
+                                    cuenta: s.favorito.cuenta,
+                                    monto: s.favorito.monto,
+                                    divisa: s.favorito.divisa,
+                                    concepto: s.favorito.concepto || '',
+                                    etiquetas: s.favorito.etiquetas || []
+                                })
+                                for (const movimientoId of s.movimientosVinculados) {
+                                    await actualizarMovimientoDoc(uid, movimientoId, { favoritoId: id })
+                                }
                             }
+                            await cargarMovimientos()
                         }
-                        await cargarMovimientos()
-                    }
-                })
+                    })
+                }
                 return true
             } catch (error) {
                 console.error("Error eliminando favoritos:", error)
@@ -1908,6 +1884,10 @@ async function abrirModalEliminarVariosFavoritos(lista) {
             }
         }
     })
+
+    if (!modalEl) {
+        mostrarNotificacion("error", "No se pudo abrir el modal de eliminación")
+    }
 }
 
 // ============================================
