@@ -1,4 +1,4 @@
-import { obtenerMovimientos, obtenerCuentas } from "../../firebase/firestore.js"
+import { obtenerMovimientos, obtenerCuentas, actualizarMovimientoDoc } from "../../firebase/firestore.js"
 import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
@@ -12,6 +12,7 @@ import {
     vincularSimboloDivisa
 } from "../ui/formularioMovimiento.js"
 import { registrarMovimiento, actualizarMovimiento, eliminarMovimiento, restaurarMovimiento, aplicarEtiquetasEnLote } from "../services/MovimientoServicio.js"
+import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable, ejecutarFavorito, eliminarFavoritoConDesvinculacion } from "../services/FavoritoServicio.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
@@ -21,6 +22,7 @@ import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } 
 import { escapeHtml } from "../core/escape.js"
 import { normalizarEtiquetas } from "../core/etiquetas.js"
 import { obtenerEtiquetas } from "../repositories/EtiquetaRepositorio.js"
+import { obtenerFavorito, obtenerFavoritos, crearFavorito } from "../repositories/FavoritoRepositorio.js"
 import { montarSelectorEtiquetas } from "../ui/etiquetas.js"
 
 asegurarEstilos("movimientos")
@@ -30,6 +32,7 @@ let cuentas = []
 let uid = null
 let filtroActual = "todos"
 const seleccionados = new Set()
+let seleccionadosFavoritos = new Set()
 const ordenSeleccion = []
 let clickTimer = null
 let supresorClick = false
@@ -146,6 +149,7 @@ export function render() {
             <div id="totales-movimientos" class="totales" aria-busy="true">
                 ${skeletonMarkup({ rows: 1, className: "skeleton-totals" })}
             </div>
+            <div id="favoritos-movimientos" class="favoritos-movimientos" hidden></div>
             <div id="lista-movimientos" class="lista-cards" aria-busy="true">
                 ${skeletonMarkup({ rows: 4 })}
             </div>
@@ -153,19 +157,117 @@ export function render() {
     `
 }
 
-// ============================================
-// INIT
-// ============================================
-
-export async function init() {
-    uid = sesion.uid
-    console.log("[INFO] Movimientos iniciado para UID:", uid)
-
-    await new Promise(resolve => setTimeout(resolve, 50))
-    await cargarCuentas()
-    await cargarMovimientos()
-    configurarEventos()
+function toggleSeleccionFavorito(id) {
+    if (seleccionadosFavoritos.has(id)) {
+        seleccionadosFavoritos.delete(id)
+    } else {
+        seleccionadosFavoritos.add(id)
+    }
+    renderFavoritos(uid)
 }
+
+function limpiarSeleccionFavoritos() {
+    seleccionadosFavoritos.clear()
+    renderFavoritos(uid)
+}
+
+async function abrirFormularioConFavorito(favoritoId) {
+    const favorito = favoritosCache.find(f => f.id === favoritoId)
+    if (!favorito) return
+    limpiarSeleccionFavoritos()
+    await abrirFormularioMovimiento(favorito.tipo, null, {
+        valoresIniciales: {
+            cuenta: favorito.cuenta,
+            monto: favorito.monto,
+            divisa: favorito.divisa,
+            concepto: favorito.concepto || "",
+            etiquetas: favorito.etiquetas || []
+        },
+        favoritoId: favorito.id
+    })
+}
+
+async function ejecutarFavoritoDesdeItem(favoritoId) {
+    const favorito = favoritosCache.find(f => f.id === favoritoId)
+    if (!favorito) return
+    limpiarSeleccionFavoritos()
+    await ejecutarFavorito(uid, favorito)
+}
+
+async function renderFavoritos(uid) {
+    const contenedor = document.getElementById("favoritos-movimientos")
+    if (!contenedor) return
+
+    const favoritos = await obtenerFavoritos(uid)
+    favoritosCache = favoritos
+
+    if (favoritos.length === 0) {
+        contenedor.hidden = true
+        return
+    }
+
+    contenedor.hidden = false
+    contenedor.replaceChildren(
+        contenidoDesdeFilas("tpl-favorito-item", favoritos, f => ({
+            valores: {
+                "item@data-favorito-id": f.id,
+                "item@class": `favorito-item${seleccionadosFavoritos.has(f.id) ? " seleccionado" : ""}`,
+                nombre: f.nombre,
+                tipo: f.tipo,
+                cuenta: f.cuenta,
+                monto: `${formatearMontoConDivisa(Math.abs(f.monto), f.divisa || "pen")}`,
+                etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", f.etiquetas || [], e => ({
+                    valores: { badge: e }
+                }))
+            }
+        }))
+    )
+
+    if (contenedor.dataset.favoritosListo !== "1") {
+        contenedor.dataset.favoritosListo = "1"
+
+        contenedor.addEventListener("pointerdown", (evento) => {
+            const item = evento.target.closest(".favorito-item")
+            if (!item) return
+            favoritoPressTimer = setTimeout(() => {
+                favoritoPressTimer = null
+                const id = item.dataset.favoritoId
+                if (id) toggleSeleccionFavorito(id)
+            }, 500)
+        })
+
+        contenedor.addEventListener("pointerup", () => {
+            if (favoritoPressTimer) {
+                clearTimeout(favoritoPressTimer)
+                favoritoPressTimer = null
+            }
+        })
+
+        contenedor.addEventListener("click", async (evento) => {
+            const item = evento.target.closest(".favorito-item")
+            if (!item) return
+            const id = item.dataset.favoritoId
+            if (!id) return
+
+            if (seleccionadosFavoritos.size > 0) {
+                toggleSeleccionFavorito(id)
+                return
+            }
+
+            if (favoritoClickTimer) {
+                clearTimeout(favoritoClickTimer)
+                favoritoClickTimer = null
+                await ejecutarFavoritoDesdeItem(id)
+            } else {
+                favoritoClickTimer = setTimeout(async () => {
+                    favoritoClickTimer = null
+                    await abrirFormularioConFavorito(id)
+                }, 250)
+            }
+        })
+    }
+}
+
 
 // ============================================
 // CARGA
@@ -250,6 +352,7 @@ async function cargarMovimientos() {
         limpiarSeleccion()
         actualizarOpcionesEtiquetas()
         aplicarFiltro()
+        await renderFavoritos(uid)
     } catch (error) {
         console.error("Error cargando movimientos:", error)
         mostrarError()
@@ -289,15 +392,20 @@ function filaMovimiento(m, cuentaId = null) {
         valores: {
             "item@class": `card-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
             "item@data-id": m.id,
+            "favorito@class": `movimiento-favorito${m.favoritoId ? " es-favorito" : ""}`,
+            "favorito@data-favorito-id": m.favoritoId || "",
+            "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
+            "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
-            "valor@class": `card-item-valor ${clase}`,
-            "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+        "valor@class": `card-item-valor ${clase}`,
+        "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
         },
         html: {
             etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
             "icono-editar": icono("pencil", 16),
-            "icono-eliminar": icono("trash", 16)
+            "icono-eliminar": icono("trash", 16),
+            "icono-favorito": icono("star", 16)
         }
     }
 }
@@ -421,7 +529,34 @@ function seleccionarPorUnClick(id, conShift) {
     actualizarEstadoLastbar()
 }
 
-function manejarClickCard(evento) {
+async function alternarFavoritoMovimiento(m) {
+    if (m.favoritoId) {
+        await desvincularMovimiento(uid, m.id)
+    } else {
+        if (!esTipoFavoritable(m.tipo)) {
+            mostrarNotificacion("info", "Este tipo de movimiento no se puede guardar como favorito")
+            return
+        }
+        await crearFavoritoDesdeMovimiento(uid, m)
+    }
+    await cargarMovimientos()
+}
+
+async function manejarClickCard(evento) {
+    // La estrella ya no vive dentro de `.card-item-acciones` (queda a la
+    // izquierda de la fila), así que no pasa por la rama de abajo: se atiende
+    // aquí, igual que `.posicion-favorito` en la lista de inversiones.
+    const botonFavorito = evento.target.closest(".movimiento-favorito")
+    if (botonFavorito) {
+        evento.stopPropagation()
+        const card = botonFavorito.closest(".card-item")
+        // `alternarFavoritoMovimiento` espera el movimiento entero (lee tipo y
+        // favoritoId), no su id.
+        const m = movimientos.find(x => x.id === card?.dataset.id)
+        if (m) await alternarFavoritoMovimiento(m)
+        return
+    }
+
     // Botones de acción revelados por hover/swipe
     const accionBtn = evento.target.closest(".card-action-btn")
     if (accionBtn) {
@@ -430,8 +565,11 @@ function manejarClickCard(evento) {
         const m = movimientos.find(x => x.id === card?.dataset.id)
         ocultarAccionesCards()
         if (!m) return
-        if (accionBtn.dataset.accion === "editar") abrirFormularioMovimiento(m.tipo, m)
-        else abrirModalEliminarMovimiento(m)
+        if (accionBtn.dataset.accion === "editar") {
+            abrirFormularioMovimiento(m.tipo, m)
+        } else {
+            abrirModalEliminarMovimiento(m)
+        }
         return
     }
 
@@ -485,7 +623,7 @@ function manejarClickCard(evento) {
 }
 
 function manejarDobleClickCard(evento) {
-    if (evento.target.closest(".card-action-btn")) return
+    if (evento.target.closest(".card-action-btn, .movimiento-favorito")) return
     const card = evento.target.closest(".card-item")
     if (!card) return
     if (clickTimer) {
@@ -541,7 +679,7 @@ function vincularGestosCard(container) {
 
     container.addEventListener("pointerdown", (evento) => {
         if (evento.pointerType === "mouse" && evento.button !== 0) return
-        if (evento.target.closest(".card-action-btn")) return
+        if (evento.target.closest(".card-action-btn, .movimiento-favorito")) return
 
         const card = evento.target.closest(".card-item")
         if (!card) return
@@ -1002,6 +1140,10 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
             const datos = recogerDatosFormulario(tipo)
             if (!datos) return false
 
+            if (opciones.favoritoId) {
+                datos.favoritoId = opciones.favoritoId
+            }
+
             if (!datos.fechaRealizacion) {
                 datos.fechaRealizacion = getFechaHoy()
             }
@@ -1375,6 +1517,7 @@ function actualizarEstadoLastbar() {
     const puedeEditar = seleccionados.size === 1
     const puedeEliminar = seleccionados.size > 0
     const puedeEtiquetar = seleccionados.size > 0
+    const puedeEliminarFavorito = seleccionadosFavoritos.size > 0
 
     document.querySelectorAll('[data-accion="editar-movimiento"]').forEach(item => {
         item.classList.toggle("desact", !puedeEditar)
@@ -1384,6 +1527,9 @@ function actualizarEstadoLastbar() {
     })
     document.querySelectorAll('[data-accion="etiquetar-movimiento"]').forEach(item => {
         item.classList.toggle("desact", !puedeEtiquetar)
+    })
+    document.querySelectorAll('[data-accion="eliminar-favorito"]').forEach(item => {
+        item.classList.toggle("desact", !puedeEliminarFavorito)
     })
 }
 
@@ -1523,6 +1669,68 @@ function abrirModalEliminarVarios(lista) {
     })
 }
 
+export async function eliminarSeleccionadosFavoritos() {
+    if (seleccionadosFavoritos.size === 0) return
+
+    const lista = [...seleccionadosFavoritos]
+        .map(id => favoritosCache.find(f => f.id === id))
+        .filter(Boolean)
+    if (!lista.length) return
+
+    limpiarSeleccionFavoritos()
+    await abrirModalEliminarVariosFavoritos(lista)
+}
+
+async function abrirModalEliminarVariosFavoritos(lista) {
+    abrirModal({
+        titulo: "Eliminar favorito(s)",
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-varios", {
+            valores: { pregunta: `¿Eliminar ${lista.length} favorito(s)?` }
+        }),
+        variante: "confirm",
+        confirmText: "Eliminar",
+        cancelText: "Cancelar",
+        onConfirm: async () => {
+            try {
+                const snapshots = lista.map(f => ({
+                    id: f.id,
+                    favorito: { ...f },
+                    movimientosVinculados: movimientos.filter(m => m.favoritoId === f.id).map(m => m.id)
+                }))
+                for (const f of lista) {
+                    await eliminarFavoritoConDesvinculacion(uid, f.id)
+                }
+                await cargarMovimientos()
+                ofrecerDeshacer({
+                    mensaje: `${lista.length} favorito(s) eliminado(s). ¿Deshacer?`,
+                    restaurar: async () => {
+                        for (const s of snapshots) {
+                            const id = await crearFavorito(uid, {
+                                nombre: s.favorito.nombre,
+                                tipo: s.favorito.tipo,
+                                cuenta: s.favorito.cuenta,
+                                monto: s.favorito.monto,
+                                divisa: s.favorito.divisa,
+                                concepto: s.favorito.concepto || '',
+                                etiquetas: s.favorito.etiquetas || []
+                            })
+                            for (const movimientoId of s.movimientosVinculados) {
+                                await actualizarMovimientoDoc(uid, movimientoId, { favoritoId: id })
+                            }
+                        }
+                        await cargarMovimientos()
+                    }
+                })
+                return true
+            } catch (error) {
+                console.error("Error eliminando favoritos:", error)
+                mostrarNotificacion("error", `No se pudieron eliminar los favoritos: ${error.message || "error desconocido"}`)
+                return false
+            }
+        }
+    })
+}
+
 // ============================================
 // EXTRACTO CSV (solo movimientos)
 // ============================================
@@ -1595,3 +1803,16 @@ function descargarArchivo(url, nombre) {
     link.click()
     document.body.removeChild(link)
 }
+
+// Mantiene sincronizados los favoritos mostrados cuando cualquier cambio
+// de movimientos los afecta (crear, editar, eliminar, restaurar, vincular).
+window.addEventListener("movimientos-actualizados", async () => {
+    await renderFavoritos(uid)
+})
+
+// Limpia la selección de favoritos al hacer clic fuera del contenedor.
+document.addEventListener("click", (evento) => {
+    if (!document.getElementById("favoritos-movimientos")?.contains(evento.target)) {
+        limpiarSeleccionFavoritos()
+    }
+})

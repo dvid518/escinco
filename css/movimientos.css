@@ -357,8 +357,14 @@
     align-items: center;
     gap: 12px;
     width: 100%;
+    /* `min-width: 0` para que el texto pueda recortar con elipsis cuando la
+       estrella y el precio compiten por el ancho (la estrella ya no vive dentro
+       de `.card-item-acciones`, así que es hermana de este bloque). */
+    min-width: 0;
     box-sizing: border-box;
-    padding: 12px 24px;
+    /* El margen izquierdo lo aporta ahora la estrella (`.movimiento-favorito`),
+       para que el texto quede igual que en `.posicion-item`: 16 + 32 + 10 = 58px. */
+    padding: 12px 24px 12px 0;
     background: inherit;
 }
 
@@ -373,6 +379,48 @@
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor {
     margin-left: 0;
+}
+
+/* La estrella vive a la izquierda de la fila, como hermana de `.card-item-main`
+   y fuera de `.card-item-acciones` (que queda solo con editar y eliminar).
+   Réplica de `.posicion-favorito` para que ambas listas se vean igual. */
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    margin: 0 10px 0 16px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito:hover {
+    color: var(--text);
+    background: var(--lightHover);
+    border-color: var(--border);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito.es-favorito {
+    color: var(--ambar);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito.es-favorito svg {
+    fill: currentColor;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .movimiento-favorito:not(.es-favorito) {
+    color: var(--textAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .movimiento-favorito.es-favorito {
+    color: var(--ambarAlt);
 }
 
 /* Las acciones se superponen justo a la izquierda del precio:
@@ -491,4 +539,101 @@
 
 .movimiento-detalle-acciones .glass-btn.primary:hover {
     color: var(--textSecondary);
+}
+
+/* ============================================
+   FAVORITOS DE MOVIMIENTOS (scroll lateral)
+   ============================================ */
+
+#favoritos-movimientos {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 12px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+}
+
+#favoritos-movimientos.hidden {
+    display: none !important;
+}
+
+.favorito-item {
+    display: flex;
+    flex-direction: column;
+    min-width: 200px;
+    max-width: 240px;
+    padding: 12px;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.favorito-item:hover {
+    border-color: var(--borderAlt);
+    background: color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+.favorito-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.favorito-nombre {
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.favorito-tipo {
+    font-size: 11px;
+    color: var(--textSecondary);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.favorito-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 4px;
+}
+
+.favorito-resumen {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid var(--lightBorder);
+}
+
+.favorito-cuenta {
+    font-size: 12px;
+    color: var(--textSecondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.favorito-monto {
+    font-weight: 700;
+    font-size: 15px;
+}
+
+.favorito-monto.positive {
+    color: var(--positive);
+}
+
+.favorito-monto.negative {
+    color: var(--negative);
 }

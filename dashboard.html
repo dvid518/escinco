@@ -2285,6 +2285,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-movimiento-card">
         <div class="card-item" data-tpl="item" data-tpl-attr="class,data-id">
+            <!-- La estrella va a la izquierda de la fila, fuera del bloque de
+                 acciones (como `.posicion-favorito` en inversiones). Su clase
+                 estatica coincide con la que escribe `favorito@class`, asi que
+                 el `data-tpl-attr="class"` no la pisa. -->
+            <button type="button" class="movimiento-favorito" data-accion="favorito"
+                    data-tpl="favorito" data-tpl-attr="class,data-favorito-id,aria-label,title"
+                    aria-label="Marcar como favorito" title="Marcar como favorito">
+                <span data-tpl="icono-favorito"></span>
+            </button>
             <div class="card-item-main">
                 <div class="card-item-info">
                     <span class="card-item-titulo"><span data-tpl="titulo"></span><span data-tpl="etiquetas"></span></span>
@@ -2668,6 +2677,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <span class="favorito-simbolo" data-tpl="simbolo"></span>
             </div>
             <span class="favorito-precio" data-tpl="precio"></span>
+        </div>
+    </template>
+
+    <template id="tpl-favorito-item">
+        <div class="favorito-item" data-tpl="item" data-tpl-attr="data-favorito-id" role="button" tabindex="0" title="Ejecutar favorito">
+            <div class="favorito-info">
+                <span class="favorito-nombre" data-tpl="nombre"></span>
+                <span class="favorito-tipo" data-tpl="tipo"></span>
+                <div class="favorito-etiquetas" data-tpl="etiquetas"></div>
+            </div>
+            <div class="favorito-resumen">
+                <span class="favorito-cuenta" data-tpl="cuenta"></span>
+                <span class="favorito-monto" data-tpl="monto"></span>
+            </div>
         </div>
     </template>
 

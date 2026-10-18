@@ -386,7 +386,7 @@ function notificarActualizacionMetas() {
 
 // Cuando cualquier movimiento cambia (crear/editar/eliminar/restaurar), las
 // páginas abiertas (cuentas, dashboard) deben refrescar sus datos.
-function notificarMovimientosActualizados() {
+export function notificarMovimientosActualizados() {
     try {
         window.dispatchEvent(new CustomEvent("movimientos-actualizados"))
     } catch {
