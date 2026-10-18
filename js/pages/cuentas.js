@@ -37,6 +37,16 @@ import { expandirSeleccion } from "../ui/seleccion.js"
 
 asegurarEstilos("cuentas")
 
+// La card de movimiento lleva el botón de favoritos a la izquierda (Paso 2.1),
+// pero en la lista de una cuenta no tiene sentido: ahí la lista es de consulta
+// (texto, fecha, etiquetas y valor), no de gestión de favoritos. Se quita el
+// nodo del fragmento en vez de duplicar el template, para que las dos listas no
+// se desincronicen cuando cambie la card.
+function sinBotonFavorito(fragmento) {
+    fragmento.querySelectorAll(".movimiento-favorito").forEach(boton => boton.remove())
+    return fragmento
+}
+
 let cuentas = []
 // Las cuentas archivadas no se listan ni se seleccionan, pero no se borran:
 // siguen en Firestore y se pueden recuperar desde Configuración › Datos.
@@ -845,7 +855,7 @@ export async function modalizarCuentaActual() {
                 html: {
                     info,
                     movimientos: movs.length
-                        ? contenidoDesdeFilas("tpl-movimiento-card", movs, m => filaMovimiento(m, visto.id))
+                        ? sinBotonFavorito(contenidoDesdeFilas("tpl-movimiento-card", movs, m => filaMovimiento(m, visto.id)))
                         : contenidoDesdeTemplate("tpl-lista-vacio", { valores: { texto: "Sin movimientos." } })
                 }
             }))
@@ -1149,7 +1159,9 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
             return
         }
 
-        contenedor.replaceChildren(contenidoDesdeFilas("tpl-movimiento-card", recientes, m => filaMovimiento(m, cuenta.id)))
+        contenedor.replaceChildren(sinBotonFavorito(
+            contenidoDesdeFilas("tpl-movimiento-card", recientes, m => filaMovimiento(m, cuenta.id))
+        ))
     } catch (error) {
         console.error("Error cargando movimientos de la cuenta:", error)
             if (contenedorTotales) contenedorTotales.replaceChildren()
