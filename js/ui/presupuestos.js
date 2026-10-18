@@ -21,6 +21,7 @@ function plantillaPresupuestoCard(p) {
     return {
         valores: {
             "presupuesto@data-id": pp.id,
+            "presupuesto@class": `presupuesto-item ${estadoClase}`,
             nombre: pp.nombre,
             estado: p.estadoTexto,
             detalle: `${formatearMontoConDivisa(p.gastoReal, pp.divisa)} de ${formatearMontoConDivisa(pp.monto, pp.divisa)}`,

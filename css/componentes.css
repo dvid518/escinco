@@ -1013,3 +1013,30 @@
     background: var(--negative);
     color: var(--background);
 }
+
+/* ============================================
+   PRESUPUESTOS — chips de progreso
+   (dashboard y modal; mismo patrón que las chips
+   de etiquetas, pero con el color del estado)
+   ============================================ */
+.presupuesto-item {
+    border: 1px solid var(--lightBorder);
+    border-radius: 12px;
+}
+
+.presupuesto-item.estado-dentro { border-color: var(--positive); }
+.presupuesto-item.estado-atencion { border-color: var(--ambarAlt); }
+.presupuesto-item.estado-alerta { border-color: var(--ambar); }
+.presupuesto-item.estado-critico { border-color: var(--negativeAlt); }
+.presupuesto-item.estado-superado { border-color: var(--negative); }
+
+.presupuesto-estado {
+    color: var(--textSecondary);
+    font-size: 0.8rem;
+}
+
+.presupuesto-item.estado-dentro .card-item-valor { color: var(--positive); }
+.presupuesto-item.estado-atencion .card-item-valor { color: var(--ambarAlt); }
+.presupuesto-item.estado-alerta .card-item-valor { color: var(--ambar); }
+.presupuesto-item.estado-critico .card-item-valor { color: var(--negativeAlt); }
+.presupuesto-item.estado-superado .card-item-valor { color: var(--negative); }
