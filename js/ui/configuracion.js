@@ -1194,7 +1194,14 @@ async function aplicarPreferencias(preferencias) {
         avisoDescartado = false
         // Lo recién guardado pasa a ser la nueva referencia: a partir de aquí
         // solo cuenta como cambio lo que se toque después.
-        lineaBase = construirPreferencias()
+        //
+        // Se reutiliza el objeto guardado en vez de releer la pantalla con
+        // `construirPreferencias()`. Es el mismo estado —de hecho es de donde
+        // sale— y evita el caso del aviso de "cambios sin guardar", donde ese
+        // relé ocurre con la ventana ya desmontada: sin DOM, cada `?.checked`
+        // daba `undefined` y el baseline acababa con todas las páginas
+        // activadas, aunque el usuario las hubiera dejado apagadas.
+        lineaBase = preferencias
         actualizarEstadoGuardar()
 
         mostrarNotificacion("exito", "Cambios guardados")
