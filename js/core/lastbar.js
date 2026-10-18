@@ -105,47 +105,6 @@ const ITEM_CERRAR_SESION = `
     </div>
 `
 
-// Items de favoritos: sustituyen a los de movimiento mientras hay favoritos
-// seleccionados en el contenedor lateral. Se ocultan por defecto con el
-// atributo nativo `hidden` (el proyecto no usa clase `oculto`); `oculto` se
-// alterna desde `actualizarEstadoLastbar`.
-const ITEM_EDITAR_FAVORITO = `
-    <div class="item glass" data-accion="editar-favorito" role="button" tabindex="0" hidden>
-        <span class="glass">Editar favorito</span>
-        <svg id="icon-edit-favorito" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>
-            <path d="m15 5 4 4"/>
-        </svg>
-    </div>
-`
-
-const ITEM_EJECUTAR_FAVORITO = `
-    <div class="item glass" data-accion="ejecutar-favorito" role="button" tabindex="0" hidden>
-        <span class="glass">Ejecutar favorito</span>
-        <svg id="icon-ejecutar-favorito" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polygon points="6 3 20 12 6 21 6 3"/>
-        </svg>
-    </div>
-`
-
-const ITEM_CANCELAR_FAVORITO = `
-    <div class="item glass" data-accion="cancelar-favorito" role="button" tabindex="0" hidden>
-        <span class="glass">Cancelar selección</span>
-        <svg id="icon-cancelar-favorito" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 6 6 18"/>
-            <path d="m6 6 12 12"/>
-        </svg>
-    </div>
-`
-
-// Texto de contexto (a la izquierda de la barra): nombre del favorito
-// seleccionado o "N favoritos". Lo rellena `actualizarEstadoLastbar`.
-const CONTEXTO_FAVORITOS = '<span class="lastbar-contexto" id="lastbar-contexto" hidden></span>'
-
-// ============================================
-// MAPAS DE ACCIONES (barra y pendientes)
-// ============================================
-
 const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_BUSCAR}${ITEM_NOTIFICACIONES}</div>`
 
 // Mapa de lastbars por página.
@@ -216,7 +175,6 @@ const LASTBARS = {
     `,
     movimientos: `
         <div class="lastbar">
-            ${CONTEXTO_FAVORITOS}
             <div class="bar">
                 <div class="item glass" data-accion="mov">
                     <span class="glass">Movimiento</span>
@@ -226,8 +184,6 @@ const LASTBARS = {
                         <path d="M12 8v8"/>
                     </svg>
                 </div>
-                ${ITEM_EDITAR_FAVORITO}
-                ${ITEM_EJECUTAR_FAVORITO}
                 <div class="item glass desact" data-accion="editar-movimiento">
                     <span class="glass">Editar</span>
                     <svg id="icon-edit" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -242,17 +198,6 @@ const LASTBARS = {
                         <circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>
                     </svg>
                 </div>
-                <div class="item glass desact" data-accion="eliminar-movimiento">
-                    <span class="glass">Eliminar</span>
-                    <svg id="icon-trash" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M10 11v6"/>
-                        <path d="M14 11v6"/>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                        <path class="cover" d="M3 6h18"/>
-                        <path class="cover" d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    </svg>
-                </div>
-                ${ITEM_CANCELAR_FAVORITO}
                 <div class="item glass desact" data-accion="eliminar-movimiento">
                     <span class="glass">Eliminar</span>
                     <svg id="icon-trash" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -537,23 +482,9 @@ const MAPA_ACCIONES = {
         await accionExportar()
     },
 
-    // Borrar el favorito seleccionado lo hace el mismo botón "Eliminar" de la
-// barra: `eliminarSeleccionados()` delega cuando hay favoritos marcados. Aquí
-// no hay una acción aparte para ellos.
-"editar-favorito": async () => {
-        const { editarFavoritoSeleccionado } = await import("../pages/movimientos.js")
-        await editarFavoritoSeleccionado()
-    },
-
-    "ejecutar-favorito": async () => {
-        const { ejecutarFavoritosSeleccionados } = await import("../pages/movimientos.js")
-        await ejecutarFavoritosSeleccionados()
-    },
-
-    "cancelar-favorito": async () => {
-        const { cancelarSeleccionFavoritos } = await import("../pages/movimientos.js")
-        cancelarSeleccionFavoritos()
-    },
+    // Los favoritos NO tienen acciones propias en la barra: se gestionan con los
+    // botones de siempre. Editar y eliminar sirven para los dos tipos de
+    // selección (ver `editarSeleccionados` y `eliminarSeleccionados`).
 
     // ── CUENTAS ──
     "cuenta": async () => {

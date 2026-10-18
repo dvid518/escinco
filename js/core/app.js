@@ -2,6 +2,7 @@ import { observeAuth, startInactivityTimer, aplicarPersistenciaSesion } from "..
 import { sesion } from "./sesion.js"
 import { initRouter } from "./router.js"
 import { obtenerPreferencias, asegurarCuentaEfectivoInicial } from "../../firebase/firestore.js"
+import { eliminarEtiquetasPrincipales } from "../repositories/EtiquetaRepositorio.js"
 import { initTemaLocal, sincronizarTemaFirestore } from "./tema.js"
 import { initPWA } from "./pwa.js"
 import { initDoodles } from "../ui/doodles.js"
@@ -57,6 +58,12 @@ export async function initApp() {
 
         try {
             await asegurarCuentaEfectivoInicial(user.uid, user)
+            // Limpieza puntual: borra las 8 etiquetas principales que se
+            // sembraban por cuenta. Las 5 categorías del sistema ya no están
+            // aquí (viven en el código), así que el catálogo se queda solo con
+            // lo que creó el usuario. Va antes de leer preferencias para que
+            // nada pins un catálogo con las viejas.
+            await eliminarEtiquetasPrincipales(user.uid)
             const prefs = await obtenerPreferencias(user.uid)
             if (prefs) {
                 sesion.setPreferencias(prefs)

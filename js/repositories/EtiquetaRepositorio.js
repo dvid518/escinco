@@ -62,3 +62,41 @@ export async function eliminarEtiqueta(uid, etiquetaId) {
     await deleteDoc(referencia)
     cacheCapa.invalidarPrefijo(uid, "etiquetas")
 }
+
+// ============================================
+// LIMPIEZA DEL CATÁLOGO SEMBRADO (puntual)
+// ============================================
+// Hasta la 1.0.0-beta.28 escinco sembraba 8 "etiquetas principales" en la cuenta
+// de cada usuario (Comida, Transporte, Ocio, Vivienda, Salud, Educación,
+// Inversiones, Otros). Ya no: las cinco categorías viven en el código
+// (CATEGORIAS_SISTEMA) y el catálogo guarda solo lo que crea el usuario.
+//
+// Esta función borra esas etiquetas viejas. Filtra por `esPrincipal === true`:
+// es la única marca que ponía la siembra (todo lo que crea el usuario va con
+// `esPrincipal: false`), así que no toca nada suyo aunque se llame
+// "Vivienda". Los MOVIMIENTOS no se tocan: guardan las etiquetas por nombre, no
+// por id, así que sus chips siguen funcionando aunque la etiqueta desaparezca
+// del catálogo.
+
+export async function eliminarEtiquetasPrincipales(uid) {
+    if (!uid) return 0
+    try {
+        const etiquetas = await obtenerEtiquetas(uid)
+        const viejas = etiquetas.filter(e => e.esPrincipal === true)
+        if (!viejas.length) return 0
+        for (const etiqueta of viejas) {
+            await eliminarEtiqueta(uid, etiqueta.id)
+        }
+        console.info(
+            `[INFO] Se limpiaron ${viejas.length} etiqueta(s) principales del catálogo: ` +
+            viejas.map(e => e.nombre).join(", ")
+        )
+        return viejas.length
+    } catch (error) {
+        // Que falle la limpieza no debe impedir arrancar la app: el catálogo
+        // quedaría con esas etiquetas, pero las categorías del sistema se
+        // siguen mostrando igualmente.
+        console.warn("[WARN] No se pudo limpiar el catálogo de etiquetas principales:", error?.code || error)
+        return 0
+    }
+}

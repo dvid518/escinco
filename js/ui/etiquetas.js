@@ -1,6 +1,6 @@
 import { sesion } from "../core/sesion.js"
 import { icono } from "../core/iconos.js"
-import { normalizarEtiquetas, MAX_ETIQUETAS } from "../core/etiquetas.js"
+import { normalizarEtiquetas, MAX_ETIQUETAS, CATEGORIAS_SISTEMA, categoriaSistema, esCategoriaSistema } from "../core/etiquetas.js"
 import {
     obtenerEtiquetas,
     buscarEtiquetaPorNombre,
@@ -48,7 +48,12 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
         seleccionadas = null,
         semiactivas = [],
         entrada = "campo-etiquetas",
-        alCambiar = null
+        alCambiar = null,
+        // Catálogo ya resuelto por quien llama. El etiquetado masivo lo usa
+        // para incluir las etiquetas huérfanas (las que tiene algún movimiento
+        // pero no están en el catálogo): si el selector las recargara por su
+        // cuenta, nunca se pintarían.
+        catalogo: catalogoDado = null
     } = opciones
 
     if (!contenedor) return null
@@ -59,12 +64,22 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
     }
 
     const uid = sesion.uid
-    let catalogo = []
-    try {
-        catalogo = await obtenerEtiquetas(uid)
-    } catch (error) {
-        console.warn("[WARN] No se pudo cargar el catálogo de etiquetas:", error?.code || error)
+    let catalogoUsuario = catalogoDado ? [...catalogoDado] : []
+    if (!catalogoDado) {
+        try {
+            catalogoUsuario = await obtenerEtiquetas(uid)
+        } catch (error) {
+            console.warn("[WARN] No se pudo cargar el catálogo de etiquetas:", error?.code || error)
+        }
     }
+
+    // Las categorías del sistema van SIEMPRE y primero; el resto es lo que el
+    // usuario tiene guardado. Si el usuario creó una con el mismo nombre, manda
+    // la del sistema: es la que no se puede borrar ni duplicar.
+    const catalogo = [
+        ...CATEGORIAS_SISTEMA.map(c => ({ ...c, esSistema: true, id: null })),
+        ...catalogoUsuario.filter(e => !esCategoriaSistema(e.nombre))
+    ]
 
     if (!contenedor.isConnected) return null
 
@@ -81,8 +96,13 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
         alCambiar?.(obtenerSeleccion())
     }
 
+    // Solo se ordena el catálogo del usuario: las categorías del sistema van
+    // siempre arriba, en su orden fijo, porque son el primer nivel.
     const ordenar = () => {
-        catalogo.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }))
+        const usuario = catalogo.filter(e => !e.esSistema)
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }))
+        catalogo.length = 0
+        catalogo.push(...CATEGORIAS_SISTEMA.map(c => ({ ...c, esSistema: true, id: null })), ...usuario)
     }
 
     const pintarChip = etiqueta => {
@@ -91,13 +111,19 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
             "chip@data-nombre": etiqueta.nombre,
             nombre: etiqueta.nombre
         }
-        if (etiqueta.color) {
+        if (etiqueta.esSistema) {
+            // Las del sistema se pintan con --positive, sin el borde de color
+            // que llevan las del usuario.
+            valores["punto@style"] = "--chip-color: var(--positive)"
+            valores["chip@data-sistema"] = "1"
+        } else if (etiqueta.color) {
             valores["punto@style"] = `--chip-color: var(--etiqueta-${etiqueta.color})`
         }
         const chip = contenidoDesdeTemplate("tpl-etiqueta-chip", { valores })
         const boton = chip.querySelector(".chip-etiqueta")
         boton.classList.toggle("activo", activa)
         boton.classList.toggle("semi", !activa && semi.has(etiqueta.nombre))
+        boton.classList.toggle("categoria", !!etiqueta.esSistema)
         return chip
     }
 
@@ -120,9 +146,10 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
             return
         }
         try {
-            // Idempotente: si ya existe en el catálogo (sin distinguir
-            // mayúsculas) se selecciona en lugar de duplicarla.
-            let etiqueta = await buscarEtiquetaPorNombre(uid, nombre)
+            // Una categoría del sistema ya existe siempre: se selecciona, no se
+            // crea otra igual en Firestore.
+            const categoria = categoriaSistema(nombre)
+            let etiqueta = categoria || await buscarEtiquetaPorNombre(uid, nombre)
             if (!etiqueta) {
                 // La etiqueta nace en el catálogo aunque el usuario cancele el
                 // movimiento: queda disponible para reutilizar.
@@ -131,6 +158,8 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
                 catalogo.push(etiqueta)
                 ordenar()
             }
+            // Límite del movimiento, no del catálogo: la categoría ya existe y
+            // solo cuenta si se puede marcar.
             if (!activas.has(etiqueta.nombre) && activas.size >= MAX_ETIQUETAS) {
                 mostrarNotificacion("info", `Máximo ${MAX_ETIQUETAS} etiquetas por movimiento`)
             } else {
@@ -194,6 +223,20 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
         const paleta = contenido.querySelector("#paleta-etiquetas")
         const botonEliminar = contenido.querySelector("#chip-etiqueta-eliminar")
         inputNombre.value = etiqueta.nombre
+
+        // Las categorías del sistema no se editan ni se borran: no viven en
+        // Firestore, no tienen documento que actualizar y su nombre es fijo.
+        if (etiqueta.esSistema) {
+            inputNombre.disabled = true
+            botonEliminar.hidden = true
+            paleta.hidden = true
+            contenido.querySelector(".etiqueta-editor-nota")?.remove()
+            const aviso = document.createElement("p")
+            aviso.className = "form-hint etiqueta-editor-sistema"
+            aviso.textContent = "Las categorías del sistema no se pueden editar ni eliminar."
+            inputNombre.insertAdjacentElement("afterend", aviso)
+            return
+        }
 
         let colorElegido = etiqueta.color || null
 

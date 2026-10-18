@@ -919,6 +919,25 @@
     opacity: 0.75;
 }
 
+/* Categorías del sistema: se ven como una etiqueta normal pero siempre en
+   verde. El color lo fija el selector al pintar la chip
+   (`--chip-color: var(--positive)`), así que solo hay que fijar el punto y
+   dejar el resto al heredar — activo, semi y hover funcionan igual. */
+.chip-etiqueta.categoria {
+    --chip-color: var(--positive);
+    border-color: color-mix(in srgb, var(--positive) 35%, transparent);
+}
+
+.chip-etiqueta.categoria.activo {
+    border-color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 25%, transparent);
+}
+
+.chip-etiqueta.categoria.semi {
+    border-color: color-mix(in srgb, var(--positive) 55%, transparent);
+    background: color-mix(in srgb, var(--positive) 10%, transparent);
+}
+
 .chip-etiqueta-crear {
     padding: 6px 8px;
     color: var(--textSecondary);

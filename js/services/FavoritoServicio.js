@@ -5,13 +5,18 @@ import { registrarMovimiento, notificarMovimientosActualizados } from "./Movimie
 // (SyntaxError) y con ella la página de movimientos.
 import { db, obtenerMovimientos, actualizarMovimientoDoc, doc, writeBatch, deleteField } from "../../firebase/firestore.js"
 import { cacheCapa } from "../core/cache.js"
-import { obtenerFavorito, eliminarFavorito, crearFavorito } from "../repositories/FavoritoRepositorio.js"
+import { obtenerFavorito, eliminarFavorito, crearFavorito, actualizarFavorito } from "../repositories/FavoritoRepositorio.js"
 import { getFechaHoy } from "../core/fechas.js"
 
 // Tipos de movimiento que admiten ser guardados como favorito: una sola cuenta
 // + un monto. Las transferencias y compras de activo tienen formularios con
 // más matices y no encajan en este molde (quedan fuera del alcance v1).
 const TIPOS_FAVORITO = ["ingreso", "gasto", "compraTarjeta"]
+
+// Límite del nombre de la plantilla. replica la regla de firestore.rules para
+// favoritos ("nombre.size() <= 40"), para que el error salte en el formulario y
+// no en una excepción del servidor.
+export const MAX_LARGO_NOMBRE_FAVORITO = 40
 
 export function esTipoFavoritable(tipo) {
     return TIPOS_FAVORITO.includes(tipo)
@@ -101,6 +106,50 @@ export async function guardarInstanciaVinculada(uid, favoritoId, datos, deps = {
     }
     const registrarMovimientoFn = deps.registrarMovimiento || registrarMovimiento
     return registrarMovimientoFn(uid, datos.tipo, { ...datos, favoritoId })
+}
+
+/**
+ * Guarda los cambios de la PLANTILLA de un favorito (lo que hace el botón
+ * "Editar" de la lastbar con un favorito marcado). No crea ningún movimiento:
+ * los que ya se ejecutaron desde ella conservan sus datos, que es justo lo
+ * distinto de "usar el favorito con un importe puntual".
+ *
+ * El tipo no se toca: el movimiento creado tiene su propio tipo y cambiarlo en
+ * la plantilla dejaría fuera de juego a las instancias ya registradas.
+ *
+ * Parámetros opcionales (para tests):
+ *   deps.actualizarFavorito, deps.notificarMovimientosActualizados
+ */
+export async function editarPlantillaFavorito(uid, favorito, datos, deps = {}) {
+    if (!esTipoFavoritable(favorito.tipo)) {
+        throw new Error(`El tipo "${favorito.tipo}" no se puede editar como favorito`)
+    }
+    const actualizarFn = deps.actualizarFavorito || actualizarFavorito
+
+    // Mismo criterio que al crear el favorito desde un movimiento: si el
+    // usuario deja el nombre vacío se deriva del concepto, y si no hay
+    // concepto, del tipo y la cuenta.
+    const nombre = String(datos.nombre || "").trim().slice(0, MAX_LARGO_NOMBRE_FAVORITO)
+        || String(datos.concepto || "").trim().slice(0, MAX_LARGO_NOMBRE_FAVORITO)
+        || `${favorito.tipo} en ${favorito.cuenta}`
+    const monto = Number(datos.monto)
+    if (!Number.isFinite(monto) || monto <= 0) {
+        throw new Error("El monto del favorito debe ser mayor que cero")
+    }
+
+    const cambios = {
+        nombre,
+        cuenta: datos.cuenta || '',
+        monto,
+        divisa: datos.divisa || 'pen',
+        concepto: datos.concepto || '',
+        etiquetas: Array.isArray(datos.etiquetas) ? datos.etiquetas : []
+    }
+
+    await actualizarFn(uid, favorito.id, cambios)
+    const notificarFn = deps.notificarMovimientosActualizados || notificarMovimientosActualizados
+    notificarFn()
+    return cambios
 }
 
 /**

@@ -6,6 +6,7 @@ import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { etiquetaDivisa, formatearMontoConDivisa, getDivisaPrincipal } from "../services/DivisaServicio.js"
+import { MAX_LARGO_NOMBRE_FAVORITO } from "../services/FavoritoServicio.js"
 import { contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 import { escapeHtml } from "../core/escape.js"
 
@@ -23,7 +24,7 @@ let activosPorSimbolo = new Map()
  * dashboard.html y sus textos van por textContent: el nombre de una cuenta o de
  * un activo nunca pasa por innerHTML.
  */
-export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = null) {
+export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = null, opciones = {}) {
     const uid = sesion.uid
     const config = CONFIG_MOVIMIENTOS[tipo]
     const cuentas = await obtenerCuentas(uid)
@@ -112,6 +113,23 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
     for (const campo of campos) {
         const nodo = generarCampo(campo, contexto, !obligatorios.includes(campo))
         if (nodo) form.insertBefore(nodo, etiquetas)
+    }
+
+    // Campo propio de la plantilla de favorito (id `campo-favoritoNombre`): va
+    // arriba del todo porque es lo que identifica el favorito en la tira. Solo
+    // se añade cuando quien lo pide va a editar la plantilla, no al registrar
+    // un movimiento normal.
+    if (opciones.nombreFavorito) {
+        const nombre = campoTexto(
+            "favoritoNombre",
+            "Nombre del favorito",
+            "Ej.: Arriendo",
+            true,
+            " span-full"
+        )
+        const campo = nombre.querySelector("#campo-favoritoNombre")
+        if (campo) campo.maxLength = MAX_LARGO_NOMBRE_FAVORITO
+        form.insertBefore(nombre, form.firstChild)
     }
 
     return contenido

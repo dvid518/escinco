@@ -119,6 +119,86 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
     }
 
     // ------------------------------------------------------------
+    // editarPlantillaFavorito
+    // ------------------------------------------------------------
+    {
+        const esFavoritable = (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo)
+        const deps = extra => ({
+            esTipoFavoritable: esFavoritable,
+            MAX_LARGO_NOMBRE_FAVORITO: 40,
+            notificarMovimientosActualizados: () => {},
+            ...extra
+        })
+        const FAV = { id: "f1", nombre: "Café", tipo: "gasto", cuenta: "c1", monto: 5, divisa: "pen" }
+
+        let cambios = null
+        let notificado = false
+        const resultado = await cargarFuncion(src, "editarPlantillaFavorito", deps({
+            actualizarFavorito: async (u, id, c) => { cambios = { u, id, c } },
+            notificarMovimientosActualizados: () => { notificado = true }
+        }))(UID, FAV, {
+            nombre: "Café de la esquina",
+            cuenta: "c2",
+            monto: 8,
+            divisa: "usd",
+            concepto: "café",
+            etiquetas: ["ocio", "ahorro"]
+        })
+        t.check("editarPlantillaFavorito: actualiza SOLO la plantilla, no un movimiento",
+            cambios?.u === UID && cambios?.id === "f1" && !("fechaRealizacion" in (cambios?.c || {})),
+            JSON.stringify(cambios))
+        t.check("editarPlantillaFavorito: no manda el tipo (no se puede cambiar)",
+            !("tipo" in cambios.c) && !("fechaCreacion" in cambios.c), JSON.stringify(Object.keys(cambios.c)))
+        t.check("editarPlantillaFavorito: guarda cuenta, monto, divisa, concepto y etiquetas",
+            cambios.c.cuenta === "c2" && cambios.c.monto === 8 && cambios.c.divisa === "usd" &&
+            cambios.c.concepto === "café" && JSON.stringify(cambios.c.etiquetas) === JSON.stringify(["ocio", "ahorro"]))
+        t.check("editarPlantillaFavorito: devuelve los cambios aplicados",
+            resultado.nombre === "Café de la esquina")
+        t.check("editarPlantillaFavorito: notifica el refresco", notificado === true)
+
+        {
+            // Sin nombre propio, el de la tarjeta se deriva igual que al crearla.
+            let c = null
+            await cargarFuncion(src, "editarPlantillaFavorito", deps({
+                actualizarFavorito: async (u, id, x) => { c = x }
+            }))(UID, FAV, { nombre: "   ", cuenta: "c1", monto: 5, divisa: "pen", concepto: "café", etiquetas: [] })
+            t.check("editarPlantillaFavorito: nombre vacío → cae al concepto", c.nombre === "café", c.nombre)
+        }
+        {
+            let c = null
+            await cargarFuncion(src, "editarPlantillaFavorito", deps({
+                actualizarFavorito: async (u, id, x) => { c = x }
+            }))(UID, FAV, { nombre: "", cuenta: "c1", monto: 5, divisa: "pen", concepto: "", etiquetas: [] })
+            t.check("editarPlantillaFavorito: sin nombre ni concepto → tipo y cuenta", c.nombre === "gasto en c1", c.nombre)
+        }
+        {
+            let c = null
+            await cargarFuncion(src, "editarPlantillaFavorito", deps({
+                actualizarFavorito: async (u, id, x) => { c = x }
+            }))(UID, FAV, { nombre: "x".repeat(80), cuenta: "c1", monto: 5, divisa: "pen", concepto: "", etiquetas: [] })
+            t.check("editarPlantillaFavorito: recorta el nombre al límite de las rules", c.nombre.length === 40, String(c.nombre.length))
+        }
+        {
+            let lanzo = false
+            try {
+                await cargarFuncion(src, "editarPlantillaFavorito", deps({
+                    actualizarFavorito: async () => {}
+                }))(UID, FAV, { nombre: "Café", cuenta: "c1", monto: 0, divisa: "pen", etiquetas: [] })
+            } catch (e) { lanzo = true }
+            t.check("editarPlantillaFavorito: rechaza monto cero o negativo", lanzo === true)
+        }
+        {
+            let lanzo = false
+            try {
+                await cargarFuncion(src, "editarPlantillaFavorito", deps({
+                    actualizarFavorito: async () => {}
+                }))(UID, { id: "f9", tipo: "transferencia", cuenta: "c1" }, { nombre: "x", monto: 5 })
+            } catch (e) { lanzo = true }
+            t.check("editarPlantillaFavorito: rechaza tipos no favoritables", lanzo === true)
+        }
+    }
+
+    // ------------------------------------------------------------
     // guardarInstanciaVinculada
     // ------------------------------------------------------------
     {

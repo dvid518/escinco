@@ -49,39 +49,14 @@ export async function obtenerUsuario(uid) {
 // CUENTAS
 // ============================================
 
-// Etiquetas principales que escinco siembra al crear la cuenta del usuario.
-// Las claves de color son la paleta fija de css/style.css (--etiqueta-*), la
-// misma lista que valida firestore.rules (esColorEtiqueta).
-const ETIQUETAS_PRINCIPALES = [
-    { nombre: "Comida", color: "ambar" },
-    { nombre: "Transporte", color: "azul" },
-    { nombre: "Ocio", color: "frambuesa" },
-    { nombre: "Vivienda", color: "verde" },
-    { nombre: "Salud", color: "rojo" },
-    { nombre: "Educación", color: "cielo" },
-    { nombre: "Inversiones", color: "menta" },
-    { nombre: "Otros", color: null }
-]
-
-async function sembrarEtiquetasPrincipales(uid) {
-    try {
-        const lote = writeBatch(db)
-        for (const etiqueta of ETIQUETAS_PRINCIPALES) {
-            lote.set(doc(collection(db, "usuarios", uid, "etiquetas")), {
-                nombre: etiqueta.nombre,
-                color: etiqueta.color,
-                esPrincipal: true,
-                fechaCreacion: serverTimestamp()
-            })
-        }
-        await lote.commit()
-        cacheCapa.invalidarPrefijo(uid, "etiquetas")
-    } catch (error) {
-        // El catálogo es recreable desde Configuración: que falle la siembra
-        // no debe romper el primer arranque.
-        console.warn("[WARN] No se pudieron sembrar las etiquetas principales:", error?.code || error)
-    }
-}
+// ============================================
+// NOTA SOBRE LAS ETIQUETAS
+// ============================================
+// Antes se sembraban aquí ocho "etiquetas principales" en la cuenta de cada
+// usuario. Ya no: las cinco categorías del sistema viven en el código
+// (CATEGORIAS_SISTEMA en js/core/etiquetas.js), se cargan siempre y no se
+// borran. El catálogo de Firestore guarda únicamente las etiquetas que crea
+// el usuario, así que este archivo ya no necesita sembrar nada.
 
 export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
     if (!uid) return null
@@ -95,10 +70,10 @@ export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
             fechaRegistro: serverTimestamp(),
             preferencias: {}
         })
-        // El catálogo de etiquetas nace con la cuenta del usuario, una sola
-        // vez. Los usuarios anteriores no lo tienen: pueden crearlas (o
-        // recrearlas) desde Configuración.
-        await sembrarEtiquetasPrincipales(uid)
+        // Las categorías del sistema NO se siembran aquí: viven en el código
+        // (CATEGORIAS_SISTEMA, js/core/etiquetas.js) y el selector las pinta
+        // siempre al principio. El catálogo de Firestore guarda solo lo que
+        // crea el usuario.
     }
 
     const cuentas = await obtenerCuentas(uid)

@@ -12,7 +12,7 @@ import {
     vincularSimboloDivisa
 } from "../ui/formularioMovimiento.js"
 import { registrarMovimiento, actualizarMovimiento, eliminarMovimiento, restaurarMovimiento, aplicarEtiquetasEnLote } from "../services/MovimientoServicio.js"
-import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable, ejecutarFavorito, eliminarFavoritoConDesvinculacion } from "../services/FavoritoServicio.js"
+import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable, ejecutarFavorito, editarPlantillaFavorito, eliminarFavoritoConDesvinculacion } from "../services/FavoritoServicio.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
@@ -183,7 +183,10 @@ async function abrirFormularioConFavorito(favoritoId) {
     if (!favorito) return
     limpiarSeleccionFavoritos()
     await abrirFormularioMovimiento(favorito.tipo, null, {
-        valoresIniciales: {
+        // Ojo con el nombre de la clave: `abrirFormularioMovimiento` lee
+        // `opciones.valores`. Con `valoresIniciales` el formulario salía vacío
+        // y el "toque" sobre el favorito perdía cuenta, importe y etiquetas.
+        valores: {
             cuenta: favorito.cuenta,
             monto: favorito.monto,
             divisa: favorito.divisa,
@@ -191,6 +194,49 @@ async function abrirFormularioConFavorito(favoritoId) {
             etiquetas: favorito.etiquetas || []
         },
         favoritoId: favorito.id
+    })
+}
+
+/**
+ * "Editar" con un favorito marcado: abre su plantilla y, al confirmar, guarda
+ * los cambios EN la plantilla. No registra ningún movimiento —para eso está el
+ * toque simple, que crea una instancia con esos datos.
+ */
+async function editarPlantillaFavoritoDesdeItem(favoritoId) {
+    const favorito = favoritosCache.find(f => f.id === favoritoId)
+    if (!favorito) return
+    limpiarSeleccionFavoritos()
+    await abrirFormularioMovimiento(favorito.tipo, null, {
+        titulo: "Editar favorito",
+        confirmText: "Guardar cambios",
+        nombreFavorito: true,
+        valores: {
+            favoritoNombre: favorito.nombre,
+            cuenta: favorito.cuenta,
+            monto: favorito.monto,
+            divisa: favorito.divisa,
+            concepto: favorito.concepto || "",
+            etiquetas: favorito.etiquetas || []
+        },
+        alConfirmar: async (datos, formulario) => {
+            // `recogerDatosFormulario` solo devuelve los campos del movimiento;
+            // el nombre del favorito es un campo añadido por este formulario.
+            const nombre = formulario.querySelector("#campo-favoritoNombre")?.value || ""
+            await editarPlantillaFavorito(uid, favorito, {
+                nombre,
+                // Un pago con tarjeta guarda la cuenta en el campo `tarjeta`, no
+                // en `cuenta`: si el formulario no trae cuenta (porque no la
+                // pide), se conserva la que ya tenía la plantilla en vez de
+                // dejarla vacía.
+                cuenta: datos.cuenta || favorito.cuenta,
+                monto: datos.monto,
+                divisa: datos.divisa,
+                concepto: datos.concepto,
+                etiquetas: datos.etiquetas
+            })
+            mostrarNotificacion("exito", "Favorito actualizado")
+            await renderFavoritos(uid)
+        }
     })
 }
 
@@ -1155,17 +1201,21 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
     const esEdicion = !!movimiento
     const alGuardar = opciones.alGuardar || null
     const valoresIniciales = opciones.valores || null
-    const formulario = await generarFormularioMovimiento(tipo, valoresIniciales?.divisa || null)
+    const formulario = await generarFormularioMovimiento(
+        tipo,
+        valoresIniciales?.divisa || null,
+        { nombreFavorito: !!opciones.nombreFavorito }
+    )
 
     const config = CONFIG_MOVIMIENTOS[tipo]
 
     const modalEl = abrirModal({
-        titulo: esEdicion
+        titulo: opciones.titulo || (esEdicion
             ? `Editar ${config?.nombre || tipo}`
-            : `Nuevo ${config?.nombre || tipo}`,
+            : `Nuevo ${config?.nombre || tipo}`),
         contenido: formulario,
         variante: "form",
-        confirmText: esEdicion ? "Guardar cambios" : "Registrar movimiento",
+        confirmText: opciones.confirmText || (esEdicion ? "Guardar cambios" : "Registrar movimiento"),
         onConfirm: async () => {
             const datos = recogerDatosFormulario(tipo)
             if (!datos) return false
@@ -1179,6 +1229,14 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
             }
 
             try {
+                // Quien abre el formulario puede quedarse con los datos y hacer
+                // su propia guardado (editar la plantilla de un favorito, por
+                // ejemplo). Si lo hace, es dueño también del refresco y del
+                // mensaje de éxito.
+                if (opciones.alConfirmar) {
+                    await opciones.alConfirmar(datos, formulario)
+                    return true
+                }
                 if (esEdicion) {
                     await actualizarMovimiento(uid, movimiento.id, movimiento, tipo, datos)
                     mostrarNotificacion("exito", "Movimiento actualizado")
@@ -1543,54 +1601,39 @@ function actualizarSeleccionEnDOM() {
     })
 }
 
-// Items de la lastbar de la página de movimientos que se OCULTAN mientras hay
-// favoritos seleccionados. `eliminar-movimiento` no está aquí a propósito:
-// es el botón dual, sirve para los dos tipos de selección y siempre se ve.
-const ACCIONES_MOVIMIENTO_LASTBAR = ["editar-movimiento", "etiquetar-movimiento"]
-const ACCIONES_FAVORITO_LASTBAR = ["editar-favorito", "ejecutar-favorito", "cancelar-favorito"]
-
-// Nombre del favorito seleccionado, o "N favoritos" si hay varios.
-function textoContextoFavoritos() {
-    const cantidad = seleccionadosFavoritos.size
-    if (cantidad === 0) return ""
-    if (cantidad > 1) return `${cantidad} favoritos`
-    const id = [...seleccionadosFavoritos][0]
-    return favoritosCache.find(f => f.id === id)?.nombre || ""
-}
-
 function actualizarEstadoLastbar() {
     const hayMovimientos = seleccionados.size > 0
     const hayFavoritos = seleccionadosFavoritos.size > 0
+    // Editar es de a uno: vale tanto para un movimiento como para un favorito.
+    const unMovimiento = seleccionados.size === 1
+    const unFavorito = seleccionadosFavoritos.size === 1
 
     document.querySelectorAll('[data-accion="editar-movimiento"]').forEach(item => {
-        item.classList.toggle("desact", seleccionados.size !== 1)
+        item.classList.toggle("desact", !(unMovimiento || unFavorito))
     })
     document.querySelectorAll('[data-accion="etiquetar-movimiento"]').forEach(item => {
-        item.classList.toggle("desact", !hayMovimientos)
+        // Siempre activo: las etiquetas también se editan desde el modal de
+        // crear o editar un movimiento, así que el botón no depende de que haya
+        // algo seleccionado en la lista.
+        item.classList.remove("desact")
     })
     // El botón "Eliminar" sirve para los dos: está activo si hay algo que
     // borrar, sea un movimiento o un favorito.
     document.querySelectorAll('[data-accion="eliminar-movimiento"]').forEach(item => {
         item.classList.toggle("desact", !(hayMovimientos || hayFavoritos))
     })
-
-    // Alternancia de los grupos, en una sola consulta.
-    const itemsLastbar = document.querySelectorAll(".lastbar .item")
-    itemsLastbar.forEach(item => {
-        const accion = item.dataset.accion
-        if (ACCIONES_FAVORITO_LASTBAR.includes(accion)) item.hidden = !hayFavoritos
-        else if (ACCIONES_MOVIMIENTO_LASTBAR.includes(accion)) item.hidden = hayFavoritos
-    })
-
-    // Contexto: texto plano vía textContent, nunca innerHTML.
-    const contexto = document.getElementById("lastbar-contexto")
-    if (contexto) {
-        contexto.textContent = textoContextoFavoritos()
-        contexto.hidden = !hayFavoritos
-    }
 }
 
 export async function editarSeleccionados() {
+    // Editar sirve para los dos tipos de selección. Si hay favoritos
+    // marcados mandan ellos; el botón queda desactivo con más de uno, así que
+    // aquí solo llega el caso de uno.
+    if (seleccionadosFavoritos.size === 1) {
+        const favoritoId = [...seleccionadosFavoritos][0]
+        await editarPlantillaFavoritoDesdeItem(favoritoId)
+        return
+    }
+
     if (seleccionados.size !== 1) return
 
     const id = [...seleccionados][0]
@@ -1695,7 +1738,11 @@ async function abrirModalEtiquetarMasivo(lista) {
     selector = await montarSelectorEtiquetas(contenedor, {
         seleccionadas: [...enTodos],
         semiactivas: enAlguno,
-        entrada: null
+        entrada: null,
+        // Se pasa `efectivo` (catálogo + huérfanas) en vez de dejar que el
+        // selector lo recargue: sin esto, las etiquetas que tienen algún
+        // movimiento pero no están en el catálogo no se pintaban nunca.
+        catalogo: efectivo
     })
 }
 
@@ -1750,46 +1797,12 @@ export async function eliminarSeleccionadosFavoritos() {
 }
 
 // ============================================
-// ACCIONES DE FAVORITOS DESDE LA LASTBAR
+// SELECCIÓN DE FAVORITOS
 // ============================================
-
-/** Editar: abre el modal precargado con el único favorito seleccionado. */
-export async function editarFavoritoSeleccionado() {
-    if (seleccionadosFavoritos.size !== 1) return
-    const id = [...seleccionadosFavoritos][0]
-    await abrirFormularioConFavorito(id)
-}
-
-/**
- * Ejecutar: crea un movimiento instancia por cada favorito seleccionado, en el
- * mismo orden en que se seleccionaron. Con varios seleccionados se ejecutan
- * todos; si uno falla, se avisa y se sigue con los demás.
- */
-export async function ejecutarFavoritosSeleccionados() {
-    if (seleccionadosFavoritos.size === 0) return
-
-    const lista = [...seleccionadosFavoritos]
-        .map(id => favoritosCache.find(f => f.id === id))
-        .filter(Boolean)
-    if (!lista.length) return
-
-    limpiarSeleccionFavoritos()
-
-    for (const favorito of lista) {
-        try {
-            await ejecutarFavorito(uid, favorito)
-        } catch (error) {
-            console.error(`[ERROR] No se pudo ejecutar el favorito "${favorito.nombre}":`, error)
-            mostrarNotificacion("error", `No se pudo ejecutar "${favorito.nombre}"`)
-        }
-    }
-}
-
-/** Cancelar: sale del modo selección y devuelve la lastbar a su estado normal. */
-export function cancelarSeleccionFavoritos() {
-    if (seleccionadosFavoritos.size === 0) return
-    limpiarSeleccionFavoritos()
-}
+// Los favoritos no tienen botones propios en la lastbar: se gestionan con los
+// de siempre. Editar y eliminar los atienden `editarSeleccionados` y
+// `eliminarSeleccionados`; ejecutar y cancelar quedan en el contenedor lateral
+// (doble click y click fuera).
 
 async function abrirModalEliminarVariosFavoritos(lista) {
     abrirModal({

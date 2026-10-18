@@ -334,12 +334,10 @@
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item {
     --card-acciones-w: 88px;
     position: relative;
-    /* Recorta a las esquinas redondeadas: .card-item-main se pinta encima con
-       `background: inherit` y es un cuadrado, así que sin este recorte el
-       hover se salía de la capsula de 40px y la fila se veía cuadrada.
-       El glow del hover NO lo recorta — el box-shadow del propio elemento se
-       dibuja fuera de su border-box; lo que lo recortaba antes era el
-       backdrop-filter de .glass, que convertía al elemento en backdrop root. */
+    /* Recorta a las esquinas redondeadas: sin esto el fondo de la fila se salía
+       de la cápsula de 40px y se veía cuadrada. Todo el fondo lo pinta este
+       elemento (`.card-item-main` es transparente desde que la estrella es su
+       hermana), así que el recorte basta para dar la forma. */
     overflow: hidden;
     padding: 0;
     gap: 0;
@@ -350,8 +348,6 @@
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-main {
-    position: relative;
-    z-index: 1;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -362,10 +358,15 @@
        de `.card-item-acciones`, así que es hermana de este bloque). */
     min-width: 0;
     box-sizing: border-box;
-    /* El margen izquierdo lo aporta ahora la estrella (`.movimiento-favorito`),
-       para que el texto quede igual que en `.posicion-item`: 16 + 32 + 10 = 58px. */
-    padding: 12px 24px 12px 0;
-    background: inherit;
+    /* El margen izquierdo lo aporta ahora la estrella (`.movimiento-favorito`):
+       16 + 32 + 10 = 58px desde el borde. */
+    padding: 12px 24px;
+    /* SIN fondo propio. Antes este bloque se pintaba encima de la fila heredando
+       el fondo del padre; como la estrella es su hermana y ocupa 58px a la
+       izquierda, el main ya no cubría el contenedor entero y quedaban dos
+       materiales en una misma fila: el glow del hover se tapaba en la zona
+       del main y se veía en la de la estrella. Ahora el fondo lo pone solo
+       `.card-item`, que es el único que lo declara. */
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor-wrap {
@@ -545,30 +546,6 @@
    FAVORITOS DE MOVIMIENTOS (scroll lateral)
    ============================================ */
 
-/* Lastbar de favoritos: el contexto va a la izquierda de la barra.
-   `.lastbar .item` declara `display`, así que el atributo nativo [hidden]
-   no basta por sí solo — el navegador lo respeta solo cuando la regla no
-   fija display. Mismo refuerzo que usan .form-group[hidden] y compañía. */
-.lastbar .item[hidden] {
-    display: none;
-}
-
-.lastbar-contexto {
-    display: inline-flex;
-    align-items: center;
-    max-width: 160px;
-    padding-right: 12px;
-    color: var(--textSecondary);
-    font-size: 0.85rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.lastbar-contexto[hidden] {
-    display: none;
-}
-
 #favoritos-movimientos {
     display: flex;
     flex-direction: row;
@@ -580,8 +557,14 @@
     scrollbar-width: thin;
 }
 
-#favoritos-movimientos.hidden {
-    display: none !important;
+/* El `display: flex` de arriba gana al `display: none` que el navegador
+   aplica a [hidden], así que sin esto el contenedor se veía siempre — vacío y
+   sin empujar nada — y la lista de movimientos no bajaba. Con el selector de
+   atributo (y sin !important, que además estaba en la clase que el código
+   nunca añade: el ocultado va por la propiedad `hidden`) solo ocupa sitio
+   cuando hay favoritos. */
+#favoritos-movimientos[hidden] {
+    display: none;
 }
 
 .favorito-item {
