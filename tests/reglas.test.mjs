@@ -7,7 +7,7 @@
 import { leer, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../constants/tiposMovimiento.js"
 
-const COLECCIONES = ["cuentas", "movimientos", "posiciones", "estrategias", "metas", "pendientes", "snapshots", "trades", "ordenes", "activos", "historial", "etiquetas"]
+const COLECCIONES = ["cuentas", "movimientos", "posiciones", "estrategias", "metas", "pendientes", "snapshots", "trades", "ordenes", "activos", "historial", "etiquetas", "favoritos"]
 
 const AUXILIARES = [
     "estaAutenticado", "esPropietario",
@@ -209,7 +209,7 @@ export default async function ejecutar(t = nuevoReporter("reglas")) {
         for (const f of cfg.camposObligatorios || []) deLaApp.add(f)
         for (const f of cfg.camposOpcionales || []) deLaApp.add(f)
     }
-    const comunes = ["tipo", "divisa", "fechaRegistro", "metaId", "etiquetas"]
+    const comunes = ["tipo", "divisa", "fechaRegistro", "metaId", "etiquetas", "favoritoId"]
     const faltanEnReglas = [...deLaApp].filter(f => !hasOnlyMov.includes(f))
     t.check("todo campo de CONFIG_MOVIMIENTOS está en el hasOnly de movimientos (DEUDA-013)", faltanEnReglas.length === 0, faltanEnReglas.join(", "))
 
@@ -266,6 +266,21 @@ export default async function ejecutar(t = nuevoReporter("reglas")) {
     t.check("la paleta de etiquetas coincide entre reglas y style.css (DEUDA-013)",
         soloReglas.length === 0 && soloCss.length === 0,
         `${soloReglas.join(", ")} / ${soloCss.join(", ")}`)
+
+    // FAVORITOS: el hasOnly del catálogo es manual (riesgo DEUDA-013) y
+    // comparte validadores con movimientos. Comparamos ambos.
+    const bloqueFavoritos = bloqueDe(src, "favoritos")
+    const hasOnlyFavoritos = lista(capturarSentencia(bloqueFavoritos, "allow create:"), "hasOnly") || []
+    const camposFavoritos = ["nombre", "tipo", "cuenta", "monto", "divisa", "concepto", "etiquetas", "fechaCreacion"]
+    t.check("el hasOnly de favoritos no admite campos huérfanos",
+        hasOnlyFavoritos.length === camposFavoritos.length && camposFavoritos.every(f => hasOnlyFavoritos.includes(f)),
+        hasOnlyFavoritos.join(", "))
+
+    t.check("el nombre de un favorito está acotado en las reglas",
+        /nombre\.size\(\)\s*>\s*0/.test(bloqueFavoritos) && /nombre\.size\(\)\s*<=\s*40/.test(bloqueFavoritos))
+
+    t.check("el monto de un favorito debe ser positivo",
+        /monto\s*>\s*0/.test(bloqueFavoritos))
 
     return t
 }

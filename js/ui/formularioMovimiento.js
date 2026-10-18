@@ -56,32 +56,41 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
         ? cuentasActivas.filter(c => c.tipo !== "credito" && (!divisaObjetivo || comparteDivisa(c)))
         : cuentasActivas
 
-    const contexto = {
-        cuentasOptions: contenidoDesdeFilas("tpl-opcion-cuenta", cuentasElegibles, c => ({
+    // `contenidoDesdeFilas` devuelve UN único DocumentFragment, y `appendChild`
+    // MUEVE nodos: si dos campos comparten ese fragmento (transferencia usa
+    // cuentaOrigen + cuentaDestino), el primero se lo queda y el segundo recibe
+    // un <select> vacío. Por eso las opciones se fabrican con una función y cada
+    // select recibe su propia copia.
+    const opcionesCuentas = () => contenidoDesdeFilas("tpl-opcion-cuenta", cuentasElegibles, c => ({
+        valores: {
+            "opcion@value": c.id,
+            "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
+            "opcion@data-tipo": c.tipo || "otro",
+            texto: `${escapeHtml(c.nombre)} (${etiquetaDivisa(c.moneda || "pen")})`
+        }
+    }))
+
+    // Las tarjetas solo se filtran por divisa (siguen disponibles para pagar
+    // el saldo de una tarjeta concreta de la misma moneda).
+    const opcionesTarjetas = () => contenidoDesdeFilas(
+        "tpl-opcion-cuenta",
+        divisaObjetivo
+            ? cuentasActivas.filter(c => c.tipo === "credito" && comparteDivisa(c))
+            : cuentasActivas.filter(c => c.tipo === "credito"),
+        c => ({
             valores: {
                 "opcion@value": c.id,
                 "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
-                "opcion@data-tipo": c.tipo || "otro",
-                texto: `${escapeHtml(c.nombre)} (${etiquetaDivisa(c.moneda || "pen")})`
+                "opcion@data-tipo": "credito",
+                texto: `${escapeHtml(c.nombre)} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
             }
-        })),
+        })
+    )
 
-        // Las tarjetas solo se filtran por divisa (siguen disponibles para pagar
-        // el saldo de una tarjeta concreta de la misma moneda).
-        tarjetasOptions: contenidoDesdeFilas(
-            "tpl-opcion-cuenta",
-            divisaObjetivo
-                ? cuentasActivas.filter(c => c.tipo === "credito" && comparteDivisa(c))
-                : cuentasActivas.filter(c => c.tipo === "credito"),
-            c => ({
-                valores: {
-                    "opcion@value": c.id,
-                    "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
-                    "opcion@data-tipo": "credito",
-                    texto: `${escapeHtml(c.nombre)} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
-                }
-            })
-        ),
+    const contexto = {
+        // Se pasan por parámetro para que cada select reciba una copia propia.
+        nuevoCuentasOptions: opcionesCuentas,
+        nuevoTarjetasOptions: opcionesTarjetas,
 
         hoy: getFechaHoy()
     }
@@ -186,8 +195,13 @@ function plantillaSelectBuscable({ id, etiqueta, opciones, req, placeholderSelec
 }
 
 function generarCampo(campo, contexto, opcional) {
-    const { cuentasOptions, tarjetasOptions, activosDatalist, hoy } = contexto
+    const { nuevoCuentasOptions, nuevoTarjetasOptions, activosDatalist, hoy } = contexto
     const req = !opcional
+
+    // Cada selector de cuenta pide sus propias <option>: `appendChild` las
+    // movería al <select> anterior y dejaría este vacío (ver generarFormularioMovimiento).
+    const opcionesCuentas = () => nuevoCuentasOptions()
+    const opcionesTarjetas = () => nuevoTarjetasOptions()
 
     // Un solo <div class="form-group"> con el ancho que le toca al campo.
     const grupo = (extra = "") => `form-group${extra ? ` ${extra}` : ""}`
@@ -197,7 +211,7 @@ function generarCampo(campo, contexto, opcional) {
             return plantillaSelectBuscable({
                 id: "campo-cuenta",
                 etiqueta: "Cuenta",
-                opciones: cuentasOptions,
+                opciones: opcionesCuentas(),
                 req,
                 placeholderSelect: "Seleccionar cuenta",
                 placeholderBuscar: "Buscar cuenta..."
@@ -206,7 +220,7 @@ function generarCampo(campo, contexto, opcional) {
             return plantillaSelectBuscable({
                 id: "campo-cuentaOrigen",
                 etiqueta: "Cuenta origen",
-                opciones: cuentasOptions,
+                opciones: opcionesCuentas(),
                 req,
                 placeholderSelect: "Seleccionar cuenta",
                 placeholderBuscar: "Buscar cuenta..."
@@ -215,7 +229,7 @@ function generarCampo(campo, contexto, opcional) {
             return plantillaSelectBuscable({
                 id: "campo-cuentaDestino",
                 etiqueta: "Cuenta destino",
-                opciones: cuentasOptions,
+                opciones: opcionesCuentas(),
                 req,
                 placeholderSelect: "Seleccionar cuenta",
                 placeholderBuscar: "Buscar cuenta..."
@@ -224,7 +238,7 @@ function generarCampo(campo, contexto, opcional) {
             return plantillaSelectBuscable({
                 id: "campo-tarjeta",
                 etiqueta: "Tarjeta de crédito",
-                opciones: tarjetasOptions,
+                opciones: opcionesTarjetas(),
                 req,
                 placeholderSelect: "Seleccionar tarjeta",
                 placeholderBuscar: "Buscar tarjeta..."

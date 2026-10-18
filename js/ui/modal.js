@@ -242,9 +242,22 @@ ${cerrarConBotonX ? `
 
     // El título y las etiquetas de los botones pueden llevar datos de usuario
     // (nombre de cuenta, activo del trade…): van con textContent, nunca innerHTML.
+    //
+    // `mostrarFooter` puede ser false (modales `soloCerrar`: un botón de pie que
+    // solo dice "Cerrar" se omite porque la X de la esquina ya cierra). En ese
+    // caso el markup del pie no existe, así que el botón se busca y solo se
+    // escribe si está: sin esta guarda, cualquier modal `soloCerrar` —los 16
+    // del proyecto— moría al abrirse con "Cannot set properties of null
+    // (setting textContent)".
     overlay.querySelector(".modal-title").textContent = textoTitulo
-    if (mostrarCancelar) overlay.querySelector("#modal-cancel").textContent = textoCancelar
-    if (mostrarConfirmar) overlay.querySelector("#modal-confirm").textContent = textoConfirmar
+    if (mostrarCancelar) {
+        const btnCancelar = overlay.querySelector("#modal-cancel")
+        if (btnCancelar) btnCancelar.textContent = textoCancelar
+    }
+    if (mostrarConfirmar) {
+        const btnConfirmar = overlay.querySelector("#modal-confirm")
+        if (btnConfirmar) btnConfirmar.textContent = textoConfirmar
+    }
 
     document.body.appendChild(overlay)
 

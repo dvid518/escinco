@@ -128,6 +128,7 @@ service cloud.firestore {
         && ifPresenteTextoONulo(data, 'tarjeta')
         && ifPresenteTextoONulo(data, 'metaId')
         && ifPresenteTextoONulo(data, 'operacion')
+        && ifPresenteTextoONulo(data, 'favoritoId')
         && ifPresenteEtiquetas(data);
     }
 
@@ -232,7 +233,7 @@ service cloud.firestore {
             'fechaRegistro', 'cuentaOrigen', 'cuentaDestino', 'montoOrigen', 'montoDestino',
             'tasa', 'activo', 'cantidad', 'precio', 'comision', 'exchange',
             'nombreVendedor', 'nombreComprador', 'cuentaPago', 'cuentaCobro', 'tarjeta',
-            'metaId', 'operacion', 'etiquetas'
+            'metaId', 'operacion', 'etiquetas', 'favoritoId'
           ])
           && request.resource.data.keys().hasAll(['tipo', 'fechaRegistro'])
           // Validación de tipos compartida con el update (DEUDA-012).
@@ -269,6 +270,42 @@ service cloud.firestore {
           && ifPresenteColorEtiqueta(request.resource.data)
           && ifPresenteBool(request.resource.data, 'esPrincipal')
           && ifPresenteTimestamp(request.resource.data, 'fechaCreacion');
+
+        allow delete: if esPropietario(uid);
+      }
+
+      // --------------------------------------------------------
+      // FAVORITOS (plantillas de movimiento del usuario)
+      // --------------------------------------------------------
+      // Un favorito es la plantilla de un movimiento recurrente. Los
+      // movimientos creados a partir de él llevan el campo favoritoId;
+      // eliminar un favorito no toca los movimientos (solo los desvincula).
+      match /favoritos/{favoritoId} {
+        allow read: if esPropietario(uid);
+
+        allow create: if esPropietario(uid)
+          && request.resource.data.keys().hasOnly(['nombre', 'tipo', 'cuenta', 'monto', 'divisa', 'concepto', 'etiquetas', 'fechaCreacion'])
+          && request.resource.data.keys().hasAll(['nombre', 'tipo', 'cuenta', 'monto', 'divisa', 'fechaCreacion'])
+          && esTexto(request.resource.data.nombre)
+          && request.resource.data.nombre.size() > 0
+          && request.resource.data.nombre.size() <= 40
+          && esTexto(request.resource.data.tipo)
+          && esTexto(request.resource.data.cuenta)
+          && esNumero(request.resource.data.monto)
+          && request.resource.data.monto > 0
+          && esTexto(request.resource.data.divisa)
+          && esTexto(request.resource.data.concepto)
+          && esListaEtiquetas(request.resource.data.etiquetas)
+          && esTimestamp(request.resource.data.fechaCreacion);
+
+        allow update: if esPropietario(uid)
+          && ifPresenteTexto(request.resource.data, 'nombre')
+          && ifPresenteTexto(request.resource.data, 'tipo')
+          && ifPresenteTexto(request.resource.data, 'cuenta')
+          && ifPresenteNumero(request.resource.data, 'monto')
+          && ifPresenteTexto(request.resource.data, 'divisa')
+          && ifPresenteTexto(request.resource.data, 'concepto')
+          && ifPresenteEtiquetas(request.resource.data);
 
         allow delete: if esPropietario(uid);
       }
@@ -421,13 +458,18 @@ service cloud.firestore {
           && esNumero(request.resource.data.patrimonioUSD)
           // `patrimonioUSDT` es opcional desde que dejó de escribirse: era
           // idéntico a `patrimonioUSD` (el servicio normaliza USDT = USD) y solo
-          // ocupaba espacio. Con `esNumero` un snapshot sin el campo se
-          // rechazaba, porque `null is number` es false. Los documentos
-          // antiguos que lo conserven siguen valiendo: `esNumeroONulo` acepta
-          // el número presente igual que la ausencia.
-          && esNumeroONulo(request.resource.data.patrimonioUSDT)
-          && esBoolONulo(request.resource.data.cerrado)
-          && esTimestampONulo(request.resource.data.actualizacion);
+          // ocupaba espacio.
+          //
+          // NO se puede validar con `esNumeroONulo(request.resource.data.patrimonioUSDT)`:
+          // leer una clave AUSENTE de un mapa en las reglas no devuelve null, lanza
+          // ("Property patrimonioUSDT is undefined on object") y el deny es total
+          // — el create entero se rechazaba con PERMISSION_DENIED, que es lo que
+          // rompía el registro del snapshot al cargar la app. El patrón `ifPresente*`
+          // short-circuita con `||` y solo mira el valor cuando la clave está.
+          // Los documentos antiguos que conserven el campo siguen valiendo.
+          && ifPresenteNumeroONulo(request.resource.data, 'patrimonioUSDT')
+          && ifPresenteBool(request.resource.data, 'cerrado')
+          && ifPresenteTimestampONulo(request.resource.data, 'actualizacion');
 
         // Sin hasOnly a propósito (igual que el resto de colecciones): un
         // documento legacy con campos extra debe poder actualizarse. Solo se
@@ -507,8 +549,12 @@ service cloud.firestore {
           && esNumeroONulo(request.resource.data.sl)
           && esNumeroONulo(request.resource.data.tp)
           && esTexto(request.resource.data.divisa)
-          && esTextoONulo(request.resource.data.nota)
           && esTexto(request.resource.data.estado)
+          // `nota` no lo escribe `Orden.toFirestore()`: la clave llega AUSENTE, y
+          // leer una clave ausente en las reglas lanza ("Property nota is undefined
+          // on object"), lo que denegaba el create entero. Mismo patrón que
+          // `patrimonioUSDT` en snapshots.
+          && ifPresenteTextoONulo(request.resource.data, 'nota')
           && esTextoONulo(request.resource.data.tradeId)
           && esNumeroONulo(request.resource.data.precioEjecucion)
           && esTimestamp(request.resource.data.fechaCreacion)
