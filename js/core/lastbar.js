@@ -74,6 +74,13 @@ const ITEM_METAS = `
     </div>
 `
 
+const ITEM_PRESUPUESTOS = `
+    <div class="item glass" data-accion="presupuestos" role="button" tabindex="0">
+        <span class="glass">Presupuestos</span>
+        ${icono("book-open-text", 20)}
+    </div>
+`
+
 const ITEM_BUSCAR = `
     <div class="item glass" data-accion="buscar" role="button" tabindex="0">
         <span class="glass">Buscar</span>
@@ -105,7 +112,7 @@ const ITEM_CERRAR_SESION = `
     </div>
 `
 
-const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_BUSCAR}${ITEM_NOTIFICACIONES}</div>`
+const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_PRESUPUESTOS}${ITEM_BUSCAR}${ITEM_NOTIFICACIONES}</div>`
 
 // Mapa de lastbars por página.
 // El botón de tema SOLO aparece en el dashboard.
@@ -388,6 +395,11 @@ const MAPA_ACCIONES = {
     "metas": async () => {
         const { mostrarMetas } = await import("../ui/metas.js")
         await mostrarMetas()
+    },
+
+    "presupuestos": async () => {
+        const { abrirModalPresupuestos } = await import("../ui/presupuestos.js")
+        await abrirModalPresupuestos()
     },
 
     "buscar": async () => {

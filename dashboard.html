@@ -719,6 +719,49 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </template>
 
+    <!-- ============================================ -->
+    <!--   PRESUPUESTOS                               -->
+    <!-- ============================================ -->
+    <template id="tpl-modal-presupuestos">
+        <div class="pendientes-cabecera">
+            <span class="pendientes-contador" id="presupuestos-contador" data-tpl="contador"></span>
+            <div class="pendientes-cabecera-acciones">
+                <button class="glass pendiente-crear-btn" id="btn-crear-presupuesto">
+                    + Nuevo presupuesto
+                </button>
+            </div>
+        </div>
+        <div class="pendientes-lista">
+            <p class="pendiente-vacio" data-tpl="vacio" data-tpl-oculto>No hay presupuestos registrados.</p>
+            <div data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-presupuesto-card">
+        <div class="card-item presupuesto-card" data-tpl="presupuesto" data-tpl-attr="data-id">
+            <div class="card-item-main">
+                <div class="card-item-info">
+                    <span class="card-item-titulo">
+                        <span data-tpl="nombre"></span>
+                        <span class="presupuesto-estado" data-tpl="estado" data-tpl-oculto></span>
+                    </span>
+                    <span class="card-item-detalle">
+                        <span data-tpl="detalle"></span>
+                    </span>
+                </div>
+                <div class="card-item-valor-wrap">
+                    <span class="card-item-valor" data-tpl="valor"></span>
+                    <div class="card-item-acciones">
+                        <button type="button" class="card-action-btn" data-accion="activar-presupuesto" title="Activar" aria-label="Activar presupuesto" data-tpl="icono-activar"></button>
+                        <button type="button" class="card-action-btn danger" data-accion="eliminar-presupuesto" title="Eliminar" aria-label="Eliminar presupuesto" data-tpl="icono-eliminar"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- Card de presupuestos para el dashboard -->
+
     <template id="tpl-lista-pendientes">
         <div class="pendientes-cabecera">
             <span class="pendientes-contador" id="pendientes-contador" data-tpl="contador"></span>

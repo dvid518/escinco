@@ -32,12 +32,14 @@ import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
 import { calcularProximaEjecucion } from "../services/EstrategiaServicio.js"
 import { abrirModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
+import { abrirModalPresupuestos } from "../ui/presupuestos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
 
 import { obtenerMetas } from "../repositories/MetaRepositorio.js"
 import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
+import { obtenerPresupuestosConProgreso, eliminarPresupuesto } from "../services/PresupuestoServicio.js"
 
 asegurarEstilos("dashboard")
 
@@ -87,6 +89,7 @@ const DASHBOARD_CARDS = [
     { id: "movimientos", label: "Últimos movimientos" },
     { id: "favoritos", label: "Favoritos" },
     { id: "metas", label: "Metas de ahorro" },
+    { id: "presupuestos", label: "Presupuestos" },
     { id: "pendientes", label: "Pendientes" },
     { id: "ordenes", label: "Órdenes" },
     { id: "estrategias", label: "Estrategias" },
@@ -1428,6 +1431,14 @@ export function render() {
                 </div>
             </div>
 
+            <div class="glass card presupuestos-card" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
+                <div class="card-header">
+                    <span class="card-title">Presupuestos</span>
+                    <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+                <div class="presupuestos-lista" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            </div>
+
             <div class="glass card card-navegable pendientes-card" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Ver pendientes">
                 <div class="card-header">
                     <span class="card-title">Pendientes</span>
@@ -1575,6 +1586,7 @@ const LISTAS_DASHBOARD = [
     { id: "movimientos-lista", filas: 2 },
     { id: "favoritos-lista", filas: 2 },
     { id: "metas-lista", filas: 2 },
+    { id: "presupuestos-lista", filas: 3 },
     { id: "pendientes-lista", filas: 2 },
     { id: "ordenes-lista", filas: 2 },
     { id: "estrategias-lista", filas: 3, clase: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" },
@@ -1647,6 +1659,7 @@ export async function init() {
     configurarPeriodoFlujoDashboard()
     configurarCardsNavegacion()
     configurarMetas()
+    configurarPresupuestos()
     configurarEdicionDashboard()
     configurarRefreshDashboard()
 
@@ -3324,6 +3337,12 @@ function configurarMetas() {
     instalarSincronizacionMetas()
 }
 
+function configurarPresupuestos() {
+    actualizarPresupuestos()
+    instalarSincronizacionPresupuestos()
+}
+
+
 // Cuando las metas cambian desde el modal del lastbar (metas.js), refresca
 // la sección del dashboard sin recargar. Se instala una sola vez.
 let sincronizacionMetasInstalada = false
@@ -3336,6 +3355,92 @@ function instalarSincronizacionMetas() {
         aplicarLayoutDashboard(true)
     })
 }
+
+// ============================================
+// PRESUPUESTOS EN EL DASHBOARD
+// ============================================
+// La card "Presupuestos" muestra todos los presupuestos con su progreso.
+// Al hacer clic en uno se abre el modal de presupuestos con ese presupuesto
+// activado (se abre el mismo modal que usa la lastbar persistente).
+
+let sincronizacionPresupuestosInstalada = false
+function instalarSincronizacionPresupuestos() {
+    if (sincronizacionPresupuestosInstalada) return
+    sincronizacionPresupuestosInstalada = true
+    window.addEventListener("presupuestos-actualizados", async () => {
+        await actualizarPresupuestos()
+        aplicarLayoutDashboard(true)
+    })
+}
+
+async function actualizarPresupuestos() {
+    const lista = document.getElementById("presupuestos-lista")
+    if (!lista) return
+
+    const contador = document.getElementById("presupuestos-cantidad")
+
+    let presupuestos
+    try {
+        presupuestos = await obtenerPresupuestosConProgreso(uid)
+    } catch (error) {
+        console.error("[ERROR] Error cargando presupuestos para dashboard:", error)
+        return
+    }
+
+    if (contador) contador.textContent = String(presupuestos.length)
+
+    if (presupuestos.length === 0) {
+        lista.replaceChildren(tarjetaVacia("Crea tu primer presupuesto."))
+        return
+    }
+
+    lista.replaceChildren(contenidoDesdeFilas("tpl-presupuesto-card", presupuestos, plantillaPresupuestoDashboard))
+    enlazarListaPresupuestos(lista)
+}
+
+function plantillaPresupuestoDashboard(p) {
+    const pp = p.presupuesto
+    const estadoClase = `estado-${p.estado}`
+    return {
+        valores: {
+            "presupuesto@data-id": pp.id,
+            "presupuesto@class": `presupuesto-item ${estadoClase}`,
+            nombre: pp.nombre,
+            estado: p.estadoTexto,
+            detalle: `${formatearMontoConDivisa(p.gastoReal, pp.divisa)} de ${formatearMontoConDivisa(pp.monto, pp.divisa)}`,
+            valor: `${p.porcentaje.toFixed(0)}%`
+        },
+        html: {
+            "icono-activar": icono("play", 16),
+            "icono-eliminar": icono("trash", 16)
+        }
+    }
+}
+
+function enlazarListaPresupuestos(lista) {
+    lista?.addEventListener("click", async (e) => {
+        const btn = e.target.closest(".card-action-btn")
+        if (!btn) return
+        const accion = btn.dataset.accion
+        const card = btn.closest(".card-item")
+        const id = card?.dataset.id
+        if (!id) return
+
+        if (accion === "activar-presupuesto") {
+            abrirModalPresupuestos(id)
+        } else if (accion === "eliminar-presupuesto") {
+            if (!confirm("¿Eliminar este presupuesto?")) return
+            try {
+                await eliminarPresupuesto(uid, id)
+                window.dispatchEvent(new CustomEvent("presupuestos-actualizados"))
+            } catch (error) {
+                console.error("[ERROR] No se pudo eliminar el presupuesto:", error)
+                mostrarNotificacion("error", "No se pudo eliminar el presupuesto")
+            }
+        }
+    })
+}
+
 
 function actualizarMetas() {
     const lista = document.getElementById("metas-lista")
