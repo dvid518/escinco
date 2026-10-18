@@ -251,3 +251,33 @@
         height: 48px;
     }
 }
+
+/* ============================================
+   ESTILOS MOVIDOS DESDE HTML INLINE (maqueta home)
+   ============================================ */
+
+.home-garantias {
+    margin-top: .75rem;
+    font-size: .9rem;
+    opacity: .9;
+}
+
+.card-uso-barra .critico {
+    width: 84%;
+}
+
+.distribucion-barra .cripto {
+    width: 42%;
+}
+
+.distribucion-barra .accion {
+    width: 28%;
+}
+
+.distribucion-barra .etf {
+    width: 20%;
+}
+
+.distribucion-barra .bono {
+    width: 10%;
+}

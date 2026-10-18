@@ -1015,6 +1015,18 @@
 }
 
 /* ============================================
+   ESTILOS MOVIDOS DESDE HTML INLINE
+   ============================================ */
+
+#edit-crypto-nueva {
+    text-transform: uppercase;
+}
+
+.display-contents {
+    display: contents;
+}
+
+/* ============================================
    PRESUPUESTOS — chips de progreso
    (dashboard y modal; mismo patrón que las chips
    de etiquetas, pero con el color del estado)
