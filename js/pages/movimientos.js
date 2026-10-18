@@ -97,6 +97,11 @@ export function render() {
                         </svg>
                     </button>
                 </div>
+                <div class="campo-etiqueta">
+                    <select id="filtro-etiqueta" class="filtro-select" aria-label="Etiquetas">
+                        <option value="">Etiquetas</option>
+                    </select>
+                </div>
                 <div class="campo-fecha">
                     <input type="date" id="filtro-desde" aria-label="Desde">
                     <button type="button" class="btn-calendario" aria-label="Abrir calendario">
@@ -140,9 +145,6 @@ export function render() {
                     <option value="USD">USD</option>
                     <option value="EUR">EUR</option>
                     <option value="USDT">USDT</option>
-                </select>
-                <select id="filtro-etiqueta" class="filtro-select" aria-label="Etiquetas">
-                    <option value="">Etiquetas</option>
                 </select>
                 <button type="button" class="btn-icon filtro-limpiar" id="filtro-limpiar" title="Limpiar filtros" aria-label="Limpiar filtros">
                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom preview-icon">
@@ -274,7 +276,9 @@ async function renderFavoritos(uid) {
                 nombre: f.nombre,
                 tipo: f.tipo,
                 cuenta: f.cuenta,
-                monto: `${formatearMontoConDivisa(Math.abs(f.monto), f.divisa || "pen")}`,
+                monto: `${formatearMontoConDivisa(Math.abs(f.monto), f.divisa || "pen")}`
+            },
+            html: {
                 etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", f.etiquetas || [], e => ({
                     valores: { badge: e }
                 }))
@@ -482,7 +486,7 @@ function filaMovimiento(m, cuentaId = null) {
             titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
         "valor@class": `card-item-valor ${clase}`,
-        "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+        "valor-texto": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`
         },
         html: {
             etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
