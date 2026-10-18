@@ -309,7 +309,8 @@ async function renderFavoritos(uid) {
             html: {
                 etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", f.etiquetas || [], e => ({
                     valores: { badge: e }
-                }))
+                })),
+                "icono-ejecutar": icono("play", 16)
             }
         }))
     )
@@ -335,6 +336,20 @@ async function renderFavoritos(uid) {
         })
 
         contenedor.addEventListener("click", async (evento) => {
+            // Si se hizo click en el botón ejecutar del favorito, ejecutarlo
+            // sin tocar la selección ni abrir el formulario.
+            const btnEjecutar = evento.target.closest(".favorito-ejecutar")
+            if (btnEjecutar) {
+                evento.stopPropagation()
+                const item = btnEjecutar.closest(".favorito-item")
+                const id = item?.dataset.favoritoId
+                if (id) {
+                    limpiarSeleccionFavoritos()
+                    await ejecutarFavoritoDesdeItem(id)
+                }
+                return
+            }
+
             const item = evento.target.closest(".favorito-item")
             if (!item) return
             const id = item.dataset.favoritoId
