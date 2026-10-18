@@ -308,19 +308,20 @@ async function renderFavoritos(uid) {
             const id = item.dataset.favoritoId
             if (!id) return
 
-            if (seleccionadosFavoritos.size > 0) {
-                toggleSeleccionFavorito(id)
-                return
-            }
-
             if (favoritoClickTimer) {
+                // Doble clic: ejecutar (crear instancia) o abrir formulario
                 clearTimeout(favoritoClickTimer)
                 favoritoClickTimer = null
-                await ejecutarFavoritoDesdeItem(id)
-            } else {
-                favoritoClickTimer = setTimeout(async () => {
-                    favoritoClickTimer = null
+                if (seleccionadosFavoritos.has(id)) {
+                    await ejecutarFavoritoDesdeItem(id)
+                } else {
                     await abrirFormularioConFavorito(id)
+                }
+            } else {
+                // Clic simple: seleccionar / deseleccionar (obvio para eliminar)
+                favoritoClickTimer = setTimeout(() => {
+                    favoritoClickTimer = null
+                    toggleSeleccionFavorito(id)
                 }, 250)
             }
         })
@@ -372,8 +373,13 @@ function opcionSelect(valor, texto) {
 }
 
 async function cargarCuentas() {
+    const uidActual = sesion.uid
+    if (!uidActual) {
+        console.warn("[WARN] cargarCuentas: no hay UID de sesión")
+        return
+    }
     try {
-        cuentas = await obtenerCuentas(uid)
+        cuentas = await obtenerCuentas(uidActual)
         const select = document.getElementById("filtro-cuenta")
         if (select) {
             select.disabled = true
@@ -385,6 +391,7 @@ async function cargarCuentas() {
         }
     } catch (error) {
         console.error("Error cargando cuentas:", error)
+        mostrarNotificacion("error", "No se pudieron cargar las cuentas")
     } finally {
         const select = document.getElementById("filtro-cuenta")
         if (select) {
