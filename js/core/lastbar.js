@@ -77,7 +77,7 @@ const ITEM_METAS = `
 const ITEM_PRESUPUESTOS = `
     <div class="item glass" data-accion="presupuestos" role="button" tabindex="0">
         <span class="glass">Presupuestos</span>
-        ${icono("book-open-text", 20)}
+        ${icono("receipt-text", 20)}
     </div>
 `
 

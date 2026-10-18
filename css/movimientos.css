@@ -641,6 +641,22 @@
     color: var(--positive);
 }
 
-.favorito-monto.negative {
-    color: var(--negative);
+.favorito-item.seleccionado {
+    border-color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 15%, transparent);
+    outline: 2px solid var(--positive);
+    outline-offset: -2px;
 }
+
+.favorito-item.seleccionado:hover {
+    background: color-mix(in srgb, var(--positive) 20%, transparent);
+}
+
+/* Los favoritos y la lista de movimientos comparten el mismo flujo vertical.
+   El contenedor de favoritos usa padding en vez de margin para no dejar
+   huecos raros, y la lista va justo debajo sin separación extra. */
+#favoritos-movimientos + #lista-movimientos {
+    margin-top: 0;
+    padding-top: 0;
+}
+

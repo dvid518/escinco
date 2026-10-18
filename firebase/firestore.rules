@@ -311,6 +311,46 @@ service cloud.firestore {
       }
 
       // --------------------------------------------------------
+      // PRESUPUESTOS (plantillas de gasto del usuario)
+      // --------------------------------------------------------
+      // Un presupuesto asigna un monto a gastar en un periodo (mensual o
+      // anual) sobre una categoría del sistema o sobre etiquetas del usuario.
+      match /presupuestos/{presupuestoId} {
+        allow read: if esPropietario(uid);
+
+        allow create: if esPropietario(uid)
+          && request.resource.data.keys().hasOnly([
+            'nombre', 'monto', 'divisa', 'periodo', 'fechaInicio',
+            'categoria', 'etiquetas', 'activa', 'fechaCreacion'
+          ])
+          && request.resource.data.keys().hasAll(['nombre', 'monto', 'divisa', 'periodo', 'fechaCreacion'])
+          && esTexto(request.resource.data.nombre)
+          && request.resource.data.nombre.size() > 0
+          && request.resource.data.nombre.size() <= 40
+          && esNumero(request.resource.data.monto)
+          && request.resource.data.monto > 0
+          && esTexto(request.resource.data.divisa)
+          && esTexto(request.resource.data.periodo)
+          && request.resource.data.periodo in ['mensual', 'anual']
+          && esTimestamp(request.resource.data.fechaCreacion)
+          && ifPresenteTextoONulo(request.resource.data, 'categoria')
+          && ifPresenteEtiquetas(request.resource.data)
+          && ifPresenteBool(request.resource.data, 'activa');
+
+        allow update: if esPropietario(uid)
+          && ifPresenteTexto(request.resource.data, 'nombre')
+          && ifPresenteNumero(request.resource.data, 'monto')
+          && ifPresenteTexto(request.resource.data, 'divisa')
+          && ifPresenteTexto(request.resource.data, 'periodo')
+          && ifPresenteTextoONulo(request.resource.data, 'categoria')
+          && ifPresenteEtiquetas(request.resource.data)
+          && ifPresenteBool(request.resource.data, 'activa')
+          && ifPresenteTimestamp(request.resource.data, 'fechaCreacion');
+
+        allow delete: if esPropietario(uid);
+      }
+
+      // --------------------------------------------------------
       // POSICIONES
       // --------------------------------------------------------
       match /posiciones/{posicionId} {
