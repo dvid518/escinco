@@ -277,6 +277,20 @@ async function renderFavoritos(uid) {
 
 
 // ============================================
+// INIT
+// ============================================
+
+export async function init() {
+    uid = sesion.uid
+    console.log("[INFO] Movimientos iniciado para UID:", uid)
+
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await cargarCuentas()
+    await cargarMovimientos()
+    configurarEventos()
+}
+
+// ============================================
 // CARGA
 // ============================================
 
