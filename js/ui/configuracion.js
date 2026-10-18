@@ -578,7 +578,10 @@ async function cargarPreferencias() {
         const paginas = { ...sesion.getPaginasVisibles(), ...(prefs?.paginas || {}) }
         const marcarPagina = (id, valor) => {
             const el = document.getElementById(id)
-            if (el) el.checked = valor !== false
+            // `valor` ya viene completo (defaults + guardado). Se compara con
+            // `=== true` en vez de `!== false`: si algún día faltara una clave,
+            // una casilla sin marcar es el estado seguro, no una activada.
+            if (el) el.checked = valor === true
         }
         marcarPagina("toggle-dashboard", paginas.dashboard)
         marcarPagina("toggle-movimientos", paginas.movimientos)
@@ -1049,6 +1052,21 @@ function actualizarEstadoGuardar() {
     }
 }
 
+/**
+ * Lee un checkbox de páginas sin inventarse un valor.
+ *
+ * El idioma `document.getElementById(id)?.checked !== false` devuelve `true`
+ * cuando el control NO EXISTE, porque `undefined !== false`. Con un template
+ * roto (o un id mal escrito) eso guardaba "página activada" sin que nadie la
+ * hubiera tocado. Ahora manda el control si está; si no, se conserva lo que la
+ * sesión ya tiene, que es la fusión con los defaults ya resuelta.
+ */
+function leerTogglePagina(id) {
+    const el = document.getElementById(id)
+    if (!el) return sesion.getPaginasVisibles()[id.replace(/^toggle-/, "")]
+    return el.checked
+}
+
 function construirPreferencias() {
     const divisaPrincipal = document.getElementById("divisa-principal")?.value || "pen"
     const modoTCUI = getModoTipoCambioUI()
@@ -1107,11 +1125,13 @@ function construirPreferencias() {
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
         paginas: {
-            dashboard: document.getElementById("toggle-dashboard")?.checked !== false,
+            dashboard: leerTogglePagina("toggle-dashboard"),
+            // `cuentas` y `configuracion` no son conmutables: la app siempre
+            // las necesita. No hay checkbox que leer.
             cuentas: true,
-            movimientos: document.getElementById("toggle-movimientos")?.checked !== false,
-            inversiones: document.getElementById("toggle-inversiones")?.checked !== false,
-            trading: document.getElementById("toggle-trading")?.checked !== false,
+            movimientos: leerTogglePagina("toggle-movimientos"),
+            inversiones: leerTogglePagina("toggle-inversiones"),
+            trading: leerTogglePagina("toggle-trading"),
             configuracion: true
         },
         divisaPrincipal,
