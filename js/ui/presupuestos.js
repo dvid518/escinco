@@ -5,7 +5,7 @@
 // card de presupuestos del dashboard. No usa el router: es un modal más.
 
 import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
-import { obtenerPresupuestosConProgreso, eliminarPresupuesto } from "../services/PresupuestoServicio.js"
+import { obtenerPresupuestosConProgreso, eliminarPresupuesto, crearPresupuestoServicio } from "../services/PresupuestoServicio.js"
 import { sesion } from "../core/sesion.js"
 import { icono } from "../core/iconos.js"
 import { mostrarNotificacion } from "./notificaciones.js"
@@ -37,6 +37,65 @@ function plantillaPresupuestoCard(p) {
 // Avisa al dashboard para que refresque la card de presupuestos.
 function notificarCambioPresupuestos() {
     window.dispatchEvent(new CustomEvent("presupuestos-actualizados"))
+}
+
+// ============================================
+// CREAR PRESUPUESTO
+// ============================================
+// Formulario de creación (nivel 1: categoría del sistema). Valida en el
+// repositorio vía crearPresupuestoServicio; si algo falla, devuelve false
+// para que el modal se quede abierto.
+
+export async function abrirModalCrearPresupuesto() {
+    const uid = sesion.uid
+    if (!uid) {
+        console.error("[ERROR] No hay UID disponible")
+        return
+    }
+
+    const modalEl = abrirModal({
+        titulo: "Nuevo presupuesto",
+        contenido: contenidoDesdeTemplate("tpl-form-presupuesto"),
+        confirmText: "Crear",
+        cancelText: "Cancelar",
+        onConfirm: async () => {
+            const form = document.getElementById("form-presupuesto")
+            if (!form) return false
+
+            const nombre = (form.querySelector("#presupuesto-nombre")?.value || "").trim()
+            const categoria = form.querySelector("#presupuesto-categoria")?.value || ""
+            const monto = Number(form.querySelector("#presupuesto-monto")?.value || 0)
+            const divisa = form.querySelector("#presupuesto-divisa")?.value || "pen"
+            const periodo = form.querySelector("#presupuesto-periodo")?.value || "mensual"
+            const fechaInicio = form.querySelector("#presupuesto-fecha")?.value || ""
+
+            if (!nombre || !categoria || !monto || monto <= 0 || !fechaInicio) {
+                mostrarNotificacion("error", "Completa todos los campos correctamente")
+                return false
+            }
+
+            try {
+                await crearPresupuestoServicio(uid, {
+                    nombre,
+                    categoria,
+                    monto,
+                    divisa,
+                    periodo,
+                    fechaInicio,
+                    etiquetas: []
+                })
+                notificarCambioPresupuestos()
+                mostrarNotificacion("exito", "Presupuesto creado")
+                return true
+            } catch (error) {
+                console.error("[ERROR] No se pudo crear el presupuesto:", error)
+                mostrarNotificacion("error", error.message || "No se pudo crear el presupuesto")
+                return false
+            }
+        }
+    })
+
+    return modalEl
 }
 
 export async function abrirModalPresupuestos(presupuestoId = null) {
@@ -139,12 +198,11 @@ export async function abrirModalPresupuestos(presupuestoId = null) {
         }
     })
 
-    // Crear presupuesto nuevo (abre el modal de creación si existe; de lo
-    // contrario avisa que se viene).
+    // Crear presupuesto nuevo: abre el formulario de creación.
     const btnCrear = overlay.querySelector("#btn-crear-presupuesto")
     if (btnCrear) {
         btnCrear.addEventListener("click", () => {
-            mostrarNotificacion("info", "La creación de presupuestos se añade en el siguiente paso.")
+            abrirModalCrearPresupuesto()
         })
     }
 }

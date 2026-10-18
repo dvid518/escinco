@@ -763,6 +763,56 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </template>
 
+    <template id="tpl-form-presupuesto">
+        <form id="form-presupuesto" class="form-movimiento">
+            <div class="form-group">
+                <label for="presupuesto-nombre">Nombre *</label>
+                <input type="text" id="presupuesto-nombre" class="form-input" placeholder="Ej: Arriendo" required
+                       data-tpl="nombre" data-tpl-attr="value">
+            </div>
+            <div class="form-group">
+                <label for="presupuesto-categoria">Categoría *</label>
+                <select id="presupuesto-categoria" class="form-input" required>
+                    <option value="vivienda">Vivienda</option>
+                    <option value="alimentación">Alimentación</option>
+                    <option value="transporte">Transporte</option>
+                    <option value="ahorro">Ahorro</option>
+                    <option value="ocio">Ocio</option>
+                </select>
+            </div>
+            <div class="form-grupo-doble">
+                <div class="form-group">
+                    <label for="presupuesto-monto">Monto *</label>
+                    <input type="number" id="presupuesto-monto" class="form-input" step="0.01" min="0.01" placeholder="0.00" required
+                           data-tpl="monto" data-tpl-attr="value">
+                </div>
+                <div class="form-group">
+                    <label for="presupuesto-divisa">Divisa *</label>
+                    <select id="presupuesto-divisa" class="form-input" required>
+                        <option value="pen">PEN</option>
+                        <option value="usd">USD</option>
+                        <option value="usdt">USDT</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-grupo-doble">
+                <div class="form-group">
+                    <label for="presupuesto-periodo">Periodo *</label>
+                    <select id="presupuesto-periodo" class="form-input" required>
+                        <option value="mensual">Mensual</option>
+                        <option value="anual">Anual</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="presupuesto-fecha">Fecha de inicio *</label>
+                    <input type="date" id="presupuesto-fecha" class="form-input" required
+                           data-tpl="fechaInicio" data-tpl-attr="value">
+                </div>
+            </div>
+            <div class="form-hint">El monto se consume con los gastos que coincidan con la categoría.</div>
+        </form>
+    </template>
+
     <template id="tpl-presupuesto-card">
         <div class="card-item presupuesto-card" data-tpl="presupuesto" data-tpl-attr="data-id">
             <div class="card-item-main">
