@@ -11,7 +11,7 @@ import {
     recogerDatosFormulario,
     vincularSimboloDivisa
 } from "../ui/formularioMovimiento.js"
-import { registrarMovimiento, actualizarMovimiento, eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoServicio.js"
+import { registrarMovimiento, actualizarMovimiento, eliminarMovimiento, restaurarMovimiento, aplicarEtiquetasEnLote } from "../services/MovimientoServicio.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
@@ -19,6 +19,9 @@ import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { escapeHtml } from "../core/escape.js"
+import { normalizarEtiquetas } from "../core/etiquetas.js"
+import { obtenerEtiquetas } from "../repositories/EtiquetaRepositorio.js"
+import { montarSelectorEtiquetas } from "../ui/etiquetas.js"
 
 asegurarEstilos("movimientos")
 
@@ -1040,6 +1043,11 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         filtrarCuentasDestinoTransferencia()
     }
     vincularSimboloDivisa()
+
+    // Selector de chips de etiquetas: lee el input oculto #campo-etiquetas
+    // (ya rellenado si es edición) y lo reescribe en cada cambio.
+    const contenedorChips = formulario.querySelector("#chips-etiquetas")
+    if (contenedorChips) await montarSelectorEtiquetas(contenedorChips)
 }
 
 function filtrarCuentasPagoTarjeta() {
@@ -1366,12 +1374,16 @@ function actualizarSeleccionEnDOM() {
 function actualizarEstadoLastbar() {
     const puedeEditar = seleccionados.size === 1
     const puedeEliminar = seleccionados.size > 0
+    const puedeEtiquetar = seleccionados.size > 0
 
     document.querySelectorAll('[data-accion="editar-movimiento"]').forEach(item => {
         item.classList.toggle("desact", !puedeEditar)
     })
     document.querySelectorAll('[data-accion="eliminar-movimiento"]').forEach(item => {
         item.classList.toggle("desact", !puedeEliminar)
+    })
+    document.querySelectorAll('[data-accion="etiquetar-movimiento"]').forEach(item => {
+        item.classList.toggle("desact", !puedeEtiquetar)
     })
 }
 
@@ -1395,6 +1407,85 @@ export async function eliminarSeleccionados() {
 
     limpiarSeleccion()
     abrirModalEliminarVarios(lista)
+}
+
+export async function etiquetarSeleccionados() {
+    if (seleccionados.size === 0) return
+
+    const lista = [...seleccionados]
+        .map(id => movimientos.find(m => m.id === id))
+        .filter(Boolean)
+    if (!lista.length) return
+
+    await abrirModalEtiquetarMasivo(lista)
+}
+
+async function abrirModalEtiquetarMasivo(lista) {
+    const uidSesion = sesion.uid
+    const catalogo = await obtenerEtiquetas(uidSesion)
+
+    // Estados iniciales: activa = en TODOS, semi = en al menos uno. Las
+    // etiquetas de los movimientos que no están en el catálogo (huérfanas,
+    // p. ej. tras un renombrado o de datos antiguos) se muestran igual: sin
+    // ellas sería imposible quitarlas del lote.
+    const presencia = lista.map(m => new Set(normalizarEtiquetas(m.etiquetas || []).map(e => e.toLowerCase())))
+    const union = new Set(presencia.flatMap(p => [...p]))
+    const enTodos = new Set([...union].filter(n => presencia.every(p => p.has(n))))
+    const enAlguno = [...union].filter(n => !enTodos.has(n))
+
+    const enCatalogo = new Set(catalogo.map(e => e.nombre.toLowerCase()))
+    const efectivo = [...catalogo]
+    for (const nombre of union) {
+        if (!enCatalogo.has(nombre)) efectivo.push({ id: null, nombre, color: null, esPrincipal: false })
+    }
+
+    const contenido = contenidoDesdeTemplate("tpl-etiquetar-masivo")
+    const contenedor = contenido.querySelector("#masivo-chips-etiquetas")
+    let selector = null
+
+    abrirModal({
+        titulo: `Etiquetar ${lista.length} movimiento(s)`,
+        contenido,
+        confirmText: "Aplicar",
+        cancelText: "Cancelar",
+        onConfirm: async () => {
+            const finales = selector.obtenerSeleccion().map(e => e.toLowerCase())
+            // Las etiquetas que el modal no mostró se conservan tal cual.
+            const gestionadas = new Set([...union, ...catalogo.map(e => e.nombre.toLowerCase())])
+            const cambios = lista.map(m => ({
+                id: m.id,
+                etiquetas: normalizarEtiquetas([
+                    ...normalizarEtiquetas(m.etiquetas || []).filter(e => !gestionadas.has(e.toLowerCase())),
+                    ...finales
+                ])
+            }))
+            try {
+                const originales = cambios.map(c => ({
+                    id: c.id,
+                    etiquetas: lista.find(m => m.id === c.id).etiquetas || []
+                }))
+                await aplicarEtiquetasEnLote(uidSesion, cambios)
+                await cargarMovimientos()
+                limpiarSeleccion()
+                ofrecerDeshacer({
+                    mensaje: `Etiquetas aplicadas a ${lista.length} movimiento(s). ¿Deshacer?`,
+                    restaurar: () => aplicarEtiquetasEnLote(uidSesion, originales),
+                    alRestaurar: () => cargarMovimientos()
+                })
+                return true
+            } catch (error) {
+                console.error("Error etiquetando movimientos:", error)
+                mostrarNotificacion("error", `No se pudieron etiquetar: ${error.message || "error desconocido"}`)
+                return false
+            }
+        }
+    })
+
+    selector = await montarSelectorEtiquetas(contenedor, {
+        seleccionadas: [...enTodos],
+        semiactivas: enAlguno,
+        entrada: null
+    })
 }
 
 function abrirModalEliminarVarios(lista) {

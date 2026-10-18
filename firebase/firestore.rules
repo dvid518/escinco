@@ -83,6 +83,14 @@ service cloud.firestore {
     function ifPresenteNumeroONulo(data, campo)   { return !(campo in data) || esNumeroONulo(data[campo]); }
     function ifPresenteTimestampONulo(data, campo){ return !(campo in data) || esTimestampONulo(data[campo]); }
 
+    // Color de una etiqueta del catálogo: claves fijas de la paleta (null si
+    // no lleva). Las claves mapean a variables del tema en css/style.css
+    // (--etiqueta-*), así que nadie puede colar un hex arbitrario.
+    function esColorEtiqueta(v) {
+      return v == null || v in ['verde', 'rojo', 'ambar', 'azul', 'menta', 'frambuesa', 'mostaza', 'cielo'];
+    }
+    function ifPresenteColorEtiqueta(data) { return !('color' in data) || esColorEtiqueta(data.color); }
+
     // ----------------------------------------------------------
     // VALIDACIÓN COMPARTIDA POR create Y update (DEUDA-012)
     // ----------------------------------------------------------
@@ -233,6 +241,34 @@ service cloud.firestore {
         allow update: if esPropietario(uid)
           // Misma validación de tipos que el create (DEUDA-012).
           && validarCamposMovimiento(request.resource.data);
+
+        allow delete: if esPropietario(uid);
+      }
+
+      // --------------------------------------------------------
+      // ETIQUETAS (catálogo de etiquetas del usuario)
+      // --------------------------------------------------------
+      // El catálogo aporta nombre, color y el set principal. Los movimientos
+      // guardan etiquetas por NOMBRE (lista de textos), así que renombrar o
+      // borrar aquí no reescribe movimientos (trade-off aceptado).
+      match /etiquetas/{etiquetaId} {
+        allow read: if esPropietario(uid);
+
+        allow create: if esPropietario(uid)
+          && request.resource.data.keys().hasOnly(['nombre', 'color', 'esPrincipal', 'fechaCreacion'])
+          && request.resource.data.keys().hasAll(['nombre', 'esPrincipal', 'fechaCreacion'])
+          && esTexto(request.resource.data.nombre)
+          && request.resource.data.nombre.size() > 0
+          && request.resource.data.nombre.size() <= 24
+          && esColorEtiqueta(request.resource.data.color)
+          && esBool(request.resource.data.esPrincipal)
+          && esTimestamp(request.resource.data.fechaCreacion);
+
+        allow update: if esPropietario(uid)
+          && ifPresenteTexto(request.resource.data, 'nombre')
+          && ifPresenteColorEtiqueta(request.resource.data)
+          && ifPresenteBool(request.resource.data, 'esPrincipal')
+          && ifPresenteTimestamp(request.resource.data, 'fechaCreacion');
 
         allow delete: if esPropietario(uid);
       }

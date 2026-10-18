@@ -58,6 +58,7 @@ const SHELL_ASSETS = [
     "/js/core/familiaCuentas.js",
     "/js/core/atajos.js",
     "/js/core/escape.js",
+    "/js/core/etiquetas.js",
 
     // JS pages
     "/js/pages/index.js",
@@ -85,6 +86,7 @@ const SHELL_ASSETS = [
     "/js/ui/skeletons.js",
     "/js/ui/scrollEdges.js",
     "/js/ui/seleccion.js",
+    "/js/ui/etiquetas.js",
 
     // JS models
     "/js/models/Activo.js",
@@ -94,6 +96,7 @@ const SHELL_ASSETS = [
     "/js/models/Orden.js",
     "/js/models/Meta.js",
     "/js/models/Estrategia.js",
+    "/js/models/Etiqueta.js",
 
     // JS repositories
     "/js/repositories/ActivoRepositorio.js",
@@ -106,6 +109,7 @@ const SHELL_ASSETS = [
     "/js/repositories/MetaRepositorio.js",
     "/js/repositories/EstrategiaRepositorio.js",
     "/js/repositories/PrecioRepositorio.js",
+    "/js/repositories/EtiquetaRepositorio.js",
 
     // JS services
     "/js/services/ActivoServicio.js",

@@ -98,6 +98,18 @@
     --font-secondary: "Roboto Mono", "Courier New", monospace;
     --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
     --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
+
+    /* Paleta de etiquetas: la clave que se guarda en Firestore se pinta con
+       estas variables, que ya giran con el tema activo (positive/Alt, etc.).
+       La misma lista de claves vive en firestore.rules (esColorEtiqueta). */
+    --etiqueta-verde: var(--positive);
+    --etiqueta-rojo: var(--negative);
+    --etiqueta-ambar: var(--ambar);
+    --etiqueta-azul: var(--neutral);
+    --etiqueta-menta: var(--positiveAlt);
+    --etiqueta-frambuesa: var(--negativeAlt);
+    --etiqueta-mostaza: var(--ambarAlt);
+    --etiqueta-cielo: var(--neutralAlt);
 }
 
 /* Tema oscuro */

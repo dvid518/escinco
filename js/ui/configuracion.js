@@ -12,6 +12,7 @@ import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { accionExportar } from "./exportar.js"
 import { skeletonMarkup, skeletonText } from "./skeletons.js"
 import { envolverSidebar } from "./colapsoSidebar.js"
+import { montarSelectorEtiquetas } from "./etiquetas.js"
 
 let uid = null
 let hayCambios = false
@@ -55,6 +56,7 @@ const SECCIONES_CONFIGURACION = [
     { id: "cuenta", label: "Cuenta", icono: "circle-user" },
     { id: "apariencia", label: "Apariencia", icono: "palette" },
     { id: "moneda", label: "Moneda", icono: "coins" },
+    { id: "etiquetas", label: "Etiquetas", icono: "tag" },
     { id: "seguridad", label: "Seguridad", icono: "shield" },
     { id: "accesibilidad", label: "Accesibilidad", icono: "accessibility" },
     { id: "datos", label: "Datos", icono: "database" }
@@ -281,8 +283,26 @@ function configurarSidebar() {
             const section = btn.dataset.section
             const target = document.getElementById(`section-${section}`)
             if (target) target.classList.remove("hidden-section")
+
+            // El catálogo de etiquetas se monta (o refresca) al entrar: los
+            // cambios se guardan directo en Firestore, no con el Guardar.
+            if (section === "etiquetas") montarGestionEtiquetas()
         })
     })
+}
+
+// ============================================
+// ETIQUETAS
+// ============================================
+// Gestión del catálogo (renombrar, color, borrar, crear). Se comparte con el
+// formulario de movimiento: los movimientos guardan etiquetas por NOMBRE,
+// así que renombrar aquí no reescribe movimientos (trade-off aceptado). El
+// componente se remonta sobre el mismo contenedor: refresca en vez de
+// duplicar listeners.
+function montarGestionEtiquetas() {
+    const contenedor = document.getElementById("config-chips-etiquetas")
+    if (!contenedor) return
+    montarSelectorEtiquetas(contenedor, { gestion: true })
 }
 
 // ============================================

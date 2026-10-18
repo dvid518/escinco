@@ -7,14 +7,16 @@
 import { leer, nuevoReporter, extraerFuncion } from "./helpers.mjs"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../constants/tiposMovimiento.js"
 
-const COLECCIONES = ["cuentas", "movimientos", "posiciones", "estrategias", "metas", "pendientes", "snapshots", "trades", "ordenes", "activos", "historial"]
+const COLECCIONES = ["cuentas", "movimientos", "posiciones", "estrategias", "metas", "pendientes", "snapshots", "trades", "ordenes", "activos", "historial", "etiquetas"]
 
 const AUXILIARES = [
     "estaAutenticado", "esPropietario",
     "esNumero", "esTexto", "esBool", "esTimestamp", "esMapa", "esListaEtiquetas",
+    "esColorEtiqueta",
     "esNumeroONulo", "esTextoONulo", "esBoolONulo", "esTimestampONulo",
     "ifPresenteTexto", "ifPresenteNumero", "ifPresenteBool", "ifPresenteTimestamp",
-    "ifPresenteTextoONulo", "ifPresenteEtiquetas", "ifPresenteNumeroONulo", "ifPresenteTimestampONulo"
+    "ifPresenteTextoONulo", "ifPresenteEtiquetas", "ifPresenteNumeroONulo", "ifPresenteTimestampONulo",
+    "ifPresenteColorEtiqueta"
 ]
 
 function saltarString(texto, i) {
@@ -89,6 +91,7 @@ function camposUpdate(sentencia) {
     for (const m of sentencia.matchAll(/ifPresente\w*\s*\(\s*[\w.]+\s*,\s*'([^']+)'/g)) refs.add(m[1])
     for (const m of sentencia.matchAll(/'([^']+)'\s+in\s+\w+/g)) refs.add(m[1])
     if (/ifPresenteEtiquetas\s*\(/.test(sentencia)) refs.add("etiquetas")
+    if (/ifPresenteColorEtiqueta\s*\(/.test(sentencia)) refs.add("color")
     return refs
 }
 
@@ -243,6 +246,26 @@ export default async function ejecutar(t = nuevoReporter("reglas")) {
         { errores: [], historial: 0 })
     t.check("el importador descarta id del historial (BUG-030)",
         escrituras.length === 1 && !("id" in escrituras[0]), JSON.stringify(escrituras[0] || {}))
+
+    // ETIQUETAS: el hasOnly del catálogo es manual (mismo riesgo DEUDA-013)
+    // y la paleta vive en dos sitios (reglas y style.css). Comparamos ambos.
+    const bloqueEtiquetas = bloqueDe(src, "etiquetas")
+    const hasOnlyEtiquetas = lista(capturarSentencia(bloqueEtiquetas, "allow create:"), "hasOnly") || []
+    const esperadoEtiquetas = ["nombre", "color", "esPrincipal", "fechaCreacion"]
+    t.check("el hasOnly de etiquetas no admite campos huérfanos",
+        hasOnlyEtiquetas.length === esperadoEtiquetas.length && esperadoEtiquetas.every(f => hasOnlyEtiquetas.includes(f)),
+        hasOnlyEtiquetas.join(", "))
+
+    t.check("el nombre de una etiqueta está limitado en las reglas",
+        /nombre\.size\(\)\s*<=\s*24/.test(bloqueEtiquetas))
+
+    const clavesReglas = [...extraerFuncion(src, "esColorEtiqueta").matchAll(/'([a-z]+)'/g)].map(m => m[1])
+    const clavesCss = [...leer("css/style.css").matchAll(/--etiqueta-([a-z]+)\s*:/g)].map(m => m[1])
+    const soloReglas = clavesReglas.filter(c => !clavesCss.includes(c))
+    const soloCss = clavesCss.filter(c => !clavesReglas.includes(c))
+    t.check("la paleta de etiquetas coincide entre reglas y style.css (DEUDA-013)",
+        soloReglas.length === 0 && soloCss.length === 0,
+        `${soloReglas.join(", ")} / ${soloCss.join(", ")}`)
 
     return t
 }

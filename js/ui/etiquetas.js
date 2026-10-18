@@ -1,0 +1,318 @@
+import { sesion } from "../core/sesion.js"
+import { icono } from "../core/iconos.js"
+import { normalizarEtiquetas, MAX_ETIQUETAS } from "../core/etiquetas.js"
+import {
+    obtenerEtiquetas,
+    buscarEtiquetaPorNombre,
+    crearEtiqueta,
+    actualizarEtiqueta,
+    eliminarEtiqueta
+} from "../repositories/EtiquetaRepositorio.js"
+import { contenidoDesdeTemplate, abrirModal, cerrarModal } from "./modal.js"
+import { mostrarNotificacion } from "./notificaciones.js"
+
+// Paleta fija de etiquetas: las mismas claves que validan las reglas
+// (esColorEtiqueta) y que pinta css/style.css con --etiqueta-*.
+export const PALETA_ETIQUETAS = ["verde", "rojo", "ambar", "azul", "menta", "frambuesa", "mostaza", "cielo"]
+
+// ============================================
+// SELECTOR DE ETIQUETAS (CHIPS)
+// ============================================
+// Componente de chips compartido por el formulario de movimiento, el
+// etiquetado masivo de la lastbar y la sección de Configuración.
+//
+// En el formulario la fuente de verdad es el <input id="campo-etiquetas">:
+// el selector la lee al montar y la reescribe en cada cambio, así que
+// `recogerDatosFormulario` y `rellenarFormulario` siguen funcionando igual.
+
+/**
+ * Monta el selector de chips dentro de `contenedor` (#chips-etiquetas).
+ *
+ * Opciones:
+ *   - gestion: true → modo catálogo (Configuración): el click en un chip abre
+ *     su editor (renombrar/color/eliminar) y ningún chip queda "activo".
+ *   - seleccionadas: nombres marcados de inicio; si no llega, se lee el
+ *     input oculto `entrada` (por defecto campo-etiquetas).
+ *   - semiactivas: nombres en estado intermedio (etiquetado masivo).
+ *   - entrada: id del input oculto que sincroniza.
+ *   - alCambiar: callback con la selección tras cada cambio.
+ *
+ * Devuelve { obtenerSeleccion, refrescar } o null si el contenedor desapareció
+ * mientras se cargaba el catálogo (modal cerrado antes de tiempo). Si el
+ * contenedor ya tenía un selector montado, refresca y devuelve el existente:
+ * así reentrar a la sección de Configuración no duplica listeners.
+ */
+export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
+    const {
+        gestion = false,
+        seleccionadas = null,
+        semiactivas = [],
+        entrada = "campo-etiquetas",
+        alCambiar = null
+    } = opciones
+
+    if (!contenedor) return null
+
+    if (contenedor.dataset.selectorListo === "1") {
+        await contenedor.__selectorEtiquetas?.refrescar()
+        return contenedor.__selectorEtiquetas
+    }
+
+    const uid = sesion.uid
+    let catalogo = []
+    try {
+        catalogo = await obtenerEtiquetas(uid)
+    } catch (error) {
+        console.warn("[WARN] No se pudo cargar el catálogo de etiquetas:", error?.code || error)
+    }
+
+    if (!contenedor.isConnected) return null
+
+    const entradaHidden = gestion || !entrada ? null : document.getElementById(entrada)
+    const activas = gestion
+        ? new Set()
+        : new Set(normalizarEtiquetas(seleccionadas ?? entradaHidden?.value))
+    const semi = new Set(normalizarEtiquetas(semiactivas))
+
+    const obtenerSeleccion = () => [...activas]
+
+    const sincronizarEntrada = () => {
+        if (entradaHidden) entradaHidden.value = obtenerSeleccion().join(", ")
+        alCambiar?.(obtenerSeleccion())
+    }
+
+    const ordenar = () => {
+        catalogo.sort((a, b) => a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" }))
+    }
+
+    const pintarChip = etiqueta => {
+        const activa = activas.has(etiqueta.nombre)
+        const valores = {
+            "chip@data-nombre": etiqueta.nombre,
+            nombre: etiqueta.nombre
+        }
+        if (etiqueta.color) {
+            valores["punto@style"] = `--chip-color: var(--etiqueta-${etiqueta.color})`
+        }
+        const chip = contenidoDesdeTemplate("tpl-etiqueta-chip", { valores })
+        const boton = chip.querySelector(".chip-etiqueta")
+        boton.classList.toggle("activo", activa)
+        boton.classList.toggle("semi", !activa && semi.has(etiqueta.nombre))
+        return chip
+    }
+
+    const repintar = () => {
+        contenedor.replaceChildren()
+        for (const etiqueta of catalogo) contenedor.append(pintarChip(etiqueta))
+        contenedor.append(contenidoDesdeTemplate("tpl-etiqueta-crear", {
+            html: { icono: icono("plus", 14) }
+        }))
+    }
+
+    // ---- Creación inline: el botón + abre un input con forma de chip ----
+
+    const cerrarInput = input => input.remove()
+
+    const confirmarCreacion = async input => {
+        const nombre = normalizarEtiquetas(input.value)[0]
+        if (!nombre) {
+            cerrarInput(input)
+            return
+        }
+        try {
+            // Idempotente: si ya existe en el catálogo (sin distinguir
+            // mayúsculas) se selecciona en lugar de duplicarla.
+            let etiqueta = await buscarEtiquetaPorNombre(uid, nombre)
+            if (!etiqueta) {
+                // La etiqueta nace en el catálogo aunque el usuario cancele el
+                // movimiento: queda disponible para reutilizar.
+                const id = await crearEtiqueta(uid, { nombre, color: null, esPrincipal: false })
+                etiqueta = { id, nombre, color: null, esPrincipal: false }
+                catalogo.push(etiqueta)
+                ordenar()
+            }
+            if (!activas.has(etiqueta.nombre) && activas.size >= MAX_ETIQUETAS) {
+                mostrarNotificacion("info", `Máximo ${MAX_ETIQUETAS} etiquetas por movimiento`)
+            } else {
+                activas.add(etiqueta.nombre)
+                semi.delete(etiqueta.nombre)
+                sincronizarEntrada()
+            }
+            cerrarInput(input)
+            repintar()
+        } catch (error) {
+            console.error("[ERROR] No se pudo crear la etiqueta:", error)
+            mostrarNotificacion("error", "No se pudo crear la etiqueta")
+        }
+    }
+
+    const abrirCreacion = () => {
+        if (contenedor.querySelector(".chip-etiqueta-input")) return
+        const input = document.createElement("input")
+        input.type = "text"
+        input.className = "chip-etiqueta-input"
+        input.maxLength = 24
+        input.placeholder = "Nueva etiqueta"
+        input.setAttribute("aria-label", "Nombre de la nueva etiqueta")
+        contenedor.insertBefore(input, contenedor.lastElementChild)
+        input.focus()
+
+        input.addEventListener("keydown", evento => {
+            if (evento.key === "Escape") {
+                evento.preventDefault()
+                cerrarInput(input)
+                return
+            }
+            if (evento.key === "Enter") {
+                evento.preventDefault()
+                confirmarCreacion(input)
+            }
+        })
+
+        input.addEventListener("blur", () => {
+            if (!input.value.trim()) cerrarInput(input)
+        })
+    }
+
+    // ---- Modo gestión (Configuración): editor de cada etiqueta ----
+
+    const refrescar = async () => {
+        try {
+            catalogo = await obtenerEtiquetas(uid)
+        } catch (error) {
+            // Se conserva el catálogo anterior y se avisa: es lectura, no daño.
+            console.warn("[WARN] No se pudo refrescar el catálogo de etiquetas:", error?.code || error)
+        }
+        if (!contenedor.isConnected) return
+        ordenar()
+        repintar()
+    }
+
+    const abrirEditor = etiqueta => {
+        const contenido = contenidoDesdeTemplate("tpl-etiqueta-editor")
+        const inputNombre = contenido.querySelector("#campo-etiqueta-editor-nombre")
+        const paleta = contenido.querySelector("#paleta-etiquetas")
+        const botonEliminar = contenido.querySelector("#chip-etiqueta-eliminar")
+        inputNombre.value = etiqueta.nombre
+
+        let colorElegido = etiqueta.color || null
+
+        const pintarPaleta = () => {
+            paleta.replaceChildren()
+            for (const clave of PALETA_ETIQUETAS) {
+                const punto = document.createElement("button")
+                punto.type = "button"
+                punto.className = "paleta-punto" + (clave === colorElegido ? " activo" : "")
+                punto.style.setProperty("--chip-color", `var(--etiqueta-${clave})`)
+                punto.setAttribute("aria-label", `Color ${clave}`)
+                punto.title = clave
+                punto.addEventListener("click", () => {
+                    colorElegido = clave
+                    pintarPaleta()
+                })
+                paleta.append(punto)
+            }
+            const sinColor = document.createElement("button")
+            sinColor.type = "button"
+            sinColor.className = "paleta-punto paleta-punto-sin" + (colorElegido === null ? " activo" : "")
+            sinColor.setAttribute("aria-label", "Sin color")
+            sinColor.title = "Sin color"
+            sinColor.addEventListener("click", () => {
+                colorElegido = null
+                pintarPaleta()
+            })
+            paleta.append(sinColor)
+        }
+        pintarPaleta()
+
+        // Eliminar con confirmación inline: el primer click arma el botón.
+        let armado = false
+        botonEliminar.addEventListener("click", async () => {
+            if (!armado) {
+                armado = true
+                botonEliminar.textContent = "¿Seguro? Eliminar"
+                botonEliminar.classList.add("armado")
+                return
+            }
+            try {
+                await eliminarEtiqueta(uid, etiqueta.id)
+                mostrarNotificacion("exito", `Etiqueta "${etiqueta.nombre}" eliminada`)
+                cerrarModal()
+                refrescar()
+            } catch (error) {
+                console.error("[ERROR] No se pudo eliminar la etiqueta:", error)
+                mostrarNotificacion("error", "No se pudo eliminar la etiqueta")
+            }
+        })
+
+        abrirModal({
+            titulo: "Editar etiqueta",
+            contenido,
+            confirmText: "Guardar",
+            cancelText: "Cancelar",
+            // Devolver false mantiene el modal abierto (modal.js:353).
+            onConfirm: async () => {
+                const nombre = normalizarEtiquetas(inputNombre.value)[0]
+                if (!nombre) {
+                    mostrarNotificacion("info", "Escribe un nombre para la etiqueta")
+                    return false
+                }
+                if (nombre.toLowerCase() !== etiqueta.nombre.toLowerCase()) {
+                    const existente = await buscarEtiquetaPorNombre(uid, nombre)
+                    if (existente && existente.id !== etiqueta.id) {
+                        mostrarNotificacion("error", `Ya existe una etiqueta "${nombre}"`)
+                        return false
+                    }
+                }
+                if (nombre === etiqueta.nombre && colorElegido === (etiqueta.color || null)) return true
+                try {
+                    await actualizarEtiqueta(uid, etiqueta.id, { nombre, color: colorElegido })
+                    mostrarNotificacion("exito", "Etiqueta actualizada")
+                    refrescar()
+                    return true
+                } catch (error) {
+                    console.error("[ERROR] No se pudo actualizar la etiqueta:", error)
+                    mostrarNotificacion("error", "No se pudo actualizar la etiqueta")
+                    return false
+                }
+            }
+        })
+    }
+
+    // ---- Interacción por delegación en el contenedor ----
+
+    contenedor.addEventListener("click", evento => {
+        if (evento.target.closest(".chip-etiqueta-crear")) {
+            abrirCreacion()
+            return
+        }
+        const chip = evento.target.closest(".chip-etiqueta[data-nombre]")
+        if (!chip) return
+        const nombre = chip.dataset.nombre
+        if (gestion) {
+            const etiqueta = catalogo.find(e => e.nombre === nombre)
+            if (etiqueta) abrirEditor(etiqueta)
+            return
+        }
+        if (activas.has(nombre)) {
+            activas.delete(nombre)
+        } else {
+            if (activas.size >= MAX_ETIQUETAS) {
+                mostrarNotificacion("info", `Máximo ${MAX_ETIQUETAS} etiquetas por movimiento`)
+                return
+            }
+            activas.add(nombre)
+            semi.delete(nombre)
+        }
+        sincronizarEntrada()
+        repintar()
+    })
+
+    ordenar()
+    repintar()
+
+    const api = { obtenerSeleccion, refrescar }
+    contenedor.dataset.selectorListo = "1"
+    contenedor.__selectorEtiquetas = api
+    return api
+}

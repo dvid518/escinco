@@ -7,13 +7,17 @@ import {
     obtenerMovimientos,
     actualizarMovimientoDoc,
     eliminarMovimientoDoc,
-    restaurarDocumento
+    restaurarDocumento,
+    db,
+    doc,
+    writeBatch
 } from "../../firebase/firestore.js"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../../constants/tiposMovimiento.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { obtenerMeta, obtenerMetas, actualizarMeta } from "../repositories/MetaRepositorio.js"
 import { evaluarCreditosYNotificar } from "./CreditoServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
+import { cacheCapa } from "../core/cache.js"
 
 // No se permiten fechas futuras: cualquier fechaRealizacion mayor que hoy
 // se normaliza al día de hoy. Aplica tanto al registrar como al editar.
@@ -869,6 +873,33 @@ function normalizarFecha(valor) {
     if (valor?.toDate) return valor.toDate()
     if (valor instanceof Date) return valor
     return new Date(valor)
+}
+
+// ============================================
+// ETIQUETADO MASIVO
+// ============================================
+
+/**
+ * Aplica un set de etiquetas a varios movimientos en un solo batch. NO pasa
+ * por actualizarMovimiento: tocar etiquetas no mueve saldos ni posiciones, y
+ * revalidar todo el movimiento sería revisar de más. Parchea la caché de
+ * movimientos igual que actualizarMovimientoDoc.
+ *
+ * cambios: [{ id, etiquetas }]
+ */
+export async function aplicarEtiquetasEnLote(uid, cambios) {
+    if (!cambios.length) return
+    const lote = writeBatch(db)
+    for (const { id, etiquetas } of cambios) {
+        lote.update(doc(db, "usuarios", uid, "movimientos", id), { etiquetas })
+    }
+    await lote.commit()
+    cacheCapa.parchear(uid, "movimientos", lista =>
+        lista.map(m => {
+            const cambio = cambios.find(c => c.id === m.id)
+            return cambio ? { ...m, etiquetas: cambio.etiquetas } : m
+        })
+    )
 }
 
 // Parsea "YYYY-MM-DD" como fecha LOCAL (no UTC), para que los filtros

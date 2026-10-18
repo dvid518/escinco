@@ -1181,10 +1181,46 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <form id="form-movimiento" class="form-movimiento form-movimiento-grid">
             <div class="form-group span-full" data-tpl="etiquetas">
                 <label for="campo-etiquetas">Etiquetas</label>
-                <input type="text" id="campo-etiquetas" class="form-input" placeholder="Ej: viaje, comida" autocomplete="off">
-                <span class="form-hint">Sepáralas con comas. Sirven para filtrar la lista.</span>
+                <div class="chips-etiquetas" id="chips-etiquetas"></div>
+                <!-- Fuente de verdad: el selector de chips la lee al montar y
+                     la reescribe en cada cambio; rellenarFormulario la escribe
+                     al editar. recogerDatosFormulario no cambia. -->
+                <input type="hidden" id="campo-etiquetas" autocomplete="off">
+                <span class="form-hint">Toca una etiqueta para marcarla o desmarcarla.</span>
             </div>
         </form>
+    </template>
+
+    <template id="tpl-etiqueta-chip">
+        <button type="button" class="chip-etiqueta" data-tpl="chip" data-tpl-attr="data-nombre">
+            <span class="chip-punto" data-tpl="punto" data-tpl-attr="style"></span>
+            <span data-tpl="nombre"></span>
+        </button>
+    </template>
+
+    <template id="tpl-etiqueta-crear">
+        <button type="button" class="chip-etiqueta chip-etiqueta-crear" aria-label="Crear etiqueta" title="Crear etiqueta">
+            <span data-tpl="icono"></span>
+        </button>
+    </template>
+
+    <template id="tpl-etiqueta-editor">
+        <div class="form-group">
+            <label for="campo-etiqueta-editor-nombre">Nombre</label>
+            <input type="text" id="campo-etiqueta-editor-nombre" class="form-input" maxlength="24" autocomplete="off">
+        </div>
+        <div class="form-group">
+            <label>Color</label>
+            <div class="paleta-etiquetas" id="paleta-etiquetas"></div>
+        </div>
+        <button type="button" class="chip-etiqueta-eliminar" id="chip-etiqueta-eliminar">Eliminar etiqueta</button>
+    </template>
+
+    <template id="tpl-etiquetar-masivo">
+        <div class="form-group">
+            <span class="form-hint">Sólido: está en todos. Discontinuo: está en algunos. Vacío: en ninguno. Toca una etiqueta para aplicarla o quitarla de todos.</span>
+            <div class="chips-etiquetas" id="masivo-chips-etiquetas"></div>
+        </div>
     </template>
 
     <template id="tpl-campo-select-buscable">
@@ -1853,6 +1889,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
 
                 </div>
+
+            <!-- ETIQUETAS -->
+            <div class="panel-section hidden-section" id="section-etiquetas">
+                <div class="config-group">
+                    <span class="config-label">Tus etiquetas</span>
+                    <div class="chips-etiquetas" id="config-chips-etiquetas"></div>
+                    <span class="config-hint">Toca una etiqueta para renombrarla, cambiar su color o eliminarla. El botón + crea una nueva.</span>
+                </div>
+            </div>
 
             <!-- MONEDA -->
             <div class="panel-section hidden-section" id="section-moneda">

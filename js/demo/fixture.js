@@ -40,6 +40,23 @@ export function construirFixture() {
         }
     })
 
+    // ---------- etiquetas (catálogo principal, igual que la siembra real) ----------
+    const ETIQUETAS_PRINCIPALES = [
+        ["et-comida", "Comida", "ambar"],
+        ["et-transporte", "Transporte", "azul"],
+        ["et-ocio", "Ocio", "frambuesa"],
+        ["et-vivienda", "Vivienda", "verde"],
+        ["et-salud", "Salud", "rojo"],
+        ["et-educacion", "Educación", "cielo"],
+        ["et-inversiones", "Inversiones", "menta"],
+        ["et-otros", "Otros", null]
+    ]
+    for (const [id, nombre, color] of ETIQUETAS_PRINCIPALES) {
+        poner(`usuarios/${UID}/etiquetas/${id}`, {
+            nombre, color, esPrincipal: true, fechaCreacion: momento(120)
+        })
+    }
+
     // ---------- cuentas ----------
     poner(`usuarios/${UID}/cuentas/efectivo-inicial`, {
         nombre: "EFECTIVO", tipo: "efectivo", moneda: "pen", saldoInicial: 1250.5,

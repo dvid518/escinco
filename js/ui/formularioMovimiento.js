@@ -135,27 +135,10 @@ async function cargarActivosDatalist(uid) {
 // ============================================
 // ETIQUETAS
 // ============================================
-
-export const MAX_ETIQUETAS = 20
-export const MAX_LARGO_ETIQUETA = 24
-
-/** Convierte "viaje, comida, viaje" en ["viaje", "comida"]: sin vacíos, sin
-    duplicados (comparando sin distinguir mayúsculas) y recortada cada una. */
-export function normalizarEtiquetas(valor) {
-    const partes = Array.isArray(valor) ? valor : String(valor || "").split(",")
-    const vistas = new Set()
-    const resultado = []
-    for (const parte of partes) {
-        const etiqueta = String(parte || "").trim().slice(0, MAX_LARGO_ETIQUETA)
-        if (!etiqueta) continue
-        const clave = etiqueta.toLowerCase()
-        if (vistas.has(clave)) continue
-        vistas.add(clave)
-        resultado.push(etiqueta)
-        if (resultado.length >= MAX_ETIQUETAS) break
-    }
-    return resultado
-}
+// La normalización vive en core/etiquetas.js (también la usa el selector de
+// chips); se re-exporta para no romper a quien ya la importaba de aquí.
+import { normalizarEtiquetas, MAX_ETIQUETAS } from "../core/etiquetas.js"
+export { normalizarEtiquetas, MAX_ETIQUETAS, MAX_LARGO_ETIQUETA } from "../core/etiquetas.js"
 
 // ============================================
 // GENERADOR DE CAMPO

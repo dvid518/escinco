@@ -864,3 +864,133 @@
     line-height: 1.5;
     color: var(--textSecondary);
 }
+
+/* ============================================
+   ETIQUETAS (chips)
+   ============================================ */
+/* Selector de chips de etiquetas: formulario de movimiento, etiquetado
+   masivo y Configuración. Cada chip lleva --chip-color con la clave de la
+   paleta --etiqueta-* (style.css); sin color cae al neutro. */
+.chips-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+.chip-etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--lightBorder);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-primary);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.chip-etiqueta:hover {
+    border-color: var(--border);
+    background: var(--lightHover);
+}
+
+.chip-punto {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--chip-color, var(--textSecondary));
+    flex-shrink: 0;
+}
+
+.chip-etiqueta.activo {
+    border-color: var(--chip-color, var(--textAct));
+    background: color-mix(in srgb, var(--chip-color, var(--textAct)) 25%, transparent);
+    font-weight: 600;
+}
+
+.chip-etiqueta.semi {
+    border-style: dashed;
+    border-color: var(--chip-color, var(--border));
+    background: color-mix(in srgb, var(--chip-color, var(--textSecondary)) 10%, transparent);
+    opacity: 0.75;
+}
+
+.chip-etiqueta-crear {
+    padding: 6px 8px;
+    color: var(--textSecondary);
+}
+
+.chip-etiqueta-crear:hover {
+    color: var(--text);
+}
+
+.chip-etiqueta-input {
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px dashed var(--borderAlt);
+    background: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-family: var(--font-primary);
+    width: 150px;
+    outline: none;
+}
+
+.chip-etiqueta-input::placeholder {
+    color: var(--textSecondary);
+}
+
+/* Paleta de colores del editor de etiquetas (Configuración) */
+.paleta-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+}
+
+.paleta-punto {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    background: var(--chip-color, var(--textSecondary));
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.paleta-punto:hover {
+    transform: scale(1.12);
+}
+
+.paleta-punto.activo {
+    border-color: var(--text);
+    transform: scale(1.12);
+}
+
+/* "Sin color": el chip cae al neutro del tema */
+.paleta-punto-sin {
+    background: transparent;
+    border: 2px dashed var(--borderAlt);
+}
+
+.chip-etiqueta-eliminar {
+    padding: 8px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--negative);
+    background: transparent;
+    color: var(--negative);
+    font-size: 13px;
+    font-family: var(--font-primary);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.chip-etiqueta-eliminar:hover,
+.chip-etiqueta-eliminar.armado {
+    background: var(--negative);
+    color: var(--background);
+}
