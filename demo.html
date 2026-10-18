@@ -771,7 +771,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                        data-tpl="nombre" data-tpl-attr="value">
             </div>
             <div class="form-group">
-                <label for="presupuesto-categoria">Categoría *</label>
+                <label>Presupuesto por *</label>
+                <div class="toggle-group" role="group" aria-label="Tipo de presupuesto">
+                    <button type="button" class="toggle-option activo" data-tipo="categoria">Categoría</button>
+                    <button type="button" class="toggle-option" data-tipo="etiquetas">Etiquetas</button>
+                </div>
+                <input type="hidden" id="presupuesto-tipo" value="categoria">
+            </div>
+            <div class="form-group" id="grupo-categoria">
+                <label for="presupuesto-categoria">Categoría del sistema *</label>
                 <select id="presupuesto-categoria" class="form-input" required>
                     <option value="vivienda">Vivienda</option>
                     <option value="alimentación">Alimentación</option>
@@ -779,6 +787,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <option value="ahorro">Ahorro</option>
                     <option value="ocio">Ocio</option>
                 </select>
+            </div>
+            <div class="form-group" id="grupo-etiquetas" hidden>
+                <label for="presupuesto-etiquetas">Etiquetas *</label>
+                <div id="chips-presupuesto-etiquetas"></div>
+                <input type="hidden" id="campo-etiquetas-presupuesto" autocomplete="off">
+                <span class="form-hint">Toca una etiqueta para marcarla o desmarcarla.</span>
             </div>
             <div class="form-grupo-doble">
                 <div class="form-group">
@@ -809,7 +823,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                            data-tpl="fechaInicio" data-tpl-attr="value">
                 </div>
             </div>
-            <div class="form-hint">El monto se consume con los gastos que coincidan con la categoría.</div>
+            <div class="form-hint">El monto se consume con los gastos que coincidan con la categoría o las etiquetas.</div>
         </form>
     </template>
 
@@ -829,6 +843,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <span class="card-item-valor" data-tpl="valor"></span>
                     <div class="card-item-acciones">
                         <button type="button" class="card-action-btn" data-accion="activar-presupuesto" title="Activar" aria-label="Activar presupuesto" data-tpl="icono-activar"></button>
+                        <button type="button" class="card-action-btn" data-accion="editar-presupuesto" title="Editar" aria-label="Editar presupuesto" data-tpl="icono-editar"></button>
                         <button type="button" class="card-action-btn danger" data-accion="eliminar-presupuesto" title="Eliminar" aria-label="Eliminar presupuesto" data-tpl="icono-eliminar"></button>
                     </div>
                 </div>

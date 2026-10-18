@@ -32,7 +32,7 @@ import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
 import { calcularProximaEjecucion } from "../services/EstrategiaServicio.js"
 import { abrirModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
-import { abrirModalPresupuestos } from "../ui/presupuestos.js"
+import { abrirModalPresupuestos, abrirModalEditarPresupuesto } from "../ui/presupuestos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
@@ -3412,6 +3412,7 @@ function plantillaPresupuestoDashboard(p) {
         },
         html: {
             "icono-activar": icono("play", 16),
+            "icono-editar": icono("pencil", 16),
             "icono-eliminar": icono("trash", 16)
         }
     }
@@ -3428,6 +3429,8 @@ function enlazarListaPresupuestos(lista) {
 
         if (accion === "activar-presupuesto") {
             abrirModalPresupuestos(id)
+        } else if (accion === "editar-presupuesto") {
+            await abrirModalEditarPresupuesto(id)
         } else if (accion === "eliminar-presupuesto") {
             if (!confirm("¿Eliminar este presupuesto?")) return
             try {
