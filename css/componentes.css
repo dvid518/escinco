@@ -246,14 +246,20 @@
 
 .totales-positivo {
     color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 12%, transparent);
     font-family: var(--font-secondary);
     font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 8px;
 }
 
 .totales-negativo {
     color: var(--negative);
+    background: color-mix(in srgb, var(--negative) 12%, transparent);
     font-family: var(--font-secondary);
     font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 8px;
 }
 
 .totales-ganancia {

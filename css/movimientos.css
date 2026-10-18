@@ -28,7 +28,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    align-items: stretch;
+    align-items: center;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
@@ -65,7 +65,8 @@
     height: var(--filtro-height);
 }
 
-/* Inputs y selects: llenan su celda, misma altura, sin desbordar. */
+/* Inputs y selects: llenan su celda, misma altura, sin desbordar.
+   Borde sutil: sin subrayado blanco duro, solo el color de borde del tema. */
 #panel .filtros input,
 #panel .filtros select {
     width: 100%;
@@ -125,24 +126,27 @@
    LISTA
    -------------------------------------------- */
 
-.lista-movimientos {
+#lista-movimientos {
     display: flex;
     flex-direction: column;
     gap: 6px;
     flex: 1;
     padding-right: 4px;
     min-height: 0;
+    /* Espacio inferior para que el último movimiento no quede tapado por
+       posibles barras flotantes o controles fijos en la parte inferior. */
+    padding-bottom: 80px;
 }
 
-.lista-movimientos::-webkit-scrollbar {
+#lista-movimientos::-webkit-scrollbar {
     width: 6px;
 }
 
-.lista-movimientos::-webkit-scrollbar-track {
+#lista-movimientos::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.lista-movimientos::-webkit-scrollbar-thumb {
+#lista-movimientos::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 10px;
 }
