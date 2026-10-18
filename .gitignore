@@ -87,3 +87,8 @@ $RECYCLE.BIN/
 *.tmp
 *.temp
 .cache/
+.swarm/
+
+# scratch local
+prompt.txt
+videos.txt
