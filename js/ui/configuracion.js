@@ -564,9 +564,18 @@ async function cargarPreferencias() {
             opcion.classList.toggle("active", Number(opcion.dataset.cantidad) === cantidadMovimientos)
         })
 
-        // Páginas: los guardados del servidor tienen prioridad; si no hay,
-        // se usan los valores por defecto de la sesión (cuentas nuevas).
-        const paginas = prefs?.paginas || sesion.getPaginasVisibles() || {}
+        // Páginas. `prefs.paginas` es el grupo CRUDO de Firestore, y en Firestore
+        // solo se guarda lo que se aparta de los defaults (aplicarPreferenciasDiff
+        // borra la clave al volver al default). O sea: el grupo siempre está
+        // incompleto, y a menudo no existe.
+        //
+        // Por eso se FUSIONA sobre los valores de la sesión en vez de sustituirla.
+        // Con `prefs?.paginas || sesion.getPaginasVisibles()` un grupo presente
+        // pero parcial se comía los defaults — y `{}` es truthy, así que el `||`
+        // nunca caía al fallback — de modo que `marcarPagina` recibía `undefined`
+        // y pintaba `undefined !== false` → marcado. La pantalla afirmaba que
+        // Inversiones y Trading estaban activas cuando su valor real era false.
+        const paginas = { ...sesion.getPaginasVisibles(), ...(prefs?.paginas || {}) }
         const marcarPagina = (id, valor) => {
             const el = document.getElementById(id)
             if (el) el.checked = valor !== false
