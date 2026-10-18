@@ -33,6 +33,13 @@ let uid = null
 let filtroActual = "todos"
 const seleccionados = new Set()
 let seleccionadosFavoritos = new Set()
+// Caché de favoritos para resolver un id sin volver a Firestore, y los dos
+// temporizadores de los gestos (click sostenido y doble click) sobre el
+// contenedor de favoritos. Sin declarar, asignarles en un módulo (modo
+// estricto siempre) lanzaba ReferenceError y `renderFavoritos()` moría.
+let favoritosCache = []
+let favoritoPressTimer = null
+let favoritoClickTimer = null
 const ordenSeleccion = []
 let clickTimer = null
 let supresorClick = false
