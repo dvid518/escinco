@@ -208,8 +208,14 @@ async function renderFavoritos(uid) {
     const favoritos = await obtenerFavoritos(uid)
     favoritosCache = favoritos
 
+    // Si ya no queda ningún favorito, la selección tampoco puede seguir viva:
+    // ids que apuntan a favoritos borrados dejarían la lastbar Showing un
+    // contexto que no existe.
+    if (favoritos.length === 0) seleccionadosFavoritos.clear()
+
     if (favoritos.length === 0) {
         contenedor.hidden = true
+        actualizarEstadoLastbar()
         return
     }
 
@@ -273,6 +279,11 @@ async function renderFavoritos(uid) {
             }
         })
     }
+
+    // Punto único de refresco de la lastbar: cualquier cambio de selección pasa
+    // por aquí (alternar, limpiar, ejecutar, eliminar), así que es donde se
+    // decide qué grupo de items se ve y qué dice el contexto.
+    actualizarEstadoLastbar()
 }
 
 
@@ -290,8 +301,6 @@ export async function init() {
     configurarEventos()
 }
 
-// ============================================
-// CARGA
 // ============================================
 
 // Los movimientos sobreviven a la eliminación de su cuenta (regla de la app:
@@ -1534,24 +1543,51 @@ function actualizarSeleccionEnDOM() {
     })
 }
 
+// Items de la lastbar de la página de movimientos que se OCULTAN mientras hay
+// favoritos seleccionados. `eliminar-movimiento` no está aquí a propósito:
+// es el botón dual, sirve para los dos tipos de selección y siempre se ve.
+const ACCIONES_MOVIMIENTO_LASTBAR = ["editar-movimiento", "etiquetar-movimiento"]
+const ACCIONES_FAVORITO_LASTBAR = ["editar-favorito", "ejecutar-favorito", "cancelar-favorito"]
+
+// Nombre del favorito seleccionado, o "N favoritos" si hay varios.
+function textoContextoFavoritos() {
+    const cantidad = seleccionadosFavoritos.size
+    if (cantidad === 0) return ""
+    if (cantidad > 1) return `${cantidad} favoritos`
+    const id = [...seleccionadosFavoritos][0]
+    return favoritosCache.find(f => f.id === id)?.nombre || ""
+}
+
 function actualizarEstadoLastbar() {
-    const puedeEditar = seleccionados.size === 1
-    const puedeEliminar = seleccionados.size > 0
-    const puedeEtiquetar = seleccionados.size > 0
-    const puedeEliminarFavorito = seleccionadosFavoritos.size > 0
+    const hayMovimientos = seleccionados.size > 0
+    const hayFavoritos = seleccionadosFavoritos.size > 0
 
     document.querySelectorAll('[data-accion="editar-movimiento"]').forEach(item => {
-        item.classList.toggle("desact", !puedeEditar)
-    })
-    document.querySelectorAll('[data-accion="eliminar-movimiento"]').forEach(item => {
-        item.classList.toggle("desact", !puedeEliminar)
+        item.classList.toggle("desact", seleccionados.size !== 1)
     })
     document.querySelectorAll('[data-accion="etiquetar-movimiento"]').forEach(item => {
-        item.classList.toggle("desact", !puedeEtiquetar)
+        item.classList.toggle("desact", !hayMovimientos)
     })
-    document.querySelectorAll('[data-accion="eliminar-favorito"]').forEach(item => {
-        item.classList.toggle("desact", !puedeEliminarFavorito)
+    // El botón "Eliminar" sirve para los dos: está activo si hay algo que
+    // borrar, sea un movimiento o un favorito.
+    document.querySelectorAll('[data-accion="eliminar-movimiento"]').forEach(item => {
+        item.classList.toggle("desact", !(hayMovimientos || hayFavoritos))
     })
+
+    // Alternancia de los grupos, en una sola consulta.
+    const itemsLastbar = document.querySelectorAll(".lastbar .item")
+    itemsLastbar.forEach(item => {
+        const accion = item.dataset.accion
+        if (ACCIONES_FAVORITO_LASTBAR.includes(accion)) item.hidden = !hayFavoritos
+        else if (ACCIONES_MOVIMIENTO_LASTBAR.includes(accion)) item.hidden = hayFavoritos
+    })
+
+    // Contexto: texto plano vía textContent, nunca innerHTML.
+    const contexto = document.getElementById("lastbar-contexto")
+    if (contexto) {
+        contexto.textContent = textoContextoFavoritos()
+        contexto.hidden = !hayFavoritos
+    }
 }
 
 export async function editarSeleccionados() {
@@ -1566,6 +1602,14 @@ export async function editarSeleccionados() {
 }
 
 export async function eliminarSeleccionados() {
+    // El botón "Eliminar" de la barra es dual. Si hay favoritos marcados se
+    // borran ellos; si no, los movimientos seleccionados. La comprobación va
+    // ANTES del early return: con favoritos marcados no hay movimientos.
+    if (seleccionadosFavoritos.size > 0) {
+        await eliminarSeleccionadosFavoritos()
+        return
+    }
+
     if (seleccionados.size === 0) return
 
     const lista = [...seleccionados]
@@ -1696,10 +1740,55 @@ export async function eliminarSeleccionadosFavoritos() {
     const lista = [...seleccionadosFavoritos]
         .map(id => favoritosCache.find(f => f.id === id))
         .filter(Boolean)
+
+    // La selección se limpia SIEMPRE, incluso si algún id ya no resuelve: si
+    // no, la lastbar se queda con favoritos marcados que no existen.
+    limpiarSeleccionFavoritos()
+    if (!lista.length) return
+
+    await abrirModalEliminarVariosFavoritos(lista)
+}
+
+// ============================================
+// ACCIONES DE FAVORITOS DESDE LA LASTBAR
+// ============================================
+
+/** Editar: abre el modal precargado con el único favorito seleccionado. */
+export async function editarFavoritoSeleccionado() {
+    if (seleccionadosFavoritos.size !== 1) return
+    const id = [...seleccionadosFavoritos][0]
+    await abrirFormularioConFavorito(id)
+}
+
+/**
+ * Ejecutar: crea un movimiento instancia por cada favorito seleccionado, en el
+ * mismo orden en que se seleccionaron. Con varios seleccionados se ejecutan
+ * todos; si uno falla, se avisa y se sigue con los demás.
+ */
+export async function ejecutarFavoritosSeleccionados() {
+    if (seleccionadosFavoritos.size === 0) return
+
+    const lista = [...seleccionadosFavoritos]
+        .map(id => favoritosCache.find(f => f.id === id))
+        .filter(Boolean)
     if (!lista.length) return
 
     limpiarSeleccionFavoritos()
-    await abrirModalEliminarVariosFavoritos(lista)
+
+    for (const favorito of lista) {
+        try {
+            await ejecutarFavorito(uid, favorito)
+        } catch (error) {
+            console.error(`[ERROR] No se pudo ejecutar el favorito "${favorito.nombre}":`, error)
+            mostrarNotificacion("error", `No se pudo ejecutar "${favorito.nombre}"`)
+        }
+    }
+}
+
+/** Cancelar: sale del modo selección y devuelve la lastbar a su estado normal. */
+export function cancelarSeleccionFavoritos() {
+    if (seleccionadosFavoritos.size === 0) return
+    limpiarSeleccionFavoritos()
 }
 
 async function abrirModalEliminarVariosFavoritos(lista) {

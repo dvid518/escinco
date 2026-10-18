@@ -545,6 +545,30 @@
    FAVORITOS DE MOVIMIENTOS (scroll lateral)
    ============================================ */
 
+/* Lastbar de favoritos: el contexto va a la izquierda de la barra.
+   `.lastbar .item` declara `display`, así que el atributo nativo [hidden]
+   no basta por sí solo — el navegador lo respeta solo cuando la regla no
+   fija display. Mismo refuerzo que usan .form-group[hidden] y compañía. */
+.lastbar .item[hidden] {
+    display: none;
+}
+
+.lastbar-contexto {
+    display: inline-flex;
+    align-items: center;
+    max-width: 160px;
+    padding-right: 12px;
+    color: var(--textSecondary);
+    font-size: 0.85rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lastbar-contexto[hidden] {
+    display: none;
+}
+
 #favoritos-movimientos {
     display: flex;
     flex-direction: row;
