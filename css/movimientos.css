@@ -419,6 +419,26 @@
        `.card-item`, que es el único que lo declara. */
 }
 
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado {
+    border-color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 15%, transparent);
+    outline: 2px solid var(--positive);
+    outline-offset: -2px;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado:hover {
+    background: color-mix(in srgb, var(--positive) 20%, transparent);
+}
+
+/* --------------------------------------------
+   PRECIO · esquina superior derecha, roboto mono
+   -------------------------------------------- */
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor {
+    font-family: var(--font-secondary);
+    font-feature-settings: "tnum";
+    margin-left: 0;
+}
+
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor-wrap {
     position: relative;
     display: inline-flex;
@@ -426,10 +446,8 @@
     flex-shrink: 0;
     min-width: 0;
     margin-left: 12px;
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor {
-    margin-left: 0;
+    /* El valor se ancla a la esquina superior derecha de la fila */
+    margin-left: auto;
 }
 
 /* La estrella vive a la izquierda de la fila, como hermana de `.card-item-main`
@@ -626,7 +644,6 @@
     flex-direction: column;
     min-width: 200px;
     max-width: 240px;
-    height: 100%;
     padding: 12px;
     gap: 8px;
     border: 1px solid var(--border);
@@ -637,6 +654,7 @@
     transition: background 0.15s ease, border-color 0.15s ease;
     scroll-snap-align: start;
     flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .favorito-item:hover {

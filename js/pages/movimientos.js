@@ -1,4 +1,5 @@
 import { obtenerMovimientos, obtenerCuentas, actualizarMovimientoDoc } from "../../firebase/firestore.js"
+import { cacheCapa } from "../core/cache.js"
 import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
@@ -249,6 +250,34 @@ async function ejecutarFavoritoDesdeItem(favoritoId) {
     await ejecutarFavorito(uid, favorito)
 }
 
+/**
+ * Ejecuta (repite) un movimiento: si tiene favoritoId, ejecuta ese favorito;
+ * si no, crea una nueva instancia con los mismos datos y fecha de hoy.
+ */
+async function ejecutarFavoritoDesdeMovimiento(m) {
+    if (m.favoritoId) {
+        const favorito = favoritosCache.find(f => f.id === m.favoritoId)
+        if (favorito) {
+            await ejecutarFavorito(uid, favorito)
+            return
+        }
+    }
+    // No es favorito: crear una nueva instancia con los mismos datos
+    if (!esTipoFavoritable(m.tipo)) {
+        mostrarNotificacion("error", `El tipo "${m.tipo}" no se puede ejecutar`)
+        return
+    }
+    await registrarMovimiento(uid, m.tipo, {
+        tipo: m.tipo,
+        cuenta: m.cuenta || '',
+        monto: m.monto,
+        divisa: m.divisa || 'pen',
+        concepto: m.concepto || '',
+        etiquetas: m.etiquetas || [],
+        fechaRealizacion: getFechaHoy()
+    })
+}
+
 async function renderFavoritos(uid) {
     const contenedor = document.getElementById("favoritos-movimientos")
     if (!contenedor) return
@@ -275,7 +304,6 @@ async function renderFavoritos(uid) {
                 "item@class": `favorito-item${seleccionadosFavoritos.has(f.id) ? " seleccionado" : ""}`,
                 nombre: f.nombre,
                 tipo: f.tipo,
-                cuenta: f.cuenta,
                 monto: `${formatearMontoConDivisa(Math.abs(f.monto), f.divisa || "pen")}`
             },
             html: {
@@ -492,6 +520,7 @@ function filaMovimiento(m, cuentaId = null) {
             etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
             "icono-editar": icono("pencil", 16),
             "icono-eliminar": icono("trash", 16),
+            "icono-ejecutar": icono("play", 16),
             "icono-favorito": icono("star", 16)
         }
     }
@@ -626,7 +655,21 @@ async function alternarFavoritoMovimiento(m) {
         }
         await crearFavoritoDesdeMovimiento(uid, m)
     }
-    await cargarMovimientos()
+    // No recargar movimientos completo (evita esqueletos y lecturas de red
+    // innecesarias). Solo invalidar las capas de caché para que la próxima
+    // navegación traiga los datos frescos, y actualizar el estado local de
+    // la estrella en la tarjeta actual sin repintar toda la lista.
+    cacheCapa.invalidarPrefijo(uid, "favoritos")
+    cacheCapa.invalidarPrefijo(uid, "movimientos")
+    const card = document.querySelector(`.card-item[data-id="${m.id}"]`)
+    if (card) {
+        const estrella = card.querySelector(".movimiento-favorito")
+        if (estrella) {
+            estrella.classList.toggle("es-favorito", !m.favoritoId)
+            estrella.setAttribute("aria-label", m.favoritoId ? "Marcar como favorito" : "Quitar de favoritos")
+            estrella.setAttribute("title", m.favoritoId ? "Marcar como favorito" : "Quitar de favoritos")
+        }
+    }
 }
 
 async function manejarClickCard(evento) {
@@ -654,6 +697,8 @@ async function manejarClickCard(evento) {
         if (!m) return
         if (accionBtn.dataset.accion === "editar") {
             abrirFormularioMovimiento(m.tipo, m)
+        } else if (accionBtn.dataset.accion === "ejecutar") {
+            await ejecutarFavoritoDesdeMovimiento(m)
         } else {
             abrirModalEliminarMovimiento(m)
         }
