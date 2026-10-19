@@ -522,7 +522,7 @@ function cerrarSesionConAviso(titulo, mensaje) {
                 onConfirm: async () => {
                     await logout()
                     window.location.replace("/login")
-                    return true
+                    resolve()
                 },
                 onCancel: async () => {
                     await logout()
@@ -739,16 +739,21 @@ function sinSelloActualizacion(preferencias) {
 }
 
 function sonIgualEnProfundidad(a, b, ignorar = []) {
-    for (const clave of ignorar) delete a[clave]
-    for (const clave of ignorar) delete b[clave]
+    // Copia superficial para no mutar los objetos originales al eliminar claves ignoradas
+    const copiaA = { ...a }
+    const copiaB = { ...b }
+    for (const clave of ignorar) {
+        delete copiaA[clave]
+        delete copiaB[clave]
+    }
 
-    const clavesA = Object.keys(a)
-    const clavesB = Object.keys(b)
+    const clavesA = Object.keys(copiaA)
+    const clavesB = Object.keys(copiaB)
     if (clavesA.length !== clavesB.length) return false
 
     for (const clave of clavesA) {
-        const va = a[clave]
-        const vb = b[clave]
+        const va = copiaA[clave]
+        const vb = copiaB[clave]
         if (esObjetoSimple(va) && esObjetoSimple(vb)) {
             if (!sonIgualEnProfundidad(va, vb)) return false
             continue
@@ -1106,13 +1111,13 @@ function construirPreferencias() {
     }
 
     const tiposMovimiento = {
-        cambioDivisa: document.getElementById("toggle-tipo-cambio-divisa")?.checked !== false,
+        cambioDivisa: document.getElementById("toggle-tipo-cambio-divisa")?.checked === true,
         compraActivo: document.getElementById("toggle-tipo-compra-activo")?.checked === true,
         ventaActivo: document.getElementById("toggle-tipo-venta-activo")?.checked === true,
         pagoTarjeta: document.getElementById("toggle-tipo-pago-tarjeta")?.checked === true,
-        p2pCompra: document.getElementById("toggle-tipo-p2p-compra")?.checked !== false,
-        p2pVenta: document.getElementById("toggle-tipo-p2p-venta")?.checked !== false,
-        trade: document.getElementById("toggle-tipo-trade")?.checked !== false
+        p2pCompra: document.getElementById("toggle-tipo-p2p-compra")?.checked === true,
+        p2pVenta: document.getElementById("toggle-tipo-p2p-venta")?.checked === true,
+        trade: document.getElementById("toggle-tipo-trade")?.checked === true
     }
 
     const precios = {
