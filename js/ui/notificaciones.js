@@ -1,5 +1,6 @@
 import { icono } from "../core/iconos.js"
 import { sesion } from "../core/sesion.js"
+import { contenidoDesdeTemplate } from "./modal.js"
 
 // ============================================
 // NOTIFICACIONES
@@ -234,20 +235,21 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
             texto: a.texto ?? a.text ?? "Aceptar"
         }))
 
-    const notificacion = document.createElement("div")
-    notificacion.className = `glass notificacion notificacion-${config.clase}`
+    const fragmento = contenidoDesdeTemplate("tpl-notificacion", {
+        valores: { mensaje },
+        html: { icono: icono(config.icono, 20) }
+    })
+    const notificacion = fragmento.firstElementChild
+    notificacion.classList.add(`notificacion-${config.clase}`)
     notificacion.dataset.id = id
-    notificacion.innerHTML = `
-        <span class="notificacion-icono">${icono(config.icono, 20)}</span>
-        <span class="notificacion-mensaje"></span>
-        ${acciones.map(a => `
-            <button type="button" class="notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}"></button>
-        `).join("")}
-        <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">${icono("x", 16)}</button>
-    `
-    notificacion.querySelector(".notificacion-mensaje").textContent = mensaje
-    notificacion.querySelectorAll(".notificacion-accion").forEach((btn, i) => {
-        btn.textContent = acciones[i]?.texto ?? "Aceptar"
+
+    const contenedorAcciones = notificacion.querySelector(".notificacion-acciones")
+    acciones.forEach((a, i) => {
+        const btn = document.createElement("button")
+        btn.type = "button"
+        btn.className = `notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}`
+        btn.textContent = a.texto ?? "Aceptar"
+        contenedorAcciones.appendChild(btn)
     })
 
     contenedor.appendChild(notificacion)

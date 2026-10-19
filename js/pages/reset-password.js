@@ -2,7 +2,7 @@ import { confirmarNuevaClave } from "../../firebase/auth.js"
 import { initTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
 import { initDoodles } from "../ui/doodles.js"
-import { icono } from "../core/iconos.js"
+import { contenidoDesdeTemplate } from "../ui/modal.js"
 import { pintarVersionPanel } from "../ui/panelVersion.js"
 
 // ============================================
@@ -121,7 +121,13 @@ document.querySelectorAll(".pass-toggle").forEach(boton => {
         if (!input) return
         const esVisible = input.type === "text"
         input.type = esVisible ? "password" : "text"
-        boton.innerHTML = icono(esVisible ? "eye" : "eye-closed", 18)
+        if (esVisible) {
+            const fragmento = contenidoDesdeTemplate("tpl-icono-ojo-abierto")
+            boton.replaceChildren(fragmento.firstElementChild)
+        } else {
+            const fragmento = contenidoDesdeTemplate("tpl-icono-ojo-cerrado")
+            boton.replaceChildren(fragmento.firstElementChild)
+        }
         boton.setAttribute("aria-label", esVisible ? "Mostrar contraseña" : "Ocultar contraseña")
     })
 })

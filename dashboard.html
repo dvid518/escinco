@@ -2822,6 +2822,79 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="modal-message"><p class="modal-message-desc" data-tpl="texto"></p></div>
     </template>
 
+    <template id="tpl-notificacion">
+        <div class="glass notificacion" data-tpl="notificacion">
+            <span class="notificacion-icono" data-tpl="icono"></span>
+            <span class="notificacion-mensaje" data-tpl="mensaje"></span>
+            <div class="notificacion-acciones" data-tpl="acciones-contenedor"></div>
+            <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon">
+                    <path d="M18 6 6 18"/>
+                    <path d="m6 6 12 12"/>
+                </svg>
+            </button>
+        </div>
+    </template>
+
+    <template id="tpl-panel-version">
+        <a class="panel-version-link" href="/" aria-label="Conoce más sobre la versión">
+            <span class="panel-version-brand" data-tpl="nombre"></span>
+        </a>
+        <button class="panel-version-numero panel-version-boton" type="button" aria-label="Ver las novedades de esta versión">
+            <span class="panel-version-numero-texto" data-tpl="numero"></span>
+        </button>
+    </template>
+
+    <template id="tpl-pendiente-acciones-bloqueado">
+        <button type="button" class="glass-btn" data-pendiente-accion="editar">
+            <span data-tpl="icono-editar"></span> Editar
+        </button>
+        <button type="button" class="glass-btn" data-pendiente-accion="consolidar">
+            <span data-tpl="icono-consolidar"></span> Consolidar
+        </button>
+        <button type="button" class="glass-btn danger" data-pendiente-accion="eliminar">
+            <span data-tpl="icono-eliminar"></span> Eliminar
+        </button>
+    </template>
+
+    <template id="tpl-pendiente-acciones-desbloqueado">
+        <button type="button" class="glass-btn" data-pendiente-accion="cancelar">Cancelar</button>
+        <button type="button" class="modal-btn modal-btn-primary" data-pendiente-accion="guardar">Guardar cambios</button>
+    </template>
+
+    <template id="tpl-icono-ojo-abierto">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye preview-icon">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+            <circle cx="12" cy="12" r="3"/>
+        </svg>
+    </template>
+
+    <template id="tpl-icono-ojo-cerrado">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye-closed preview-icon">
+            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-7-7 0-7s7 0 7 7z"/>
+            <path d="M18.5 18.5A2.4 2.4 0 0 1 20 19c0-1.4-.25-2.8-.5-4"/></svg>
+    </template>
+
+    <template id="tpl-icono-sol">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sun preview-icon">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 2v2"/>
+            <path d="M12 20v2"/>
+            <path d="m4.93 4.93 1.41 1.41"/>
+            <path d="m17.66 17.66 1.41 1.41"/>
+            <path d="M2 12h2"/>
+            <path d="M20 12h2"/>
+            <path d="m6.34 17.66-1.41 1.41"/>
+            <path d="m19.07 4.93-1.41 1.41"/>
+        </svg>
+    </template>
+
+    <template id="tpl-icono-luna">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon preview-icon">
+            <path d="M12 3a6 6 0 0 0 9 9 9 9 0 0 1-9-9Z"/>
+        </svg>
+    </template>
+
     <template id="tpl-lista-vacio-hint">
         <p class="lista-vacia">
             <span data-tpl="texto"></span>

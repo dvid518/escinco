@@ -1,4 +1,5 @@
 import { VERSION } from "../../constants/version.js"
+import { contenidoDesdeTemplate } from "./modal.js"
 
 // ============================================
 // VERSIÓN EN EL BORDE INFERIOR DEL PANEL
@@ -18,12 +19,13 @@ export function pintarVersionPanel() {
         if (destino.dataset.versionPintada === "true") continue
         destino.dataset.versionPintada = "true"
         destino.classList.add(CLASE)
-        destino.innerHTML = `
-            <a class="panel-version-link" href="/" aria-label="Conoce más sobre ${VERSION.nombre}">
-                <span class="panel-version-brand">${VERSION.nombre}</span>
-            </a>
-            <button class="panel-version-numero panel-version-boton" type="button" aria-label="Ver las novedades de esta versión">v${VERSION.numero}</button>
-        `
+        const fragmento = contenidoDesdeTemplate("tpl-panel-version", {
+            valores: {
+                nombre: VERSION.nombre,
+                numero: `v${VERSION.numero}`
+            }
+        })
+        destino.appendChild(fragmento.firstElementChild)
         destino.querySelector(".panel-version-boton")?.addEventListener("click", () => {
             import("./changelog.js").then(m => m.abrirModalChangelog())
         })

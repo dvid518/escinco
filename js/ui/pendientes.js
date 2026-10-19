@@ -629,22 +629,13 @@ function renderizarAccionesVistaPendiente(modalEl, bloqueado) {
     const contenedor = modalEl.querySelector("#detalle-pendiente-acciones")
     if (!contenedor) return
 
-    contenedor.innerHTML = bloqueado
-        ? `
-            <button type="button" class="glass-btn" data-pendiente-accion="editar">
-                ${icono("pencil", 15)} Editar
-            </button>
-            <button type="button" class="glass-btn" data-pendiente-accion="consolidar">
-                ${icono("circle-check", 15)} Consolidar
-            </button>
-            <button type="button" class="glass-btn danger" data-pendiente-accion="eliminar">
-                ${icono("trash", 15)} Eliminar
-            </button>
-        `
-        : `
-            <button type="button" class="glass-btn" data-pendiente-accion="cancelar">Cancelar</button>
-            <button type="button" class="modal-btn modal-btn-primary" data-pendiente-accion="guardar">Guardar cambios</button>
-        `
+    if (bloqueado) {
+        const fragmento = contenidoDesdeTemplate("tpl-pendiente-acciones-bloqueado")
+        contenedor.replaceChildren(fragmento)
+    } else {
+        const fragmento = contenidoDesdeTemplate("tpl-pendiente-acciones-desbloqueado")
+        contenedor.replaceChildren(fragmento)
+    }
 }
 
 async function manejarAccionVistaPendiente(accion, pendiente, modalEl, uid) {

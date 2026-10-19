@@ -1,7 +1,7 @@
 import { initTemaLocal, getTemaLocal, aplicarTema } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
-import { icono } from "../core/iconos.js"
 import { VERSION } from "../../constants/version.js"
+import { contenidoDesdeTemplate } from "../ui/modal.js"
 import { crearGraficoPatrimonio, crearGraficoDistribucion } from "../ui/graficos.js"
 
 // ============================================
@@ -202,7 +202,14 @@ function initBotonTema() {
     if (!boton || !iconoSlot) return
 
     const pintar = (modo = getTemaLocal()) => {
-        iconoSlot.innerHTML = icono(ICONO_POR_MODO[modo] || "sun", 18)
+        const iconoTemplate = ICONO_POR_MODO[modo] === "dark" ? "tpl-icono-luna" : "tpl-icono-sol"
+        if (iconoTemplate === "tpl-icono-sol") {
+            const fragmento = contenidoDesdeTemplate("tpl-icono-sol")
+            iconoSlot.replaceChildren(fragmento.firstElementChild)
+        } else {
+            const fragmento = contenidoDesdeTemplate("tpl-icono-luna")
+            iconoSlot.replaceChildren(fragmento.firstElementChild)
+        }
         boton.setAttribute("aria-label", `Tema: ${NOMBRES_TEMA[modo] || "Modo de color"}`)
     }
 
