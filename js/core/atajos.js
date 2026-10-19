@@ -3,6 +3,7 @@ import { navigateTo } from "./router.js"
 import { sesion } from "./sesion.js"
 import { etiquetaDivisa } from "../services/DivisaServicio.js"
 import { CONFIG_MOVIMIENTOS } from "../../constants/tiposMovimiento.js"
+import { contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 
 // ============================================
 // BÚSCADOR GLOBAL
@@ -58,22 +59,29 @@ export async function abrirBuscadorGlobal() {
 
     function renderResultados() {
         if (resultados.length === 0) {
-            resultadosContainer.innerHTML = `<p class="lista-vacia">No se encontraron resultados.</p>`
+            const fragmento = contenidoDesdeTemplate("tpl-buscador-resultado-vacio")
+            resultadosContainer.replaceChildren(fragmento.firstElementChild)
             return
         }
 
-        resultadosContainer.innerHTML = resultados.map((r, i) => `
-            <div class="buscador-resultado${i === indice ? " seleccionado" : ""}" data-tipo="${r.tipo}">
-                <span class="buscador-icono">${icono(ICONO_POR_TIPO[r.tipo] || "list", 16)}</span>
-                <span class="buscador-concepto"></span>
-                <span class="buscador-detalle"></span>
-            </div>
-        `).join("")
+        const filas = resultados.map((r, i) => ({
+            valores: {
+                "item@data-tipo": r.tipo,
+                "item@class": `buscador-resultado${i === indice ? " seleccionado" : ""}`,
+                concepto: r.concepto || "-",
+                detalle: r.detalle || ""
+            },
+            html: {
+                icono: icono(ICONO_POR_TIPO[r.tipo] || "list", 16)
+            }
+        }))
+        const fragmento = contenidoDesdeFilas("tpl-buscador-resultado", filas)
+        resultadosContainer.replaceChildren(fragmento)
 
         // El texto del usuario se inserta con textContent (nunca con innerHTML).
-        const filas = items()
+        const filasDOM = items()
         resultados.forEach((r, i) => {
-            const fila = filas[i]
+            const fila = filasDOM[i]
             if (!fila) return
             fila.querySelector(".buscador-concepto").textContent = r.concepto || "-"
             fila.querySelector(".buscador-detalle").textContent = r.detalle || ""
