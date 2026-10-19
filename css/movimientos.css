@@ -334,14 +334,29 @@
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado {
-    border-color: var(--positive);
-    background: color-mix(in srgb, var(--positive) 15%, transparent);
-    outline: 2px solid var(--positive);
-    outline-offset: -2px;
+    border-color: var(--text);
+    background: var(--backgroundAlt);
+    box-shadow: inset 0 0 0 1px var(--shadow);
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado:hover {
-    background: color-mix(in srgb, var(--positive) 20%, transparent);
+    background: var(--backgroundAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-titulo {
+    color: var(--textAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-detalle {
+    color: var(--surface);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-valor-wrap .card-item-valor.positive {
+    color: var(--positiveAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-valor-wrap .card-item-valor.negative {
+    color: var(--negativeAlt);
 }
 
 /* --------------------------------------------
@@ -632,14 +647,14 @@
 }
 
 .favorito-item.seleccionado {
-    border-color: var(--positive);
-    background: color-mix(in srgb, var(--positive) 15%, transparent);
-    outline: 2px solid var(--positive);
-    outline-offset: -2px;
+    border-color: var(--text);
+    background: var(--backgroundAlt);
+    box-shadow: inset 0 0 0 1px var(--shadow);
+    outline: none;
 }
 
 .favorito-item.seleccionado:hover {
-    background: color-mix(in srgb, var(--positive) 20%, transparent);
+    background: var(--backgroundAlt);
 }
 
 /* Botón ejecutar dentro de cada favorito (estilo escinco: mismo que los
