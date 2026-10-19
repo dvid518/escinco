@@ -712,8 +712,6 @@ async function manejarClickCard(evento) {
         if (!m) return
         if (accionBtn.dataset.accion === "editar") {
             abrirFormularioMovimiento(m.tipo, m)
-        } else if (accionBtn.dataset.accion === "ejecutar") {
-            await ejecutarFavoritoDesdeMovimiento(m)
         } else {
             abrirModalEliminarMovimiento(m)
         }
