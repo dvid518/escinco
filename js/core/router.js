@@ -385,7 +385,14 @@ async function renderPage(page) {
 
         const footer = document.getElementById('app-footer')
         if (footer) {
-            footer.innerHTML = getLastbar(page)
+            // Solo reemplazar el contenido de la lastbar, no todo el footer,
+            // para no perder otros elementos que puedan añadirse en el futuro.
+            const lastbarExistente = footer.querySelector('.lastbar')
+            if (lastbarExistente) {
+                lastbarExistente.innerHTML = getLastbar(page)
+            } else {
+                footer.innerHTML = getLastbar(page)
+            }
             activarTooltipsLastbar()
             aplicarModoLastbarPersistido()
         }

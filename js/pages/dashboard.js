@@ -1614,6 +1614,37 @@ const CONTADORES_DASHBOARD = [
     "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"
 ]
 
+function limpiarEsqueletosDashboard() {
+    const listas = ["movimientos-lista", "favoritos-lista", "metas-lista", "presupuestos-lista",
+        "pendientes-lista", "ordenes-lista", "estrategias-lista", "distribucion-lista",
+        "distribucion-activos-lista", "patrimonio-divisa-lista", "programados-lista", "alertas-lista"]
+    listas.forEach(id => {
+        const lista = document.getElementById(id)
+        if (lista) lista.innerHTML = ""
+    })
+    const dona = document.getElementById("distribucion-dona-placeholder")
+    if (dona) dona.innerHTML = ""
+    const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
+        "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
+    valores.forEach(id => {
+        const valor = document.getElementById(id)
+        if (valor) valor.innerHTML = ""
+    })
+    const detalles = ["patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+        "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle", "balance-periodo-detalle",
+        "ordenes-detalle"]
+    detalles.forEach(id => {
+        const detalle = document.getElementById(id)
+        if (detalle) detalle.innerHTML = ""
+    })
+    const contadores = ["favoritos-cantidad", "pendientes-cantidad", "ordenes-cantidad",
+        "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"]
+    contadores.forEach(id => {
+        const contador = document.getElementById(id)
+        if (contador) contador.innerHTML = ""
+    })
+}
+
 function mostrarEsqueletosDashboard() {
     const dashboard = document.querySelector(".dashboard")
     dashboard?.setAttribute("aria-busy", "true")
@@ -1781,6 +1812,7 @@ async function cargarTodo() {
     } catch (error) {
         console.error("Error cargando dashboard:", error)
         mostrarErrorCarga()
+        limpiarEsqueletosDashboard()
     }
 }
 

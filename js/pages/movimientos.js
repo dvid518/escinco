@@ -498,6 +498,9 @@ function mostrarError() {
     container.replaceChildren(contenidoDesdeTemplate("tpl-lista-error", {
         valores: { texto: "Error al cargar movimientos" }
     }))
+    // También limpiar el contenedor de totales para que no se quede con esqueleto
+    const totales = document.getElementById("totales-movimientos")
+    if (totales) totales.innerHTML = ""
 }
 
 // ============================================

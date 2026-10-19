@@ -463,8 +463,18 @@ function mostrarEsqueletosCuentas() {
     const panel = document.getElementById("panel")
     sidebar?.setAttribute("aria-busy", "true")
     panel?.setAttribute("aria-busy", "true")
-    if (sidebar) sidebar.innerHTML = skeletonMarkup({ variant: "sidebar", rows: 4 })
-    if (panel) panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
+    // Reemplazar solo los hijos, no el contenedor, para no perder
+    // otros elementos que puedan vivir dentro de sidebar o panel.
+    if (sidebar) {
+        const esqueleto = document.createElement("div")
+        esqueleto.innerHTML = skeletonMarkup({ variant: "sidebar", rows: 4 })
+        sidebar.replaceChildren(esqueleto.firstElementChild)
+    }
+    if (panel) {
+        const esqueleto = document.createElement("div")
+        esqueleto.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
+        panel.replaceChildren(esqueleto.firstElementChild)
+    }
 }
 
 async function cargarCuentas() {
