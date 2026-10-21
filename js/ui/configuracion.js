@@ -10,7 +10,7 @@ import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, formatearMontoConD
 import { aplicarTema, setTemaLocal } from "../core/tema.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { accionExportar } from "./exportar.js"
-import { skeletonMarkup, skeletonText } from "./skeletons.js"
+import { esqueletoContenedor, esqueletoTexto } from "./skeletons.js"
 import { envolverSidebar } from "./colapsoSidebar.js"
 import { montarSelectorEtiquetas } from "./etiquetas.js"
 
@@ -89,7 +89,7 @@ function plantillaConfiguracion() {
             "tc-eur-usd@placeholder": TIPO_CAMBIO_DEFAULT.eur_usd
         },
         html: {
-            skeleton: skeletonMarkup({ variant: "settings", rows: 6 }),
+            skeleton: esqueletoContenedor("settings", 6),
             "nav-botones": navBotones,
             "movimientos-recientes": movimientosRecientes
         }
@@ -948,8 +948,8 @@ async function actualizarTipoCambioAutomatico() {
     const fechaAuto = document.getElementById("tc-fecha-auto")
 
     autoBox?.setAttribute("aria-busy", "true")
-    if (valorAuto) valorAuto.innerHTML = skeletonMarkup({ rows: 1, className: "skeleton-exchange" })
-    if (fechaAuto) fechaAuto.innerHTML = skeletonText()
+    if (valorAuto) valorAuto.replaceChildren(esqueletoContenedor("list", 1, "skeleton-exchange"))
+    if (fechaAuto) fechaAuto.replaceChildren(esqueletoTexto())
 
     if (status) {
         status.hidden = true
