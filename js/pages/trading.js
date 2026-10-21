@@ -13,7 +13,7 @@ import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
 import { icono } from "../core/iconos.js"
-import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
+import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
@@ -100,11 +100,11 @@ function iniciarCargaVisible() {
     const lista = document.getElementById("lista-trades")
     panel?.setAttribute("aria-busy", "true")
     lista?.setAttribute("aria-busy", "true")
-    if (lista) lista.innerHTML = skeletonMarkup({ rows: 4 })
+    if (lista) lista.replaceChildren(esqueletoContenedor("list", 4))
     const resumenIds = ["pnl-total", "total-abiertos", "total-cerrados"]
     resumenIds.forEach(id => {
         const valor = document.getElementById(id)
-        if (valor) valor.innerHTML = skeletonText(id === "pnl-total" ? "skeleton-value-large" : "skeleton-value")
+        if (valor) valor.replaceChildren(esqueletoTexto(id === "pnl-total" ? "skeleton-value-large" : "skeleton-value"))
     })
 }
 
@@ -401,7 +401,7 @@ function cambiarVista(vista) {
 
     if (cargasVisibles > 0) {
         const lista = document.getElementById("lista-trades")
-        if (lista) lista.innerHTML = skeletonMarkup({ rows: 4 })
+        if (lista) lista.replaceChildren(esqueletoContenedor("list", 4))
     } else if (vistaActual === "ordenes" && ordenesCargadas) {
         renderizarOrdenes()
     } else if (vistaActual === "trades" && datosTrades) {
