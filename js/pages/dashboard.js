@@ -35,7 +35,7 @@ import { abrirModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/m
 import { abrirModalPresupuestos, abrirModalEditarPresupuesto } from "../ui/presupuestos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
-import { skeletonMarkup, skeletonText } from "../ui/skeletons.js"
+import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 
 import { obtenerMetas } from "../repositories/MetaRepositorio.js"
 import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
@@ -1620,28 +1620,28 @@ function limpiarEsqueletosDashboard() {
         "distribucion-activos-lista", "patrimonio-divisa-lista", "programados-lista", "alertas-lista"]
     listas.forEach(id => {
         const lista = document.getElementById(id)
-        if (lista) lista.innerHTML = ""
+        if (lista) lista.replaceChildren()
     })
     const dona = document.getElementById("distribucion-dona-placeholder")
-    if (dona) dona.innerHTML = ""
+    if (dona) dona.replaceChildren()
     const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
         "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
     valores.forEach(id => {
         const valor = document.getElementById(id)
-        if (valor) valor.innerHTML = ""
+        if (valor) valor.replaceChildren()
     })
     const detalles = ["patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
         "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle", "balance-periodo-detalle",
         "ordenes-detalle"]
     detalles.forEach(id => {
         const detalle = document.getElementById(id)
-        if (detalle) detalle.innerHTML = ""
+        if (detalle) detalle.replaceChildren()
     })
     const contadores = ["favoritos-cantidad", "pendientes-cantidad", "ordenes-cantidad",
         "estrategias-cantidad", "programados-cantidad", "alertas-cantidad"]
     contadores.forEach(id => {
         const contador = document.getElementById(id)
-        if (contador) contador.innerHTML = ""
+        if (contador) contador.replaceChildren()
     })
 }
 
@@ -1650,21 +1650,27 @@ function mostrarEsqueletosDashboard() {
     dashboard?.setAttribute("aria-busy", "true")
     LISTAS_DASHBOARD.forEach(({ id, filas, clase }) => {
         const lista = document.getElementById(id)
-        if (lista) lista.innerHTML = skeletonMarkup({ rows: filas, className: clase || "skeleton-dashboard-list" })
+        if (lista) lista.replaceChildren(esqueletoContenedor("list", filas, clase || "skeleton-dashboard-list"))
     })
     const dona = document.getElementById("distribucion-dona-placeholder")
-    if (dona) dona.innerHTML = `<div class="dona-esqueleto" aria-hidden="true"></div>`
+    if (dona) {
+        dona.replaceChildren()
+        const div = document.createElement("div")
+        div.className = "dona-esqueleto"
+        div.setAttribute("aria-hidden", "true")
+        dona.appendChild(div)
+    }
     VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
-        if (valor) valor.innerHTML = skeletonText("skeleton-value")
+        if (valor) valor.replaceChildren(esqueletoTexto("skeleton-value"))
     })
     DETALLES_DASHBOARD.forEach(id => {
         const detalle = document.getElementById(id)
-        if (detalle) detalle.innerHTML = skeletonText()
+        if (detalle) detalle.replaceChildren(esqueletoTexto())
     })
     CONTADORES_DASHBOARD.forEach(id => {
         const contador = document.getElementById(id)
-        if (contador) contador.innerHTML = skeletonText("skeleton-badge")
+        if (contador) contador.replaceChildren(esqueletoTexto("skeleton-badge"))
     })
     mostrarEstadoGrafico("cargando", "")
 }
