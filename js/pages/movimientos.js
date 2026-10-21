@@ -4,7 +4,7 @@ import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { getFechaHoy } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
-import { skeletonMarkup } from "../ui/skeletons.js"
+import { skeletonMarkup, esqueletoContenedor } from "../ui/skeletons.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import {
@@ -474,8 +474,8 @@ async function cargarMovimientos() {
     const totales = document.getElementById("totales-movimientos")
     container?.setAttribute("aria-busy", "true")
     totales?.setAttribute("aria-busy", "true")
-    if (container) container.innerHTML = skeletonMarkup({ rows: 4 })
-    if (totales) totales.innerHTML = skeletonMarkup({ rows: 1, className: "skeleton-totals" })
+    if (container) container.replaceChildren(esqueletoContenedor("list", 4))
+    if (totales) totales.replaceChildren(esqueletoContenedor("list", 1, "skeleton-totals"))
     try {
         movimientos = await obtenerMovimientos(uid)
         movimientos.sort(compararMovimientosPorFecha)
@@ -500,7 +500,7 @@ function mostrarError() {
     }))
     // También limpiar el contenedor de totales para que no se quede con esqueleto
     const totales = document.getElementById("totales-movimientos")
-    if (totales) totales.innerHTML = ""
+    if (totales) totales.replaceChildren()
 }
 
 // ============================================
