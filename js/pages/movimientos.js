@@ -1526,19 +1526,16 @@ function renderizarAccionesDetalle(modalEl, bloqueado) {
     const contenedor = modalEl.querySelector("#detalle-acciones")
     if (!contenedor) return
 
-    contenedor.innerHTML = bloqueado
-        ? `
-            <button type="button" class="glass-btn" data-detalle-accion="editar">
-                ${icono("pencil", 15)} Editar
-            </button>
-            <button type="button" class="glass-btn danger" data-detalle-accion="eliminar">
-                ${icono("trash", 15)} Eliminar
-            </button>
-        `
-        : `
-            <button type="button" class="modal-btn modal-btn-primary" data-detalle-accion="guardar">Guardar cambios</button>
-            <button type="button" class="glass-btn cancel" data-detalle-accion="cancelar">Cancelar</button>
-        `
+    contenedor.replaceChildren(contenidoDesdeTemplate(bloqueado
+        ? "tpl-detalle-acciones-bloqueado"
+        : "tpl-detalle-acciones-desbloqueado",
+        {
+            html: {
+                "icono-editar": icono("pencil", 15),
+                "icono-eliminar": icono("trash", 15)
+            }
+        }
+    ))
 }
 
 function bloquearFormulario(bloquear) {
