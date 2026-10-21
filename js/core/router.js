@@ -146,9 +146,20 @@ function restaurarScroll(estado) {
     })
 }
 
+let transicionActiva = false
+
 function transicionPagina(callback) {
     const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     if (reducido || typeof document.startViewTransition !== "function") {
+        callback()
+        return Promise.resolve()
+    }
+
+    // Evita lanzar startViewTransition mientras otra transicion ya está en
+    // curso: el navegador abortaría la anterior con InvalidStateError y
+    // dejaría un "Uncaught (in promise)". Si hay una activa, se ejecuta el
+    // callback directamente y la navegación continúa sin animación.
+    if (transicionActiva) {
         callback()
         return Promise.resolve()
     }
@@ -158,6 +169,7 @@ function transicionPagina(callback) {
     // promesas que devuelve, porque si una transicion se aborta (otra en curso,
     // pestaña en segundo plano, navegacion durante el pintado) `ready` y
     // `finished` rechazan, y sin manejarlas sale un "Uncaught (in promise)".
+    transicionActiva = true
     try {
         const transicion = document.startViewTransition(callback)
         return Promise.all([
@@ -171,6 +183,8 @@ function transicionPagina(callback) {
         console.warn("[WARN] Transicion de vista omitida:", error?.message || error)
         callback()
         return Promise.resolve()
+    } finally {
+        transicionActiva = false
     }
 }
 
@@ -211,6 +225,12 @@ export async function loadPage(page) {
     if (pageModules[page]) {
         try {
             await renderPage(page)
+            // Otra navegación pudo ganar durante el render
+            if (id !== navId) {
+                console.log(`[INFO] Render ${id} abortado (ganó ${navId})`)
+                finalizarCargaNavegacion(id)
+                return
+            }
             if (pageModules[page].init) {
                 await pageModules[page].init()
                 // Abortar si otra navegación ganó
@@ -248,6 +268,13 @@ export async function loadPage(page) {
         pageModules[page] = module
         delete fallosPorPagina[page]  // Éxito → reiniciar contador
         await renderPage(page)
+
+        // Otra navegación pudo ganar durante el render
+        if (id !== navId) {
+            console.log(`[INFO] Render ${id} abortado (ganó ${navId})`)
+            finalizarCargaNavegacion(id)
+            return
+        }
 
         if (module.init) {
             await module.init()
@@ -380,7 +407,13 @@ async function renderPage(page) {
         }
 
         container.setAttribute("tabindex", "-1")
-        const html = module.render ? module.render() : `<div></div>`
+        let html
+        try {
+            html = module.render ? module.render() : `<div></div>`
+        } catch (error) {
+            console.error(`[ERROR] Error renderizando página "${page}":`, error)
+            throw error
+        }
         container.innerHTML = html
 
         const footer = document.getElementById('app-footer')
@@ -388,10 +421,14 @@ async function renderPage(page) {
             // Solo reemplazar el contenido de la lastbar, no todo el footer,
             // para no perder otros elementos que puedan añadirse en el futuro.
             const lastbarExistente = footer.querySelector('.lastbar')
-            if (lastbarExistente) {
-                lastbarExistente.innerHTML = getLastbar(page)
-            } else {
-                footer.innerHTML = getLastbar(page)
+            try {
+                if (lastbarExistente) {
+                    lastbarExistente.innerHTML = getLastbar(page)
+                } else {
+                    footer.innerHTML = getLastbar(page)
+                }
+            } catch (error) {
+                console.error(`[ERROR] Error renderizando lastbar de "${page}":`, error)
             }
             activarTooltipsLastbar()
             aplicarModoLastbarPersistido()
@@ -470,14 +507,15 @@ function setupNavigation() {
 
     // El engranaje lleva a la configuración: ventana o página, según la
     // preferencia. navigateTo() decide cuál de las dos cosas es.
-    document.addEventListener('click', (evento) => {
+    const configHandler = (evento) => {
         const boton = evento.target.closest?.('[data-abrir-configuracion]')
         if (!boton) return
         evento.preventDefault()
         navigateTo(RUTA_CONFIGURACION)
-    })
+    }
+    document.addEventListener('click', configHandler)
 
-    document.addEventListener('click', (evento) => {
+    const linkHandler = (evento) => {
         const link = evento.target.closest?.('a[data-page]')
         if (!link) return
         if (evento.defaultPrevented || evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return
@@ -485,17 +523,23 @@ function setupNavigation() {
         evento.preventDefault()
         console.log("[INFO] Link clickeado:", page)
         navigateTo(`/${page}`)
-    })
+    }
+    document.addEventListener('click', linkHandler)
 
     const preloadLink = link => precargarPagina(link?.dataset?.page || 'dashboard')
-    document.addEventListener('pointerover', evento => {
+    const pointeroverHandler = (evento) => {
         const link = evento.target.closest?.('a[data-page]')
         if (link && !link.contains(evento.relatedTarget)) preloadLink(link)
-    })
-    document.addEventListener('focusin', evento => {
+    }
+    document.addEventListener('pointerover', pointeroverHandler)
+    const focusinHandler = (evento) => {
         const link = evento.target.closest?.('a[data-page]')
         if (link) preloadLink(link)
-    })
+    }
+    document.addEventListener('focusin', focusinHandler)
+
+    // Guardar referencias para poder remover los listeners si se necesita
+    setupNavigation.handlers = { configHandler, linkHandler, pointeroverHandler, focusinHandler }
 }
 
 window.addEventListener('popstate', (event) => {

@@ -28,9 +28,9 @@ export async function initApp() {
     if (bootEnProgreso) return
     bootEnProgreso = true
 
-    // Timeout de seguridad: si en 5 s el arranque no termina,
+    // Timeout de seguridad: si en 10 s el arranque no termina,
     // se quita el .loading igualmente (evita pantalla negra).
-    setTimeout(mostrarAvisoTimeout, 5000)
+    const timeoutBoot = setTimeout(mostrarAvisoTimeout, 10000)
 
     observeAuth(async (user) => {
         if (bootFinalizado) return
@@ -42,6 +42,7 @@ export async function initApp() {
         // por la copia del SW en caché, no solo desde auth.js.
         if (!user || !user.emailVerified) {
             quitarCarga()
+            clearTimeout(timeoutBoot)
             // El dashboard exige sesión: sin ella se va a /login. La landing
             // pública vive en "/" y no redirige, así que mandar aquí a "/"
             // mostraría la presentación en vez del panel.
@@ -49,22 +50,26 @@ export async function initApp() {
             return
         }
 
-        sesion.setUsuario({
-            uid: user.uid,
-            email: user.email,
-            nombre: user.displayName || "Usuario"
-        })
-        console.log("[INFO] Usuario autenticado:", user.uid)
-
         try {
-            await asegurarCuentaEfectivoInicial(user.uid, user)
-            // Limpieza puntual: borra las 8 etiquetas principales que se
-            // sembraban por cuenta. Las 5 categorías del sistema ya no están
-            // aquí (viven en el código), así que el catálogo se queda solo con
-            // lo que creó el usuario. Va antes de leer preferencias para que
-            // nada pins un catálogo con las viejas.
-            await eliminarEtiquetasPrincipales(user.uid)
-            const prefs = await obtenerPreferencias(user.uid)
+            sesion.setUsuario({
+                uid: user.uid,
+                email: user.email,
+                nombre: user.displayName || "Usuario"
+            })
+            console.log("[INFO] Usuario autenticado:", user.uid)
+
+            // Las tres llamadas son independientes: se lanzan en paralelo para
+            // no sumar sus latencias en serie. Si una falla, las otras ya están
+            // en marcha y el catch de abajo continúa con valores por defecto.
+            const [, , prefs] = await Promise.all([
+                asegurarCuentaEfectivoInicial(user.uid, user),
+                // Limpieza puntual: borra las 8 etiquetas principales que se
+                // sembraban por cuenta. Las 5 categorías del sistema ya no están
+                // aquí (viven en el código), así que el catálogo se queda solo
+                // con lo que creó el usuario.
+                eliminarEtiquetasPrincipales(user.uid),
+                obtenerPreferencias(user.uid)
+            ])
             if (prefs) {
                 sesion.setPreferencias(prefs)
                 console.log("[INFO] Preferencias cargadas:", prefs)
@@ -103,12 +108,19 @@ export async function initApp() {
             }
 
             await new Promise(resolve => setTimeout(resolve, 50))
+            clearTimeout(timeoutBoot)
             finalizarBoot()
         } catch (error) {
             console.error("[ERROR] Error inicializando la app:", error)
+            clearTimeout(timeoutBoot)
             finalizarBoot()
             mostrarErrorBoot(error)
         }
+    }).catch(error => {
+        console.error("[ERROR] Error en el observer de auth:", error)
+        clearTimeout(timeoutBoot)
+        finalizarBoot()
+        mostrarErrorBoot(error)
     })
 }
 
@@ -190,4 +202,6 @@ function mostrarErrorBoot(error) {
     contenido.replaceChildren(aviso)
 }
 
-document.addEventListener("DOMContentLoaded", initApp)
+document.addEventListener("DOMContentLoaded", () => initApp().catch(error => {
+    console.error("[ERROR] Error en initApp:", error)
+}))

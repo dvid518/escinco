@@ -262,7 +262,24 @@ export async function logout() {
 // ============================================
 
 export function observeAuth(callback) {
-    return onAuthStateChanged(auth, callback)
+    // onAuthStateChanged devuelve una función de desregistro (unsubscribe),
+    // no una Promise. Devolvemos una Promise que se resuelve tras la primera
+    // notificación del callback, para que se pueda usar .catch() y no rompa
+    // el boot de la app si el callback async lanza.
+    let unsubscribe = null
+    const promesa = new Promise((resolve, reject) => {
+        unsubscribe = onAuthStateChanged(auth, async (user) => {
+            try {
+                await callback(user)
+                resolve()
+            } catch (error) {
+                reject(error)
+            }
+        })
+    })
+    // Exponer el unsubscribe para quien necesite cancelar la observación.
+    promesa.unsubscribe = unsubscribe
+    return promesa
 }
 
 // ============================================
