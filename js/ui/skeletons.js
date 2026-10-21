@@ -134,9 +134,11 @@ export function esqueletoChart() {
 }
 
 export function esqueletoContenedor(variant = "list", filas = 4, className = "", label = "Cargando datos") {
-    const contenedor = contenidoDesdeTemplate("tpl-esqueleto-contenedor")
+    const contenedor = document.createElement("div")
     contenedor.className = `skeleton skeleton-${variant} ${className}`.trim()
+    contenedor.setAttribute("role", "status")
     contenedor.setAttribute("aria-label", label)
+    contenedor.setAttribute("aria-busy", "true")
 
     let contenido
     switch (variant) {
