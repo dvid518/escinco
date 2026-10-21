@@ -2954,6 +2954,68 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span data-tpl="icono"></span>
     </template>
 
+    <!-- Esqueletos de carga (reemplazan skeletonMarkup/skeletonText por innerHTML). -->
+    <template id="tpl-esqueleto-item">
+        <div class="skeleton-item">
+            <div class="skeleton-lines">
+                <span class="skeleton skeleton-line skeleton-line-wide" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line" aria-hidden="true"></span>
+            </div>
+            <span class="skeleton skeleton-line skeleton-line-value" aria-hidden="true"></span>
+        </div>
+    </template>
+
+    <template id="tpl-esqueleto-panel">
+        <div class="skeleton-panel">
+            <div class="skeleton-panel-info">
+                <span class="skeleton skeleton-circle skeleton-circle-large" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line skeleton-line-wide" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line skeleton-line-short" aria-hidden="true"></span>
+            </div>
+            <div class="skeleton-panel-list" data-tpl="lista"></div>
+        </div>
+    </template>
+
+    <template id="tpl-esqueleto-settings">
+        <div class="skeleton-setting">
+            <div class="skeleton-lines">
+                <span class="skeleton skeleton-line skeleton-line-medium" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line skeleton-line-short" aria-hidden="true"></span>
+            </div>
+            <span class="skeleton skeleton-pill" aria-hidden="true"></span>
+        </div>
+    </template>
+
+    <template id="tpl-esqueleto-sidebar">
+        <div class="cuenta-sidebar-item">
+            <button type="button" class="glass cuenta-sidebar-btn" disabled aria-hidden="true">
+                <span class="skeleton skeleton-sidebar-icon" aria-hidden="true"></span>
+                <span class="skeleton skeleton-line skeleton-sidebar-line" aria-hidden="true"></span>
+            </button>
+        </div>
+    </template>
+
+    <template id="tpl-esqueleto-chart">
+        <span class="skeleton skeleton-grafico-bloque" aria-hidden="true"></span>
+    </template>
+
+    <template id="tpl-esqueleto-texto">
+        <span class="skeleton skeleton-text" aria-hidden="true"></span>
+    </template>
+
+    <template id="tpl-esqueleto-texto-large">
+        <span class="skeleton skeleton-text skeleton-value-large" aria-hidden="true"></span>
+    </template>
+
+    <template id="tpl-esqueleto-badge">
+        <span class="skeleton skeleton-text skeleton-badge" aria-hidden="true"></span>
+    </template>
+
+    <template id="tpl-esqueleto-contenedor">
+        <div class="skeleton" role="status" aria-label="Cargando datos" aria-busy="true" data-tpl="contenido"></div>
+    </template>
+
     <template id="tpl-posicion-item">
         <div class="posicion-item" data-tpl="item" data-tpl-attr="class,data-posicion-id,data-activo-id">
             <button type="button" class="posicion-favorito" data-tpl="favorito" data-tpl-attr="class,data-activo-id,aria-label,title"><span data-tpl="icono-favorito"></span></button>

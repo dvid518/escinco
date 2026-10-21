@@ -74,3 +74,79 @@ export function skeletonMarkup({
         </div>
     `
 }
+
+// ============================================
+// ESQUELETOS BASADOS EN <template>
+// ============================================
+// Devuelven DocumentFragment listos para replaceChildren / appendChild,
+// sin pasar por innerHTML. Usan ids literales para que
+// tests/plantillas.test.mjs los detecte.
+
+import { contenidoDesdeTemplate } from "./modal.js"
+
+export function esqueletoFilas(filas = 4) {
+    const n = maxFilas(filas)
+    const fragmento = document.createDocumentFragment()
+    for (let i = 0; i < n; i++) {
+        fragmento.appendChild(contenidoDesdeTemplate("tpl-esqueleto-item"))
+    }
+    return fragmento
+}
+
+export function esqueletoTexto(clase = "") {
+    if (clase.includes("large")) {
+        return contenidoDesdeTemplate("tpl-esqueleto-texto-large")
+    }
+    return contenidoDesdeTemplate("tpl-esqueleto-texto")
+}
+
+export function esqueletoBadge() {
+    return contenidoDesdeTemplate("tpl-esqueleto-badge")
+}
+
+export function esqueletoPanel(filas = 4) {
+    const panel = contenidoDesdeTemplate("tpl-esqueleto-panel")
+    const lista = panel.querySelector("[data-tpl=lista]")
+    lista.replaceChildren(esqueletoFilas(filas))
+    return panel
+}
+
+export function esqueletoSettings(filas = 4) {
+    const n = maxFilas(filas)
+    const fragmento = document.createDocumentFragment()
+    for (let i = 0; i < n; i++) {
+        fragmento.appendChild(contenidoDesdeTemplate("tpl-esqueleto-settings"))
+    }
+    return fragmento
+}
+
+export function esqueletoSidebar(filas = 4) {
+    const n = maxFilas(filas)
+    const fragmento = document.createDocumentFragment()
+    for (let i = 0; i < n; i++) {
+        fragmento.appendChild(contenidoDesdeTemplate("tpl-esqueleto-sidebar"))
+    }
+    return fragmento
+}
+
+export function esqueletoChart() {
+    return contenidoDesdeTemplate("tpl-esqueleto-chart")
+}
+
+export function esqueletoContenedor(variant = "list", filas = 4, className = "", label = "Cargando datos") {
+    const contenedor = contenidoDesdeTemplate("tpl-esqueleto-contenedor")
+    contenedor.className = `skeleton skeleton-${variant} ${className}`.trim()
+    contenedor.setAttribute("aria-label", label)
+
+    let contenido
+    switch (variant) {
+        case "panel": contenido = esqueletoPanel(filas); break
+        case "settings": contenido = esqueletoSettings(filas); break
+        case "sidebar": contenido = esqueletoSidebar(filas); break
+        case "chart": contenido = esqueletoChart(); break
+        default: contenido = esqueletoFilas(filas); break
+    }
+
+    contenedor.appendChild(contenido)
+    return contenedor
+}
