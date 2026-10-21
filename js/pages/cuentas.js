@@ -588,7 +588,9 @@ function renderizarSidebar() {
         btn.name = "cta"
         btn.dataset.id = cuenta.id
         btn.draggable = false
-        btn.insertAdjacentHTML("beforeend", icono(iconoPorTipo(cuenta.tipo), 18))
+        btn.appendChild(contenidoDesdeTemplate("tpl-cuenta-sidebar-icono", {
+            html: { "icono": icono(iconoPorTipo(cuenta.tipo), 18) }
+        }))
 
         const texto = document.createElement("span")
         texto.textContent = cuenta.nombre
