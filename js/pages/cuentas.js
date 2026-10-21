@@ -1,7 +1,7 @@
 import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { icono } from "../core/iconos.js"
-import { skeletonMarkup } from "../ui/skeletons.js"
+import { esqueletoContenedor } from "../ui/skeletons.js"
 import {
     obtenerCuentas,
     obtenerMovimientos,
@@ -466,14 +466,10 @@ function mostrarEsqueletosCuentas() {
     // Reemplazar solo los hijos, no el contenedor, para no perder
     // otros elementos que puedan vivir dentro de sidebar o panel.
     if (sidebar) {
-        const esqueleto = document.createElement("div")
-        esqueleto.innerHTML = skeletonMarkup({ variant: "sidebar", rows: 4 })
-        sidebar.replaceChildren(esqueleto.firstElementChild)
+        sidebar.replaceChildren(esqueletoContenedor("sidebar", 4))
     }
     if (panel) {
-        const esqueleto = document.createElement("div")
-        esqueleto.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
-        panel.replaceChildren(esqueleto.firstElementChild)
+        panel.replaceChildren(esqueletoContenedor("panel", 3, lateralidadInfo()))
     }
 }
 
@@ -733,7 +729,7 @@ async function mostrarDetalleCuenta() {
     const cuenta = cuentaSeleccionada
 
     if (!panel.querySelector(".cuenta-vista")) {
-        panel.innerHTML = skeletonMarkup({ variant: "panel", rows: 3, className: lateralidadInfo() })
+        panel.replaceChildren(esqueletoContenedor("panel", 3, lateralidadInfo()))
     }
 
     let movimientos = []
@@ -788,7 +784,7 @@ async function mostrarDetalleCuenta() {
         }
     }))
     const listaMovsCuenta = panel.querySelector("#lista-movimientos-cuenta")
-    if (listaMovsCuenta) listaMovsCuenta.innerHTML = skeletonMarkup({ rows: 3 })
+    if (listaMovsCuenta) listaMovsCuenta.replaceChildren(esqueletoContenedor("list", 3))
 
     await cargarMovimientosDeCuenta(visto, movimientos)
     panel.removeAttribute("aria-busy")
@@ -1138,7 +1134,7 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
     if (!contenedor) return
     const contenedorTotales = document.getElementById("totales-movimientos-cuenta")
     contenedor.setAttribute("aria-busy", "true")
-    contenedor.innerHTML = skeletonMarkup({ rows: 3 })
+    contenedor.replaceChildren(esqueletoContenedor("list", 3))
 
     seleccionadosCuenta.clear()
     ordenSeleccionCuenta.length = 0
