@@ -468,6 +468,21 @@ ${cerrarConBotonX ? `
     }
     modales.push(registro)
 
+    // Si el overlay muere sin pasar por cerrarModal (p. ej. el router hace
+    // container.innerHTML = html), los listeners de document quedan vivos y
+    // interceptan teclas aunque el modal ya no existe. Se añade un
+    // MutationObserver que los limpia automáticamente.
+    const observer = new MutationObserver(() => {
+        if (!overlay.isConnected) {
+            observer.disconnect()
+            if (tabHandler) document.removeEventListener("keydown", tabHandler)
+            if (escHandler) document.removeEventListener("keydown", escHandler)
+            if (enterHandler) document.removeEventListener("keydown", enterHandler)
+        }
+    })
+    observer.observe(document.body, { childList: true, subtree: true })
+    registro.cleanupObserver = observer
+
     return modalEl
 }
 
@@ -550,7 +565,7 @@ export function estaAbierto() {
 // acompaña, esté dentro de un modal o en la página.
 
 function vincularBotonesCalendario() {
-    document.addEventListener("click", (e) => {
+    const handler = (e) => {
         const boton = e.target.closest(".btn-calendario")
         if (!boton) return
 
@@ -566,7 +581,9 @@ function vincularBotonesCalendario() {
             }
         }
         input.focus()
-    })
+    }
+    document.addEventListener("click", handler)
+    vincularBotonesCalendario.handler = handler
 }
 
 vincularBotonesCalendario()

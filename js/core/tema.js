@@ -82,7 +82,7 @@ export function getTemaLocal() {
     } catch (e) {
         // Ignorar errores de storage
     }
-    return "dark" // valor por defecto
+    return "system" // valor por defecto: seguir al sistema operativo
 }
 
 export function setTemaLocal(tema) {
@@ -102,11 +102,13 @@ function activarListenerSystem() {
     mediaListenerActivo = true
 
     const mq = window.matchMedia(MEDIA_QUERY)
-    mq.addEventListener("change", () => {
+    const handler = () => {
         if (getTemaLocal() === "system") {
             aplicarTema("system")
         }
-    })
+    }
+    mq.addEventListener("change", handler)
+    activarListenerSystem.handler = handler
 }
 
 // --------------------------------------------
@@ -178,6 +180,16 @@ export async function cambiarTema(uid, tema) {
             throw error
         }
     }
+}
+
+/**
+ * Cambia el tema SIN sesión (landing). Notifica a los gráficos para que
+ * se redibujen con los colores nuevos.
+ */
+export function cambiarTemaLocal(tema) {
+    setTemaLocal(tema)
+    aplicarTema(tema)
+    notificarCambioTema(tema)
 }
 
 // --------------------------------------------

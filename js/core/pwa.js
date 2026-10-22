@@ -109,7 +109,10 @@ function aplicarActualizacion() {
     }, { once: true })
 
     // Red de seguridad por si no llega a dispararse controllerchange.
-    setTimeout(() => window.location.reload(), 5000)
+    const timeoutReload = setTimeout(() => window.location.reload(), 5000)
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+        clearTimeout(timeoutReload)
+    }, { once: true })
 
     swEnEspera.postMessage({ tipo: "SKIP_WAITING" })
 }

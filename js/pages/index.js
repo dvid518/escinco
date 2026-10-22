@@ -1,4 +1,4 @@
-import { initTemaLocal, getTemaLocal, aplicarTema } from "../core/tema.js"
+import { initTemaLocal, getTemaLocal, cambiarTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
 import { VERSION } from "../../constants/version.js"
 import { contenidoDesdeTemplate } from "../ui/modal.js"
@@ -182,18 +182,11 @@ function initVersion() {
 // No se reutiliza ciclarTema() porque su firma pide el uid para escribir en
 // Firestore, y aquí no hay ninguno.
 
-const MODOS_TEMA = ["dark", "light", "system"]
-
-const ICONO_POR_MODO = {
-    dark: "moon",
-    light: "sun",
-    system: "monitor"
-}
+const MODOS_TEMA = ["dark", "light"]
 
 const NOMBRES_TEMA = {
     dark: "Modo oscuro",
-    light: "Modo claro",
-    system: "Modo sistema"
+    light: "Modo claro"
 }
 
 function initBotonTema() {
@@ -202,25 +195,21 @@ function initBotonTema() {
     if (!boton || !iconoSlot) return
 
     const pintar = (modo = getTemaLocal()) => {
-        const iconoTemplate = ICONO_POR_MODO[modo] === "dark" ? "tpl-icono-luna" : "tpl-icono-sol"
-        if (iconoTemplate === "tpl-icono-sol") {
-            const fragmento = contenidoDesdeTemplate("tpl-icono-sol")
-            iconoSlot.replaceChildren(fragmento.firstElementChild)
-        } else {
-            const fragmento = contenidoDesdeTemplate("tpl-icono-luna")
-            iconoSlot.replaceChildren(fragmento.firstElementChild)
-        }
-        boton.setAttribute("aria-label", `Tema: ${NOMBRES_TEMA[modo] || "Modo de color"}`)
+        const efectivo = modo === "light" ? "light" : "dark"
+        const fragmento = contenidoDesdeTemplate(efectivo === "dark" ? "tpl-icono-luna" : "tpl-icono-sol")
+        iconoSlot.replaceChildren(fragmento.firstElementChild)
+        boton.setAttribute("aria-label", `Tema: ${NOMBRES_TEMA[efectivo] || "Modo de color"}`)
     }
 
     boton.addEventListener("click", () => {
-        const siguiente = MODOS_TEMA[(MODOS_TEMA.indexOf(getTemaLocal()) + 1) % MODOS_TEMA.length]
+        const actual = getTemaLocal()
+        const siguiente = actual === "light" ? "dark" : "light"
         try {
             localStorage.setItem("escinco_tema", siguiente)
         } catch (e) {
             // Sin storage el cambio dura lo que la página
         }
-        aplicarTema(siguiente)
+        cambiarTemaLocal(siguiente)
         pintar(siguiente)
     })
 
@@ -282,6 +271,11 @@ function formatearSoles(monto) {
 }
 
 async function initGraficosMaqueta() {
+    // Destruir gráficos previos si existen (recarga de página o SW cache)
+    const { destruirGrafico } = await import("../ui/graficos.js")
+    destruirGrafico("home-patrimonio")
+    destruirGrafico("home-distribucion")
+
     await crearGraficoPatrimonio("home-grafico-patrimonio", datosPatrimonioEjemplo(), {
         chartKey: "home-patrimonio",
         divisa: "PEN",

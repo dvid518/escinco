@@ -11,21 +11,19 @@ import {
     serverTimestamp,
     writeBatch,
     deleteField,
-    enableIndexedDbPersistence
+    persistentLocalCache
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
 import { sesion } from "../js/core/sesion.js"
 import { resolverNombresCuentas } from "../js/core/familiaCuentas.js"
 
-const db = getFirestore(app)
-
 // Persistencia offline con IndexedDB: las lecturas y escrituras se guardan en
-// local y se sincronizan al volver la conexión. Si falla (navegador sin
-// IndexedDB, pestañas múltiples sobre la misma base, etc.) la app sigue
-// funcionando solo con la capa de caché, así que el fallo no es fatal.
-enableIndexedDbPersistence(db).catch(error => {
-    console.warn("[WARN] Persistencia offline no disponible:", error?.code || error)
+// local y se sincronizan al volver la conexión. Si el navegador no soporta
+// IndexedDB o hay pestañas múltiples sobre la misma base, Firestore lo gestiona
+// internamente y la app sigue funcionando con la capa de caché.
+const db = getFirestore(app, {
+    cache: persistentLocalCache()
 })
 
 // Re-exportamos utilidades de Firestore para que el resto de la app
@@ -86,6 +84,8 @@ export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
     const referencia = doc(db, "usuarios", uid, "cuentas", "efectivo-inicial")
     const existente = await getDoc(referencia)
     if (!existente.exists()) {
+        // setDoc con merge: si otra pestaña o llamada concurrente ya creó la
+        // cuenta, no la sobrescribe. Evita documentos duplicados.
         await setDoc(referencia, {
             nombre: "Efectivo",
             tipo: "efectivo",
@@ -95,7 +95,7 @@ export async function asegurarCuentaEfectivoInicial(uid, usuario = null) {
             esPatrimonio: true,
             orden: 0,
             fechaCreacion: serverTimestamp()
-        })
+        }, { merge: true })
     }
 
     cacheCapa.invalidar(uid, "cuentas")
@@ -142,19 +142,24 @@ export async function crearCuenta(uid, datos) {
 }
 
 export async function obtenerCuentas(uid) {
-    return cacheCapa.obtener(uid, "cuentas", async () => {
-        const referencia = collection(db, "usuarios", uid, "cuentas")
-        const resultado = await getDocs(referencia)
-        // Los nombres se resuelven (mayúsculas + nombre derivado para hijas
-        // sin nombre) en el punto de lectura único, para que todas las vistas
-        // muestren lo mismo. El formato (SOLES frente a PEN) sale de la
-        // preferencia del usuario.
-        const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
-        return resolverNombresCuentas(resultado.docs.map(documento => ({
-            id: documento.id,
-            ...documento.data()
-        })), formato)
-    })
+    try {
+        return await cacheCapa.obtener(uid, "cuentas", async () => {
+            const referencia = collection(db, "usuarios", uid, "cuentas")
+            const resultado = await getDocs(referencia)
+            // Los nombres se resuelven (mayúsculas + nombre derivado para hijas
+            // sin nombre) en el punto de lectura único, para que todas las vistas
+            // muestren lo mismo. El formato (SOLES frente a PEN) sale de la
+            // preferencia del usuario.
+            const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
+            return resolverNombresCuentas(resultado.docs.map(documento => ({
+                id: documento.id,
+                ...documento.data()
+            })), formato)
+        })
+    } catch (error) {
+        console.error("[WARN] Error obteniendo cuentas:", error)
+        return []
+    }
 }
 
 export async function obtenerCuenta(uid, cuentaId) {
@@ -205,14 +210,19 @@ export async function crearMovimiento(uid, datos) {
 }
 
 export async function obtenerMovimientos(uid) {
-    return cacheCapa.obtener(uid, "movimientos", async () => {
-        const referencia = collection(db, "usuarios", uid, "movimientos")
-        const resultado = await getDocs(referencia)
-        return resultado.docs.map(documento => ({
-            id: documento.id,
-            ...documento.data()
-        }))
-    })
+    try {
+        return await cacheCapa.obtener(uid, "movimientos", async () => {
+            const referencia = collection(db, "usuarios", uid, "movimientos")
+            const resultado = await getDocs(referencia)
+            return resultado.docs.map(documento => ({
+                id: documento.id,
+                ...documento.data()
+            }))
+        })
+    } catch (error) {
+        console.error("[WARN] Error obteniendo movimientos:", error)
+        return []
+    }
 }
 
 export async function actualizarMovimientoDoc(uid, movimientoId, datos) {
