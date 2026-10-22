@@ -82,6 +82,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </svg>
                 <span>Continuar con Google</span>
             </button>
+            <button class="facebook-btn" id="login_facebook" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#1877F2" d="M22 12c0-5.52-4.48-10-10-10H2C5.48 2 0 6.48 0 12c0 4.39 2.86 8.08 6.64 9.32v-6.2H4v-3.3h3.3V8.2c0-2.3 1.5-3.7 3.7-3.7h1.2v2.6H12v3.3h3.3v3.3H12v4.6c3.79-1.24 6.64-4.93 6.64-9.32 0-5.52-4.48-10-10-10"/>
+                </svg>
+                <span>Continuar con Facebook</span>
+            </button>
             <p class="auth-enlace">
                 <a href="/login" data-estado="recuperar">¿Olvidaste tu contraseña?</a>
             </p>
@@ -170,6 +176,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </svg>
                 <span>Registrarse con Google</span>
             </button>
+            <button class="facebook-btn" id="registro_facebook" type="button">
+                <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path fill="#1877F2" d="M22 12c0-5.52-4.48-10-10-10H2C5.48 2 0 6.48 0 12c0 4.39 2.86 8.08 6.64 9.32v-6.2H4v-3.3h3.3V8.2c0-2.3 1.5-3.7 3.7-3.7h1.2v2.6H12v3.3h3.3v3.3H12v4.6c3.79-1.24 6.64-4.93 6.64-9.32 0-5.52-4.48-10-10-10"/>
+                </svg>
+                <span>Registrarse con Facebook</span>
+            </button>
             <p class="auth-enlace">
                 ¿Ya tienes cuenta? <a href="/login" data-estado="login">Inicia sesión</a>
             </p>
@@ -192,6 +204,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </section>
 
         <div data-panel-version></div>
+
+    <template id="tpl-panel-version">
+        <a class="panel-version-link" href="/" aria-label="Conoce más sobre la versión">
+            <span class="panel-version-brand" data-tpl="nombre"></span>
+        </a>
+        <button class="panel-version-numero panel-version-boton" type="button" aria-label="Ver las novedades de esta versión">
+            <span class="panel-version-numero-texto" data-tpl="numero"></span>
+        </button>
+    </template>
+
     </main>
 </body>
 <script type="module" src="js/pages/auth.js"></script>

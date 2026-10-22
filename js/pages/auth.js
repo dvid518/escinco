@@ -11,6 +11,7 @@ import {
     aplicarCodigoDeAccion,
     marcarSesionGuardada
 } from "../../firebase/auth.js"
+import { iniciarSesionConFacebook, vincularCredencialFacebook, hayCredencialFacebookPendiente } from "../services/AuthServicio.js"
 import { contenidoDesdeTemplate } from "../ui/modal.js"
 import { initTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
@@ -61,6 +62,12 @@ const BOTON_GOOGLE = {
     registro: "registro_google"
 }
 
+// Botón de Facebook de cada estado.
+const BOTON_FACEBOOK = {
+    login: "login_facebook",
+    registro: "registro_facebook"
+}
+
 // Tiempo máximo que se espera a Firebase antes de mostrar la página. Mismo
 // salvavidas que js/core/app.js:30: una red lenta no puede dejar la pantalla en
 // negro con el login dentro.
@@ -99,6 +106,8 @@ function bloquearFormulario(estado) {
     }
     const google = document.getElementById(BOTON_GOOGLE[estado])
     if (google) google.disabled = true
+    const facebook = document.getElementById(BOTON_FACEBOOK[estado])
+    if (facebook) facebook.disabled = true
 }
 
 function desbloquearFormulario(estado) {
@@ -110,6 +119,8 @@ function desbloquearFormulario(estado) {
     }
     const google = document.getElementById(BOTON_GOOGLE[estado])
     if (google) google.disabled = false
+    const facebook = document.getElementById(BOTON_FACEBOOK[estado])
+    if (facebook) facebook.disabled = false
 }
 
 // ============================================
@@ -197,6 +208,13 @@ async function trasAutenticar(user) {
     // vio una vez (ver firebase/auth.js: marcarSesionGuardada).
     marcarSesionGuardada()
 
+    // Si hay una credencial de Facebook pendiente (porque el correo ya existía
+    // con otro método al intentar entrar con Facebook), vincularla ahora.
+    if (hayCredencialFacebookPendiente()) {
+        await vincularCredencialFacebook(user)
+        mostrarNotificacion("exito", "Cuenta de Facebook vinculada correctamente.")
+    }
+
     if (user.emailVerified) {
         await trasPintar()
         irAlDashboard()
@@ -277,6 +295,13 @@ async function crearCuenta() {
 function esperarAntesDeReintentar(boton, segundos = ESPERA_ENVIO_S) {
     if (!boton) return
 
+    // Cancelar un intervalo previo sobre el mismo botón: si el usuario
+    // cambia de estado durante la cuenta atrás, el intervalo viejo seguiría
+    // modificando un botón que puede estar oculto.
+    if (boton.dataset.intervaloEspera) {
+        clearInterval(Number(boton.dataset.intervaloEspera))
+    }
+
     const original = boton.dataset.textoOriginal || boton.textContent.trim()
     boton.dataset.textoOriginal = original
 
@@ -291,9 +316,12 @@ function esperarAntesDeReintentar(boton, segundos = ESPERA_ENVIO_S) {
             return
         }
         clearInterval(intervalo)
+        delete boton.dataset.intervaloEspera
         boton.disabled = false
         boton.textContent = original
     }, 1000)
+
+    boton.dataset.intervaloEspera = String(intervalo)
 }
 
 // ============================================
@@ -386,6 +414,53 @@ async function entrarConGoogle(estado) {
 }
 
 // ============================================
+// FACEBOOK
+// ============================================
+
+async function entrarConFacebook(estado) {
+    if (formularioOcupado) return
+
+    bloquearFormulario(estado)
+
+    try {
+        const { user } = await iniciarSesionConFacebook()
+
+        // Si el correo de Facebook ya existe con otro proveedor, la credencial
+        // quedó guardada en sessionStorage. Vincularla ahora que el usuario
+        // está autenticado.
+        if (hayCredencialFacebookPendiente()) {
+            await vincularCredencialFacebook(user)
+            mostrarNotificacion("exito", "Cuenta de Facebook vinculada correctamente.")
+        }
+
+        await trasAutenticar(user)
+    } catch (error) {
+        desbloquearFormulario(estado)
+        console.error("Error Facebook:", error)
+
+        if (error.code === "auth/cuenta-existe-con-otro-metodo") {
+            mostrarNotificacion(
+                "info",
+                "Ya existe una cuenta con este correo usando otro método. " +
+                "Inicia sesión con ese método primero para vincular Facebook."
+            )
+            return
+        }
+
+        if (error.code === "auth/popup-closed-by-user") {
+            mostrarNotificacion("info", "Cancelaste el acceso con Facebook.")
+            return
+        }
+        if (error.code === "auth/popup-blocked") {
+            mostrarNotificacion("error", "El navegador bloqueó la ventana emergente de Facebook.")
+            return
+        }
+
+        mostrarNotificacion("error", mensajeDeError(error))
+    }
+}
+
+// ============================================
 // ERRORES
 // ============================================
 
@@ -469,6 +544,8 @@ function mensajeDeError(error) {
             return "El navegador bloqueó la ventana emergente de Google."
         case "auth/network-request-failed":
             return "Sin conexión. Revisa tu red."
+        case "auth/cuenta-existe-con-otro-metodo":
+            return "Ya existe una cuenta con este correo usando otro método."
         default:
             return "No se pudo completar la operación. Inténtalo de nuevo."
     }
@@ -610,11 +687,18 @@ function observarSesion() {
 // ============================================
 
 function alPulsarEnter(campo, accion) {
-    campo?.addEventListener("keydown", event => {
+    if (!campo) return
+    // Evitar listeners duplicados si la función se llama más de una vez
+    if (campo.dataset.enterHandler) {
+        campo.removeEventListener("keydown", Number(campo.dataset.enterHandler))
+    }
+    const handler = (event) => {
         if (event.key !== "Enter") return
         event.preventDefault()
         accion()
-    })
+    }
+    campo.addEventListener("keydown", handler)
+    campo.dataset.enterHandler = String(handler)
 }
 
 function enfocar(id) {
@@ -631,8 +715,10 @@ alPulsarEnter(document.getElementById("registro_confirmar_clave"), crearCuenta)
 
 document.getElementById("login_submit")?.addEventListener("click", iniciarSesion)
 document.getElementById("login_google")?.addEventListener("click", () => entrarConGoogle("login"))
+document.getElementById("login_facebook")?.addEventListener("click", () => entrarConFacebook("login"))
 document.getElementById("registro_submit")?.addEventListener("click", crearCuenta)
 document.getElementById("registro_google")?.addEventListener("click", () => entrarConGoogle("registro"))
+document.getElementById("registro_facebook")?.addEventListener("click", () => entrarConFacebook("registro"))
 document.getElementById("recuperar_submit")?.addEventListener("click", recuperarClave)
 document.getElementById("verificacion_comprobar")?.addEventListener("click", comprobarVerificacion)
 document.getElementById("verificacion_reenviar")?.addEventListener("click", reenviarVerificacion)
