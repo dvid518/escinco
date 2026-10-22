@@ -1,6 +1,5 @@
 import { initTemaLocal, getTemaLocal, cambiarTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
-import { VERSION } from "../../constants/version.js"
 import { contenidoDesdeTemplate } from "../ui/modal.js"
 import { crearGraficoPatrimonio, crearGraficoDistribucion } from "../ui/graficos.js"
 
@@ -20,7 +19,6 @@ import { crearGraficoPatrimonio, crearGraficoDistribucion } from "../ui/graficos
 // ============================================
 
 function initLanding() {
-    initVersion()
     initBotonTema()
     initMarca()
     initNavMaqueta()
@@ -153,21 +151,6 @@ function initFaq() {
                 respuesta.style.opacity = ""
             }
         }
-    })
-}
-
-// ============================================
-// VERSIÓN EN EL PIE
-// ============================================
-// Se lee de constants/version.js, la misma fuente que el panel de login y la
-// lastbar: subir la versión allí la sube aquí sin tocar el HTML.
-
-function initVersion() {
-    const destino = document.getElementById("home-version")
-    if (!destino) return
-    destino.textContent = `v${VERSION.numero}`
-    destino.addEventListener("click", () => {
-        import("../ui/changelog.js").then(m => m.abrirModalChangelog())
     })
 }
 

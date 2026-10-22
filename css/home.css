@@ -48,14 +48,14 @@
 
 .home-header {
     position: sticky;
-    top: 12px;
+    top: 22px;
     z-index: 20;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 16px;
     padding: 10px 20px;
-    margin-top: 12px;
+    margin-top: 22px;
     border-radius: 50px;
     border: 1px solid var(--lightBorder, var(--border));
     background-color: var(--glass-frosted);
@@ -150,8 +150,10 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex: 0 0 44px;
     width: 44px;
     height: 44px;
+    padding: 0;
     border: 1px solid var(--border);
     border-radius: 50px;
     background-color: transparent;
@@ -170,6 +172,15 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    width: 20px;
+    height: 20px;
+    line-height: 0;
+}
+
+.home-tema-icono svg {
+    display: block;
+    width: 20px;
+    height: 20px;
 }
 
 /* --------------------------------------------
@@ -685,7 +696,7 @@
 
 .home-faq-item {
     border: 1px solid var(--lightBorder);
-    border-radius: 20px;
+    border-radius: 25px;
     background-color: var(--surface);
     overflow: hidden;
 }
@@ -807,22 +818,6 @@
     text-decoration: underline dotted;
     text-underline-offset: 3px;
     opacity: 0.6;
-}
-
-/* Botón de versión: abre el modal de novedades. */
-.home-footer-version {
-    font-family: var(--font-secondary);
-    font-size: 11px;
-    color: var(--textSecondary);
-    opacity: 0.6;
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: opacity 0.2s ease;
-}
-
-.home-footer-version:hover {
-    opacity: 1;
 }
 
 /* --------------------------------------------
