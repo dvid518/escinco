@@ -903,12 +903,22 @@ body.dashboard-card-dragging * {
     background: var(--border);
 }
 
+/* Distribución patrimonial: los cuatro bloques con color fijo (el mismo en
+   los dos temas), para que el anillo y las barras se lean igual. */
+.distribucion-barra span.liquidez {
+    background: var(--distribucion-liquidez);
+}
+
 .distribucion-barra span.inversiones {
-    background: var(--positive);
+    background: var(--distribucion-inversiones);
+}
+
+.distribucion-barra span.inmovil {
+    background: var(--distribucion-inmovil);
 }
 
 .distribucion-barra span.deudas {
-    background: var(--negative);
+    background: var(--distribucion-deudas);
 }
 
 /* Distribución por tipo de activo: cuatro clases de activo, cada una con su

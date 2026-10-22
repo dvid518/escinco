@@ -69,6 +69,16 @@ export function cuentasVisibles(lista = []) {
     return lista.filter(c => !esHija(c))
 }
 
+// La divisa base de la cuenta: la suya, o la del padre cuando es una
+// subcuenta. Es la moneda en la que la cuenta se opera: el USDT de un
+// exchange, el PEN de un broker.
+export function divisaBaseDe(cuenta, lista = []) {
+    if (!cuenta) return "pen"
+    if (!cuenta.padreId) return String(cuenta.moneda || "pen").toLowerCase()
+    const padre = lista.find(c => c.id === cuenta.padreId)
+    return String(padre?.moneda || cuenta.moneda || "pen").toLowerCase()
+}
+
 // ============================================
 // NOMBRES DE SUBCUENTAS
 // ============================================

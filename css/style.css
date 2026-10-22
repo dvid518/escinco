@@ -79,7 +79,6 @@
     --lightGreen: #BFFFC5;
     --cottonCandy: #FFA4A4;
     --banana: #ffd181;
-    --iceBlue: #a9cdfb;
 
     --paleSky: #D0DCE8;
     --lightPaleSky: #d0dce85f;
@@ -93,23 +92,28 @@
     --mustard: #f5a623;
     --royalBlue: #2b6ff2;
 
-
     --font-primary: "Inter", Arial, sans-serif;
     --font-secondary: "Roboto Mono", "Courier New", monospace;
     --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
     --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
 
-    /* Paleta de etiquetas: la clave que se guarda en Firestore se pinta con
-       estas variables, que ya giran con el tema activo (positive/Alt, etc.).
-       La misma lista de claves vive en firestore.rules (esColorEtiqueta). */
-    --etiqueta-verde: var(--positive);
-    --etiqueta-rojo: var(--negative);
-    --etiqueta-ambar: var(--ambar);
-    --etiqueta-azul: var(--border);
-    --etiqueta-menta: var(--positiveAlt);
-    --etiqueta-frambuesa: var(--negativeAlt);
-    --etiqueta-mostaza: var(--ambarAlt);
-    --etiqueta-cielo: var(--neutralAlt);
+    --etiqueta-verde: var(--lightGreen);
+    --etiqueta-rojo: var(--cottonCandy);
+    --etiqueta-ambar: var(--banana);
+    --etiqueta-azul: var(--paleSky);
+    --etiqueta-menta: var(--tropicalMint);
+    --etiqueta-frambuesa: var(--raspberryRed);
+    --etiqueta-mostaza: var(--mustard);
+    --etiqueta-cielo: var(--royalBlue);
+
+    /* Paleta fija de la distribución patrimonial: los cuatro bloques se
+       pintan siempre con el mismo color, en los dos temas. Son los mismos
+       que usa el anillo de la dona, así que el gráfico y las barras de la
+       lista cuentan con lo mismo. */
+    --distribucion-liquidez: var(--lightGreen);
+    --distribucion-inversiones: var(--tropicalMint);
+    --distribucion-inmovil: var(--cottonCandy);
+    --distribucion-deudas: var(--raspberryRed);
 }
 
 /* Tema oscuro */
@@ -165,7 +169,7 @@
     --positiveAlt: var(--lightGreen);
     --negativeAlt: var(--cottonCandy);
     --ambarAlt: var(--banana);
-    --neutralAlt: var(--iceBlue);
+    --neutralAlt: var(--royalBlue);
 
     --border: var(--slateGrey);
     --borderAlt: var(--graphite);

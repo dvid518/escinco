@@ -3,7 +3,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta } from "../core/familiaCuentas.js"
+import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta, divisaBaseDe } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -1931,6 +1931,19 @@ function acumularFlujoDeslizante(movimientos, dias) {
     }
 }
 
+/**
+ * ¿El saldo de esta cuenta es "inmovil"? Lo es el dinero en la divisa base de
+ * un broker o de un exchange: está en la cuenta, pero no está invertido en
+ * ninguna posición y tampoco está accesible al momento, así que no es
+ * liquidez. Las subcuentas en otra divisa (los USD de un exchange, por
+ * ejemplo) no entran aquí: su divisa no es la base de la cuenta.
+ */
+function esSaldoInmovil(cuenta, todasCuentas) {
+    if (cuenta.tipo !== "exchange" && cuenta.tipo !== "broker") return false
+    const moneda = String(cuenta.moneda || "pen").toLowerCase()
+    return moneda === divisaBaseDe(cuenta, todasCuentas)
+}
+
 function construirAnaliticaDashboard(movimientos) {
     const ahora = new Date()
     const anio = ahora.getFullYear()
@@ -1956,20 +1969,30 @@ function construirAnaliticaDashboard(movimientos) {
     const deudas = tarjetas.reduce((total, cuenta) => {
         return total + convertirMonto(Math.max(0, Number(cuenta.deuda) || 0), cuenta.moneda || "pen", divisaActual)
     }, 0)
-    const liquidez = cuentas
+    // El saldo se reparte entre liquidez e inmovil: lo que está en la divisa
+    // base de un broker o un exchange no es dinero suelto, aunque esté en la
+    // cuenta. Va en su propio bloque para que el reparto patrimonial lo
+    // distinga de la liquidez de verdad.
+    const saldos = cuentas
         .filter(cuenta => cuenta.tipo !== "credito" && cuenta.estado !== "archivada" && cuenta.esPatrimonio !== false)
-        .reduce((total, cuenta) => {
-            return total + convertirMonto(Number(cuenta.saldoInicial) || 0, cuenta.moneda || "pen", divisaActual)
-        }, 0)
+        .reduce((acc, cuenta) => {
+            const monto = convertirMonto(Number(cuenta.saldoInicial) || 0, cuenta.moneda || "pen", divisaActual)
+            if (esSaldoInmovil(cuenta, cuentas)) acc.inmovil += monto
+            else acc.liquidez += monto
+            return acc
+        }, { liquidez: 0, inmovil: 0 })
+    const liquidez = saldos.liquidez
+    const inmovil = saldos.inmovil
     const inversiones = convertirMonto(
         inversionesData?.valorTotal || 0,
         inversionesData?.divisa || divisaActual,
         divisaActual
     )
-    const brutoDistribucion = Math.max(0, liquidez) + Math.max(0, inversiones) + Math.max(0, deudas)
+    const brutoDistribucion = Math.max(0, liquidez) + Math.max(0, inversiones) + Math.max(0, inmovil) + Math.max(0, deudas)
     const distribucion = [
         { label: "Liquidez", valor: Math.max(0, liquidez), clase: "liquidez" },
         { label: "Inversiones", valor: Math.max(0, inversiones), clase: "inversiones" },
+        { label: "Inmovilizado", valor: Math.max(0, inmovil), clase: "inmovil" },
         { label: "Deudas", valor: Math.max(0, deudas), clase: "deudas" }
     ].map(item => ({
         ...item,
@@ -2040,6 +2063,7 @@ function construirAnaliticaDashboard(movimientos) {
         tarjetasConDeuda: tarjetas.filter(cuenta => Number(cuenta.deuda) > 0).length,
         deudas,
         liquidez,
+        inmovil,
         inversiones,
         brutoDistribucion,
         distribucion,
@@ -2591,13 +2615,14 @@ function actualizarDeudas() {
 }
 
 // Misma paleta que las barras de `.distribucion-barra`: el anillo y las
-// barras deben contar con los mismos colores. Los valores son nombres de
-// variable CSS ("--positive", …) que `crearGraficoDistribucion` resuelve
-// contra el tema activo.
+// barras deben contar con los mismos colores. Los cuatro bloques de la
+// distribución patrimonial usan una paleta FIJA (la misma en los dos temas);
+// el resto de gráficos siguen con las variables del tema.
 const COLORES_DISTRIBUCION = {
-    liquidez: "--neutral",
-    inversiones: "--positive",
-    deudas: "--negative",
+    liquidez: "--distribucion-liquidez",
+    inversiones: "--distribucion-inversiones",
+    inmovil: "--distribucion-inmovil",
+    deudas: "--distribucion-deudas",
     accion: "--positive",
     etf: "--positiveAlt",
     cripto: "--ambar",
@@ -2637,7 +2662,7 @@ async function dibujarDonaDistribucion(items) {
     await crearGraficoDistribucion("distribucion-dona", {
         labels: items.map(item => item.label),
         data: items.map(item => item.valor),
-        colores: items.map(item => COLORES_DISTRIBUCION[item.clase] || "--neutral")
+        colores: items.map(item => COLORES_DISTRIBUCION[item.clase] || "--distribucion-liquidez")
     }, {
         chartKey: "distribucion-dashboard",
         formatear: monto => formatearMontoConDivisa(monto, divisaActual)
