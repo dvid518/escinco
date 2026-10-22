@@ -237,7 +237,7 @@ function plantillaPosicion(p) {
     // Badge de fuente de precio
     const fuente = activo?.fuente || "manual"
     const fuenteLabel = fuente === "api" ? "Auto" : "Manual"
-    const fuenteClase = fuente === "api" ? "badge--positive" : "badge--neutral"
+    const fuenteClase = fuente === "api" ? "badge--positive" : "badge--border"
     const etiquetaFavorito = esFavorito ? "Quitar de favoritos" : "Marcar como favorito"
 
     return {

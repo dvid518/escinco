@@ -305,7 +305,7 @@ function renderizarOrdenes() {
 
 function filaOrden(o) {
     const claseDireccion = o.direccion === "long" ? "positive" : "negative"
-    const claseEstado = o.estaPendiente ? "badge--neutral" : (o.fueEjecutada ? "badge--positive" : "badge--negative")
+    const claseEstado = o.estaPendiente ? "badge--border" : (o.fueEjecutada ? "badge--positive" : "badge--negative")
 
     return {
         valores: {

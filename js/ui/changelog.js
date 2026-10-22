@@ -11,7 +11,7 @@ import { VERSION } from "../../constants/version.js"
 
 const ETIQUETA_TIPO = {
     nuevo: { texto: "Nuevo", clase: "badge--positive" },
-    mejora: { texto: "Mejora", clase: "badge--neutral" },
+    mejora: { texto: "Mejora", clase: "badge--border" },
     arreglo: { texto: "Arreglo", clase: "badge--aviso" }
 }
 

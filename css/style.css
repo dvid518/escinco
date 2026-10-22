@@ -137,7 +137,6 @@
     --positiveAlt: var(--tropicalMint);
     --negativeAlt: var(--raspberryRed);
     --ambarAlt: var(--mustard);
-    --neutralAlt: var(--royalBlue);
     
     --border: var(--paleSky);
     --borderAlt: var(--slateGrey);
@@ -169,7 +168,6 @@
     --positiveAlt: var(--lightGreen);
     --negativeAlt: var(--cottonCandy);
     --ambarAlt: var(--banana);
-    --neutralAlt: var(--royalBlue);
 
     --border: var(--slateGrey);
     --borderAlt: var(--graphite);
