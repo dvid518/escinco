@@ -267,6 +267,14 @@ async function iniciarConfiguracion() {
     lineaBase = construirPreferencias()
     hayCambios = false
     actualizarEstadoGuardar()
+
+    // Alt+S para guardar cambios desde el teclado.
+    document.addEventListener("keydown", (e) => {
+        if (e.altKey && e.key === "s") {
+            e.preventDefault()
+            guardarPreferencias()
+        }
+    })
 }
 
 // ============================================
@@ -357,9 +365,9 @@ function configurarCuenta() {
             const base = (usuario?.nombre || "Usuario").trim()
             const nuevo = nombreInput.value.trim()
 
-            if (!nuevo) {
-                nombreInput.value = usuario?.nombre || "Usuario"
-            } else if (nuevo !== base) {
+            // Permitir borrar todo: si el campo queda vacío, se considera cambio
+            // y se deja como está. El guardado validará si puede enviarse vacío.
+            if (nuevo !== base) {
                 nombrePendiente = nuevo
                 marcarCambioNuevo()
             } else {
