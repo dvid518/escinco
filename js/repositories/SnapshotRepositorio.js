@@ -32,9 +32,27 @@ export async function guardarSnapshotDelDia(uid, datos) {
     // Solo las claves permitidas por las reglas: cualquier extra deniega.
     const limpio = {
         patrimonioPEN: numero(datos?.patrimonioPEN),
-        patrimonioUSD: numero(datos?.patrimonioUSD)
+        patrimonioUSD: numero(datos?.patrimonioUSD),
+        liquidezPEN: numero(datos?.liquidezPEN),
+        liquidezUSD: numero(datos?.liquidezUSD),
+        inversionesPEN: numero(datos?.inversionesPEN),
+        inversionesUSD: numero(datos?.inversionesUSD),
+        inmovilPEN: numero(datos?.inmovilPEN),
+        inmovilUSD: numero(datos?.inmovilUSD),
+        deudasPEN: numero(datos?.deudasPEN),
+        deudasUSD: numero(datos?.deudasUSD)
     }
     if (datos?.patrimonioUSDT !== undefined) limpio.patrimonioUSDT = numero(datos.patrimonioUSDT)
+    // Si cambia cualquier bloque (no solo el total), hay que actualizar. Un
+    // movimiento interno entre liquidez e inmovilizado deja el patrimonio
+    // igual, pero mueve las series del modal.
+    const camposComparados = [
+        "patrimonioPEN", "patrimonioUSD",
+        "liquidezPEN", "liquidezUSD",
+        "inversionesPEN", "inversionesUSD",
+        "inmovilPEN", "inmovilUSD",
+        "deudasPEN", "deudasUSD"
+    ]
     const fecha = getFechaHoy()
     const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
     
@@ -42,7 +60,7 @@ export async function guardarSnapshotDelDia(uid, datos) {
     
     if (existente.exists()) {
         const actuales = existente.data()
-        const totalesSinCambios = ["patrimonioPEN", "patrimonioUSD"]
+        const totalesSinCambios = camposComparados
             .every(campo => Number(actuales[campo] ?? 0) === Number(limpio[campo] ?? 0))
         if (totalesSinCambios) return false
         await setDoc(referencia, {

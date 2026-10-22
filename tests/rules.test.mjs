@@ -138,6 +138,28 @@ export default async function ejecutar(t) {
     const r11 = await crear(a.token, a.uid, "2026-10-14", { ...valido, patrimonioUSDT: "mucho" })
     t.check("create con patrimonioUSDT de tipo erróneo se rechaza", denegado(r11), motivo(r11))
 
+    // Desglose del modal de evolución: opcional para los snapshots viejos,
+    // numérico y dentro del hasOnly para los nuevos.
+    const desglose = {
+        ...valido,
+        liquidezPEN: 800.25,
+        liquidezUSD: 210.5,
+        inversionesPEN: 500,
+        inversionesUSD: 131.5,
+        inmovilPEN: 200,
+        inmovilUSD: 52.6,
+        deudasPEN: 75,
+        deudasUSD: 19.7
+    }
+    const r12 = await crear(a.token, a.uid, "2026-10-15", desglose)
+    t.check("create con desglose por categoría se acepta", aceptado(r12), motivo(r12))
+
+    const r13 = await crear(a.token, a.uid, "2026-10-16", { ...desglose, liquidezPEN: "mucho" })
+    t.check("create con liquidezPEN de tipo erróneo se rechaza", denegado(r13), motivo(r13))
+
+    const r14 = await actualizar(a.token, a.uid, "2026-10-15", { ...desglose, inmovilUSD: 99 })
+    t.check("update del desglose por categoría se acepta", aceptado(r14), motivo(r14))
+
     // Mismo defecto en órdenes: `Orden.toFirestore()` nunca escribe `nota`, así
     // que la clave llega ausente y `esTextoONulo(nota)` la hacía explotar. El
     // resto de opcionales (`sl`, `tp`, `tradeId`…) sí se escriben, como null.

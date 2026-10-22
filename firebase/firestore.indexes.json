@@ -26,5 +26,46 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "liquidezPEN",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "liquidezUSD",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "inversionesPEN",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "inversionesUSD",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "inmovilPEN",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "inmovilUSD",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "deudasPEN",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "deudasUSD",
+      "indexes": []
+    }
+  ]
 }

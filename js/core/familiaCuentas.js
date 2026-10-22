@@ -79,6 +79,26 @@ export function divisaBaseDe(cuenta, lista = []) {
     return String(padre?.moneda || cuenta.moneda || "pen").toLowerCase()
 }
 
+/**
+ * ¿El saldo de esta cuenta es "inmovil"? Lo es el dinero en la divisa base de
+ * un broker o de un exchange: está en la cuenta, pero no está invertido en
+ * ninguna posición y tampoco está accesible al momento, así que no es
+ * liquidez. Las subcuentas en otra divisa (los USD de un exchange, por
+ * ejemplo) no entran aquí: su divisa no es la base de la cuenta.
+ *
+ * Vive aquí porque lo usan el dashboard y SnapshotServicio: si cada uno
+ * clasificara a su manera, la card de distribución y la evolución histórica
+ * contarían cosas distintas.
+ */
+export function esSaldoInmovil(cuenta, todasCuentas = []) {
+    // Un depósito a plazo es dinero inmovilizado por definición: no se puede
+    // retirar hasta el vencimiento, sin importar en qué divisa esté.
+    if (cuenta?.tipo === "plazo") return true
+    if (cuenta?.tipo !== "exchange" && cuenta?.tipo !== "broker") return false
+    const moneda = String(cuenta.moneda || "pen").toLowerCase()
+    return moneda === divisaBaseDe(cuenta, todasCuentas)
+}
+
 // ============================================
 // NOMBRES DE SUBCUENTAS
 // ============================================
