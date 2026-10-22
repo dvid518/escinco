@@ -10,21 +10,22 @@ import {
     deleteDoc,
     serverTimestamp,
     writeBatch,
-    deleteField,
-    persistentLocalCache
+    deleteField
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
 import { sesion } from "../js/core/sesion.js"
 import { resolverNombresCuentas } from "../js/core/familiaCuentas.js"
 
-// Persistencia offline con IndexedDB: las lecturas y escrituras se guardan en
-// local y se sincronizan al volver la conexión. Si el navegador no soporta
-// IndexedDB o hay pestañas múltiples sobre la misma base, Firestore lo gestiona
-// internamente y la app sigue funcionando con la capa de caché.
-const db = getFirestore(app, {
-    cache: persistentLocalCache()
-})
+// Persistencia offline DESHABILITADA: la app lee siempre de red. Si no hay
+// conexión, las lecturas fallan rápido y la UI muestra un error claro en vez
+// de quedarse colgada esperando un cache que no existe.
+// DESHABILITADO temporalmente: setPersistence con browser*Persistence usa
+// IndexedDB, que en algunos entornos de hosting deja al cliente de Firebase
+// en estado "offline" permanente ("Failed to get document because the
+// client is offline"). Hasta identificar la causa raíz, se omite la llamada
+// a setPersistence y Firebase usa su persistencia en memoria por defecto.
+const db = getFirestore(app)
 
 // Re-exportamos utilidades de Firestore para que el resto de la app
 // no importe desde la CDN directamente (punto único de acceso).

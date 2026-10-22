@@ -174,7 +174,15 @@ self.addEventListener("install", (event) => {
 
     event.waitUntil(
         caches.open(CACHE_SHELL)
-            .then(cache => cache.addAll(SHELL_ASSETS))
+            .then(async cache => {
+                for (const url of SHELL_ASSETS) {
+                    try {
+                        await cache.add(url)
+                    } catch (e) {
+                        console.warn("[SW] Fallo al cachear:", url, e)
+                    }
+                }
+            })
             .then(() => self.skipWaiting())
             .catch(error => {
                 console.error("[SW] Error precacheando:", error)
