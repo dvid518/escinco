@@ -1290,9 +1290,22 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         const btnConfirmar = modalEl?.querySelector(".modal-confirm") || modalEl?.querySelector("button[type='submit']") || document.querySelector(".modal-confirm")
         if (btnConfirmar) btnConfirmar.disabled = true
 
+        const uidForm = uid || (typeof sesion !== 'undefined' && sesion.uid)
+        if (!uidForm || typeof uidForm !== 'string' || uidForm.trim() === '') {
+            console.error('[movimientos] Sin UID válido para cargar cuentas del formulario')
+            selectsCuenta.forEach(s => deshabilitarYMostrar(s, 'Error de sesión. Recarga la página.'))
+            deshabilitarYMostrar(selectTarjeta, 'Error de sesión. Recarga la página.')
+            if (btnConfirmar) btnConfirmar.disabled = true
+            return
+        }
+
         try {
-            const cuentas = await obtenerCuentas(uid || sesion.uid)
-            const cuentasActivas = cuentasOperables ? cuentasOperables(cuentas).filter(c => c.estado !== "archivada") : cuentas.filter(c => c.estado !== "archivada")
+            const cuentas = await obtenerCuentas(uidForm)
+            let cuentasActivas = Array.isArray(cuentas) ? cuentas.slice() : []
+            if (typeof cuentasOperables === 'function') {
+                cuentasActivas = cuentasOperables(cuentasActivas)
+            }
+            cuentasActivas = cuentasActivas.filter(c => c && c.estado !== "archivada")
 
             const poblarSelect = (select, tipoFiltro) => {
                 if (!select) return
@@ -1325,6 +1338,10 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
                     select.appendChild(opt)
                 }
                 select.disabled = false
+                if (typeof select._aplicarBusqueda === 'function') {
+                    select._aplicarBusqueda()
+                }
+                select.dispatchEvent(new Event('change'))
             }
 
             const esPagoTarjeta = tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA
@@ -1352,9 +1369,9 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
                 }
             }
         } catch (error) {
-            console.error("Error cargando cuentas para formulario:", error)
-            selectsCuenta.forEach(s => deshabilitarYMostrar(s, "Error al cargar cuentas. Reintenta."))
-            deshabilitarYMostrar(selectTarjeta, "Error al cargar cuentas. Reintenta.")
+            console.error("Error cargando cuentas para formulario:", error?.code, error?.message, error)
+            selectsCuenta.forEach(s => deshabilitarYMostrar(s, "Error al cargar cuentas. Intenta de nuevo."))
+            deshabilitarYMostrar(selectTarjeta, "Error al cargar cuentas. Intenta de nuevo.")
             if (btnConfirmar) btnConfirmar.disabled = true
         }
     }

@@ -143,9 +143,8 @@ export async function crearCuenta(uid, datos) {
 }
 
 export async function obtenerCuentas(uid) {
-    if (!uid) {
-        console.warn("[WARN] obtenerCuentas: no hay UID de sesión")
-        return []
+    if (!uid || typeof uid !== "string" || uid.trim() === "") {
+        throw new Error("UID inválido para obtenerCuentas")
     }
 
     // Invalidar caché de cuentas para asegurar lectura fresca de red.
@@ -178,7 +177,7 @@ export async function obtenerCuentas(uid) {
     }
 
     console.error("[ERROR] No se pudieron cargar las cuentas después de 5 intentos:", ultimoError)
-    return []
+    throw ultimoError
 }
 
 export async function obtenerCuenta(uid, cuentaId) {
