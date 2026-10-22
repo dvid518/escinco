@@ -3,7 +3,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta, divisaBaseDe } from "../core/familiaCuentas.js"
+import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta, esSaldoInmovil } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -1330,6 +1330,17 @@ const PERIODO_POR_DEFECTO = "30d"
 
 let periodoGrafico = PERIODO_POR_DEFECTO
 
+// Series del modal de evolución. "todo" es el patrimonio neto; el resto son
+// los mismos bloques de la card de distribución, para poder ver cómo evoluciona
+// cada uno sin perder la temporalidad elegida.
+const CATEGORIAS_GRAFICO = [
+    { id: "todo", etiqueta: "Todo", etiquetaSerie: "Patrimonio" },
+    { id: "liquidez", etiqueta: "Liquidez", etiquetaSerie: "Liquidez" },
+    { id: "inversiones", etiqueta: "Inversiones", etiquetaSerie: "Inversiones" },
+    { id: "inmovil", etiqueta: "Inmovilizado", etiquetaSerie: "Inmovilizado" },
+    { id: "deudas", etiqueta: "Deudas", etiquetaSerie: "Deudas" }
+]
+
 // Ventana deslizante de las cards Gastado / Ingresado / Balance / Ahorro. Usa
 // los mismos cinco periodos que el gráfico de patrimonio para que el toggle se
 // lea igual en todas partes y el usuario no tenga que aprender dos escalas.
@@ -1930,22 +1941,6 @@ function acumularFlujoDeslizante(movimientos, dias) {
         movimientosGastos,
         total: movimientosIngresos + movimientosGastos
     }
-}
-
-/**
- * ¿El saldo de esta cuenta es "inmovil"? Lo es el dinero en la divisa base de
- * un broker o de un exchange: está en la cuenta, pero no está invertido en
- * ninguna posición y tampoco está accesible al momento, así que no es
- * liquidez. Las subcuentas en otra divisa (los USD de un exchange, por
- * ejemplo) no entran aquí: su divisa no es la base de la cuenta.
- */
-function esSaldoInmovil(cuenta, todasCuentas) {
-    // Un depósito a plazo es dinero inmovilizado por definición: no se puede
-    // retirar hasta el vencimiento, sin importar en qué divisa esté.
-    if (cuenta.tipo === "plazo") return true
-    if (cuenta.tipo !== "exchange" && cuenta.tipo !== "broker") return false
-    const moneda = String(cuenta.moneda || "pen").toLowerCase()
-    return moneda === divisaBaseDe(cuenta, todasCuentas)
 }
 
 function construirAnaliticaDashboard(movimientos) {
@@ -3125,6 +3120,29 @@ async function abrirModalEvolucionDashboard() {
 
     let cancelado = false
     let secuenciaModal = 0
+    let categoriaEvolucion = "todo"
+    let datosModal = null
+
+    const opcionesGrafico = categoria => {
+        const item = CATEGORIAS_GRAFICO.find(c => c.id === categoria) || CATEGORIAS_GRAFICO[0]
+        return {
+            divisa: divisaActual.toUpperCase(),
+            etiquetaDivisa: presentarDivisa(divisaActual),
+            chartKey: "evolucion-modal",
+            categoria: item.id,
+            etiqueta: item.etiquetaSerie
+        }
+    }
+
+    const dibujarModal = async (datos, categoria = categoriaEvolucion) => {
+        datosModal = datos
+        return crearGraficoPatrimonio(
+            "grafico-patrimonio-modal",
+            datos,
+            opcionesGrafico(categoria)
+        )
+    }
+
     const restaurarGrafico = () => {
         cancelado = true
         secuenciaModal++
@@ -3155,28 +3173,46 @@ async function abrirModalEvolucionDashboard() {
         const body = modal?.querySelector(".modal-body")
         if (!body || !modal.isConnected || cancelado) return
 
+        const categorias = contenidoDesdeFilas("tpl-categoria-grafico", CATEGORIAS_GRAFICO, c => ({
+            valores: { "categoria@data-categoria": c.id, etiqueta: c.etiqueta }
+        }))
         const periodos = contenidoDesdeFilas("tpl-periodo-grafico", PERIODOS_GRAFICO, p => ({
             valores: { "periodo@data-periodo": p.id, etiqueta: p.etiqueta }
         }))
-        const contenido = contenidoDesdeTemplate("tpl-evolucion", { html: { periodos } })
+        const contenido = contenidoDesdeTemplate("tpl-evolucion", {
+            html: { categorias, periodos }
+        })
         body.replaceChildren(contenido)
+
+        // El selector de categoría no vuelve a leer Firestore: todas las
+        // series vienen en los mismos snapshots. Solo cambia la línea que se
+        // dibuja, y el periodo elegido sigue intacto.
+        const opcionesCategoria = body.querySelectorAll("#grafico-categorias-modal .toggle-option")
+        const marcarCategoria = () => {
+            opcionesCategoria.forEach(opt => {
+                opt.classList.toggle("active", opt.dataset.categoria === categoriaEvolucion)
+            })
+        }
+        opcionesCategoria.forEach(opt => {
+            opt.addEventListener("click", async () => {
+                if (!modal?.isConnected || cancelado) return
+                if (opt.dataset.categoria === categoriaEvolucion) return
+                categoriaEvolucion = opt.dataset.categoria
+                marcarCategoria()
+                await dibujarModal(datosModal || datos, categoriaEvolucion)
+            })
+        })
+        marcarCategoria()
+
         configurarPeriodos(body.querySelector("#grafico-periodos-modal"), async () => {
             if (!modal?.isConnected || cancelado) return
             const secuencia = ++secuenciaModal
             const datosPeriodo = await obtenerPatrimonioParaGrafico(uid, obtenerPeriodo(periodoGrafico).dias)
             if (!modal.isConnected || cancelado || secuencia !== secuenciaModal) return
             datosGrafico = datosPeriodo
-            await crearGraficoPatrimonio("grafico-patrimonio-modal", datosPeriodo, {
-                divisa: divisaActual.toUpperCase(),
-                etiquetaDivisa: presentarDivisa(divisaActual),
-                chartKey: "evolucion-modal"
-            })
+            await dibujarModal(datosPeriodo, categoriaEvolucion)
         })
-        await crearGraficoPatrimonio("grafico-patrimonio-modal", datos, {
-            divisa: divisaActual.toUpperCase(),
-            etiquetaDivisa: presentarDivisa(divisaActual),
-            chartKey: "evolucion-modal"
-        })
+        await dibujarModal(datos, categoriaEvolucion)
         if (cancelado && datosGrafico?.labels?.length) dibujarGrafico()
     } catch (error) {
         const body = modal?.querySelector(".modal-body")

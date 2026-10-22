@@ -352,6 +352,29 @@ body.dashboard-card-dragging * {
     min-height: 280px;
 }
 
+/* Cinco categorías antes del gráfico. En pantallas estrechas se envuelven en
+   varias filas en vez de comprimir las píldoras hasta hacerlas ilegibles. */
+.grafico-categorias-modal {
+    box-sizing: border-box;
+    flex-wrap: wrap;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0 auto 14px;
+    justify-content: center;
+}
+
+.grafico-categorias-modal .toggle-option {
+    flex: 0 1 auto;
+    padding: 4px 12px;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.grafico-categorias-modal .toggle-option:hover,
+.grafico-categorias-modal .toggle-option:hover:not(.active) {
+    padding: 4px 12px;
+}
+
 .grafico-periodos-modal {
     box-sizing: border-box;
     width: fit-content;

@@ -90,7 +90,11 @@ function leerColores() {
         textSecondary: estilos.getPropertyValue('--textSecondary').trim() || '#738391',
         border: estilos.getPropertyValue('--border').trim() || '#D0DCE8',
         textAct: estilos.getPropertyValue('--textAct').trim() || '#F3F3F3',
-        paleSky: estilos.getPropertyValue('--paleSky').trim() || '#D0DCE8'
+        paleSky: estilos.getPropertyValue('--paleSky').trim() || '#D0DCE8',
+        distribucionLiquidez: estilos.getPropertyValue('--distribucion-liquidez').trim() || '#BFE8C8',
+        distribucionInversiones: estilos.getPropertyValue('--distribucion-inversiones').trim() || '#7FE3D2',
+        distribucionInmovil: estilos.getPropertyValue('--distribucion-inmovil').trim() || '#F6C9D8',
+        distribucionDeudas: estilos.getPropertyValue('--distribucion-deudas').trim() || '#E96A7E'
     }
 }
 
@@ -255,14 +259,12 @@ export async function crearGraficoPatrimonio(canvasId, datos, opciones = {}) {
         const ctx = canvas.getContext('2d')
 
         const colores = leerColores()
-        const colorPositive = colores.positive
         const colorText = colores.text
         const colorTextSecondary = colores.textSecondary
         const colorBorder = colores.border
-        const colorTextAct = colores.textAct
-        const colorPaleSky = colores.paleSky
 
         const divisa = opcionesGrafico.divisa || 'PEN'
+        const categoria = opcionesGrafico.categoria || 'todo'
 
         // Si quien llama no pasó `formatear` ni `etiquetaDivisa`, hace falta
         // DivisaServicio. Se espera una sola vez, aquí: los callbacks de
@@ -287,21 +289,39 @@ export async function crearGraficoPatrimonio(canvasId, datos, opciones = {}) {
         const etiquetasOriginales = datos.labels || []
         const etiquetasVisibles = simplificarEtiquetasPatrimonio(etiquetasOriginales)
 
-        // Seleccionar datos según divisa
+        // La serie "todo" es la evolución patrimonial general y usa --text.
+        // Las categorías conservan la paleta de la dona para que el color del
+        // gráfico y el de su bloque en la card de distribución coincidan.
+        const COLORES_CATEGORIA = {
+            liquidez: colores.distribucionLiquidez,
+            inversiones: colores.distribucionInversiones,
+            inmovil: colores.distribucionInmovil,
+            deudas: colores.distribucionDeudas
+        }
+        const color = categoria === 'todo'
+            ? colorText
+            : (COLORES_CATEGORIA[categoria] || colorText)
+
+        // `datos.categorias` es el formato nuevo. El fallback mantiene vivo el
+        // gráfico si algún llamador antiguo solo pasa dataPEN/dataUSD/dataUSDT.
+        const seriesCategoria = datos.categorias?.[categoria]
         let data
-        let color
-        if (divisa === 'PEN') {
+        if (seriesCategoria) {
+            // EUR no tiene serie propia en los snapshots. Se mantiene el
+            // comportamiento anterior: cae a USD (que es lo mismo que USDT).
+            data = seriesCategoria[monedaGrafico]
+                ?? seriesCategoria.usdt
+                ?? seriesCategoria.usd
+                ?? []
+        } else if (divisa === 'PEN') {
             data = datos.dataPEN
-            color = colorPositive
         } else if (divisa === 'USD') {
             data = datos.dataUSD
-            color = colorTextAct
         } else {
             data = datos.dataUSDT
-            color = colorPaleSky
         }
 
-const gradient = ctx.createLinearGradient(0, 0, 0, 300)
+        const gradient = ctx.createLinearGradient(0, 0, 0, 300)
         gradient.addColorStop(0, color + '40')
         gradient.addColorStop(1, color + '00')
 
@@ -309,8 +329,8 @@ const gradient = ctx.createLinearGradient(0, 0, 0, 300)
             type: 'line',
             data: {
                 labels: etiquetasVisibles,
-            datasets: [{
-                    label: `Patrimonio ${etiquetaDivisa}`,
+                datasets: [{
+                    label: `${opcionesGrafico.etiqueta || 'Patrimonio'} ${etiquetaDivisa}`,
                     data: data || [],
                     borderColor: color,
                     backgroundColor: gradient,

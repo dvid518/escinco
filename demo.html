@@ -654,10 +654,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-evolucion">
+        <div class="toggle-group grafico-categorias-modal" id="grafico-categorias-modal" data-tpl="categorias"></div>
         <div class="evolucion-modal-grafico">
             <canvas id="grafico-patrimonio-modal"></canvas>
         </div>
         <div class="toggle-group grafico-periodos-modal" id="grafico-periodos-modal" data-tpl="periodos"></div>
+    </template>
+
+    <template id="tpl-categoria-grafico">
+        <span class="toggle-option" data-tpl="categoria" data-tpl-attr="data-categoria"><span data-tpl="etiqueta"></span></span>
     </template>
 
     <template id="tpl-periodo-grafico">

@@ -190,8 +190,19 @@ export function construirFixture() {
     // ---------- snapshots de patrimonio (últimos 14 días) ----------
     for (let i = 13; i >= 0; i--) {
         const base = 11800 + Math.round(Math.sin(i / 2) * 420) + (13 - i) * 55
+        // Reparto de ejemplo para que el selector de categorías del modal de
+        // evolución también tenga series en la demo. Las deudas se despejan
+        // para que los cuatro bloques cuadren con el patrimonio neto.
+        const liquidezPEN = Math.round(base * 0.35)
+        const inversionesPEN = Math.round(base * 0.50)
+        const inmovilPEN = Math.round(base * 0.20)
+        const deudasPEN = liquidezPEN + inversionesPEN + inmovilPEN - base
         poner(`usuarios/${UID}/snapshots/${iso(i)}`, {
             patrimonioPEN: base, patrimonioUSD: Math.round(base / 3.75),
+            liquidezPEN, liquidezUSD: Math.round(liquidezPEN / 3.75),
+            inversionesPEN, inversionesUSD: Math.round(inversionesPEN / 3.75),
+            inmovilPEN, inmovilUSD: Math.round(inmovilPEN / 3.75),
+            deudasPEN, deudasUSD: Math.round(deudasPEN / 3.75),
             cerrado: true, actualizacion: momento(i)
         })
     }
