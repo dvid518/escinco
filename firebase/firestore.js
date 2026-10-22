@@ -150,30 +150,30 @@ export async function obtenerCuentas(uid) {
 
     // Invalidar caché de cuentas para asegurar lectura fresca de red.
     // Al desactivar la persistencia offline de Firestore, no hay caché
-    // local que rescaté lecturas fallidas, así que forzar relectura
+    // local que rescate lecturas fallidas, así que forzar relectura
     // evita devolver datos vacíos de una llamada anterior.
     cacheCapa.invalidar(uid, "cuentas")
 
     let ultimoError
     for (let intento = 0; intento < 5; intento++) {
         try {
-            const referencia = collection(db, "usuarios", uid, "cuentas")
-            const resultado = await getDocs(referencia)
-            const cuentas = resultado.docs.map(documento => ({
-                id: documento.id,
-                ...documento.data()
-            }))
-            const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
-            const resuelto = resolverNombresCuentas(cuentas, formato)
-
-            // Guardar en caché para lecturas subsiguientes
-            cacheCapa.setCache(`${uid}::cuentas`, resuelto, 300000)
-
-            return resuelto
+            return await cacheCapa.obtener(uid, "cuentas", async () => {
+                const referencia = collection(db, "usuarios", uid, "cuentas")
+                const resultado = await getDocs(referencia)
+                const cuentas = resultado.docs.map(documento => ({
+                    id: documento.id,
+                    ...documento.data()
+                }))
+                const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
+                return resolverNombresCuentas(cuentas, formato)
+            })
         } catch (error) {
             ultimoError = error
             console.warn(`[WARN] obtenerCuentas intento ${intento + 1}/5 falló:`, error.message)
-            await new Promise(resolve => setTimeout(resolve, 800 * (intento + 1)))
+            // Si es el último intento, no esperar más
+            if (intento < 4) {
+                await new Promise(resolve => setTimeout(resolve, 800 * (intento + 1)))
+            }
         }
     }
 
