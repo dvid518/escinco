@@ -19,7 +19,7 @@ import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa, presentarDivisa, getFormatoDivisa } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { escapeHtml } from "../core/escape.js"
@@ -142,21 +142,23 @@ export function render() {
                         </svg>
                     </button>
                 </div>
-                <select id="filtro-divisa" class="filtro-select" aria-label="Divisa">
-                    <option value="">Divisas</option>
-                    <option value="PEN">PEN</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="USDT">USDT</option>
-                </select>
-                <button type="button" class="btn-icon filtro-limpiar" id="filtro-limpiar" title="Limpiar filtros" aria-label="Limpiar filtros">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom preview-icon">
-                        <path d="M13.5 10.5 22 2"/>
-                        <path d="M14.734 13.841a2 2 0 00-.314-2.42L12.58 9.58a2 2 0 00-2.421-.314l-7.657 4.461A1 1 0 002.3 15.3l6.403 6.403a1 1 0 001.571-.204z"/>
-                        <path d="m5 18 2-2"/>
-                        <path d="m7.699 10.7 5.602 5.601"/>
-                    </svg>
-                </button>
+                <div class="campo-divisa">
+                    <select id="filtro-divisa" class="filtro-select" aria-label="Divisa">
+                        <option value="">Divisas</option>
+                        <option value="PEN">PEN</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="USDT">USDT</option>
+                    </select>
+                    <button type="button" class="btn-icon filtro-limpiar" id="filtro-limpiar" title="Limpiar filtros" aria-label="Limpiar filtros">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-broom preview-icon">
+                            <path d="M13.5 10.5 22 2"/>
+                            <path d="M14.734 13.841a2 2 0 00-.314-2.42L12.58 9.58a2 2 0 00-2.421-.314l-7.657 4.461A1 1 0 002.3 15.3l6.403 6.403a1 1 0 001.571-.204z"/>
+                            <path d="m5 18 2-2"/>
+                            <path d="m7.699 10.7 5.602 5.601"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div id="totales-movimientos" class="totales" aria-busy="true">
                 ${skeletonMarkup({ rows: 1, className: "skeleton-totals" })}
@@ -1021,16 +1023,15 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
         }
     })
 
-    const modoCodigo = getFormatoDivisa() === "codigo"
     const divisasOrdenadas = Object.entries(porDivisa)
         .sort(([a], [b]) => compararDivisas(a, b))
 
+    // Mismo formato que los totales de cuentas: la divisa acompaña a cada
+    // importe (+S/ 139.40 / −S/ 0.00) y respeta símbolo o código.
     const lineas = contenidoDesdeFilas("tpl-totales-mov-linea", divisasOrdenadas, ([divisa, totales]) => ({
         valores: {
-            "item@class": `totales-item ${modoCodigo ? "totales-item-codigo" : "totales-item-simbolo"}`,
-            positivo: `+${totales.positivo.toFixed(2)}`,
-            negativo: `−${totales.negativo.toFixed(2)}`,
-            divisa: presentarDivisa(divisa)
+            positivo: `+${formatearMontoConDivisa(totales.positivo, divisa)}`,
+            negativo: `−${formatearMontoConDivisa(totales.negativo, divisa)}`
         }
     }))
 

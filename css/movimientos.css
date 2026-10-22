@@ -20,14 +20,13 @@
    FILTROS
    -------------------------------------------- */
 
-/* Base (móvil): rejilla de dos columnas. La búsqueda ocupa la fila
-   completa y los seis controles restantes se reparten por parejas. Sin
-   caja contenedora: los filtros se leen como parte del panel, no como un
-   bloque aparte. */
+/* Filtros: flujo flexible, sin rejilla. La búsqueda crece y el resto de
+   controles conserva anchos cómodos. El botón limpiar va dentro del grupo
+   de la divisa, así que nunca queda aislado en el borde derecho. */
 #panel .filtros {
     --filtro-height: 40px;
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     align-items: center;
     width: 100%;
@@ -44,48 +43,49 @@
     height: var(--filtro-height);
 }
 
-/* La búsqueda siempre respira: fila completa en móvil y mitad en tablet. */
+/* La búsqueda ocupa la fila completa en móvil; en portátil comparte fila
+   y se lleva el espacio sobrante. */
 #panel .filtros .campo-buscar {
-    grid-column: 1 / -1;
-    min-width: 0;
+    flex: 1 1 100%;
 }
 
-/* Botón limpiar: tamaño fijo y alineado al borde derecho de su celda. */
+#panel .filtros .campo-etiqueta {
+    flex: 1 1 110px;
+}
+
+#panel .filtros select#filtro-cuenta {
+    flex: 1 1 120px;
+}
+
+#panel .filtros .campo-fecha {
+    flex: 1 1 130px;
+}
+
+/* Divisa + limpiar forman un solo grupo: el botón siempre acompaña al
+   selector. Ancho propio para que no se estire a lo ancho de una fila. */
+#panel .filtros .campo-divisa {
+    display: flex;
+    flex: 0 1 170px;
+    align-items: center;
+    gap: 8px;
+}
+
+#panel .filtros .campo-divisa select {
+    flex: 1 1 0;
+    width: auto;
+}
+
 #panel .filtros .btn-icon.filtro-limpiar {
+    flex: 0 0 var(--filtro-height);
     width: var(--filtro-height);
     height: var(--filtro-height);
-    justify-self: end;
 }
 
-/* Tablet: cuatro columnas. Fila 1 · búsqueda (doble) + etiqueta + cuenta.
-   Fila 2 · desde + hasta + divisa + limpiar. */
-@container movimientos-panel (min-width: 640px) {
-    #panel .filtros {
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-    }
-
+/* Portátil ancho: todos los controles en una sola fila. La búsqueda se
+   queda el espacio sobrante. */
+@container movimientos-panel (min-width: 880px) {
     #panel .filtros .campo-buscar {
-        grid-column: span 2;
-    }
-}
-
-/* Portátil ancho: una sola fila. La búsqueda se lleva el espacio sobrante,
-   los fecheros tienen algo más de ancho que el resto y el botón limpiar
-   conserva su tamaño fijo al final. */
-@container movimientos-panel (min-width: 900px) {
-    #panel .filtros {
-        grid-template-columns:
-            minmax(180px, 1.6fr)
-            minmax(0, 1fr)
-            minmax(0, 1.3fr)
-            minmax(0, 1.3fr)
-            minmax(0, 1fr)
-            minmax(0, 1fr)
-            var(--filtro-height);
-    }
-
-    #panel .filtros .campo-buscar {
-        grid-column: auto;
+        flex: 1 1 160px;
     }
 }
 
@@ -103,7 +103,9 @@
     font-family: var(--font-primary);
     font-size: 13px;
     outline: none;
-    transition: all 0.3s ease;
+    /* Solo se animan los estados visuales: animar `all` hacía que el
+       flex creciera desde 0 al cargar y descolocaba el grupo divisa. */
+    transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
 }
 
 #panel .filtros select {
@@ -126,8 +128,7 @@
     border-color: var(--border);
 }
 
-/* Cuenta y divisa ocupan una celda entera de la rejilla: nada de anchos
-   fijos que rompan el reparto en pantallas estrechas. */
+/* Cuenta y divisa nunca fuerzan un ancho mínimo que rompa la fila. */
 #panel .filtros select#filtro-cuenta,
 #panel .filtros select#filtro-divisa {
     min-width: 0;
