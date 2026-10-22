@@ -76,9 +76,11 @@ function plantillaConfiguracion() {
         </button>`
     ).join("")
 
-    const movimientosRecientes = [2, 3, 4, 5].map(cantidad =>
-        `<span class="toggle-option${cantidad === CANTIDAD_MOVIMIENTOS_DEFAULT ? " active" : ""}" data-cantidad="${cantidad}">${cantidad}</span>`
-    ).join("")
+    const movimientosRecientes = `<div class="toggle-group" id="movimientos-recientes" role="group" aria-label="Cantidad de últimos movimientos en el dashboard">` +
+        [2, 3, 4, 5].map(cantidad =>
+            `<span class="toggle-option${cantidad === CANTIDAD_MOVIMIENTOS_DEFAULT ? " active" : ""}" data-cantidad="${cantidad}">${cantidad}</span>`
+        ).join("") +
+        `</div>`
 
     return contenidoDesdeTemplate("tpl-configuracion", {
         valores: {
