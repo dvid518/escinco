@@ -19,7 +19,8 @@ import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa, presentarDivisa, getFormatoDivisa } from "../services/DivisaServicio.js"
+import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { escapeHtml } from "../core/escape.js"
 import { normalizarEtiquetas } from "../core/etiquetas.js"
@@ -104,6 +105,9 @@ export function render() {
                         <option value="">Etiquetas</option>
                     </select>
                 </div>
+                <select id="filtro-cuenta" class="filtro-select" aria-label="Cuenta">
+                    <option value="">Cuentas</option>
+                </select>
                 <div class="campo-fecha">
                     <input type="date" id="filtro-desde" aria-label="Desde">
                     <button type="button" class="btn-calendario" aria-label="Abrir calendario">
@@ -138,9 +142,6 @@ export function render() {
                         </svg>
                     </button>
                 </div>
-                <select id="filtro-cuenta" class="filtro-select" aria-label="Cuenta">
-                    <option value="">Cuentas</option>
-                </select>
                 <select id="filtro-divisa" class="filtro-select" aria-label="Divisa">
                     <option value="">Divisas</option>
                     <option value="PEN">PEN</option>
@@ -1020,11 +1021,16 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
         }
     })
 
-    const lineas = contenidoDesdeFilas("tpl-totales-mov-linea", Object.entries(porDivisa), ([divisa, totales]) => ({
+    const modoCodigo = getFormatoDivisa() === "codigo"
+    const divisasOrdenadas = Object.entries(porDivisa)
+        .sort(([a], [b]) => compararDivisas(a, b))
+
+    const lineas = contenidoDesdeFilas("tpl-totales-mov-linea", divisasOrdenadas, ([divisa, totales]) => ({
         valores: {
+            "item@class": `totales-item ${modoCodigo ? "totales-item-codigo" : "totales-item-simbolo"}`,
             positivo: `+${totales.positivo.toFixed(2)}`,
             negativo: `−${totales.negativo.toFixed(2)}`,
-            divisa
+            divisa: presentarDivisa(divisa)
         }
     }))
 

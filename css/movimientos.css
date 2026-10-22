@@ -20,22 +20,19 @@
    FILTROS
    -------------------------------------------- */
 
-/* Base: barra de filtros en una sola línea, envolviendo en pantallas
-   estrechas. La búsqueda ocupa todo el ancho disponible y el resto se
-   adapta al espacio que quede. */
+/* Base (móvil): rejilla de dos columnas. La búsqueda ocupa la fila
+   completa y los seis controles restantes se reparten por parejas. Sin
+   caja contenedora: los filtros se leen como parte del panel, no como un
+   bloque aparte. */
 #panel .filtros {
     --filtro-height: 40px;
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     align-items: center;
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    padding: 6px 8px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    background: var(--surface);
 }
 
 /* Misma altura en TODOS los controles y sus wrappers. */
@@ -47,28 +44,49 @@
     height: var(--filtro-height);
 }
 
-/* Búsqueda: crece y ocupa todo el ancho disponible. */
+/* La búsqueda siempre respira: fila completa en móvil y mitad en tablet. */
 #panel .filtros .campo-buscar {
-    flex: 1 1 200px;
+    grid-column: 1 / -1;
     min-width: 0;
 }
 
-/* Etiqueta, fechas, cuenta, divisa: no crecen, solo lo necesario. */
-#panel .filtros .campo-etiqueta,
-#panel .filtros .campo-fecha,
-#panel .filtros select#filtro-cuenta,
-#panel .filtros select#filtro-divisa {
-    flex: 0 0 auto;
-    min-width: 0;
-}
-
-/* Botón limpiar: tamaño fijo, siempre al final. */
+/* Botón limpiar: tamaño fijo y alineado al borde derecho de su celda. */
 #panel .filtros .btn-icon.filtro-limpiar {
-    flex: 0 0 auto;
     width: var(--filtro-height);
     height: var(--filtro-height);
-    /* Altura igual al resto de controles (40px) para alineación visual. */
-    height: var(--filtro-height);
+    justify-self: end;
+}
+
+/* Tablet: cuatro columnas. Fila 1 · búsqueda (doble) + etiqueta + cuenta.
+   Fila 2 · desde + hasta + divisa + limpiar. */
+@container movimientos-panel (min-width: 640px) {
+    #panel .filtros {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    #panel .filtros .campo-buscar {
+        grid-column: span 2;
+    }
+}
+
+/* Portátil ancho: una sola fila. La búsqueda se lleva el espacio sobrante,
+   los fecheros tienen algo más de ancho que el resto y el botón limpiar
+   conserva su tamaño fijo al final. */
+@container movimientos-panel (min-width: 900px) {
+    #panel .filtros {
+        grid-template-columns:
+            minmax(180px, 1.6fr)
+            minmax(0, 1fr)
+            minmax(0, 1.3fr)
+            minmax(0, 1.3fr)
+            minmax(0, 1fr)
+            minmax(0, 1fr)
+            var(--filtro-height);
+    }
+
+    #panel .filtros .campo-buscar {
+        grid-column: auto;
+    }
 }
 
 /* Inputs y selects: llenan su celda, misma altura, sin desbordar.
@@ -108,11 +126,11 @@
     border-color: var(--border);
 }
 
-/* Selects de cuenta y divisa: ancho mínimo razonable para que no se encogan
-   demasiado al hacer resize. */
+/* Cuenta y divisa ocupan una celda entera de la rejilla: nada de anchos
+   fijos que rompan el reparto en pantallas estrechas. */
 #panel .filtros select#filtro-cuenta,
 #panel .filtros select#filtro-divisa {
-    min-width: 110px;
+    min-width: 0;
 }
 
 /* --------------------------------------------

@@ -8,7 +8,6 @@ import { mostrarNotificacion } from "./notificaciones.js"
 import { etiquetaDivisa, formatearMontoConDivisa, getDivisaPrincipal } from "../services/DivisaServicio.js"
 import { MAX_LARGO_NOMBRE_FAVORITO } from "../services/FavoritoServicio.js"
 import { contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
-import { escapeHtml } from "../core/escape.js"
 
 // Activos del usuario cargados al abrir el formulario, indexados por símbolo
 // en mayúsculas. La página no mantiene el modelo a mano: se rellena cada vez.
@@ -64,10 +63,10 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
     // select recibe su propia copia.
     const opcionesCuentas = () => contenidoDesdeFilas("tpl-opcion-cuenta", cuentasElegibles, c => ({
         valores: {
-            "opcion@value": c.id,
-            "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
-            "opcion@data-tipo": c.tipo || "otro",
-            texto: `${escapeHtml(c.nombre)} (${etiquetaDivisa(c.moneda || "pen")})`
+            "texto@value": c.id,
+            "texto@data-moneda": (c.moneda || "pen").toLowerCase(),
+            "texto@data-tipo": c.tipo || "otro",
+            texto: `${c.nombre} (${etiquetaDivisa(c.moneda || "pen")})`
         }
     }))
 
@@ -80,10 +79,10 @@ export async function generarFormularioMovimiento(tipo, divisaPreseleccionada = 
             : cuentasActivas.filter(c => c.tipo === "credito"),
         c => ({
             valores: {
-                "opcion@value": c.id,
-                "opcion@data-moneda": (c.moneda || "pen").toLowerCase(),
-                "opcion@data-tipo": "credito",
-                texto: `${escapeHtml(c.nombre)} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
+                "texto@value": c.id,
+                "texto@data-moneda": (c.moneda || "pen").toLowerCase(),
+                "texto@data-tipo": "credito",
+                texto: `${c.nombre} (deuda: ${formatearMontoConDivisa(c.deuda || 0, c.moneda || "pen")})`
             }
         })
     )

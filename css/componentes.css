@@ -246,20 +246,14 @@
 
 .totales-positivo {
     color: var(--positive);
-    background: color-mix(in srgb, var(--positive) 12%, transparent);
     font-family: var(--font-secondary);
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 8px;
 }
 
 .totales-negativo {
     color: var(--negative);
-    background: color-mix(in srgb, var(--negative) 12%, transparent);
     font-family: var(--font-secondary);
     font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 8px;
 }
 
 .totales-ganancia {
@@ -275,6 +269,12 @@
 .totales-divisa {
     color: var(--text);
     font-weight: 600;
+}
+
+/* El símbolo (S/, $, €) va delante de los totales; el código (PEN, USD, EUR)
+   se queda detrás. El orden visual se resuelve con flex, sin mover el DOM. */
+.totales-item-simbolo .totales-divisa {
+    order: -1;
 }
 
 /* Botones de acción dentro de la fila de totales */
