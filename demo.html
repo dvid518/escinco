@@ -661,7 +661,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-periodo-grafico">
-        <span class="toggle-option" data-tpl="periodo" data-tpl-attr="data-periodo" data-tpl="etiqueta"></span>
+        <span class="toggle-option" data-tpl="periodo" data-tpl-attr="data-periodo"><span data-tpl="etiqueta"></span></span>
     </template>
 
     <!-- Inversiones y trading -->
@@ -1445,7 +1445,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- Opciones de los select y del datalist de activos -->
 
     <template id="tpl-opcion-cuenta">
-        <option data-tpl="opcion" data-tpl-attr="value,data-moneda,data-tipo" data-tpl="texto"></option>
+        <option data-tpl="texto" data-tpl-attr="value,data-moneda,data-tipo"></option>
     </template>
 
     <template id="tpl-opcion-activo">
@@ -2673,7 +2673,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-totales-mov-linea">
-        <span class="totales-item">
+        <span class="totales-item" data-tpl="item" data-tpl-attr="class">
             <span class="totales-positivo" data-tpl="positivo"></span>
             <span class="totales-sep">/</span>
             <span class="totales-negativo" data-tpl="negativo"></span>
