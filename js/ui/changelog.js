@@ -1,4 +1,5 @@
 import { CHANGELOG } from "../../constants/changelog.js"
+import { VERSION } from "../../constants/version.js"
 
 // ============================================
 // MODAL DE NOVEDADES
@@ -85,12 +86,20 @@ export async function abrirModalChangelog() {
 
     const contenido = document.createElement("div")
     contenido.className = "changelog"
-    for (const entrada of CHANGELOG) {
-        contenido.appendChild(crearBloqueVersion(entrada))
+
+    // Solo mostrar la versión actual; el historial completo no pertenece al modal.
+    const entradaActual = CHANGELOG.find(e => e.version === VERSION.numero)
+
+    if (entradaActual) {
+        contenido.appendChild(crearBloqueVersion(entradaActual))
+    } else {
+        const mensaje = document.createElement("p")
+        mensaje.textContent = "No hay notas de versión disponibles."
+        contenido.appendChild(mensaje)
     }
 
     abrirModal({
-        titulo: "Novedades",
+        titulo: `Novedades · v${VERSION.numero}`,
         variante: "form",
         contenido,
         cancelText: null,
