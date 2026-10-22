@@ -6,6 +6,7 @@ import { getFechaHoy } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
 import { skeletonMarkup, esqueletoContenedor } from "../ui/skeletons.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
+import { cuentasOperables } from "../core/familiaCuentas.js"
 import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import {
     generarFormularioMovimiento,
@@ -1248,6 +1249,116 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
 
     const config = CONFIG_MOVIMIENTOS[tipo]
 
+    // Just-in-time: asegurar que los selects de cuenta tengan opciones
+    const asegurarCuentasEnFormulario = async () => {
+        const selectsCuenta = [
+            formulario.querySelector("#campo-cuenta"),
+            formulario.querySelector("#campo-cuentaOrigen"),
+            formulario.querySelector("#campo-cuentaDestino")
+        ].filter(Boolean)
+
+        const selectTarjeta = formulario.querySelector("#campo-tarjeta")
+
+        const necesitaCargar = (select) => {
+            if (!select) return false
+            const opciones = Array.from(select.options || [])
+            if (opciones.length === 0) return true
+            // Si solo tiene una opción vacía/sin valor o placeholder
+            const reales = opciones.filter(o => o.value && o.value !== "")
+            return reales.length === 0
+        }
+
+        const haySelectsSinOpciones = selectsCuenta.some(necesitaCargar) || necesitaCargar(selectTarjeta)
+
+        if (!haySelectsSinOpciones) return
+
+        const deshabilitarYMostrar = (select, texto) => {
+            if (!select) return
+            select.disabled = true
+            select.replaceChildren()
+            const opt = document.createElement("option")
+            opt.value = ""
+            opt.disabled = true
+            opt.selected = true
+            opt.textContent = texto
+            select.appendChild(opt)
+        }
+
+        selectsCuenta.forEach(s => deshabilitarYMostrar(s, "Cargando cuentas..."))
+        deshabilitarYMostrar(selectTarjeta, "Cargando cuentas...")
+
+        const btnConfirmar = modalEl?.querySelector(".modal-confirm") || modalEl?.querySelector("button[type='submit']") || document.querySelector(".modal-confirm")
+        if (btnConfirmar) btnConfirmar.disabled = true
+
+        try {
+            const cuentas = await obtenerCuentas(uid || sesion.uid)
+            const cuentasActivas = cuentasOperables ? cuentasOperables(cuentas).filter(c => c.estado !== "archivada") : cuentas.filter(c => c.estado !== "archivada")
+
+            const poblarSelect = (select, tipoFiltro) => {
+                if (!select) return
+                select.replaceChildren()
+                let lista = cuentasActivas
+                if (tipoFiltro === "soloNoCredito") {
+                    lista = cuentasActivas.filter(c => c.tipo !== "credito")
+                } else if (tipoFiltro === "soloCredito") {
+                    lista = cuentasActivas.filter(c => c.tipo === "credito")
+                }
+
+                if (lista.length === 0) {
+                    deshabilitarYMostrar(select, cuentasActivas.length === 0 ? "No tienes cuentas creadas. Crea una primero." : "No hay cuentas disponibles para este tipo")
+                    return
+                }
+
+                const optVacia = document.createElement("option")
+                optVacia.value = ""
+                optVacia.disabled = true
+                optVacia.selected = true
+                optVacia.textContent = "Seleccionar cuenta"
+                select.appendChild(optVacia)
+
+                for (const c of lista) {
+                    const opt = document.createElement("option")
+                    opt.value = c.id
+                    opt.textContent = `${c.nombre || c.id} (${(c.moneda || "PEN").toUpperCase()})`
+                    opt.dataset.moneda = (c.moneda || "pen").toLowerCase()
+                    opt.dataset.tipo = c.tipo || "otro"
+                    select.appendChild(opt)
+                }
+                select.disabled = false
+            }
+
+            const esPagoTarjeta = tipo === TIPOS_MOVIMIENTO.PAGO_TARJETA
+            const esTransferencia = tipo === TIPOS_MOVIMIENTO.TRANSFERENCIA
+
+            selectsCuenta.forEach(s => {
+                if (esPagoTarjeta || esTransferencia) {
+                    poblarSelect(s, "soloNoCredito")
+                } else {
+                    poblarSelect(s)
+                }
+            })
+            poblarSelect(selectTarjeta, "soloCredito")
+
+            const hayCuentasDisponibles = Array.from(document.querySelectorAll('#form-movimiento select')).some(sel => {
+                const opts = Array.from(sel.options || []).filter(o => o.value && o.value !== "")
+                return opts.length > 0
+            })
+
+            if (btnConfirmar) {
+                if (!hayCuentasDisponibles) {
+                    btnConfirmar.disabled = true
+                } else {
+                    btnConfirmar.disabled = false
+                }
+            }
+        } catch (error) {
+            console.error("Error cargando cuentas para formulario:", error)
+            selectsCuenta.forEach(s => deshabilitarYMostrar(s, "Error al cargar cuentas. Reintenta."))
+            deshabilitarYMostrar(selectTarjeta, "Error al cargar cuentas. Reintenta.")
+            if (btnConfirmar) btnConfirmar.disabled = true
+        }
+    }
+
     const modalEl = abrirModal({
         titulo: opciones.titulo || (esEdicion
             ? `Editar ${config?.nombre || tipo}`
@@ -1312,6 +1423,9 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         filtrarCuentasDestinoTransferencia()
     }
     vincularSimboloDivisa()
+
+    // Just-in-time: cargar cuentas si el formulario no las tiene
+    await asegurarCuentasEnFormulario()
 
     // Selector de chips de etiquetas: lee el input oculto #campo-etiquetas
     // (ya rellenado si es edición) y lo reescribe en cada cambio.
