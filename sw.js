@@ -18,7 +18,6 @@ const SHELL_ASSETS = [
     "/reset-password.html",
     "/privacidad.html",
     "/terminos.html",
-    "/eliminar-datos.html",
     "/manifest.webmanifest",
 
     // SEO
