@@ -270,10 +270,12 @@ async function iniciarConfiguracion() {
     hayCambios = false
     actualizarEstadoGuardar()
 
-    // Alt+S para guardar cambios desde el teclado.
+    // Alt+S para guardar cambios desde el teclado. Se comporta como el botón
+    // Guardar: si no hay nada que guardar, no avisa ni escribe en Firestore.
     document.addEventListener("keydown", (e) => {
         if (e.altKey && e.key === "s") {
             e.preventDefault()
+            if (!hayCambios) return
             guardarPreferencias()
         }
     })
@@ -1164,6 +1166,11 @@ function construirPreferencias() {
 }
 
 async function aplicarPreferencias(preferencias) {
+    // Aviso de "en curso": sale al pulsar Guardar (botón o atajo de teclado) y
+    // se retira en cuanto el guardado termina, dejando paso al aviso de
+    // éxito o de error. Sin este aviso el guardado puede tardar lo que tarde
+    // el cambio de divisa y la pantalla parece que no ha hecho nada.
+    const cerrarAvisoGuardando = mostrarNotificacion("info", "Guardando cambios...", 0)
     try {
         // Nombre pendiente → auth + doc de usuario
         if (nombrePendiente && nombrePendiente !== sesion.getUsuario()?.nombre) {
@@ -1223,9 +1230,11 @@ async function aplicarPreferencias(preferencias) {
         lineaBase = preferencias
         actualizarEstadoGuardar()
 
+        cerrarAvisoGuardando()
         mostrarNotificacion("exito", "Cambios guardados")
     } catch (error) {
         console.error("Error guardando preferencias:", error)
+        cerrarAvisoGuardando()
         mostrarNotificacion("error", "No se pudieron guardar las preferencias")
     }
 }

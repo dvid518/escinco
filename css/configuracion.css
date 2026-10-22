@@ -56,6 +56,9 @@
 .config-nav button:hover {
     color: var(--text);
     background: var(--lightHover);
+    /* El mismo resplandor interior que usa la navegación (css/navegacion.css):
+       el botón se hunde un poco hacia dentro al pasar el cursor. */
+    --glow: inset 0 0 24px var(--shadow);
 }
 
 .config-nav button.act {
@@ -194,15 +197,20 @@
    que pasan por detrás no se transparenten. En modal sigue dentro de la
    columna del nav. */
 .config-pagina .config-pie-pagina {
+    position: sticky;
+    bottom: 0;
+    z-index: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     text-align: center;
     gap: 2px;
-    margin-top: 24px;
+    margin-top: auto;
     padding: 12px 4px;
     border-top: 1px solid var(--border);
     font-size: 12px;
+    background: var(--panel-bg, var(--glass-bg));
+    backdrop-filter: var(--glass-blur);
 }
 
 /* El menú es la columna fija del grid. `position: sticky` para que siga
