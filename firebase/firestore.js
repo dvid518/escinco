@@ -148,26 +148,36 @@ export async function obtenerCuentas(uid) {
         return []
     }
 
+    // Invalidar caché de cuentas para asegurar lectura fresca de red.
+    // Al desactivar la persistencia offline de Firestore, no hay caché
+    // local que rescaté lecturas fallidas, así que forzar relectura
+    // evita devolver datos vacíos de una llamada anterior.
+    cacheCapa.invalidar(uid, "cuentas")
+
     let ultimoError
-    for (let intento = 0; intento < 3; intento++) {
+    for (let intento = 0; intento < 5; intento++) {
         try {
-            return await cacheCapa.obtener(uid, "cuentas", async () => {
-                const referencia = collection(db, "usuarios", uid, "cuentas")
-                const resultado = await getDocs(referencia)
-                const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
-                return resolverNombresCuentas(resultado.docs.map(documento => ({
-                    id: documento.id,
-                    ...documento.data()
-                })), formato)
-            })
+            const referencia = collection(db, "usuarios", uid, "cuentas")
+            const resultado = await getDocs(referencia)
+            const cuentas = resultado.docs.map(documento => ({
+                id: documento.id,
+                ...documento.data()
+            }))
+            const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
+            const resuelto = resolverNombresCuentas(cuentas, formato)
+
+            // Guardar en caché para lecturas subsiguientes
+            cacheCapa.setCache(`${uid}::cuentas`, resuelto, 300000)
+
+            return resuelto
         } catch (error) {
             ultimoError = error
-            console.warn(`[WARN] obtenerCuentas intento ${intento + 1}/3 falló:`, error.message)
-            await new Promise(resolve => setTimeout(resolve, 500 * (intento + 1)))
+            console.warn(`[WARN] obtenerCuentas intento ${intento + 1}/5 falló:`, error.message)
+            await new Promise(resolve => setTimeout(resolve, 800 * (intento + 1)))
         }
     }
 
-    console.error("[ERROR] No se pudieron cargar las cuentas después de 3 intentos:", ultimoError)
+    console.error("[ERROR] No se pudieron cargar las cuentas después de 5 intentos:", ultimoError)
     return []
 }
 
