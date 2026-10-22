@@ -1170,7 +1170,7 @@ async function aplicarPreferencias(preferencias) {
     // se retira en cuanto el guardado termina, dejando paso al aviso de
     // éxito o de error. Sin este aviso el guardado puede tardar lo que tarde
     // el cambio de divisa y la pantalla parece que no ha hecho nada.
-    const cerrarAvisoGuardando = mostrarNotificacion("info", "Guardando cambios...", 0)
+    const cerrarAvisoGuardando = mostrarNotificacion("info", "Guardando cambios...", 0, null, null, { historial: false })
     try {
         // Nombre pendiente → auth + doc de usuario
         if (nombrePendiente && nombrePendiente !== sesion.getUsuario()?.nombre) {

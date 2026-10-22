@@ -217,16 +217,19 @@ function limpiarContenedorVacio() {
  * @param {number} [duracion=3000] ms. 0 = no se autoelimina.
  * @param {{texto: string, alClick: Function, primaria?: boolean, clase?: string} | Array<{texto: string, alClick: Function, primaria?: boolean, clase?: string}> | null} [accion] botón(es) opcional(es).
  * @param {() => void} [alCerrar] callback al cerrarse la notificación por cualquier vía.
+ * @param {{historial?: boolean}} [opciones] `historial: false` la muestra pero no la anota en el historial (avisos de estado, tipo "guardando…").
  * @returns {Function} función para cerrarla manualmente.
  */
-export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, accion = null, alCerrar = null) {
+export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, accion = null, alCerrar = null, opciones = {}) {
     if (!mensaje) return
 
     const config = TIPOS[tipo] || TIPOS.info
     const contenedor = obtenerContenedor()
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
 
-    registrarEnHistorial(tipo, mensaje)
+    // Los avisos de estado (el "guardando…" que precede al guardado) son ruido
+    // en el historial: se ven en pantalla, pero no se anotan.
+    if (opciones.historial !== false) registrarEnHistorial(tipo, mensaje)
 
     const acciones = (Array.isArray(accion) ? accion : (accion ? [accion] : []))
         .filter(Boolean)
