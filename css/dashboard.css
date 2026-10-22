@@ -900,7 +900,7 @@ body.dashboard-card-dragging * {
     display: block;
     height: 100%;
     border-radius: inherit;
-    background: var(--neutral);
+    background: var(--border);
 }
 
 .distribucion-barra span.inversiones {

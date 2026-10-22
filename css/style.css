@@ -105,7 +105,7 @@
     --etiqueta-verde: var(--positive);
     --etiqueta-rojo: var(--negative);
     --etiqueta-ambar: var(--ambar);
-    --etiqueta-azul: var(--neutral);
+    --etiqueta-azul: var(--border);
     --etiqueta-menta: var(--positiveAlt);
     --etiqueta-frambuesa: var(--negativeAlt);
     --etiqueta-mostaza: var(--ambarAlt);
@@ -129,7 +129,6 @@
     --positive: var(--lightGreen);
     --negative: var(--cottonCandy);
     --ambar: var(--banana);
-    --neutral: var(--iceBlue);
     
     --positiveAlt: var(--tropicalMint);
     --negativeAlt: var(--raspberryRed);
@@ -162,7 +161,6 @@
     --positive: var(--tropicalMint);
     --negative: var(--raspberryRed);
     --ambar: var(--mustard);
-    --neutral: var(--royalBlue);
     
     --positiveAlt: var(--lightGreen);
     --negativeAlt: var(--cottonCandy);
@@ -549,9 +547,9 @@ option {
     background: color-mix(in srgb, var(--ambar) 22%, transparent);
 }
 
-.badge--neutral {
-    color: var(--neutral);
-    background: color-mix(in srgb, var(--neutral) 20%, transparent);
+.badge--border {
+    color: var(--border);
+    background: color-mix(in srgb, var(--border) 20%, transparent);
 }
 
 /* Badges clicables (estado de crédito, pills de subcuenta): conservan cursor,
