@@ -16,7 +16,7 @@ import {
     aplicarPreferenciasDiff
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
-import { DIVISAS_LABELS, DIVISAS_SYMBOLS } from "../../constants/divisas.js"
+import { DIVISAS_LABELS, DIVISAS_SYMBOLS, compararDivisas } from "../../constants/divisas.js"
 import { convertirMonto, etiquetaDivisa } from "../services/DivisaServicio.js"
 import { calcularPatrimonio } from "../services/SnapshotServicio.js"
 import {
@@ -96,6 +96,7 @@ const ICONOS_POR_TIPO = {
     efectivo: "banknote",
     broker: "trending-up",
     exchange: "arrow-left-right",
+    plazo: "landmark",
     credito: "credit-card",
     debito: "credit-card"
 }
@@ -1202,7 +1203,7 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
 
     const lineas = contenidoDesdeFilas(
         esCredito ? "tpl-totales-linea-credito" : "tpl-totales-linea-normal",
-        Object.entries(porDivisa),
+        Object.entries(porDivisa).sort(([a], [b]) => compararDivisas(a, b)),
         ([divisa, totales]) => ({
             valores: esCredito
                 ? { negativo: `−${formatearMontoConDivisa(totales.negativo, divisa)}` }
@@ -1648,6 +1649,7 @@ function nombreTipo(tipo) {
         efectivo: "Efectivo",
         broker: "Broker",
         exchange: "Exchange",
+        plazo: "Depósito a plazo",
         credito: "Tarjeta de crédito",
         debito: "Tarjeta de débito"
     }
@@ -1910,6 +1912,7 @@ const TIPOS_CUENTA_CREACION = [
     { id: "efectivo", nombre: "Efectivo", icono: "banknote" },
     { id: "broker", nombre: "Broker", icono: "trending-up" },
     { id: "exchange", nombre: "Exchange", icono: "arrow-left-right" },
+    { id: "plazo", nombre: "Depósito a plazo", icono: "landmark" },
     { id: "credito", nombre: "Tarjeta de crédito", icono: "credit-card" },
     { id: "debito", nombre: "Tarjeta de débito", icono: "credit-card" }
 ]
@@ -1922,6 +1925,7 @@ const PLACEHOLDER_NOMBRE_POR_TIPO = {
     efectivo: "Ej: Efectivo",
     broker: "Ej: Broker principal...",
     exchange: "Ej: Exchange principal...",
+    plazo: "Ej: Depósito BCP...",
     credito: "Ej: Tarjeta BCP...",
     debito: "Ej: Débito BBVA..."
 }

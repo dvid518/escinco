@@ -142,6 +142,7 @@ const ETIQUETAS_TIPO_CUENTA = {
     efectivo: "Efectivo",
     broker: "Broker",
     exchange: "Exchange",
+    plazo: "Depósito a plazo",
     debito: "Tarjeta de débito",
     credito: "Tarjeta de crédito"
 }
@@ -1939,6 +1940,9 @@ function acumularFlujoDeslizante(movimientos, dias) {
  * ejemplo) no entran aquí: su divisa no es la base de la cuenta.
  */
 function esSaldoInmovil(cuenta, todasCuentas) {
+    // Un depósito a plazo es dinero inmovilizado por definición: no se puede
+    // retirar hasta el vencimiento, sin importar en qué divisa esté.
+    if (cuenta.tipo === "plazo") return true
     if (cuenta.tipo !== "exchange" && cuenta.tipo !== "broker") return false
     const moneda = String(cuenta.moneda || "pen").toLowerCase()
     return moneda === divisaBaseDe(cuenta, todasCuentas)
