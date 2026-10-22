@@ -143,24 +143,32 @@ export async function crearCuenta(uid, datos) {
 }
 
 export async function obtenerCuentas(uid) {
-    try {
-        return await cacheCapa.obtener(uid, "cuentas", async () => {
-            const referencia = collection(db, "usuarios", uid, "cuentas")
-            const resultado = await getDocs(referencia)
-            // Los nombres se resuelven (mayúsculas + nombre derivado para hijas
-            // sin nombre) en el punto de lectura único, para que todas las vistas
-            // muestren lo mismo. El formato (SOLES frente a PEN) sale de la
-            // preferencia del usuario.
-            const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
-            return resolverNombresCuentas(resultado.docs.map(documento => ({
-                id: documento.id,
-                ...documento.data()
-            })), formato)
-        })
-    } catch (error) {
-        console.error("[WARN] Error obteniendo cuentas:", error)
+    if (!uid) {
+        console.warn("[WARN] obtenerCuentas: no hay UID de sesión")
         return []
     }
+
+    let ultimoError
+    for (let intento = 0; intento < 3; intento++) {
+        try {
+            return await cacheCapa.obtener(uid, "cuentas", async () => {
+                const referencia = collection(db, "usuarios", uid, "cuentas")
+                const resultado = await getDocs(referencia)
+                const formato = sesion.getPreferencias()?.formatoDivisa === "codigo" ? "codigo" : "simbolo"
+                return resolverNombresCuentas(resultado.docs.map(documento => ({
+                    id: documento.id,
+                    ...documento.data()
+                })), formato)
+            })
+        } catch (error) {
+            ultimoError = error
+            console.warn(`[WARN] obtenerCuentas intento ${intento + 1}/3 falló:`, error.message)
+            await new Promise(resolve => setTimeout(resolve, 500 * (intento + 1)))
+        }
+    }
+
+    console.error("[ERROR] No se pudieron cargar las cuentas después de 3 intentos:", ultimoError)
+    return []
 }
 
 export async function obtenerCuenta(uid, cuentaId) {
