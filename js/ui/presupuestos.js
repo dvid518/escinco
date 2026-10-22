@@ -5,6 +5,7 @@
 // card de presupuestos del dashboard. No usa el router: es un modal más.
 
 import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
+import { accionesDeListado } from "./accionesLista.js"
 import {
     obtenerPresupuestosConProgreso,
     eliminarPresupuesto,
@@ -329,6 +330,10 @@ export async function abrirModalPresupuestos(presupuestoId = null) {
         titulo: "Presupuestos",
         contenido: html,
         confirmText: "Cerrar",
+        headerExtra: accionesDeListado({
+            idCrear: "btn-crear-presupuesto",
+            textoCrear: "Nuevo presupuesto"
+        }),
         onConfirm: () => {
             cerrarModal()
         }

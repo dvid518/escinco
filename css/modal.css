@@ -181,6 +181,20 @@
     color: #fff;
 }
 
+/* Botón de acción sin nada que hacer (p. ej. eliminar sin selección): se
+   atenúa y no reacciona al cursor. */
+.modal-header-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.modal-header-btn:disabled:hover {
+    background: var(--surface);
+    border-color: var(--border);
+    color: var(--text);
+    box-shadow: none;
+}
+
 .modal-close:hover {
     background: var(--lightHover);
     transform: rotate(90deg);

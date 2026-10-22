@@ -1,4 +1,5 @@
 import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
+import { accionesDeListado } from "./accionesLista.js"
 import { obtenerPendientes, eliminarPendiente, crearPendiente, actualizarPendiente } from "../repositories/PendienteRepositorio.js"
 import { restaurarDocumento } from "../../firebase/firestore.js"
 import { sesion } from "../core/sesion.js"
@@ -253,9 +254,13 @@ export async function mostrarPendientes() {
 
             if (btn) {
                 btn.disabled = cantidad === 0
-                btn.textContent = cantidad > 0
+                // El botón del header es un icono: el rótulo va en el title y
+                // en el aria-label, que es lo que lee el lector de pantalla.
+                const etiqueta = cantidad > 0
                     ? `Eliminar ${cantidad} seleccionado${cantidad !== 1 ? 's' : ''}`
                     : 'Eliminar seleccionados'
+                btn.title = etiqueta
+                btn.setAttribute("aria-label", etiqueta)
             }
 
             // Contador dinámico: mientras hay selección muestra cuántos hay
@@ -281,6 +286,12 @@ export async function mostrarPendientes() {
             titulo: 'Pendientes',
             contenido: html,
             confirmText: 'Cerrar',
+            headerExtra: accionesDeListado({
+                idCrear: "btn-crear-pendiente",
+                textoCrear: "Nuevo pendiente",
+                idEliminar: "btn-eliminar-lote",
+                textoEliminar: "Eliminar seleccionados"
+            }),
             onConfirm: () => {
                 cerrarModal()
             }

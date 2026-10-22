@@ -1,4 +1,5 @@
 import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
+import { accionesDeListado } from "./accionesLista.js"
 import { obtenerMetas, crearMeta, actualizarMeta, eliminarMeta } from "../repositories/MetaRepositorio.js"
 import { sesion } from "../core/sesion.js"
 import { aportarMeta } from "../services/MetaServicio.js"
@@ -147,9 +148,13 @@ export async function mostrarMetas() {
 
             if (btn) {
                 btn.disabled = cantidad === 0
-                btn.textContent = cantidad > 0
+                // El botón del header es un icono: el rótulo va en el title y
+                // en el aria-label, que es lo que lee el lector de pantalla.
+                const etiqueta = cantidad > 0
                     ? `Eliminar ${cantidad} seleccionada${cantidad !== 1 ? 's' : ''}`
                     : 'Eliminar seleccionadas'
+                btn.title = etiqueta
+                btn.setAttribute("aria-label", etiqueta)
             }
 
             if (contador) {
@@ -173,6 +178,12 @@ export async function mostrarMetas() {
             titulo: 'Metas',
             contenido: html,
             confirmText: 'Cerrar',
+            headerExtra: accionesDeListado({
+                idCrear: "btn-crear-meta",
+                textoCrear: "Nueva meta",
+                idEliminar: "btn-eliminar-metas-lote",
+                textoEliminar: "Eliminar seleccionadas"
+            }),
             onConfirm: () => {
                 cerrarModal()
             }
