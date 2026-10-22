@@ -240,6 +240,10 @@ async function iniciarConfiguracion() {
     }
 
     document.getElementById("configuracion-cargando")?.remove()
+    // data-tpl-reemplazar sustituyó el contenedor por el esqueleto, así que
+    // el esqueleto puede quedar suelto sin el id original. Lo buscamos por
+    // clase para removerlo antes de mostrar el contenido real.
+    document.querySelectorAll(".skeleton-settings").forEach(el => el.remove())
     document.getElementById("configuracion-contenido")?.removeAttribute("hidden")
     document.querySelector(".config-modal")?.removeAttribute("aria-busy")
 
