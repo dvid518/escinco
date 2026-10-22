@@ -1,7 +1,7 @@
 import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { icono } from "../core/iconos.js"
-import { esqueletoContenedor } from "../ui/skeletons.js"
+import { esqueletoContenedor, skeletonMarkup } from "../ui/skeletons.js"
 import {
     obtenerCuentas,
     obtenerMovimientos,
