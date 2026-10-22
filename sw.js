@@ -87,6 +87,7 @@ const SHELL_ASSETS = [
     "/js/ui/scrollEdges.js",
     "/js/ui/seleccion.js",
     "/js/ui/etiquetas.js",
+    "/js/ui/accionesLista.js",
 
     // JS models
     "/js/models/Activo.js",

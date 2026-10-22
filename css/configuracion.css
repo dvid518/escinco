@@ -209,8 +209,11 @@
     padding: 12px 4px;
     border-top: 1px solid var(--border);
     font-size: 12px;
-    background: var(--panel-bg, var(--glass-bg));
-    backdrop-filter: var(--glass-blur);
+    /* Mismo velo y difuminado que el pie del menú (`.config-nav-pie`): las
+       secciones que pasan por detrás no se transparenten. */
+    background-color: var(--glass-frosted);
+    -webkit-backdrop-filter: blur(var(--blur-frosted, 10px));
+    backdrop-filter: blur(var(--blur-frosted, 10px));
 }
 
 /* El menú es la columna fija del grid. `position: sticky` para que siga
