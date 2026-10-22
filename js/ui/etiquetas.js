@@ -159,13 +159,16 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
                 ordenar()
             }
             // Límite del movimiento, no del catálogo: la categoría ya existe y
-            // solo cuenta si se puede marcar.
-            if (!activas.has(etiqueta.nombre) && activas.size >= MAX_ETIQUETAS) {
-                mostrarNotificacion("info", `Máximo ${MAX_ETIQUETAS} etiquetas por movimiento`)
-            } else {
-                activas.add(etiqueta.nombre)
-                semi.delete(etiqueta.nombre)
-                sincronizarEntrada()
+            // solo cuenta si se puede marcar. En modo catálogo no hay nada
+            // que marcar: la etiqueta nueva se crea y ya.
+            if (!gestion) {
+                if (!activas.has(etiqueta.nombre) && activas.size >= MAX_ETIQUETAS) {
+                    mostrarNotificacion("info", `Máximo ${MAX_ETIQUETAS} etiquetas por movimiento`)
+                } else {
+                    activas.add(etiqueta.nombre)
+                    semi.delete(etiqueta.nombre)
+                    sincronizarEntrada()
+                }
             }
             cerrarInput(input)
             repintar()
@@ -221,21 +224,20 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
         const contenido = contenidoDesdeTemplate("tpl-etiqueta-editor")
         const inputNombre = contenido.querySelector("#campo-etiqueta-editor-nombre")
         const paleta = contenido.querySelector("#paleta-etiquetas")
-        const botonEliminar = contenido.querySelector("#chip-etiqueta-eliminar")
         inputNombre.value = etiqueta.nombre
 
         // Las categorías del sistema no se editan ni se borran: no viven en
         // Firestore, no tienen documento que actualizar y su nombre es fijo.
-        if (etiqueta.esSistema) {
+        // Se abren igual, pero sin paleta y sin botón de eliminar.
+        const esSistema = etiqueta.esSistema
+        if (esSistema) {
             inputNombre.disabled = true
-            botonEliminar.hidden = true
             paleta.hidden = true
             contenido.querySelector(".etiqueta-editor-nota")?.remove()
             const aviso = document.createElement("p")
             aviso.className = "form-hint etiqueta-editor-sistema"
             aviso.textContent = "Las categorías del sistema no se pueden editar ni eliminar."
             inputNombre.insertAdjacentElement("afterend", aviso)
-            return
         }
 
         let colorElegido = etiqueta.color || null
@@ -255,44 +257,43 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
                 })
                 paleta.append(punto)
             }
-            const sinColor = document.createElement("button")
-            sinColor.type = "button"
-            sinColor.className = "paleta-punto paleta-punto-sin" + (colorElegido === null ? " activo" : "")
-            sinColor.setAttribute("aria-label", "Sin color")
-            sinColor.title = "Sin color"
-            sinColor.addEventListener("click", () => {
-                colorElegido = null
-                pintarPaleta()
-            })
-            paleta.append(sinColor)
         }
-        pintarPaleta()
+        if (!esSistema) pintarPaleta()
 
-        // Eliminar con confirmación inline: el primer click arma el botón.
-        let armado = false
-        botonEliminar.addEventListener("click", async () => {
-            if (!armado) {
-                armado = true
-                botonEliminar.textContent = "¿Seguro? Eliminar"
-                botonEliminar.classList.add("armado")
-                return
-            }
-            try {
-                await eliminarEtiqueta(uid, etiqueta.id)
-                mostrarNotificacion("exito", `Etiqueta "${etiqueta.nombre}" eliminada`)
-                cerrarModal()
-                refrescar()
-            } catch (error) {
-                console.error("[ERROR] No se pudo eliminar la etiqueta:", error)
-                mostrarNotificacion("error", "No se pudo eliminar la etiqueta")
-            }
-        })
+        // El pie del modal lleva "Eliminar" junto a "Guardar": el borrado es
+        // una acción de la etiqueta, no un campo más del formulario.
+        let botonEliminar = null
+        if (!esSistema) {
+            botonEliminar = contenidoDesdeTemplate("tpl-etiqueta-eliminar")
+                .querySelector("#chip-etiqueta-eliminar")
+
+            // Eliminar con confirmación: el primer click arma el botón.
+            let armado = false
+            botonEliminar.addEventListener("click", async () => {
+                if (!armado) {
+                    armado = true
+                    botonEliminar.textContent = "¿Seguro? Eliminar"
+                    botonEliminar.classList.add("armado")
+                    return
+                }
+                try {
+                    await eliminarEtiqueta(uid, etiqueta.id)
+                    mostrarNotificacion("exito", `Etiqueta "${etiqueta.nombre}" eliminada`)
+                    cerrarModal()
+                    refrescar()
+                } catch (error) {
+                    console.error("[ERROR] No se pudo eliminar la etiqueta:", error)
+                    mostrarNotificacion("error", "No se pudo eliminar la etiqueta")
+                }
+            })
+        }
 
         abrirModal({
             titulo: "Editar etiqueta",
             contenido,
             confirmText: "Guardar",
             cancelText: "Cancelar",
+            footerExtra: botonEliminar,
             // Devolver false mantiene el modal abierto (modal.js:353).
             onConfirm: async () => {
                 const nombre = normalizarEtiquetas(inputNombre.value)[0]

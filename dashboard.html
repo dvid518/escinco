@@ -1312,13 +1312,27 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <label>Color</label>
             <div class="paleta-etiquetas" id="paleta-etiquetas"></div>
         </div>
-        <button type="button" class="chip-etiqueta-eliminar" id="chip-etiqueta-eliminar">Eliminar etiqueta</button>
+    </template>
+
+    <!-- Eliminar etiqueta: va en el pie del modal, junto a Guardar. -->
+    <template id="tpl-etiqueta-eliminar">
+        <button type="button" class="modal-btn modal-btn-danger" id="chip-etiqueta-eliminar">Eliminar</button>
     </template>
 
     <template id="tpl-etiquetar-masivo">
         <div class="form-group">
             <span class="form-hint">Sólido: está en todos. Discontinuo: está en algunos. Vacío: en ninguno. Toca una etiqueta para aplicarla o quitarla de todos.</span>
             <div class="chips-etiquetas" id="masivo-chips-etiquetas"></div>
+        </div>
+    </template>
+
+    <!-- Catálogo de etiquetas: se abre al pulsar "Etiquetar" sin nada
+         seleccionado. Muestra las del sistema y las del usuario y deja crear
+         más, pero no aplica nada a ningún movimiento. -->
+    <template id="tpl-catalogo-etiquetas">
+        <div class="form-group">
+            <span class="form-hint">No hay movimientos seleccionados: aquí solo gestionas el catálogo. Para etiquetar movimientos, selecciónalos y vuelve a pulsar Etiquetar.</span>
+            <div class="chips-etiquetas" id="catalogo-chips-etiquetas"></div>
         </div>
     </template>
 

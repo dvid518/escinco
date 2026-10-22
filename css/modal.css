@@ -303,6 +303,13 @@
     box-shadow: inset 0 0 14px var(--shadow);
 }
 
+/* Botón armado: el primer click solo deja el botón en estado "voy a
+   hacerlo"; el segundo sí ejecuta. Queda marcado para que se note. */
+.modal-btn-danger.armado {
+    background: var(--negative);
+    color: var(--onyx);
+}
+
 /* ============================================
    FORMULARIO DENTRO DEL MODAL
    ============================================ */

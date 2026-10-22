@@ -996,30 +996,6 @@
     transform: scale(1.12);
 }
 
-/* "Sin color": el chip cae al neutro del tema */
-.paleta-punto-sin {
-    background: transparent;
-    border: 2px dashed var(--borderAlt);
-}
-
-.chip-etiqueta-eliminar {
-    padding: 8px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--negative);
-    background: transparent;
-    color: var(--negative);
-    font-size: 13px;
-    font-family: var(--font-primary);
-    cursor: pointer;
-    transition: background 0.15s ease, color 0.15s ease;
-}
-
-.chip-etiqueta-eliminar:hover,
-.chip-etiqueta-eliminar.armado {
-    background: var(--negative);
-    color: var(--background);
-}
-
 /* ============================================
    ESTILOS MOVIDOS DESDE HTML INLINE
    ============================================ */

@@ -1831,7 +1831,13 @@ export async function eliminarSeleccionados() {
 }
 
 export async function etiquetarSeleccionados() {
-    if (seleccionados.size === 0) return
+    // Sin selección, el botón abre el catálogo de etiquetas (las del sistema y
+    // las que creó el usuario) y deja crear más. No se toca ningún
+    // movimiento: sin selección no hay a quién etiquetar.
+    if (seleccionados.size === 0) {
+        await abrirModalCatalogoEtiquetas()
+        return
+    }
 
     const lista = [...seleccionados]
         .map(id => movimientos.find(m => m.id === id))
@@ -1839,6 +1845,25 @@ export async function etiquetarSeleccionados() {
     if (!lista.length) return
 
     await abrirModalEtiquetarMasivo(lista)
+}
+
+// Catálogo de etiquetas a secas: se ve lo que hay (sistema + usuario) y se
+// puede crear más, pero ningún movimiento cambia. El click en un chip abre su
+// editor (renombrar, color, borrar), igual que en Configuración.
+async function abrirModalCatalogoEtiquetas() {
+    const contenido = contenidoDesdeTemplate("tpl-catalogo-etiquetas")
+    const contenedor = contenido.querySelector("#catalogo-chips-etiquetas")
+
+    abrirModal({
+        titulo: "Etiquetas",
+        contenido,
+        variante: "narrow",
+        confirmText: "Cerrar",
+        cancelText: "",
+        onConfirm: () => true
+    })
+
+    await montarSelectorEtiquetas(contenedor, { gestion: true })
 }
 
 async function abrirModalEtiquetarMasivo(lista) {
