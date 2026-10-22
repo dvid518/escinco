@@ -37,6 +37,7 @@
       "rewrites": [
         { "source": "/privacidad", "destination": "/privacidad.html" },
         { "source": "/terminos", "destination": "/terminos.html" },
+        { "source": "/eliminar-datos", "destination": "/eliminar-datos.html" },
         { "source": "/demo", "destination": "/demo.html" },
         { "source": "/demo/**", "destination": "/demo.html" },
         { "source": "**", "destination": "/index.html" }

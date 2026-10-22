@@ -18,6 +18,7 @@ const SHELL_ASSETS = [
     "/reset-password.html",
     "/privacidad.html",
     "/terminos.html",
+    "/eliminar-datos.html",
     "/manifest.webmanifest",
 
     // SEO
@@ -236,16 +237,16 @@ self.addEventListener("fetch", (event) => {
         return
     }
 
-    // 4. Mismo origen (CSS, JS, iconos, etc.) → network-first
-    //    Prioriza la red para que los cambios de código lleguen de inmediato;
-    //    la caché solo se usa como respaldo offline.
+    // 4. Mismo origen (CSS, JS, iconos, etc.) → stale-while-revalidate
+    //    Sirve de caché al instante y actualiza en segundo plano. Los cambios
+    //    de código llegan en la siguiente carga, no en la actual.
     if (url.origin === self.location.origin) {
-        event.respondWith(networkFirst(request, CACHE_RUNTIME))
+        event.respondWith(staleWhileRevalidate(request, CACHE_RUNTIME))
         return
     }
 
-    // 5. Resto (CDNs externos, etc.) → network-first
-    event.respondWith(networkFirst(request, CACHE_RUNTIME))
+    // 5. Resto (CDNs externos, etc.) → stale-while-revalidate
+    event.respondWith(staleWhileRevalidate(request, CACHE_RUNTIME))
 })
 
 // ============================================
