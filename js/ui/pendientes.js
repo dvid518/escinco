@@ -299,7 +299,7 @@ export async function mostrarPendientes() {
 
         // Listeners anclados al overlay del modal: se limpian solos al cerrar.
         const overlay = modalEl?.closest(".modal-overlay")
-        const lista = modalEl?.querySelector(".pendientes-lista")
+        const lista = modalEl?.querySelector(".persistente-lista")
 
         const enLista = id => [...(lista?.querySelectorAll(".card-item") || [])]
             .find(card => card.dataset.id === id)
@@ -491,7 +491,7 @@ export async function mostrarPendientes() {
 
         // Click fuera de la lista (dentro del modal) limpia la selección.
         overlay?.addEventListener("click", (evento) => {
-            if (evento.target.closest(".pendientes-lista")) return
+            if (evento.target.closest(".persistente-lista")) return
             ocultarAccionesCards()
             limpiarSeleccion()
         })
@@ -524,12 +524,12 @@ function htmlFormularioPendiente(p) {
     return contenidoDesdeTemplate("tpl-form-pendiente", {
         valores: {
             "concepto@value": valor("concepto"),
-            cobrar: p?.tipo === true,
-            pagar: p?.tipo === false,
+            "cobrar@selected": p?.tipo === true,
+            "pagar@selected": p?.tipo === false,
             "monto@value": valor("monto"),
-            pen: p?.divisa === DIVISAS.PEN,
-            usd: p?.divisa === DIVISAS.USD,
-            usdt: p?.divisa === DIVISAS.USDT
+            "pen@selected": p?.divisa === DIVISAS.PEN,
+            "usd@selected": p?.divisa === DIVISAS.USD,
+            "usdt@selected": p?.divisa === DIVISAS.USDT
         },
         html: {
             vencimiento: contenidoDesdeTemplate("tpl-campo-fecha", {

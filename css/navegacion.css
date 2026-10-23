@@ -31,16 +31,27 @@
     transition: all 0.3s ease;
 }
 
-.logo-container #logo {
-    height: 30px;
+.logo-texto {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.logo-texto #logo {
+    width: 32px;
+    height: 32px;
+    transition: transform 0.3s ease, stroke 0.3s ease;
+    display: block;
+}
+
+.logo-container:hover #logo {
+    stroke: var(--border);
 }
 
 .logo-container:hover {
     transform: scale(1.05);
-}
-
-.logo-container:hover #logo {
-    transform: rotate(72deg);
 }
 
 .nav-container {
@@ -406,6 +417,7 @@
     width: fit-content;
     padding: 0 50px;
     height: 50px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .lastbar:hover {
@@ -431,21 +443,21 @@
     transition: all 0.3s ease;
 }
 
-.lastbar .bar,
-.lastbar .pendientes {
+.lastbar .variable,
+.lastbar .persistente {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.lastbar .bar {
+.lastbar .variable {
     height: inherit;
     display: flex;
     flex-direction: row;
 }
 
-.lastbar:hover .bar,
-.lastbar:hover .pendientes {
+.lastbar:hover .variable,
+.lastbar:hover .persistente {
     gap: 14px;
 }
 
@@ -527,8 +539,13 @@
     transition: all 0.3s ease;
 }
 
-.lastbar-always-visible .bar,
-.lastbar-always-visible .pendientes {
+.lastbar-always-visible .variable,
+.lastbar-always-visible .persistente {
+    gap: 14px;
+}
+
+.lastbar-always-visible:hover .variable,
+.lastbar-always-visible:hover .persistente {
     gap: 14px;
 }
 
@@ -545,10 +562,6 @@
 .lastbar-always-visible .item:hover {
     width: 45px !important;
 }
-
-/* ============================================
-   KEYFRAMES
-   ============================================ */
 
 @keyframes shake {
     0% {

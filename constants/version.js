@@ -1,6 +1,6 @@
 export const VERSION = {
     numero: "1.0.0-beta.29",
-    nombre: "escinco",
+    nombre: "escinco.",
     descripcion: "tucson",
     ano: 2026,
     autor: "david",

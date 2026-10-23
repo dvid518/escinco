@@ -26,8 +26,5 @@ export function pintarVersionPanel() {
             }
         })
         destino.appendChild(fragmento.firstElementChild)
-        destino.querySelector(".panel-version-boton")?.addEventListener("click", () => {
-            import("./changelog.js").then(m => m.abrirModalChangelog())
-        })
     }
 }

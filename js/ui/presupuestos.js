@@ -57,37 +57,6 @@ function notificarCambioPresupuestos() {
 // FORMULARIO DE CREACIÓN / EDICIÓN
 // ============================================
 
-// Alterna entre "Categoría del sistema" y "Etiquetas" en el formulario.
-function configurarToggleTipo(form) {
-    const inputTipo = form.querySelector("#presupuesto-tipo")
-    const grupoCategoria = form.querySelector("#grupo-categoria")
-    const grupoEtiquetas = form.querySelector("#grupo-etiquetas")
-    const btnCategoria = form.querySelector('.toggle-option[data-tipo="categoria"]')
-    const btnEtiquetas = form.querySelector('.toggle-option[data-tipo="etiquetas"]')
-    const selectCategoria = form.querySelector("#presupuesto-categoria")
-    const inputEtiquetas = form.querySelector("#campo-etiquetas-presupuesto")
-
-    if (!inputTipo || !grupoCategoria || !grupoEtiquetas || !btnCategoria || !btnEtiquetas) return
-
-    const aplicar = tipo => {
-        inputTipo.value = tipo
-        const esCat = tipo === "categoria"
-        grupoCategoria.hidden = !esCat
-        grupoEtiquetas.hidden = esCat
-        if (selectCategoria) selectCategoria.required = esCat
-        btnCategoria.classList.toggle("activo", esCat)
-        btnEtiquetas.classList.toggle("activo", !esCat)
-        inputEtiquetas.required = !esCat
-    }
-
-    btnCategoria.addEventListener("click", () => aplicar("categoria"))
-    btnEtiquetas.addEventListener("click", () => aplicar("etiquetas"))
-
-    // Valor inicial: si hay etiquetas preseleccionadas, mostrar etiquetas.
-    const etiquetasIniciales = inputEtiquetas.value
-    if (etiquetasIniciales) aplicar("etiquetas")
-}
-
 // Lee las etiquetas seleccionadas del input oculto del selector de chips.
 function leerEtiquetasSeleccionadas(form) {
     const input = form.querySelector("#campo-etiquetas-presupuesto")
@@ -138,9 +107,7 @@ export async function abrirModalCrearPresupuesto() {
             if (!form) return false
 
             const nombre = (form.querySelector("#presupuesto-nombre")?.value || "").trim()
-            const tipo = form.querySelector("#presupuesto-tipo")?.value || "categoria"
-            const categoria = tipo === "categoria" ? (form.querySelector("#presupuesto-categoria")?.value || "") : null
-            const etiquetas = tipo === "etiquetas" ? leerEtiquetasSeleccionadas(form) : []
+            const etiquetas = leerEtiquetasSeleccionadas(form)
             const monto = Number(form.querySelector("#presupuesto-monto")?.value || 0)
             const divisa = form.querySelector("#presupuesto-divisa")?.value || "pen"
             const periodo = form.querySelector("#presupuesto-periodo")?.value || "mensual"
@@ -150,11 +117,7 @@ export async function abrirModalCrearPresupuesto() {
                 mostrarNotificacion("error", "Completa todos los campos correctamente")
                 return false
             }
-            if (tipo === "categoria" && !categoria) {
-                mostrarNotificacion("error", "Elige una categoría del sistema")
-                return false
-            }
-            if (tipo === "etiquetas" && etiquetas.length === 0) {
+            if (etiquetas.length === 0) {
                 mostrarNotificacion("error", "Elige al menos una etiqueta")
                 return false
             }
@@ -162,7 +125,7 @@ export async function abrirModalCrearPresupuesto() {
             try {
                 await crearPresupuestoServicio(uid, {
                     nombre,
-                    categoria,
+                    categoria: null,
                     monto,
                     divisa,
                     periodo,
@@ -181,7 +144,6 @@ export async function abrirModalCrearPresupuesto() {
     })
 
     // Montar el selector de etiquetas después de abrir el modal.
-    configurarToggleTipo(formularioDe(modalEl))
     await montarSelectorPresupuesto(formularioDe(modalEl))
 
     return modalEl
@@ -221,9 +183,7 @@ export async function abrirModalEditarPresupuesto(presupuestoId) {
             if (!form) return false
 
             const nombre = (form.querySelector("#presupuesto-nombre")?.value || "").trim()
-            const tipo = form.querySelector("#presupuesto-tipo")?.value || "categoria"
-            const categoria = tipo === "categoria" ? (form.querySelector("#presupuesto-categoria")?.value || "") : null
-            const etiquetas = tipo === "etiquetas" ? leerEtiquetasSeleccionadas(form) : []
+            const etiquetas = leerEtiquetasSeleccionadas(form)
             const monto = Number(form.querySelector("#presupuesto-monto")?.value || 0)
             const divisa = form.querySelector("#presupuesto-divisa")?.value || "pen"
             const periodo = form.querySelector("#presupuesto-periodo")?.value || "mensual"
@@ -233,11 +193,7 @@ export async function abrirModalEditarPresupuesto(presupuestoId) {
                 mostrarNotificacion("error", "Completa todos los campos correctamente")
                 return false
             }
-            if (tipo === "categoria" && !categoria) {
-                mostrarNotificacion("error", "Elige una categoría del sistema")
-                return false
-            }
-            if (tipo === "etiquetas" && etiquetas.length === 0) {
+            if (etiquetas.length === 0) {
                 mostrarNotificacion("error", "Elige al menos una etiqueta")
                 return false
             }
@@ -245,7 +201,7 @@ export async function abrirModalEditarPresupuesto(presupuestoId) {
             try {
                 await actualizarPresupuesto(uid, presupuestoId, {
                     nombre,
-                    categoria,
+                    categoria: null,
                     monto,
                     divisa,
                     periodo,
@@ -266,8 +222,6 @@ export async function abrirModalEditarPresupuesto(presupuestoId) {
     const form = formularioDe(modalEl)
     // Precargar los valores del presupuesto.
     const inputNombre = form.querySelector("#presupuesto-nombre")
-    const inputTipo = form.querySelector("#presupuesto-tipo")
-    const selectCategoria = form.querySelector("#presupuesto-categoria")
     const inputMonto = form.querySelector("#presupuesto-monto")
     const selectDivisa = form.querySelector("#presupuesto-divisa")
     const selectPeriodo = form.querySelector("#presupuesto-periodo")
@@ -275,16 +229,12 @@ export async function abrirModalEditarPresupuesto(presupuestoId) {
     const inputEtiquetas = form.querySelector("#campo-etiquetas-presupuesto")
 
     if (inputNombre) inputNombre.value = presupuesto.nombre
-    if (inputTipo) inputTipo.value = presupuesto.categoria ? "categoria" : "etiquetas"
-    if (selectCategoria) selectCategoria.value = presupuesto.categoria || ""
     if (inputMonto) inputMonto.value = presupuesto.monto
     if (selectDivisa) selectDivisa.value = presupuesto.divisa
     if (selectPeriodo) selectPeriodo.value = presupuesto.periodo
     if (inputFecha) inputFecha.value = presupuesto.fechaInicio ? new Date(presupuesto.fechaInicio).toISOString().slice(0, 10) : ""
     if (inputEtiquetas && presupuesto.etiquetas?.length) inputEtiquetas.value = presupuesto.etiquetas.join(",")
 
-    // Aplicar el toggle (mostrar/ocultar grupos) y montar selector de etiquetas.
-    configurarToggleTipo(form)
     await montarSelectorPresupuesto(form, presupuesto.etiquetas || [])
 
     return modalEl
@@ -332,7 +282,9 @@ export async function abrirModalPresupuestos(presupuestoId = null) {
         confirmText: "Cerrar",
         headerExtra: accionesDeListado({
             idCrear: "btn-crear-presupuesto",
-            textoCrear: "Nuevo presupuesto"
+            textoCrear: "Nuevo presupuesto",
+            idEliminar: "btn-eliminar-presupuesto",
+            textoEliminar: "Eliminar seleccionadas"
         }),
         onConfirm: () => {
             cerrarModal()
@@ -341,7 +293,7 @@ export async function abrirModalPresupuestos(presupuestoId = null) {
 
     // Listeners anclados al overlay del modal.
     const overlay = modalEl?.closest(".modal-overlay")
-    const lista = modalEl?.querySelector(".pendientes-lista")
+    const lista = modalEl?.querySelector(".persistente-lista")
 
     // Marcar el presupuesto activado (si se pidió uno específico).
     const marcarActivado = id => {
@@ -411,6 +363,16 @@ export async function abrirModalPresupuestos(presupuestoId = null) {
     if (btnCrear) {
         btnCrear.addEventListener("click", () => {
             abrirModalCrearPresupuesto()
+        })
+    }
+
+    // Eliminar presupuestos: siempre bloqueado (no hay selección de lote en
+    // este modal). Se mantiene disabled y solo se muestra para normalizar la
+    // cabecera con el resto de modales de lista.
+    const btnEliminarPresupuesto = overlay.querySelector("#btn-eliminar-presupuesto")
+    if (btnEliminarPresupuesto) {
+        btnEliminarPresupuesto.addEventListener("click", () => {
+            mostrarNotificacion("info", "Selecciona un presupuesto para eliminar")
         })
     }
 }

@@ -7,7 +7,8 @@ const routes = {
     '/movimientos': 'movimientos',
     '/inversiones': 'inversiones',
     '/trading': 'trading',
-    '/configuracion': 'configuracion'
+    '/configuracion': 'configuracion',
+    '/404': '404'
 }
 
 // La configuración se muestra de dos formas según la preferencia
@@ -373,7 +374,7 @@ function mostrarErrorPagina(page, error) {
 // localStorage "escinco_lastbar_mode" → clase .lastbar-always-visible.
 
 function aplicarModoLastbarPersistido() {
-    const modo = localStorage.getItem("escinco_lastbar_mode") || "hide"
+    const modo = localStorage.getItem("escinco_lastbar_mode") || "show"
     const lastbar = document.querySelector(".lastbar")
     if (lastbar) {
         lastbar.classList.toggle("lastbar-always-visible", modo === "show")
@@ -470,7 +471,7 @@ export function navigateTo(path) {
         abrirConfiguracionComoPanel()
         return
     }
-    const page = routes[cleanPath] || 'dashboard'
+    const page = routes[cleanPath] || '404'
     console.log('[INFO] Página:', page)
     if (avisarCambioDePagina(page)) return
     guardarEstadoNavegacion()
@@ -571,7 +572,7 @@ export function initRouter(initialPage = 'dashboard') {
         abrirConfiguracionComoPanel()
         return
     }
-    const page = routes[path] || initialPage
+    const page = routes[path] || (path === '' || path === '/' ? initialPage : '404')
     console.log(`[INFO] Router inicializado con: "${path}" → "${page}"`)
     loadPage(page)
 }

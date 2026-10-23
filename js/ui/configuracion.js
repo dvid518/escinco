@@ -17,7 +17,7 @@ import { montarSelectorEtiquetas } from "./etiquetas.js"
 let uid = null
 let hayCambios = false
 let temaActual = "dark"
-let lastbarModo = "hide"
+let lastbarModo = "show"
 let nombrePendiente = null
 // El tema y el modo de la lastbar ya NO usan banderas "pendiente": el estado
 // del Guardar se calcula comparando la pantalla con lo guardado. Con banderas,

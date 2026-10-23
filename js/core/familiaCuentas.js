@@ -149,15 +149,17 @@ export function resolverNombresCuentas(lista = [], formato = "simbolo") {
 
 // Cuentas operables en selectores de movimientos: un padre abstracto no se
 // ofrece (no es instancia); se ofrecen sus hijas. Los padres legacy (con su
-// propia moneda y saldo) sí se ofrecen.
+// propia moneda y saldo) sí se ofrecen, junto con sus hijas (subcuentas).
 export function cuentasOperables(lista = []) {
     const salida = []
+    const vistos = new Set()
     for (const c of lista) {
-        if (esHija(c)) continue
         if (esAbstracta(c)) {
-            salida.push(...hijasDe(c, lista))
+            for (const h of hijasDe(c, lista)) {
+                if (!vistos.has(h.id)) { salida.push(h); vistos.add(h.id) }
+            }
         } else {
-            salida.push(c)
+            if (!vistos.has(c.id)) { salida.push(c); vistos.add(c.id) }
         }
     }
     return salida

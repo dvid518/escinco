@@ -233,7 +233,6 @@ export async function montarSelectorEtiquetas(contenedor, opciones = {}) {
         if (esSistema) {
             inputNombre.disabled = true
             paleta.hidden = true
-            contenido.querySelector(".etiqueta-editor-nota")?.remove()
             const aviso = document.createElement("p")
             aviso.className = "form-hint etiqueta-editor-sistema"
             aviso.textContent = "Las categorías del sistema no se pueden editar ni eliminar."

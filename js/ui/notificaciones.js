@@ -238,8 +238,9 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
             texto: a.texto ?? a.text ?? "Aceptar"
         }))
 
+    const fecha = new Date().toLocaleTimeString("es-PE", { hour: "2-digit", minute: "2-digit" })
     const fragmento = contenidoDesdeTemplate("tpl-notificacion", {
-        valores: { mensaje },
+        valores: { mensaje, fecha },
         html: { icono: icono(config.icono, 20) }
     })
     const notificacion = fragmento.firstElementChild

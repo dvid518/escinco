@@ -495,7 +495,7 @@ service cloud.firestore {
             'patrimonioPEN', 'patrimonioUSD', 'patrimonioUSDT',
             'liquidezPEN', 'liquidezUSD', 'inversionesPEN', 'inversionesUSD',
             'inmovilPEN', 'inmovilUSD', 'deudasPEN', 'deudasUSD',
-            'cerrado', 'actualizacion'
+            'cerrado', 'actualizacion', 'schemaVersion'
           ])
           && esNumero(request.resource.data.patrimonioPEN)
           && esNumero(request.resource.data.patrimonioUSD)

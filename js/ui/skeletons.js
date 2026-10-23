@@ -2,11 +2,6 @@ const maxFilas = valor => Math.max(1, Math.min(Number(valor) || 1, 8))
 
 const texto = clase => `<span class="skeleton ${clase}" aria-hidden="true"></span>`
 
-// Las filas reales de todas las listas (movimientos, trades, órdenes,
-// posiciones, estrategias, ajustes) empiezan por el bloque de texto: no hay
-// icono/círculo a la izquierda. El esqueleto imita esa misma fila (texto a la
-// izquierda + valor a la derecha) para que comparta ancho y alineación. La
-// única lista con icono es el sidebar, que usa su propia variante.
 const itemLista = () => `
     <div class="skeleton-item">
         <div class="skeleton-lines">

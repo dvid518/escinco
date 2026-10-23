@@ -56,14 +56,11 @@
 .config-nav button:hover {
     color: var(--text);
     background: var(--lightHover);
-    /* El mismo resplandor interior que usa la navegación (css/navegacion.css):
-       el botón se hunde un poco hacia dentro al pasar el cursor. */
-    --glow: inset 0 0 24px var(--shadow);
 }
 
 .config-nav button.act {
     color: var(--text);
-    background: var(--surface);
+    background: var(--lightHover);
 }
 
 .config-nav button .lucide {
@@ -399,7 +396,6 @@
 
 .select:hover {
     border-color: var(--text);
-    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 /* ========================================
@@ -422,7 +418,6 @@
     background: var(--lightHover);
     border-color: var(--text);
     transform: scale(1.02);
-    --glow: inset 0 0 10px var(--shadow);
 }
 
 .glass-btn.danger {
@@ -438,6 +433,27 @@
 .button-group {
     display: flex;
     gap: 8px;
+}
+
+/* ========================================
+   BOTONES DE CONFIGURACIÓN SIN SHADOW INSET
+   ======================================== */
+/* Los botones dentro de los apartados de configuración (exportar, importar,
+   restaurar, eliminar datos, actualizar precios, cerrar sesión) no deben
+   tener el shadow inset del pseudo-elemento ::after de .glass-btn. */
+#section-datos .glass-btn::after,
+#section-datos .glass-btn.danger::after,
+.tc-auto-actions .glass-btn::after,
+.lastbar .item[data-accion="cerrar-sesion"]::after,
+.item[data-accion="cerrar-sesion"]::after {
+    box-shadow: none !important;
+}
+
+#section-datos .glass-btn,
+.tc-auto-actions .glass-btn,
+.lastbar .item[data-accion="cerrar-sesion"],
+.item[data-accion="cerrar-sesion"] {
+    --glow: none;
 }
 
 /* ========================================

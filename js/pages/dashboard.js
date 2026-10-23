@@ -371,69 +371,6 @@ function filaDato(etiqueta, valor) {
     return contenidoDesdeTemplate("tpl-card-dato", { valores: { label: etiqueta, valor } })
 }
 
-// ============================================
-// COMPRIMIR / EXPANDIR UNA CARD
-// ============================================
-// Cada card instanciada (cuenta o activo) se muestra a tamaño normal, que es
-// el estado por defecto: valor grande, subtítulo, barra de uso y el desglose
-// de datos. El botón del encabezado la comprime a una fila con solo los
-// números en pequeño: la cifra y, si la card lo tiene, el badge de estado. Al
-// volver a pulsarlo se despliega otra vez el resumen a tamaño normal.
-//
-// El estado vive en localStorage (no en Firestore) porque es una preferencia
-// de vista, no del perfil: por eso las cards pueden redibujarse por completo
-// (esqueletos, refresco, cambio de divisa) sin perderla.
-
-const STORAGE_CARDS_COMPRIMIDAS = "escinco_cards_comprimidas"
-
-function leerCardsComprimidas() {
-    try {
-        const raw = JSON.parse(localStorage.getItem(STORAGE_CARDS_COMPRIMIDAS) || "[]")
-        return new Set(Array.isArray(raw) ? raw.filter(esCardInstancia) : [])
-    } catch (e) {
-        return new Set()
-    }
-}
-
-let cardsComprimidas = leerCardsComprimidas()
-
-function persistirCardsComprimidas() {
-    try {
-        localStorage.setItem(STORAGE_CARDS_COMPRIMIDAS, JSON.stringify([...cardsComprimidas]))
-    } catch (e) {}
-}
-
-const ETIQUETA_COMPRIMIR = "Comprimir tarjeta"
-const ETIQUETA_EXPANDIR = "Ver detalle de la tarjeta"
-
-function pintarEstadoCompresion(card, comprimida) {
-    card.classList.toggle("card-comprimida", comprimida)
-    const boton = card.querySelector("[data-card-comprimir]")
-    if (!boton) return
-    const etiqueta = comprimida ? ETIQUETA_EXPANDIR : ETIQUETA_COMPRIMIR
-    boton.setAttribute("aria-expanded", comprimida ? "false" : "true")
-    boton.setAttribute("aria-label", etiqueta)
-    boton.title = etiqueta
-}
-
-function alternarCompresionCard(card, id) {
-    if (cardsComprimidas.has(id)) cardsComprimidas.delete(id)
-    else cardsComprimidas.add(id)
-    pintarEstadoCompresion(card, cardsComprimidas.has(id))
-    persistirCardsComprimidas()
-    // El masonry reparte por altura real: sin forzar el repase, la card
-    // seguiría ocupando el hueco que tenía expandida.
-    aplicarLayoutDashboard(true)
-}
-
-// Botón del encabezado. El chevron apunta a la acción: arriba para comprimir,
-// y al girar 180° (CSS) queda abajo para volver a desplegar.
-function botonComprimirCard() {
-    return contenidoDesdeTemplate("tpl-card-comprimir", {
-        html: { icono: icono("chevron-up", 14) }
-    })
-}
-
 // Card de una cuenta. No lista movimientos ni cantidades de operación: solo
 // el estado del saldo. En tarjetas de crédito cambia por completo (línea de
 // crédito, uso, ciclo de facturación y anualidad).
@@ -464,7 +401,6 @@ function plantillaCardCuenta(cuenta) {
             "datos@id": `${prefijo}-datos`
         },
         html: {
-            comprimir: botonComprimirCard(),
             uso
         }
     })
@@ -484,8 +420,7 @@ function plantillaCardActivo(posicion) {
             "valor@id": `${prefijo}-valor`,
             "detalle@id": `${prefijo}-detalle`,
             "datos@id": `${prefijo}-datos`
-        },
-        html: { comprimir: botonComprimirCard() }
+        }
     })
 }
 
@@ -678,22 +613,13 @@ function enlazarCardInstancia(card, id) {
         }
     })
 
-    // El botón de comprimir vive dentro de una card que navega al hacer clic:
-    // sin cortar la propagación, pulsarlo abriría la cuenta o la posición.
-    card.querySelector("[data-card-comprimir]")?.addEventListener("click", evento => {
-        evento.preventDefault()
-        evento.stopPropagation()
-        alternarCompresionCard(card, id)
-    })
-
-    pintarEstadoCompresion(card, cardsComprimidas.has(id))
 }
 
 function cantidadColumnasDashboard() {
-    if (window.matchMedia("(max-width: 599px)").matches) return 1
-    if (window.matchMedia("(max-width: 899px)").matches) return 2
-    if (window.matchMedia("(max-width: 1199px)").matches) return 3
-    return 4
+    if (window.matchMedia("(max-width: 1049px)").matches) return 1
+    if (window.matchMedia("(max-width: 1399px)").matches) return 2
+    if (window.matchMedia("(min-width: 1400px)").matches) return 3
+    return 3
 }
 
 function alturaMasonryCard(card, gap) {
@@ -970,6 +896,19 @@ function moverCardDashboard(id, direccion) {
     aplicarLayoutDashboard()
 }
 
+function quitarCardDashboard(id) {
+    if (id === "patrimonio") return
+    const indice = cardsOrdenDashboard.indexOf(id)
+    if (indice >= 0) {
+        cardsOrdenDashboard.splice(indice, 1)
+        // También quitar de cardsVisiblesDashboard si estaba ahí
+        const idxVis = cardsVisiblesDashboard.indexOf(id)
+        if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
+        cambiosPendientesDashboard = true
+        aplicarLayoutDashboard()
+    }
+}
+
 function prepararEdicionCardsDashboard() {
     document.querySelectorAll(".dashboard [data-dashboard-card]").forEach(card => {
         const id = card.dataset.dashboardCard
@@ -988,9 +927,10 @@ function prepararEdicionCardsDashboard() {
         controles.append(contenidoDesdeTemplate("tpl-dashboard-card-edicion", {
             valores: {
                 "subir@data-id": id,
-                "bajar@data-id": id
+                "bajar@data-id": id,
+                "eliminar@data-id": id
             },
-            html: { handle: icono("grip", 16) }
+            html: { handle: icono("grip", 16), "icono-eliminar": icono("minus", 16) }
         }))
         card.appendChild(controles)
     })
@@ -1071,10 +1011,21 @@ grid.addEventListener("dragend", (evento) => {
     })
 
     grid.addEventListener("click", (evento) => {
-        const boton = evento.target.closest("[data-dashboard-mover]")
+        const botonMover = evento.target.closest("[data-dashboard-mover]")
+        if (!modoEdicionDashboard || !botonMover) return
+        evento.stopPropagation()
+        moverCardDashboard(botonMover.dataset.id, Number(botonMover.dataset.direccion))
+    })
+
+    grid.addEventListener("click", (evento) => {
+        const boton = evento.target.closest("[data-dashboard-eliminar]")
         if (!modoEdicionDashboard || !boton) return
         evento.stopPropagation()
-        moverCardDashboard(boton.dataset.id, Number(boton.dataset.direccion))
+        evento.preventDefault()
+        const id = boton.dataset.id
+        quitarCardDashboard(id)
+        cambiosPendientesDashboard = true
+        mostrarNotificacion("exito", "Card eliminada del dashboard")
     })
 }
 
@@ -2987,7 +2938,6 @@ function configurarCardsNavegacion() {
     bindNavegacion("card-ingresos-periodo", "/movimientos")
     bindNavegacion("card-balance-periodo", "/movimientos")
     bindNavegacion("card-deudas", "/cuentas")
-    bindNavegacion("card-distribucion", "/cuentas")
     bindNavegacion("card-distribucion-activos", "/inversiones")
     bindNavegacion("card-patrimonio-divisa", "/cuentas")
 
@@ -3030,6 +2980,7 @@ function configurarCardsNavegacion() {
             }
         })
     }
+    bindModalDashboard("card-distribucion", abrirModalDistribucionPatrimonial)
     bindModalDashboard("card-programados", abrirModalProgramados)
     bindModalDashboard("card-alertas", abrirModalAlertas)
 
@@ -3113,6 +3064,107 @@ function abrirModalPatrimonioDashboard() {
                 }
             }))
         })
+}
+
+function abrirModalDistribucionPatrimonial() {
+    if (modoEdicionDashboard) return
+    if (!analiticaData) return
+
+    const wrapper = contenidoDesdeTemplate("tpl-distribucion-patrimonial")
+
+    const categorias = [
+        { etiqueta: "Liquidez", valor: analiticaData.liquidez },
+        { etiqueta: "Inversiones", valor: analiticaData.inversiones },
+        { etiqueta: "Inmovilizado", valor: analiticaData.inmovil },
+        { etiqueta: "Deudas", valor: analiticaData.deudas }
+    ]
+        .filter(item => Math.abs(Number(item.valor) || 0) > 0)
+        .map(item => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
+            valores: {
+                etiqueta: item.etiqueta,
+                valor: formatearMontoConDivisa(item.valor, divisaActual)
+            }
+        }))
+
+    const porTipo = new Map()
+    for (const posicion of posicionesData || []) {
+        const activo = posicion.activo || {}
+        const tipo = String(activo.tipo || "accion").toLowerCase()
+        const cantidad = Number(posicion.cantidad) || 0
+        const ultimoPrecio = Number(activo.ultimoPrecio) || 0
+        if (cantidad <= 0 || ultimoPrecio <= 0) continue
+        const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
+        porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
+    }
+    const tiposActivo = [...porTipo.entries()]
+        .filter(([, valor]) => valor > 0)
+        .sort((a, b) => b[1] - a[1])
+        .map(([tipo, valor]) => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
+            valores: {
+                etiqueta: ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros",
+                valor: formatearMontoConDivisa(valor, divisaActual)
+            }
+        }))
+
+    const desgloseDivisa = patrimonioStats?.porDivisa || {}
+    const divisas = Object.keys(desgloseDivisa)
+        .filter(clave => Math.abs(Number(desgloseDivisa[clave]) || 0) > 0)
+        .sort((a, b) => {
+            const ia = ORDEN_DIVISAS_PATRIMONIO.indexOf(a)
+            const ib = ORDEN_DIVISAS_PATRIMONIO.indexOf(b)
+            return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || (a < b ? -1 : 1)
+        })
+        .map(clave => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
+            valores: {
+                etiqueta: etiquetaDivisa(clave),
+                valor: formatearMontoConDivisa(desgloseDivisa[clave], clave)
+            }
+        }))
+
+    const cuentasInvolucradas = (cuentas || [])
+        .filter(cuenta => {
+            if (cuenta.estado === "archivada") return false
+            if (cuenta.esPatrimonio === false) return false
+            if (esHija(cuenta)) return false
+            if (cuenta.tipo === "credito") return Number(cuenta.deuda) > 0
+            if (esAbstracta(cuenta)) return true
+            if (esSaldoInmovil(cuenta, cuentas)) return Number(cuenta.saldoInicial) !== 0
+            return Number(cuenta.saldoInicial) !== 0
+        })
+        .sort((a, b) => String(a.nombre || "").localeCompare(String(b.nombre || "")))
+        .map(cuenta => {
+            const esCredito = cuenta.tipo === "credito"
+            const moneda = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
+            const monto = esCredito ? Math.max(0, Number(cuenta.deuda) || 0) : Number(cuenta.saldoInicial) || 0
+            const etiqueta = esCredito ? "Deuda" : (esSaldoInmovil(cuenta, cuentas) ? "Inmovilizado" : "Liquidez")
+            return contenidoDesdeTemplate("tpl-distribucion-modal-item", {
+                valores: {
+                    etiqueta: `${cuenta.nombre} · ${etiqueta}`,
+                    valor: esCredito
+                        ? formatearMontoConDivisa(convertirMonto(monto, moneda, divisaActual), divisaActual)
+                        : formatearMontoConDivisa(convertirMonto(monto, moneda, divisaActual), divisaActual),
+                    detalle: etiquetaDivisa(moneda)
+                }
+            })
+        })
+
+    const contenedorCategorias = wrapper.querySelector('[data-tpl="categorias"]')
+    const contenedorTipos = wrapper.querySelector('[data-tpl="tipos-activo"]')
+    const contenedorDivisas = wrapper.querySelector('[data-tpl="divisas"]')
+    const contenedorCuentas = wrapper.querySelector('[data-tpl="cuentas"]')
+
+    if (contenedorCategorias) contenedorCategorias.replaceChildren(...categorias)
+    if (contenedorTipos) contenedorTipos.replaceChildren(...tiposActivo)
+    if (contenedorDivisas) contenedorDivisas.replaceChildren(...divisas)
+    if (contenedorCuentas) contenedorCuentas.replaceChildren(...cuentasInvolucradas)
+
+    abrirModal({
+        titulo: "Distribución patrimonial",
+        contenido: wrapper,
+        variante: "wide",
+        confirmText: "Cerrar",
+        onConfirm: () => true
+    })
 }
 
 async function abrirModalEvolucionDashboard() {

@@ -54,7 +54,7 @@ export default function ejecutar(t = nuevoReporter("modelo")) {
     t.check("lista vacia -> vacia", fam.cuentasVisibles([]).length === 0)
 
     console.log("\ncuentasOperables (selectores de movimientos)")
-    t.check("legacy: el padre se ofrece", fam.cuentasOperables([legacy[0], legacy[1]]).map(c => c.id).join(",") === "p1")
+    t.check("legacy: padre e hijas se ofrecen", fam.cuentasOperables([legacy[0], legacy[1]]).map(c => c.id).join(",") === "p1,h1")
     t.check("abstracto: se ofrecen las hijas, no el padre", fam.cuentasOperables(abstracta).map(c => c.id).join(",") === "ah1,ah2")
 
     console.log("\nnombrePorDefectoSubcuenta")

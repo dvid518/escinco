@@ -5,9 +5,9 @@
 
 .dashboard {
     --unidad-card: 148px;
-    --gap-card: 20px;
+    --gap-card: 16px;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--gap-card);
     width: 100%;
     height: auto;
@@ -428,7 +428,7 @@ body.dashboard-card-dragging * {
 }
 
 .patrimonio-card.resaltado-2 {
-    background-color: var(--border);
+    background-color: var(--backgroundAlt);
     --lightBorder: var(--lightGraphite);
     --shadow: var(--lightSlateGrey);
 }
@@ -442,8 +442,8 @@ body.dashboard-card-dragging * {
 }
 
 .patrimonio-card.resaltado-2 .card-sub {
-    color: var(--borderAlt);
-    border-top: 1px solid var(--borderAlt);
+    color: var(--surface);
+    border-top: 1px solid var(--surface);
 }
 
 .patrimonio-card .card-header {
@@ -511,26 +511,13 @@ body.dashboard-card-dragging * {
    RESPONSIVE
    ============================================ */
 
-@media (max-width: 1199px) and (min-width: 900px) {
-    .dashboard {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-}
-
-@media (max-width: 899px) and (min-width: 600px) {
-    .dashboard {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-}
-
 @media (max-width: 599px) {
     .dashboard {
-        grid-template-columns: 1fr;
         --gap-card: 16px;
     }
 
     #app-content:has(.dashboard) {
-        padding: 32px 40px;
+        padding: 24px 16px;
     }
 
     .dashboard .card {
@@ -542,16 +529,24 @@ body.dashboard-card-dragging * {
     }
 
     .grafico-patrimonio-card .grafico-container-dashboard {
-        flex-basis: 180px;
-        height: 180px;
-        min-height: 180px;
-        max-height: 180px;
+        flex-basis: 160px;
+        height: 160px;
+        min-height: 160px;
+        max-height: 160px;
     }
 }
 
-@media (max-width: 520px) {
-    .patrimonio-modal-stats {
-        grid-template-columns: 1fr;
+@media (max-width: 400px) {
+    .dashboard {
+        --gap-card: 12px;
+    }
+
+    #app-content:has(.dashboard) {
+        padding: 20px 12px;
+    }
+
+    .dashboard .card {
+        padding: 16px;
     }
 }
 
@@ -627,6 +622,10 @@ body.dashboard-card-dragging * {
     flex: 1 1 0;
     padding: 4px 8px;
     text-align: center;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* El hover ya no ensancha la píldora (ver .toggle-option en
@@ -824,6 +823,64 @@ body.dashboard-card-dragging * {
     gap: 8px;
     overflow: visible;
     padding-right: 4px;
+}
+
+.distribucion-modal {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.distribucion-modal-seccion {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.distribucion-modal-titulo {
+    margin: 0;
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.distribucion-modal-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.distribucion-modal-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface);
+}
+
+.distribucion-modal-item-cabecera {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.distribucion-modal-item-etiqueta {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.distribucion-modal-item-valor {
+    color: var(--text);
+    font-family: var(--font-secondary);
+    font-size: 13px;
+}
+
+.distribucion-modal-item-detalle {
+    color: var(--textSecondary);
+    font-size: 11px;
 }
 
 .dashboard-list-item {
@@ -1631,83 +1688,7 @@ body.dashboard-card-dragging * {
     white-space: nowrap;
 }
 
-/* --------------------------------------------
-   COMPRIMIR / EXPANDIR
-   -------------------------------------------- */
-/* Estado normal (por defecto): la card ocupa su altura y muestra el resumen
-   completo. Al comprimirla solo quedan los números en pequeño —el título que
-   identifica la card, la cifra y el badge de estado—, que es lo que interesa
-   de un vistazo al ordenar muchas cards. El masonry recalcula la altura al
-   alternar, así que la card encoge de verdad y no deja un hueco. */
 
-.card-header-controles {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-shrink: 0;
-}
-
-.card-comprimir {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    padding: 0;
-    border-radius: 50%;
-    color: var(--textSecondary);
-    background: transparent;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: color 0.2s ease, background 0.2s ease, transform 0.2s ease;
-}
-
-.card-comprimir:hover {
-    color: var(--text);
-    background: var(--lightHover);
-}
-
-.card-comprimir svg {
-    width: 14px;
-    height: 14px;
-    transition: transform 0.3s ease;
-}
-
-/* Comprimida: el chevron gira para apuntar hacia abajo (a "desplegar"). */
-.dashboard .card.card-comprimida .card-comprimir svg {
-    transform: rotate(180deg);
-}
-
-.dashboard .card.card-comprimida {
-    min-height: 0;
-    padding: 12px 14px;
-    gap: 2px;
-    justify-content: center;
-}
-
-.dashboard .card.card-comprimida .card-title {
-    margin-bottom: 0;
-    font-size: 10px;
-    letter-spacing: 0.4px;
-}
-
-.dashboard .card.card-comprimida .card-value {
-    font-size: 15px;
-    line-height: 1.3;
-}
-
-.dashboard .card.card-comprimida .badge {
-    min-width: 0;
-    padding: 1px 6px;
-    font-size: 10px;
-}
-
-/* Lo que no cabe en una fila se oculta: subtítulo, barra de uso y desglose. */
-.dashboard .card.card-comprimida .card-sub,
-.dashboard .card.card-comprimida .card-uso,
-.dashboard .card.card-comprimida .card-datos {
-    display: none;
-}
 
 /* ============================================
    SELECTOR DE CARDS · BLOQUES DINÁMICOS

@@ -12,7 +12,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <meta name="google-site-verification" content="YPnw_Er3s8K37qyBPLG_fhESnKFe5OVLykEVmGAlxZ4">
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
     <title>escinco | Dashboard</title>
-    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
     <meta name="theme-color" content="#141414">
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-dark.svg" media="(prefers-color-scheme: dark)">
     <link rel="icon" type="image/svg+xml" href="/icons/favicon-light.svg" media="(prefers-color-scheme: light)">
@@ -26,6 +26,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     <link rel='stylesheet' type='text/css' media='screen' href='css/modal.css'>
     <link rel='stylesheet' type='text/css' media='screen' href='css/pendientes.css'>
     <link rel='stylesheet' type='text/css' media='screen' href='css/iconos.css'>
+    <link rel='stylesheet' type='text/css' media='screen' href='css/404.css'>
 </head>
 <body class="loading">
 <!-- Google Tag Manager (noscript) -->
@@ -35,12 +36,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- NAVBAR -->
     <header class="nav-section">
         <div class="logo-container glass tab">
-            <a href="/dashboard" data-page="dashboard">
-                <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="80px" height="80px" id="logo" viewBox="0 0 32 31">
-                    <g id="text3035" fill="currentColor">
-                        <path id="path3063" d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469"/>
-                    </g>
-                </svg>
+            <a href="/dashboard" data-page="dashboard" class="logo-texto" id="logo-link">
+                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" id="logo" viewBox="0 0 32 31"><g fill="currentColor"><path d="M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469"/></g></svg>
             </a>
         </div>
         <div class="nav-container">
@@ -635,6 +632,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="toggle-group grafico-periodos-modal" id="grafico-periodos-modal" data-tpl="periodos"></div>
     </template>
 
+    <template id="tpl-distribucion-patrimonial">
+        <div class="distribucion-modal">
+            <div class="distribucion-modal-seccion">
+                <h3 class="distribucion-modal-titulo">Categorías</h3>
+                <div class="distribucion-modal-lista" data-tpl="categorias"></div>
+            </div>
+            <div class="distribucion-modal-seccion">
+                <h3 class="distribucion-modal-titulo">Por tipo de activo</h3>
+                <div class="distribucion-modal-lista" data-tpl="tipos-activo"></div>
+            </div>
+            <div class="distribucion-modal-seccion">
+                <h3 class="distribucion-modal-titulo">Por divisa</h3>
+                <div class="distribucion-modal-lista" data-tpl="divisas"></div>
+            </div>
+            <div class="distribucion-modal-seccion">
+                <h3 class="distribucion-modal-titulo">Cuentas involucradas</h3>
+                <div class="distribucion-modal-lista" data-tpl="cuentas"></div>
+            </div>
+        </div>
+    </template>
+
+    <template id="tpl-distribucion-modal-item">
+        <div class="distribucion-modal-item">
+            <div class="distribucion-modal-item-cabecera">
+                <span class="distribucion-modal-item-etiqueta" data-tpl="etiqueta"></span>
+                <span class="distribucion-modal-item-valor" data-tpl="valor"></span>
+            </div>
+            <div class="distribucion-modal-item-detalle" data-tpl="detalle" data-tpl-oculto></div>
+        </div>
+    </template>
+
     <template id="tpl-categoria-grafico">
         <span class="toggle-option" data-tpl="categoria" data-tpl-attr="data-categoria"><span data-tpl="etiqueta"></span></span>
     </template>
@@ -750,23 +778,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <div class="form-group">
                 <label>Presupuesto por *</label>
-                <div class="toggle-group" role="group" aria-label="Tipo de presupuesto">
-                    <button type="button" class="toggle-option activo" data-tipo="categoria">Categoría</button>
-                    <button type="button" class="toggle-option" data-tipo="etiquetas">Etiquetas</button>
-                </div>
-                <input type="hidden" id="presupuesto-tipo" value="categoria">
+                <span class="form-hint">Siempre se filtra por etiquetas.</span>
             </div>
-            <div class="form-group" id="grupo-categoria">
-                <label for="presupuesto-categoria">Categoría del sistema *</label>
-                <select id="presupuesto-categoria" class="form-input" required>
-                    <option value="vivienda">Vivienda</option>
-                    <option value="alimentación">Alimentación</option>
-                    <option value="transporte">Transporte</option>
-                    <option value="ahorro">Ahorro</option>
-                    <option value="ocio">Ocio</option>
-                </select>
-            </div>
-            <div class="form-group" id="grupo-etiquetas" hidden>
+            <div class="form-group" id="grupo-etiquetas">
                 <label for="presupuesto-etiquetas">Etiquetas *</label>
                 <div id="chips-presupuesto-etiquetas"></div>
                 <input type="hidden" id="campo-etiquetas-presupuesto" autocomplete="off">
@@ -927,8 +941,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="form-group">
                 <label for="editar-trade-tipo">Dirección</label>
                 <select id="editar-trade-tipo" class="form-input">
-                    <option value="long" data-tpl="largo" data-tpl-attr="selected">Largo (Long)</option>
-                    <option value="short" data-tpl="corto" data-tpl-attr="selected">Corto (Short)</option>
+                    <option value="long" data-tpl="largo">Largo (Long)</option>
+                    <option value="short" data-tpl="corto">Corto (Short)</option>
                 </select>
             </div>
             <div class="form-group">
@@ -1056,15 +1070,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="form-group">
                 <label for="editar-orden-tipo">Tipo de orden *</label>
                 <select id="editar-orden-tipo" class="form-input">
-                    <option value="limite" data-tpl="limite" data-tpl-attr="selected">Límite</option>
-                    <option value="stop" data-tpl="stop" data-tpl-attr="selected">Stop</option>
+                    <option value="limite" data-tpl="limite">Límite</option>
+                    <option value="stop" data-tpl="stop">Stop</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="editar-orden-direccion">Dirección *</label>
                 <select id="editar-orden-direccion" class="form-input">
-                    <option value="long" data-tpl="largo" data-tpl-attr="selected">Compra (Largo)</option>
-                    <option value="short" data-tpl="corto" data-tpl-attr="selected">Venta (Corto)</option>
+                    <option value="long" data-tpl="largo">Compra (Largo)</option>
+                    <option value="short" data-tpl="corto">Venta (Corto)</option>
                 </select>
             </div>
             <div class="form-group">
@@ -1114,17 +1128,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="form-group">
                 <label for="estrategia-divisa">Divisa *</label>
                 <select id="estrategia-divisa" class="form-input" required>
-                    <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
-                    <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
-                    <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                    <option value="pen" data-tpl="pen">PEN</option>
+                    <option value="usd" data-tpl="usd">USD</option>
+                    <option value="usdt" data-tpl="usdt">USDT</option>
                 </select>
             </div>
             <div class="form-group">
                 <label for="estrategia-frecuencia">Frecuencia *</label>
                 <select id="estrategia-frecuencia" class="form-input">
-                    <option value="diaria" data-tpl="diaria" data-tpl-attr="selected">Diaria</option>
-                    <option value="semanal" data-tpl="semanal" data-tpl-attr="selected">Semanal</option>
-                    <option value="mensual" data-tpl="mensual" data-tpl-attr="selected">Mensual</option>
+                    <option value="diaria" data-tpl="diaria">Diaria</option>
+                    <option value="semanal" data-tpl="semanal">Semanal</option>
+                    <option value="mensual" data-tpl="mensual">Mensual</option>
                 </select>
             </div>
             <div class="form-group" id="estrategia-dia-semana-group" hidden>
@@ -1443,8 +1457,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="form-group">
                 <label for="pendiente-tipo">Tipo *</label>
                 <select id="pendiente-tipo" class="form-input" required>
-                    <option value="true" data-tpl="cobrar" data-tpl-attr="selected">Cobrar (deuda a favor)</option>
-                    <option value="false" data-tpl="pagar" data-tpl-attr="selected">Pagar (deuda en contra)</option>
+                    <option value="true" data-tpl="cobrar">Cobrar (deuda a favor)</option>
+                    <option value="false" data-tpl="pagar">Pagar (deuda en contra)</option>
                 </select>
             </div>
             <div class="form-group">
@@ -1455,9 +1469,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <div class="form-group">
                 <label for="pendiente-divisa">Divisa *</label>
                 <select id="pendiente-divisa" class="form-input" required>
-                    <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
-                    <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
-                    <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                    <option value="pen" data-tpl="pen">PEN</option>
+                    <option value="usd" data-tpl="usd">USD</option>
+                    <option value="usdt" data-tpl="usdt">USDT</option>
                 </select>
             </div>
             <div data-tpl="vencimiento"></div>
@@ -1517,9 +1531,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="form-group form-divisa-auto">
                     <label for="meta-divisa">Divisa *</label>
                     <select id="meta-divisa" class="form-input">
-                        <option value="pen" data-tpl="pen" data-tpl-attr="selected">PEN</option>
-                        <option value="usd" data-tpl="usd" data-tpl-attr="selected">USD</option>
-                        <option value="usdt" data-tpl="usdt" data-tpl-attr="selected">USDT</option>
+                        <option value="pen" data-tpl="pen">PEN</option>
+                        <option value="usd" data-tpl="usd">USD</option>
+                        <option value="usdt" data-tpl="usdt">USDT</option>
                     </select>
                 </div>
             </div>
@@ -1875,7 +1889,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     <div data-tpl="nav-botones" data-tpl-reemplazar></div>
                     <div class="config-nav-pie">
                         <a class="footer-brand" href="/" target="_blank" rel="noopener noreferrer" data-tpl="footer-nombre"></a>
-                        <button class="footer-version" id="config-version" type="button" data-tpl="footer-version"></button>
+                        <span class="footer-version" id="config-version" data-tpl="footer-version"></span>
                         <span class="footer-copy" data-tpl="footer-copy"></span>
                         <span class="footer-legal"><a href="/privacidad" target="_blank" rel="noopener noreferrer">Privacidad</a> · <a href="/terminos" target="_blank" rel="noopener noreferrer">Términos</a></span>
                     </div>
@@ -2672,10 +2686,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </template>
 
-    <template id="tpl-card-comprimir">
-        <button type="button" class="card-comprimir" data-card-comprimir aria-expanded="true" aria-label="Comprimir tarjeta" title="Comprimir tarjeta"><span data-tpl="icono"></span></button>
-    </template>
-
     <template id="tpl-dashboard-card-uso">
         <div class="card-uso">
             <div class="card-uso-barra"><span data-tpl="barra" data-tpl-attr="id"></span></div>
@@ -2687,10 +2697,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="glass card card-navegable card-cuenta" data-tpl="card" data-tpl-attr="id,data-dashboard-card,class,aria-label" role="group" tabindex="0">
             <div class="card-header">
                 <span class="card-title" data-tpl="titulo"></span>
-                <div class="card-header-controles">
-                    <span class="badge" data-tpl="estado" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-badge" aria-hidden="true"></span></span>
-                    <span data-tpl="comprimir" data-tpl-reemplazar></span>
-                </div>
+                <span class="badge" data-tpl="estado" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-badge" aria-hidden="true"></span></span>
             </div>
             <div class="card-value" data-tpl="valor" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-value" aria-hidden="true"></span></div>
             <div class="card-sub" data-tpl="detalle" data-tpl-attr="id"><span class="skeleton skeleton-text" aria-hidden="true"></span></div>
@@ -2703,10 +2710,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="glass card card-navegable card-activo" data-tpl="card" data-tpl-attr="id,data-dashboard-card" role="group" tabindex="0">
             <div class="card-header">
                 <span class="card-title" data-tpl="nombre" data-tpl-attr="id"></span>
-                <div class="card-header-controles">
-                    <span class="badge" data-tpl="estado" data-tpl-attr="id"></span>
-                    <span data-tpl="comprimir" data-tpl-reemplazar></span>
-                </div>
+                <span class="badge" data-tpl="estado" data-tpl-attr="id"></span>
             </div>
             <div class="card-value" data-tpl="valor" data-tpl-attr="id"><span class="skeleton skeleton-text skeleton-value" aria-hidden="true"></span></div>
             <div class="card-sub" data-tpl="detalle" data-tpl-attr="id"><span class="skeleton skeleton-text" aria-hidden="true"></span></div>
@@ -2718,6 +2722,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card" data-tpl="handle"></span>
         <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="subir" data-tpl-attr="data-id" data-direccion="-1" aria-label="Mover card hacia arriba">↑</button>
         <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="bajar" data-tpl-attr="data-id" data-direccion="1" aria-label="Mover card hacia abajo">↓</button>
+        <button type="button" class="dashboard-card-eliminar" data-dashboard-eliminar data-tpl="eliminar" data-tpl-attr="data-id" aria-label="Eliminar card del dashboard" title="Eliminar card"><span data-tpl="icono-eliminar"></span></button>
     </template>
 
     <template id="tpl-grafico-cargando">
@@ -2832,9 +2837,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-notificacion">
-        <div class="glass notificacion" data-tpl="notificacion">
+        <div class="notificacion" data-tpl="notificacion">
             <span class="notificacion-icono" data-tpl="icono"></span>
-            <span class="notificacion-mensaje" data-tpl="mensaje"></span>
+            <div class="notificacion-contenido">
+                <span class="notificacion-mensaje" data-tpl="mensaje"></span>
+                <span class="notificacion-fecha" data-tpl="fecha"></span>
+            </div>
             <div class="notificacion-acciones" data-tpl="acciones-contenedor"></div>
             <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon">
@@ -2846,12 +2854,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-panel-version">
-        <a class="panel-version-link" href="/" aria-label="Conoce más sobre la versión">
+        <span class="panel-version-texto">
             <span class="panel-version-brand" data-tpl="nombre"></span>
-        </a>
-        <button class="panel-version-numero panel-version-boton" type="button" aria-label="Ver las novedades de esta versión">
-            <span class="panel-version-numero-texto" data-tpl="numero"></span>
-        </button>
+            <span class="panel-version-numero" data-tpl="numero"></span>
+        </span>
     </template>
 
     <template id="tpl-pendiente-acciones-bloqueado">

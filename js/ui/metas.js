@@ -191,7 +191,7 @@ export async function mostrarMetas() {
 
         // Listeners anclados al overlay del modal: se limpian al cerrar.
         const overlay = modalEl?.closest(".modal-overlay")
-        const lista = modalEl?.querySelector(".pendientes-lista")
+        const lista = modalEl?.querySelector(".persistente-lista")
 
         const enLista = id => [...(lista?.querySelectorAll(".card-item") || [])]
             .find(card => card.dataset.id === id)
@@ -360,7 +360,7 @@ export async function mostrarMetas() {
 
         // Click fuera de la lista (dentro del modal) limpia la selección.
         overlay?.addEventListener("click", (evento) => {
-            if (evento.target.closest(".pendientes-lista")) return
+            if (evento.target.closest(".persistente-lista")) return
             ocultarAccionesCards()
             limpiarSeleccion()
         })
@@ -467,9 +467,9 @@ export function abrirModalMeta(meta = null) {
             "actual@value": esEdicion ? (meta?.montoActual ?? 0) : 0,
             "actual@disabled": bloqueadoInicial,
             "fecha@value": valorFecha,
-            pen: valorDivisa === "pen",
-            usd: valorDivisa === "usd",
-            usdt: valorDivisa === "usdt"
+            "pen@selected": valorDivisa === "pen",
+            "usd@selected": valorDivisa === "usd",
+            "usdt@selected": valorDivisa === "usdt"
         }
     })
 

@@ -66,6 +66,11 @@
       "collectionGroup": "snapshots",
       "fieldPath": "deudasUSD",
       "indexes": []
+    },
+    {
+      "collectionGroup": "snapshots",
+      "fieldPath": "patrimonioUSDT",
+      "indexes": []
     }
   ]
 }

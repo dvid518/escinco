@@ -40,7 +40,8 @@ export async function guardarSnapshotDelDia(uid, datos) {
         inmovilPEN: numero(datos?.inmovilPEN),
         inmovilUSD: numero(datos?.inmovilUSD),
         deudasPEN: numero(datos?.deudasPEN),
-        deudasUSD: numero(datos?.deudasUSD)
+        deudasUSD: numero(datos?.deudasUSD),
+        schemaVersion: 1
     }
     if (datos?.patrimonioUSDT !== undefined) limpio.patrimonioUSDT = numero(datos.patrimonioUSDT)
     // Si cambia cualquier bloque (no solo el total), hay que actualizar. Un

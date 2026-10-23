@@ -863,12 +863,12 @@ export function abrirModalEstrategia(estrategia = null) {
             "nombre@value": estrategia?.nombre || "",
             "simbolo@value": estrategia?.activoSimbolo || "",
             "monto@value": estrategia?.montoFijo ?? "",
-            pen: divisa === "pen",
-            usd: divisa === "usd",
-            usdt: divisa === "usdt",
-            diaria: frecuencia === "diaria",
-            semanal: frecuencia === "semanal",
-            mensual: frecuencia === "mensual"
+            "pen@selected": divisa === "pen",
+            "usd@selected": divisa === "usd",
+            "usdt@selected": divisa === "usdt",
+            "diaria@selected": frecuencia === "diaria",
+            "semanal@selected": frecuencia === "semanal",
+            "mensual@selected": frecuencia === "mensual"
         },
         html: {
             // Días de la semana: constante propia, no texto del usuario.

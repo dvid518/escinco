@@ -147,12 +147,6 @@ export async function obtenerCuentas(uid) {
         throw new Error("UID inválido para obtenerCuentas")
     }
 
-    // Invalidar caché de cuentas para asegurar lectura fresca de red.
-    // Al desactivar la persistencia offline de Firestore, no hay caché
-    // local que rescate lecturas fallidas, así que forzar relectura
-    // evita devolver datos vacíos de una llamada anterior.
-    cacheCapa.invalidar(uid, "cuentas")
-
     let ultimoError
     for (let intento = 0; intento < 5; intento++) {
         try {
