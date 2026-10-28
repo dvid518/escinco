@@ -402,7 +402,7 @@ body.dashboard-card-dragging * {
     flex-direction: column;
     min-width: 0;
     min-height: 0;
-    padding: 32px 20px;
+    padding: 24px 16px;
     overflow-x: visible;
     overflow-y: auto;
     scrollbar-width: thin;
@@ -547,6 +547,35 @@ body.dashboard-card-dragging * {
 
     .dashboard .card {
         padding: 16px;
+    }
+}
+
+/* En pantallas anchas las cards pueden hacerse más compactas y ocupar
+   exactamente 4 columnas, como se ve en la maqueta del hero. */
+@media (min-width: 1024px) {
+    .dashboard {
+        grid-template-columns: repeat(4, minmax(200px, 1fr));
+        gap: 20px;
+    }
+
+    #app-content:has(.dashboard) {
+        padding: 40px 24px;
+    }
+
+    .dashboard .card {
+        min-height: 200px;
+        padding: 20px;
+    }
+
+    .dashboard .card .card-value {
+        font-size: 28px;
+    }
+
+    .grafico-patrimonio-card .grafico-container-dashboard {
+        flex-basis: 160px;
+        height: 160px;
+        min-height: 160px;
+        max-height: 160px;
     }
 }
 
@@ -1132,51 +1161,6 @@ body.dashboard-card-dragging * {
     color: var(--textSecondary);
     font-size: 12px;
     opacity: 0.7;
-}
-
-.favorito-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 20px;
-    border-radius: 40px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.favorito-item:hover {
-    background-color: var(--lightHover);
-    box-shadow: inset 0 0 10px var(--shadow);
-}
-
-.favorito-info {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-}
-
-.favorito-nombre {
-    color: var(--text);
-    font-size: 15px;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.favorito-simbolo {
-    color: var(--textSecondary);
-    font-size: 11px;
-}
-
-.favorito-precio {
-    font-family: var(--font-secondary);
-    font-weight: 600;
-    color: var(--text);
-    white-space: nowrap;
 }
 
 /* ============================================
