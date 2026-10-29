@@ -7,7 +7,7 @@
     --unidad-card: 148px;
     --gap-card: 16px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
     gap: var(--gap-card);
     width: 100%;
     height: auto;
@@ -18,6 +18,14 @@
     opacity: 1;
     visibility: visible;
     transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.dashboard > * {
+    min-height: 0;
+    height: auto;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .dashboard.dashboard-cargando {
@@ -406,6 +414,7 @@ body.dashboard-card-dragging * {
     padding: 24px 16px;
     overflow-x: visible;
     overflow-y: auto;
+    max-height: calc(100vh - 160px);
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
 }
@@ -571,6 +580,12 @@ body.dashboard-card-dragging * {
         height: 160px;
         min-height: 160px;
         max-height: 160px;
+    }
+
+    /* Tarjetas con gráficos grandes ocupan 2 columnas en pantallas anchas */
+    .dashboard .grafico-patrimonio-card,
+    .dashboard .distribucion-activos-card {
+        grid-column: span 2;
     }
 }
 
