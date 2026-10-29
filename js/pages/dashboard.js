@@ -1224,12 +1224,261 @@ function obtenerPeriodoFlujo(id) {
 }
 
 // ============================================
-// RENDER
+// GENERADORES DE CARDS (HTML dinámico)
 // ============================================
+// Cada función recibe el id de la card y devuelve su HTML.
+// Se usan para renderizar el dashboard dinámicamente a partir de
+// cardsVisiblesDashboard y cardsOrdenDashboard.
+
+function generarCardMetrica(id, titulo, subtitulo, valorId, detalleId, claseExtra = "") {
+    return `
+        <div class="glass card card-navegable metric-card ${claseExtra}" id="${id}" data-dashboard-card="${id}" role="button" tabindex="0" title="${titulo}">
+            <div class="card-title">${titulo}</div>
+            <div class="card-value" id="${valorId}">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="${detalleId}">${skeletonText()}</div>
+        </div>
+    `;
+}
+
+function generarCardListaSimple(id, titulo, filas, detalleId = null, subtituloHtml = "") {
+    const detalle = detalleId ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>` : "";
+    return `
+        <div class="glass card card-navegable ${claseExtra(id)}" id="${id}" data-dashboard-card="${id}" role="button" tabindex="0" title="${titulo}">
+            <div class="card-title">${titulo}</div>
+            <div class="${id}-lista" id="${id}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
+            ${detalle}
+        </div>
+    `;
+}
+
+function claseExtra(id) {
+    // Mapeo de clases extra por id de card
+    const extras = {
+        "cuentas": "positive card-navegable",
+        "favoritos": "card-navegable favoritos-card",
+        "movimientos": "movimientos-card card-navegable",
+        "pendientes": "pendientes-card card-navegable",
+        "ordenes": "ordenes-card card-navegable",
+        "distribucion-activos": "card-navegable distribucion-activos-card",
+        "patrimonio-divisa": "card-navegable patrimonio-divisa-card",
+        "flujo-caja": "card-navegable metric-card",
+        "gastos-periodo": "card-navegable metric-card gastos-periodo-card",
+        "ingresos-periodo": "card-navegable metric-card",
+        "balance-periodo": "card-navegable metric-card",
+        "deudas": "card-navegable metric-card deudas-card",
+        "distribucion": "card-navegable distribucion-card",
+        "programados": "programados-card",
+        "alertas": "alertas-card",
+        "estrategias": "estrategias-card",
+        "presupuestos": "presupuestos-card",
+        "metas": "metas-card",
+        "vencimientos": "card-navegable",
+        "inversiones": "card-navegable"
+    };
+    return extras[id] || "";
+}
+
+function generarCardPatrimonio(nivelResalte) {
+    const resaltado = nivelResalte ? ` resaltado-${nivelResalte}` : "";
+    return `
+        <div class="glass card primary patrimonio-card${resaltado}" data-dashboard-card="patrimonio" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Patrimonio total, valor actual">
+            <div class="card-header">
+                <span class="card-title">Patrimonio Total</span>
+                <select class="divisa-select" id="divisa-select" aria-label="Divisa">
+                     <option value="pen">${getFormatoDivisa() === "codigo" ? "PEN" : presentarDivisa("pen")}</option>
+                     <option value="usd">${getFormatoDivisa() === "codigo" ? "USD" : presentarDivisa("usd")}</option>
+                     <option value="usdt">${getFormatoDivisa() === "codigo" ? "USDT" : presentarDivisa("usdt")}</option>
+                </select>
+            </div>
+            <div class="card-value" id="patrimonio-valor" aria-live="polite">${skeletonText("skeleton-value-large")}</div>
+            <div class="card-sub" id="patrimonio-detalle">${skeletonText()}</div>
+        </div>
+    `;
+}
+
+function generarCardGrafico() {
+    return `
+        <div class="glass card grafico-patrimonio-card" data-dashboard-card="grafico" role="region" tabindex="0" aria-label="Evolución patrimonial">
+            <div class="card-header">
+                <span class="card-title">Evolución patrimonial</span>
+            </div>
+            <div class="toggle-group grafico-periodos" id="grafico-periodos">
+                ${PERIODOS_GRAFICO.map(p => `
+                    <span class="toggle-option" data-periodo="${p.id}">${p.etiqueta}</span>
+                `).join('')}
+            </div>
+            <div class="grafico-container-dashboard" role="button" tabindex="0" aria-label="Abrir evolución patrimonial">
+                <canvas id="grafico-patrimonio"></canvas>
+                <div class="grafico-estado" id="grafico-estado">${skeletonMarkup({ variant: "chart", label: "Cargando gráfico" })}</div>
+            </div>
+        </div>
+    `;
+}
+
+function generarCardDistribucionDona() {
+    return `
+        <div class="glass card card-navegable distribucion-card" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
+            <div class="card-header">
+                <span class="card-title">Distribución patrimonial</span>
+            </div>
+            <div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
+            <div class="distribucion-lista" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+}
+
+function generarCardMetas() {
+    return `
+        <div class="glass card metas-card" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
+            <div class="card-header">
+                <span class="card-title">Metas de ahorro</span>
+                <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
+                    ${icono("plus-circle", 14)} Nueva
+                </button>
+            </div>
+            <div class="metas-lista" id="metas-lista">
+                ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
+            </div>
+        </div>
+    `;
+}
+
+function generarCardPresupuestos() {
+    return `
+        <div class="glass card presupuestos-card" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
+            <div class="card-header">
+                <span class="card-title">Presupuestos</span>
+                <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="presupuestos-lista" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+}
+
+// Mapa de generadores por id de card (excepto patrimonio que es fija y va primero)
+const GENERADORES_CARD = {
+    "grafico": generarCardGrafico,
+    "distribucion": generarCardDistribucionDona,
+    "metas": generarCardMetas,
+    "presupuestos": generarCardPresupuestos,
+    "cuentas": () => generarCardMetrica("card-cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
+    "inversiones": () => generarCardMetrica("card-inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
+    "vencimientos": () => generarCardMetrica("card-vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
+    "movimientos": () => generarCardListaSimple("card-movimientos", "Últimos movimientos", 2, "movimientos-detalle"),
+    "favoritos": () => `
+        <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
+            <div class="card-header">
+                <span class="card-title">Favoritos</span>
+                <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="favoritos-lista" id="favoritos-lista">
+                ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
+            </div>
+        </div>
+    `,
+    "pendientes": () => `
+        <div class="glass card card-navegable pendientes-card" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
+            <div class="card-header">
+                <span class="card-title">Pendientes</span>
+                <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="pendientes-lista" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `,
+    "ordenes": () => `
+        <div class="glass card card-navegable ordenes-card" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
+            <div class="card-header">
+                <span class="card-title">Órdenes</span>
+                <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="ordenes-lista" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+            <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
+        </div>
+    `,
+    "distribucion-activos": () => `
+        <div class="glass card card-navegable distribucion-activos-card" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
+            <div class="card-header">
+                <span class="card-title">Distribución por tipo de activo</span>
+            </div>
+            <div class="distribucion-lista" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `,
+    "patrimonio-divisa": () => `
+        <div class="glass card card-navegable patrimonio-divisa-card" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
+            <div class="card-header">
+                <span class="card-title">Patrimonio por divisa</span>
+            </div>
+            <div class="divisa-lista" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `,
+    "estrategias": () => `
+        <div class="glass card estrategias-card" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
+            <div class="card-header">
+                <span class="card-title">Estrategias</span>
+                <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="estrategias-lista" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
+        </div>
+    `,
+    "flujo-caja": () => generarCardMetrica("card-flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
+    "gastos-periodo": () => `
+        <div class="glass card card-navegable metric-card gastos-periodo-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
+            <div class="card-header">
+                <span class="card-title">Gastado</span>
+                <div class="toggle-group grafico-periodos" id="periodo-flujo-gastos" role="group" aria-label="Periodo de las cifras de gasto">
+                    ${PERIODOS_FLUJO.map(p => `
+                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
+        </div>
+    `,
+    "ingresos-periodo": () => `
+        <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
+            <div class="card-header">
+                <span class="card-title">Ingresado</span>
+                <div class="toggle-group grafico-periodos" id="periodo-flujo-ingresos" role="group" aria-label="Periodo del ingreso">
+                    ${PERIODOS_FLUJO.map(p => `
+                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
+        </div>
+    `,
+    "balance-periodo": () => generarCardMetrica("card-balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
+    "deudas": () => generarCardMetrica("card-deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
+    "programados": () => `
+        <div class="glass card programados-card" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
+            <div class="card-header">
+                <span class="card-title">Programados</span>
+                <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="programados-lista" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `,
+    "alertas": () => `
+        <div class="glass card alertas-card" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
+            <div class="card-header">
+                <span class="card-title">Alertas</span>
+                <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="alertas-lista" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `
+};
 
 export function render() {
     configurarCardsDashboardDesdeSesion()
     const nivelResalte = normalizarNivelResalte(sesion.getPreferencias()?.resaltarPatrimonio)
+
+    // Orden de renderizado: patrimonio siempre primero (fija), luego el resto
+    // según cardsOrdenDashboard filtrado por las visibles.
+    const ordenRender = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && cardsVisiblesDashboard.includes(id))]
+
     const contenido = `
         <div class="dashboard-edicion-bar" id="dashboard-edicion-bar" hidden>
             <div class="dashboard-edicion-acciones">
@@ -1238,195 +1487,11 @@ export function render() {
             </div>
         </div>
         <div class="dashboard dashboard-cargando">
-            <div class="glass card primary patrimonio-card${nivelResalte ? ` resaltado-${nivelResalte}` : ""}" data-dashboard-card="patrimonio" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Patrimonio total, valor actual">
-                <div class="card-header">
-                    <span class="card-title">Patrimonio Total</span>
-                    <select class="divisa-select" id="divisa-select" aria-label="Divisa">
-                         <option value="pen">${getFormatoDivisa() === "codigo" ? "PEN" : presentarDivisa("pen")}</option>
-                         <option value="usd">${getFormatoDivisa() === "codigo" ? "USD" : presentarDivisa("usd")}</option>
-                         <option value="usdt">${getFormatoDivisa() === "codigo" ? "USDT" : presentarDivisa("usdt")}</option>
-                    </select>
-                </div>
-                <div class="card-value" id="patrimonio-valor" aria-live="polite">${skeletonText("skeleton-value-large")}</div>
-                <div class="card-sub" id="patrimonio-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable positive" id="card-cuentas" data-dashboard-card="cuentas" role="button" tabindex="0" title="Ver cuentas">
-                <div class="card-title">Cuentas</div>
-                <div class="card-value" id="total-cuentas">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub">Activas y tarjetas</div>
-            </div>
-
-            <div class="glass card card-navegable" id="card-inversiones" data-dashboard-card="inversiones" role="button" tabindex="0" title="Ver inversiones">
-                <div class="card-title">Inversiones</div>
-                <div class="card-value" id="inversiones-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="inversiones-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable" id="card-vencimientos" data-dashboard-card="vencimientos" role="button" tabindex="0" title="Ver pendientes">
-                <div class="card-title">Próximos vencimientos</div>
-                <div class="card-value" id="vencimientos-cantidad">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="vencimientos-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable movimientos-card" id="card-movimientos" data-dashboard-card="movimientos" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-title">Últimos movimientos</div>
-                <div class="movimientos-lista" id="movimientos-lista">
-                    ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
-                </div>
-            </div>
-
-            <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Ver inversiones">
-                <div class="card-header">
-                    <span class="card-title">Favoritos</span>
-                    <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="favoritos-lista" id="favoritos-lista">
-                    ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
-                </div>
-            </div>
-
-            <div class="glass card metas-card" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
-                <div class="card-header">
-                    <span class="card-title">Metas de ahorro</span>
-                    <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
-                        ${icono("plus-circle", 14)} Nueva
-                    </button>
-                </div>
-                <div class="metas-lista" id="metas-lista">
-                    ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
-                </div>
-            </div>
-
-            <div class="glass card presupuestos-card" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
-                <div class="card-header">
-                    <span class="card-title">Presupuestos</span>
-                    <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="presupuestos-lista" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card card-navegable pendientes-card" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Ver pendientes">
-                <div class="card-header">
-                    <span class="card-title">Pendientes</span>
-                    <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="pendientes-lista" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card card-navegable ordenes-card" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Ver órdenes">
-                <div class="card-header">
-                    <span class="card-title">Órdenes</span>
-                    <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="ordenes-lista" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
-                <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable distribucion-activos-card" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Ver inversiones">
-                <div class="card-header">
-                    <span class="card-title">Distribución por tipo de activo</span>
-                </div>
-                <div class="distribucion-lista" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card card-navegable patrimonio-divisa-card" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Ver cuentas">
-                <div class="card-header">
-                    <span class="card-title">Patrimonio por divisa</span>
-                </div>
-                <div class="divisa-lista" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card estrategias-card" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
-                <div class="card-header">
-                    <span class="card-title">Estrategias</span>
-                    <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="estrategias-lista" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
-            </div>
-
-            <div class="glass card card-navegable metric-card" id="card-flujo-caja" data-dashboard-card="flujo-caja" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-title">Flujo de caja</div>
-                <div class="card-value" id="flujo-caja-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="flujo-caja-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable metric-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-header">
-                    <span class="card-title">Gastado</span>
-                    <div class="toggle-group grafico-periodos" id="periodo-flujo-gastos" role="group" aria-label="Periodo de las cifras de gasto">
-                        ${PERIODOS_FLUJO.map(p => `
-                            <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-header">
-                    <span class="card-title">Ingresado</span>
-                    <div class="toggle-group grafico-periodos" id="periodo-flujo-ingresos" role="group" aria-label="Periodo del ingreso">
-                        ${PERIODOS_FLUJO.map(p => `
-                            <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
-                        `).join('')}
-                    </div>
-                </div>
-                <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable metric-card" id="card-balance-periodo" data-dashboard-card="balance-periodo" role="button" tabindex="0" title="Ver movimientos">
-                <div class="card-title">Balance</div>
-                <div class="card-value" id="balance-periodo-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="balance-periodo-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable metric-card" id="card-deudas" data-dashboard-card="deudas" role="button" tabindex="0" title="Ver cuentas">
-                <div class="card-title">Deudas</div>
-                <div class="card-value" id="deudas-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="deudas-detalle">${skeletonText()}</div>
-            </div>
-
-            <div class="glass card card-navegable distribucion-card" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Ver cuentas">
-                <div class="card-header">
-                    <span class="card-title">Distribución patrimonial</span>
-                </div>
-                <div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-                <div class="distribucion-lista" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card programados-card" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Ver movimientos programados">
-                <div class="card-header">
-                    <span class="card-title">Programados</span>
-                    <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="programados-lista" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card alertas-card" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Ver alertas">
-                <div class="card-header">
-                    <span class="card-title">Alertas</span>
-                    <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-                <div class="alertas-lista" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
-            </div>
-
-            <div class="glass card grafico-patrimonio-card" data-dashboard-card="grafico" role="region" tabindex="0" aria-label="Evolución patrimonial">
-                <div class="card-header">
-                    <span class="card-title">Evolución patrimonial</span>
-                </div>
-                <div class="toggle-group grafico-periodos" id="grafico-periodos">
-                    ${PERIODOS_GRAFICO.map(p => `
-                        <span class="toggle-option" data-periodo="${p.id}">${p.etiqueta}</span>
-                    `).join('')}
-                </div>
-                <div class="grafico-container-dashboard" role="button" tabindex="0" aria-label="Abrir evolución patrimonial">
-                    <canvas id="grafico-patrimonio"></canvas>
-                    <div class="grafico-estado" id="grafico-estado">${skeletonMarkup({ variant: "chart", label: "Cargando gráfico" })}</div>
-                </div>
-            </div>
+            ${generarCardPatrimonio(nivelResalte)}
+            ${ordenRender.map(id => {
+                const generador = GENERADORES_CARD[id]
+                return generador ? generador() : ""
+            }).join('')}
         </div>
     `
 
