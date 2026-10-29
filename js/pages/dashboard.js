@@ -1274,7 +1274,6 @@ const PERIODOS_GRAFICO = [
     { id: "7d", etiqueta: "7D", dias: 7, sub: "Últimos 7 días" },
     { id: "30d", etiqueta: "30D", dias: 30, sub: "Últimos 30 días" },
     { id: "90d", etiqueta: "90D", dias: 90, sub: "Últimos 90 días" },
-    { id: "1a", etiqueta: "1A", dias: 365, sub: "Último año" },
     { id: "todo", etiqueta: "Todo", dias: 3650, sub: "Histórico completo" }
 ]
 const PERIODO_POR_DEFECTO = "30d"
@@ -1299,7 +1298,6 @@ const PERIODOS_FLUJO = [
     { id: "7d", etiqueta: "7D", dias: 7, sub: "Últimos 7 días" },
     { id: "30d", etiqueta: "30D", dias: 30, sub: "Últimos 30 días" },
     { id: "90d", etiqueta: "90D", dias: 90, sub: "Últimos 90 días" },
-    { id: "1a", etiqueta: "1A", dias: 365, sub: "Último año" },
     { id: "todo", etiqueta: "Todo", dias: 3650, sub: "Histórico completo" }
 ]
 const PERIODO_FLUJO_POR_DEFECTO = "30d"
