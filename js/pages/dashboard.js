@@ -176,8 +176,6 @@ let cardsOrdenDashboard = [...DEFAULT_CARDS_ORDEN]
 let modoEdicionDashboard = false
 let cambiosPendientesDashboard = false
 let eventosEdicionDashboardListos = false
-let eventosLayoutDashboardListos = false
-let timerLayoutDashboard = null
 
 function normalizarCardsVisibles(valor) {
     if (!Array.isArray(valor)) return [...DEFAULT_CARDS_VISIBLES]
@@ -316,7 +314,7 @@ function podarInstanciasInvalidas() {
 
 // Crea el nodo de las cards instanciadas que falten y retira las que ya no
 // apliquen. Se llama tras cargar los datos y al cambiar la selección; el
-// reparto en columnas lo hace después aplicarLayoutDashboard().
+// grid CSS coloca las tarjetas automáticamente.
 function montarCardsInstanciadas() {
     const grid = document.querySelector(".dashboard")
     if (!grid) return
@@ -615,99 +613,36 @@ function enlazarCardInstancia(card, id) {
 
 }
 
-function cantidadColumnasDashboard() {
-    if (window.matchMedia("(max-width: 1049px)").matches) return 1
-    if (window.matchMedia("(max-width: 1399px)").matches) return 3
-    if (window.matchMedia("(min-width: 1600px)").matches) return 4
-    return 3
-}
-
-function alturaMasonryCard(card, gap) {
-    const alturaRect = card.getBoundingClientRect().height
-    if (alturaRect > 0) return alturaRect
-
-    // Una card oculta o aún sin pintar mide 0. Se estima con su min-height en
-    // vez de leer estilos uno a uno: es un fallback, y getComputedStyle en un
-    // bucle es de las cosas que más engordan el coste de un reparto.
-    const alturaMinima = Number.parseFloat(window.getComputedStyle(card).minHeight) || 0
-    return Math.max(alturaMinima, 148) + gap
-}
-
-function crearColumnasDashboard(cards, ordenVisible, cantidadColumnas, grid) {
-    const columnas = Array.from({ length: cantidadColumnas }, () => {
-        const columna = document.createElement("div")
-        columna.className = "dashboard-column"
-        return columna
-    })
-    const alturas = Array.from({ length: cantidadColumnas }, () => 0)
-    const visibles = new Set(ordenVisible)
-
-    cards.forEach(card => {
-        card.hidden = !visibles.has(card.dataset.dashboardCard)
-    })
-
-    // Ordenar en dos fases: primero todas las medidas, después todos los
-    // appendChild. Intercalarlos (medir, mover, medir, mover…) obligaba al
-    // navegador a recalcular la composición sin parar, porque cada append
-    // invalida lo medido justo antes: con ~20 cards eran ~20 reflows
-    // síncronos por cada reparto. Y se dispara en cada refresco de datos,
-    // en cada resize y al comprimir una card.
-    //
-    // El Map evita además el cards.find() dentro del bucle, que era O(n²).
-    const porId = new Map(cards.map(card => [card.dataset.dashboardCard, card]))
-    const aColocar = ordenVisible
-        .map(id => porId.get(id))
-        .filter(Boolean)
-
-    // Única fase de lectura: no se toca el DOM dentro.
-    const gap = Number.parseFloat(window.getComputedStyle(grid).rowGap) || 0
-    const alturasMedidas = aColocar.map(card => alturaMasonryCard(card, gap))
-
-    // Fase de escritura: solo appendChild, sin volver a leer nada.
-    aColocar.forEach((card, indice) => {
-        const columna = alturas.indexOf(Math.min(...alturas))
-        columnas[columna].appendChild(card)
-        alturas[columna] += alturasMedidas[indice]
-    })
-
-    cards.filter(card => card.hidden).forEach(card => columnas[columnas.length - 1].appendChild(card))
-    return columnas
-}
-
-function aplicarLayoutDashboard(forzar = false) {
+function reordenarDashboard() {
     const grid = document.querySelector(".dashboard")
     if (!grid) return
-    const visibles = new Set(["patrimonio", ...cardsVisiblesDashboard])
-    const ordenVisible = ["patrimonio", ...cardsOrdenDashboard.filter(id => visibles.has(id))]
-    const cantidadColumnas = cantidadColumnasDashboard()
-    const firma = `${cantidadColumnas}|${ordenVisible.join(",")}`
-    if (!forzar && grid.dataset.layoutFirma === firma) return
 
-    const cards = [...grid.querySelectorAll("[data-dashboard-card]")]
-    const columnas = crearColumnasDashboard(cards, ordenVisible, cantidadColumnas, grid)
-    grid.replaceChildren(...columnas)
-    grid.dataset.layoutFirma = firma
-}
+    // patrimonio siempre va primero y es fija
+    const orden = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
 
-function configurarLayoutDashboard() {
-    if (eventosLayoutDashboardListos) return
-    eventosLayoutDashboardListos = true
-    window.addEventListener("resize", () => {
-        clearTimeout(timerLayoutDashboard)
-        timerLayoutDashboard = setTimeout(() => aplicarLayoutDashboard(true), 120)
+    const cards = new Map()
+    grid.querySelectorAll("[data-dashboard-card]").forEach(card => {
+        cards.set(card.dataset.dashboardCard, card)
+    })
+
+    // Mover cada tarjeta a su posición según el orden guardado
+    orden.forEach(id => {
+        const card = cards.get(id)
+        if (card && card.parentElement === grid) {
+            grid.appendChild(card)
+        }
     })
 }
 
 // ============================================
 // ARRASTRAR A CUALQUIER POSICIÓN
 // ============================================
-// El grid es un masonry de N columnas, así que "soltar sobre una card" no
-// basta: entre dos columnas, o debajo de la última, hay una posición tan
-// válida como cualquier card. Por eso el destino se calcula con las
-// coordenadas del puntero sobre la lista ORDEN de cards visibles, y se marca
-// con una línea de inserción entre dos cards.
+// El grid es un CSS Grid puro, así que "soltar sobre una card" basta: el
+// destino se calcula con las coordenadas del puntero sobre la lista ORDEN
+// de cards visibles, y se marca con una línea de inserción entre dos cards.
 //
-// El orden guardado (`cardsOrdenDashboard`) es una lista plana que reparte
+// El orden guardado (`cardsOrdenDashboard`) es una lista plana que define el
+// orden de lectura (izquierda a derecha, de arriba abajo).
 // luego en columnas; insertar por índice de esa lista plana es exactamente lo
 // que "dejar la card en ese hueco" significa, sin importar en qué columna
 // caiga.
@@ -736,51 +671,23 @@ function cardsVisiblesEnOrden() {
  * Índice de inserción para la posición del puntero: el número de cards
  * visibles que quedan por delante.
  *
- * Dos formas de resolver el hueco:
- *  1. Final de columna: hay un espacio "muerto" debajo de la última card de
- *     cada columna (de distinta altura en el masonry). Si el puntero cae ahí,
- *     la card va justo después de esa card, no al final del grid entero.
- *  2. Entre cards: orden de lectura, cuenta en cuántas cards queda el
- *     puntero por delante.
+ * El cálculo es directo sobre todas las cards (hijas directas del grid):
+ *  1. Si el puntero está por encima de una card → va antes de esa card.
+ *  2. Si está dentro de una card, por la mitad izquierda o superior → va antes.
+ *  3. Si está por la mitad inferior derecha → se sigue buscando.
  * @returns {number} de 0 (antes de la primera) a n (al final)
  */
 function posicionDeInsercion(evento) {
-    const grid = document.querySelector(".dashboard")
     const cards = cardsVisiblesEnOrden()
     if (cards.length === 0) return 0
 
     const x = evento.clientX
     const y = evento.clientY
 
-    if (grid) {
-        for (const columna of grid.querySelectorAll(".dashboard-column")) {
-            const banda = columna.getBoundingClientRect()
-            if (x < banda.left || x > banda.right + 1) continue
-
-            const visiblesDeColumna = [...columna.querySelectorAll("[data-dashboard-card]")]
-                .filter(card => !card.hidden && card.isConnected)
-            const ultima = visiblesDeColumna[visiblesDeColumna.length - 1]
-            if (!ultima) continue
-
-            const fin = ultima.getBoundingClientRect()
-            const posUltima = cards.indexOf(ultima)
-            if (posUltima >= 0 && y > fin.bottom + 4) {
-                // Dentro del ancho de la columna y debajo de su última card:
-                // solo cuenta si no hay otra card solapando el punto.
-                const sobreCard = cards.some(card => {
-                    const b = card.getBoundingClientRect()
-                    return x >= b.left && x <= b.right && y >= b.top && y <= b.bottom
-                })
-                if (!sobreCard) return posUltima + 1
-            }
-        }
-    }
-
     let insertar = cards.length
     for (let i = 0; i < cards.length; i++) {
         const caja = cards[i].getBoundingClientRect()
-        // Hueco entre cards: el puntero está encima de esta sin tocar la
-        // anterior → va ANTES de esta (activa el espacio entre las dos).
+        // Hueco entre cards: el puntero está por encima de esta → va ANTES de esta.
         if (y < caja.top) {
             insertar = i
             break
@@ -884,7 +791,7 @@ function insertarCardDashboard(idOrigen, posicion) {
 
     cardsOrdenDashboard.splice(destino, 0, idOrigen)
     cambiosPendientesDashboard = true
-    aplicarLayoutDashboard(true)
+    reordenarDashboard(true)
 }
 
 function moverCardDashboard(id, direccion) {
@@ -893,7 +800,7 @@ function moverCardDashboard(id, direccion) {
     if (indice < 0 || destino < 0 || destino >= cardsOrdenDashboard.length || id === "patrimonio") return
     [cardsOrdenDashboard[indice], cardsOrdenDashboard[destino]] = [cardsOrdenDashboard[destino], cardsOrdenDashboard[indice]]
     cambiosPendientesDashboard = true
-    aplicarLayoutDashboard()
+    reordenarDashboard()
 }
 
 function quitarCardDashboard(id) {
@@ -905,7 +812,7 @@ function quitarCardDashboard(id) {
         const idxVis = cardsVisiblesDashboard.indexOf(id)
         if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
         cambiosPendientesDashboard = true
-        aplicarLayoutDashboard()
+        reordenarDashboard()
     }
 }
 
@@ -1140,8 +1047,7 @@ function opcionesInstanciasCuentas(activas) {
     // muestra el total de la familia. Ofrecirlas duplicaria el patrimonio.
     const lista = cuentasVisibles(cuentas)
 
-    // Una sola card de cuenta a la vez. Con varias, el masonry reparte las
-    // columnas por altura y la lista de cuentas se convierte en un muro de
+    // Una sola card de cuenta a la vez. Con varias, el grid mostraría un muro
     // importes iguales sin contexto: nadie distingue "mi saldo" de "el saldo
     // de una tarjeta". Cuando se pueda elegir bien (una card que agrupe, o un
     // selector con la foto y el nombre grande), se levanta el tope.
@@ -1243,7 +1149,7 @@ function abrirSelectorCardsDashboard() {
                 cambiosPendientesDashboard = false
                 montarCardsInstanciadas()
                 if (modoEdicionDashboard) prepararEdicionCardsDashboard()
-                aplicarLayoutDashboard(true)
+                reordenarDashboard(true)
                 mostrarNotificacion("exito", "Cards del dashboard actualizadas")
                 return true
             } catch (error) {
@@ -1651,7 +1557,7 @@ export async function init() {
     await cargarCardsVisiblesDashboard()
     mostrarEsqueletosDashboard()
     configurarLayoutDashboard()
-    aplicarLayoutDashboard()
+    reordenarDashboard()
     configurarDivisa()
     configurarPeriodos()
     configurarPeriodoFlujoDashboard()
@@ -1663,10 +1569,9 @@ export async function init() {
 
     try {
         await cargarTodo()
-        // El reparto del masonry se hizo en aplicarLayoutDashboard() con las
-        // cards aún en esqueleto. Sin este repase, las columnas se calculan
-        // con alturas falsas y quedan muy descompensadas.
-        aplicarLayoutDashboard(true)
+        // Se repite tras cargar los datos reales para que el orden de las
+        // tarjetas se ajuste con sus alturas definitivas y no con esqueletos.
+        reordenarDashboard()
         void actualizarGraficoPatrimonio()
     } finally {
         const dashboard = document.querySelector(".dashboard")
@@ -1700,7 +1605,7 @@ function configurarRefreshDashboard() {
             document.querySelector(".dashboard")?.setAttribute("aria-busy", "true")
             try {
                 await cargarTodo()
-                aplicarLayoutDashboard(true)
+                reordenarDashboard(true)
             } catch (error) {
                 console.error("Error refrescando el dashboard:", error)
             } finally {
@@ -1727,7 +1632,7 @@ export async function recargarDatos() {
     } catch (error) {
         console.error("Error recargando dashboard:", error)
     } finally {
-        aplicarLayoutDashboard(true)
+        reordenarDashboard(true)
         document.querySelector(".dashboard")?.removeAttribute("aria-busy")
         desactivarSpinLogo()
     }
@@ -2220,7 +2125,7 @@ async function actualizarUI() {
     actualizarProgramados()
     actualizarAlertas()
     actualizarMovimientos()
-    aplicarLayoutDashboard(true)
+    reordenarDashboard(true)
 }
 
 // calcularPatrimonio() ya devuelve los totales por divisa, y tres cards los
@@ -3505,7 +3410,7 @@ function instalarSincronizacionMetas() {
     window.addEventListener("metas-actualizadas", async () => {
         metasData = await cargarMetas()
         actualizarMetas()
-        aplicarLayoutDashboard(true)
+        reordenarDashboard(true)
     })
 }
 
@@ -3522,7 +3427,7 @@ function instalarSincronizacionPresupuestos() {
     sincronizacionPresupuestosInstalada = true
     window.addEventListener("presupuestos-actualizados", async () => {
         await actualizarPresupuestos()
-        aplicarLayoutDashboard(true)
+        reordenarDashboard(true)
     })
 }
 
@@ -3678,7 +3583,7 @@ function configurarDivisa() {
         actualizarDistribucion()
         actualizarProgramados()
         actualizarAlertas()
-        aplicarLayoutDashboard(true)
+        reordenarDashboard(true)
 
         // Redibujar el gráfico manteniendo el periodo actual
         if (datosGrafico?.labels?.length) {
