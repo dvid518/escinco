@@ -1432,12 +1432,6 @@ export function render() {
 
     const contenedor = document.createElement("div")
     contenedor.innerHTML = contenido
-    const grid = contenedor.querySelector(".dashboard")
-    const cards = [...grid.querySelectorAll("[data-dashboard-card]")]
-    const visibles = new Set(["patrimonio", ...cardsVisiblesDashboard])
-    const ordenVisible = ["patrimonio", ...cardsOrdenDashboard.filter(id => visibles.has(id))]
-    const columnas = crearColumnasDashboard(cards, ordenVisible, cantidadColumnasDashboard(), grid)
-    grid.replaceChildren(...columnas)
     return contenedor.innerHTML
 }
 
@@ -1556,7 +1550,6 @@ export async function init() {
 
     await cargarCardsVisiblesDashboard()
     mostrarEsqueletosDashboard()
-    configurarLayoutDashboard()
     reordenarDashboard()
     configurarDivisa()
     configurarPeriodos()
