@@ -7,12 +7,13 @@
     --unidad-card: 148px;
     --gap-card: 16px;
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: var(--gap-card);
     width: 100%;
     height: auto;
     min-height: 0;
     align-items: start;
+    align-content: start;
     overflow: visible;
     opacity: 1;
     visibility: visible;
@@ -553,11 +554,6 @@ body.dashboard-card-dragging * {
 /* En pantallas anchas las cards pueden hacerse más compactas y ocupar
    exactamente 4 columnas, como se ve en la maqueta del hero. */
 @media (min-width: 1024px) {
-    .dashboard {
-        grid-template-columns: repeat(4, minmax(200px, 1fr));
-        gap: 20px;
-    }
-
     #app-content:has(.dashboard) {
         padding: 40px 24px;
     }
