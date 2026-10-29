@@ -158,9 +158,8 @@
     flex: 1;
     padding-right: 4px;
     min-height: 0;
-    /* Espacio inferior moderado para que el último movimiento quede visible al
-       hacer scroll, sin dejar hueco vacío excesivo. */
-    padding-bottom: 40px;
+    padding-bottom: 80px;
+    overflow-y: auto;
 }
 
 #lista-movimientos::-webkit-scrollbar {
@@ -184,27 +183,40 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    padding: 12px 25px 12px 16px;
     background: var(--surface);
     border-radius: 16px;
     border: 1px solid var(--border);
-    transition: all 0.3s ease;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+    min-height: 60px;
+    overflow: hidden;
 }
 
 .movimiento-item:hover {
-    transform: scale(1.01);
     background: var(--lightHover);
 }
 
-.movimiento-item .info {
+.movimiento-info {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    min-width: 0;
     flex: 1;
+    min-width: 0;
+    margin-right: 12px;
 }
 
-.movimiento-item .info .concepto {
+.movimiento-concepto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.movimiento-concepto > span:first-child {
     font-weight: 500;
     color: var(--text);
     overflow: hidden;
@@ -212,30 +224,61 @@
     white-space: nowrap;
 }
 
-.movimiento-item .info .fecha {
+.movimiento-detalle {
     font-size: 12px;
     color: var(--textSecondary);
 }
 
-.movimiento-item .info .tipo {
+.movimiento-tipo {
     font-size: 11px;
     color: var(--textSecondary);
     opacity: 0.8;
 }
 
-.movimiento-item .monto {
+.movimiento-valores {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    text-align: right;
+    min-width: 0;
+}
+
+.movimiento-valor {
     font-family: var(--font-secondary);
     font-weight: 600;
     white-space: nowrap;
-    margin-left: 12px;
 }
 
-.movimiento-item .monto.positive {
+.movimiento-valor.positive {
     color: var(--positive);
 }
 
-.movimiento-item .monto.negative {
+.movimiento-valor.negative {
     color: var(--negative);
+}
+
+/* Etiquetas: que fluyan debajo del monto sin superponerse */
+.movimiento-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.movimiento-etiquetas .badge,
+.movimiento-etiquetas span {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--backgroundAlt);
+    color: var(--textSecondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100px;
 }
 
 /* --------------------------------------------
@@ -321,13 +364,9 @@
    CARD · interacción, selección y acciones
    -------------------------------------------- */
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item {
     --card-acciones-w: 88px;
     position: relative;
-    /* Recorta a las esquinas redondeadas: sin esto el fondo de la fila se salía
-       de la cápsula de 40px y se veía cuadrada. Todo el fondo lo pinta este
-       elemento (`.card-item-main` es transparente desde que la estrella es su
-       hermana), así que el recorte basta para dar la forma. */
     overflow: hidden;
     padding: 0;
     gap: 0;
@@ -337,73 +376,47 @@
     -webkit-user-select: none;
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-main {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    /* `min-width: 0` para que el texto pueda recortar con elipsis cuando la
-       estrella y el precio compiten por el ancho (la estrella ya no vive dentro
-       de `.card-item-acciones`, así que es hermana de este bloque). */
-    min-width: 0;
-    box-sizing: border-box;
-    /* La estrella está a la izquierda fuera del main, con margen de 16px. El
-       padding derecho se reduce para que el texto no quede muy separado de la
-       estrella y el precio no quede pegado al borde. */
-    padding: 12px 16px;
-    /* SIN fondo propio. Antes este bloque se pintaba encima de la fila heredando
-       el fondo del padre; como la estrella es su hermana y ocupa 58px a la
-       izquierda, el main ya no cubría el contenedor entero y quedaban dos
-       materiales en una misma fila: el glow del hover se tapaba en la zona
-       del main y se veía en la de la estrella. Ahora el fondo lo pone solo
-       `.card-item`, que es el único que lo declara. */
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado {
     border-color: var(--text);
     background: var(--backgroundAlt);
     box-shadow: inset 0 0 0 1px var(--shadow);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado:hover {
     background: var(--backgroundAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-titulo {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-concepto > span:first-child {
     color: var(--textAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-detalle {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-detalle {
     color: var(--surface);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-valor-wrap .card-item-valor.positive {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.positive {
     color: var(--positiveAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-valor-wrap .card-item-valor.negative {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.negative {
     color: var(--negativeAlt);
 }
 
 /* --------------------------------------------
    PRECIO · esquina superior derecha, roboto mono
    -------------------------------------------- */
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor,
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-valor {
     font-family: var(--font-secondary);
     font-feature-settings: "tnum";
     margin-left: 0;
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor-wrap {
-    position: relative;
-    display: inline-flex;
-    align-items: center;
+    display: flex;
+    justify-content: flex-end;
+    max-width: 40%;
     flex-shrink: 0;
-    min-width: 0;
-    margin-left: 12px;
-    /* El valor se ancla a la esquina superior derecha de la fila */
-    margin-left: auto;
 }
 
 /* La estrella vive a la izquierda de la fila, como hermana de `.card-item-main`
@@ -413,16 +426,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    flex-shrink: 0;
     width: 32px;
     height: 32px;
-    margin: 0 10px 0 16px;
+    margin-right: 10px;
     padding: 0;
     border: 1px solid transparent;
-    border-radius: 50%;
+    border-radius: 20px;
     background: transparent;
     color: var(--textSecondary);
     cursor: pointer;
+    flex-shrink: 0;
     transition: all 0.2s ease;
 }
 
@@ -438,6 +451,17 @@
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito.es-favorito svg {
     fill: currentColor;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito svg,
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito span[data-tpl="icono-favorito"] {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    line-height: 1;
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .movimiento-favorito:not(.es-favorito) {
