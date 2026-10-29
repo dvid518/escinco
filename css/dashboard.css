@@ -29,18 +29,20 @@
 }
 
 /* Tarjetas con gráficos: altura mínima para que el canvas tenga espacio */
-.dashboard .grafico-patrimonio-card,
-.dashboard .distribucion-activos-card {
+.grafico-patrimonio-card,
+.distribucion-activos-card {
     min-height: 320px;
+    height: auto;
+    position: relative;
+    overflow: visible;
 }
 
-.dashboard .grafico-patrimonio-card canvas,
-.dashboard .distribucion-activos-card canvas {
+.grafico-patrimonio-card canvas,
+.distribucion-activos-card canvas {
+    display: block;
     width: 100% !important;
     height: 100% !important;
-    position: absolute;
-    top: 0;
-    left: 0;
+    max-height: 100%;
 }
 
 .dashboard.dashboard-cargando {
@@ -412,11 +414,6 @@ body.dashboard-card-dragging * {
     color: var(--textSecondary);
     font-size: 12px;
     text-align: center;
-}
-
-.grafico-patrimonio-card canvas {
-    width: 100% !important;
-    height: 100% !important;
 }
 
 #app-content:has(.dashboard) {
