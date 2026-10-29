@@ -23,9 +23,24 @@
 .dashboard > * {
     min-height: 0;
     height: auto;
-    overflow: hidden;
     display: flex;
     flex-direction: column;
+    position: relative;
+}
+
+/* Tarjetas con gráficos: altura mínima para que el canvas tenga espacio */
+.dashboard .grafico-patrimonio-card,
+.dashboard .distribucion-activos-card {
+    min-height: 320px;
+}
+
+.dashboard .grafico-patrimonio-card canvas,
+.dashboard .distribucion-activos-card canvas {
+    width: 100% !important;
+    height: 100% !important;
+    position: absolute;
+    top: 0;
+    left: 0;
 }
 
 .dashboard.dashboard-cargando {
@@ -414,7 +429,6 @@ body.dashboard-card-dragging * {
     padding: 24px 16px;
     overflow-x: visible;
     overflow-y: auto;
-    max-height: calc(100vh - 160px);
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
 }

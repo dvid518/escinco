@@ -193,7 +193,7 @@ body {
     flex-direction: column;
     height: 100vh;   /* fallback navegadores antiguos */
     height: 100dvh;  /* navegadores modernos: excluye barras de UI del navegador */
-    overflow: hidden;
+    overflow-y: auto;
     color: var(--text);
 }
 
@@ -211,7 +211,7 @@ main {
     box-sizing: border-box;
     display: flex;
     flex-direction: row;
-    width: 100%;
+    width: 85%;
     max-width: none;
     gap: 20px;
     margin: 0 auto;
