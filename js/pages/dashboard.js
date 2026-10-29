@@ -618,7 +618,7 @@ function enlazarCardInstancia(card, id) {
 function cantidadColumnasDashboard() {
     if (window.matchMedia("(max-width: 1049px)").matches) return 1
     if (window.matchMedia("(max-width: 1399px)").matches) return 2
-    if (window.matchMedia("(min-width: 1400px)").matches) return 3
+    if (window.matchMedia("(min-width: 1600px)").matches) return 4
     return 3
 }
 
