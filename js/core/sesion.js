@@ -32,6 +32,7 @@ export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
         unClickSeleccion: false,
         lateralidadCuentaInfo: "derecha",
         resaltarIngresoGasto: true,
+        accionesSiempreVisibles: false,
         // true = Panel (ajustes dentro del #panel, ruta propia). Es lo predeterminado.
 // false = Modal (ventana grande sobre la página actual).
         configComoPagina: true

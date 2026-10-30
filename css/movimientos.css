@@ -272,74 +272,6 @@
     color: var(--negative);
 }
 
-.card-item-acciones {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: 0;
-    width: 88px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding-right: 12px;
-    transform: translateX(100%);
-    opacity: 0;
-    pointer-events: none;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-    flex-shrink: 0;
-}
-
-.movimiento-item.acciones-visibles .card-item-acciones {
-    transform: translateX(0);
-    opacity: 1;
-    pointer-events: auto;
-}
-
-.card-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--background);
-    color: var(--textSecondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.card-action-btn:hover {
-    color: var(--text);
-    border-color: var(--text);
-    background: var(--lightHover);
-}
-
-.card-action-btn.danger:hover {
-    color: var(--textAlt);
-    background-color: var(--negative);
-    border-color: var(--negative);
-}
-
-.movimiento-item.seleccionado .card-item-acciones button {
-    color: var(--textAlt);
-    border-color: var(--text);
-    background-color: var(--border);
-}
-
-.movimiento-item.seleccionado .card-item-acciones button:hover {
-    color: var(--surface);
-    border-color: var(--borderAlt);
-    background-color: var(--text);
-}
-
-.movimiento-item.seleccionado .card-item-acciones button.danger:hover {
-    color: var(--text);
-    border-color: var(--negativeAlt);
-    background-color: var(--negativeAlt);
-}
 
 /* --------------------------------------------
    LISTA · scroll estilo configuración
@@ -452,12 +384,33 @@
     color: var(--surface);
 }
 
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor {
+    color: var(--textAlt);
+}
+
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.positive {
     color: var(--positiveAlt);
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.negative {
     color: var(--negativeAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.ambar {
+    color: var(--ambarAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito:not(.es-favorito) {
+    color: var(--textAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito.es-favorito {
+    color: var(--ambarAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito:hover {
+    background: color-mix(in srgb, var(--textAlt) 14%, transparent);
+    border-color: var(--border);
 }
 
 /* --------------------------------------------
@@ -547,17 +500,24 @@
     transition: opacity 0.2s ease;
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.acciones-visibles .card-item-acciones,
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item:focus-within .card-item-acciones {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.acciones-visibles .card-item-acciones,
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:focus-within .card-item-acciones {
     opacity: 1;
     pointer-events: auto;
 }
 
 @media (hover: hover) and (pointer: fine) {
-    :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item:hover .card-item-acciones {
+    :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:hover .card-item-acciones {
         opacity: 1;
         pointer-events: auto;
     }
+}
+
+/* Accesibilidad: acciones de movimiento siempre visibles */
+#lista-movimientos.acciones-siempre-visibles .card-item-acciones,
+#lista-movimientos-cuenta.acciones-siempre-visibles .card-item-acciones {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn {
@@ -587,19 +547,19 @@
     border-color: var(--negative);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-item-acciones button {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-item-acciones button {
     color: var(--textAlt);
     border-color: var(--text);
     background-color: var(--border);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-action-btn:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-action-btn:hover {
     color: var(--surface);
     border-color: var(--borderAlt);
     background-color: var(--text);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .card-action-btn.danger:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-action-btn.danger:hover {
     color: var(--text);
     border-color: var(--negativeAlt);
     background-color: var(--negativeAlt);

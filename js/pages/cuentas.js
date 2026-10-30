@@ -864,7 +864,7 @@ export async function modalizarCuentaActual() {
                 html: {
                     info,
                     movimientos: movs.length
-                        ? sinBotonFavorito(contenidoDesdeFilas("tpl-movimiento-card", movs, m => filaMovimiento(m, visto.id)))
+                        ? sinBotonFavorito(contenidoDesdeFilas("tpl-movimiento-item", movs, m => filaMovimiento(m, visto.id)))
                         : contenidoDesdeTemplate("tpl-lista-vacio", { valores: { texto: "Sin movimientos." } })
                 }
             }))
@@ -1169,7 +1169,7 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
         }
 
         contenedor.replaceChildren(sinBotonFavorito(
-            contenidoDesdeFilas("tpl-movimiento-card", recientes, m => filaMovimiento(m, cuenta.id))
+            contenidoDesdeFilas("tpl-movimiento-item", recientes, m => filaMovimiento(m, cuenta.id))
         ))
     } catch (error) {
         console.error("Error cargando movimientos de la cuenta:", error)
@@ -1295,17 +1295,25 @@ function filaMovimiento(m, cuentaId = null) {
 
     return {
         valores: {
-            "item@class": `card-item${seleccionadosCuenta.has(m.id) ? " seleccionado" : ""}`,
-            "item@data-id": m.id,
-            titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            "item@class": `movimiento-item${seleccionadosCuenta.has(m.id) ? " seleccionado" : ""}`,
+            "item@data-movimiento-id": m.id,
+            "item@data-favorito-id": m.favoritoId || "",
+            "favorito@class": `movimiento-favorito${m.favoritoId ? " es-favorito" : ""}`,
+            "favorito@data-favorito-id": m.favoritoId || "",
+            "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
+            "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
+            concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
             detalle: fecha,
-            "valor@class": `card-item-valor ${clase}`,
-            "valor-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+            "valor@class": `movimiento-valor ${clase}`,
+            valor: `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
         },
         html: {
-            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
-            "icono-editar": icono("pencil", 16),
-            "icono-eliminar": icono("trash", 16)
+            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({
+                valores: { badge: e }
+            })),
+            "icono-favorito": icono("star", 16),
+            "icono-editar": icono("pencil", 15),
+            "icono-eliminar": icono("trash", 15)
         }
     }
 }
@@ -1325,6 +1333,14 @@ function vincularInteraccionCardsCuenta() {
     container?.addEventListener("dblclick", manejarDobleClickCardCuenta)
     vincularGestosCardCuenta(container)
     configurarEventosCardsCuentaGlobales()
+    aplicarAccionesSiempreVisiblesCuenta()
+}
+
+function aplicarAccionesSiempreVisiblesCuenta() {
+    const lista = document.getElementById("lista-movimientos-cuenta")
+    if (!lista) return
+    const siempre = sesion.getPreferencias()?.accesibilidad?.accionesSiempreVisibles === true
+    lista.classList.toggle("acciones-siempre-visibles", siempre)
 }
 
 function configurarEventosCardsCuentaGlobales() {
@@ -1355,7 +1371,7 @@ function manejarClickCardCuenta(evento) {
     const accionBtn = evento.target.closest(".card-action-btn")
     if (accionBtn) {
         evento.stopPropagation()
-        const m = movimientosCuentaActivos.find(x => x.id === accionBtn.closest(".card-item")?.dataset.id)
+        const m = movimientosCuentaActivos.find(x => x.id === accionBtn.closest(".movimiento-item")?.dataset.movimientoId)
         ocultarAccionesCardsCuenta()
         if (!m) return
         if (accionBtn.dataset.accion === "editar") abrirEditarMovimientoCuenta(m)
@@ -1363,7 +1379,7 @@ function manejarClickCardCuenta(evento) {
         return
     }
 
-    const card = evento.target.closest(".card-item")
+    const card = evento.target.closest(".movimiento-item")
 
     if (cardConAccionesCuenta) {
         const esLaMisma = card === cardConAccionesCuenta
@@ -1377,7 +1393,7 @@ function manejarClickCardCuenta(evento) {
     if (consumirSupresorClickCuenta()) return
     if (!card) return
 
-    const id = card.dataset.id
+    const id = card.dataset.movimientoId
 
     if (evento.shiftKey && expandirSeleccion(movimientosCuentaActivos.map(m => m.id), id, seleccionadosCuenta, ordenSeleccionCuenta)) {
         actualizarSeleccionCuentaEnDOM()
@@ -1410,7 +1426,7 @@ function manejarClickCardCuenta(evento) {
 
 function manejarDobleClickCardCuenta(evento) {
     if (evento.target.closest(".card-action-btn")) return
-    const card = evento.target.closest(".card-item")
+    const card = evento.target.closest(".movimiento-item")
     if (!card) return
     if (clickTimerCuenta) {
         clearTimeout(clickTimerCuenta)
@@ -1418,16 +1434,16 @@ function manejarDobleClickCardCuenta(evento) {
     }
     if (modoUnClickSeleccion()) {
         limpiarSeleccionCuenta()
-        const m = movimientosCuentaActivos.find(x => x.id === card.dataset.id)
+        const m = movimientosCuentaActivos.find(x => x.id === card.dataset.movimientoId)
         if (m) abrirEditarMovimientoCuenta(m)
         return
     }
-    toggleSeleccionCuenta(card.dataset.id)
+    toggleSeleccionCuenta(card.dataset.movimientoId)
 }
 
 function manejarClickFueraCardsCuenta(evento) {
     if (!document.getElementById("lista-movimientos-cuenta")) return
-    if (evento.target.closest(".card-item")) return
+    if (evento.target.closest(".movimiento-item")) return
     if (evento.target.closest("#app-footer")) return
     if (evento.target.closest(".modal-overlay")) return
     ocultarAccionesCardsCuenta()
@@ -1493,8 +1509,8 @@ function deseleccionarUltimoCuenta() {
 function actualizarSeleccionCuentaEnDOM() {
     const container = document.getElementById("lista-movimientos-cuenta")
     if (!container) return
-    container.querySelectorAll(".card-item").forEach(card => {
-        card.classList.toggle("seleccionado", seleccionadosCuenta.has(card.dataset.id))
+    container.querySelectorAll(".movimiento-item").forEach(card => {
+        card.classList.toggle("seleccionado", seleccionadosCuenta.has(card.dataset.movimientoId))
     })
 }
 
@@ -1512,7 +1528,7 @@ function vincularGestosCardCuenta(container) {
         if (evento.pointerType === "mouse" && evento.button !== 0) return
         if (evento.target.closest(".card-action-btn")) return
 
-        const card = evento.target.closest(".card-item")
+        const card = evento.target.closest(".movimiento-item")
         if (!card) return
 
         cancelar()
@@ -1532,7 +1548,7 @@ function vincularGestosCardCuenta(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccionCuenta(card.dataset.id)
+            toggleSeleccionCuenta(card.dataset.movimientoId)
             marcarSupresorClickCuenta()
             cancelar()
         }, duracion)

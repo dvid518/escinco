@@ -595,7 +595,8 @@ option {
 /* Filas y tarjetas seleccionadas: fondo invertido, así que el badge pasa a un
    relleno oscuro/claro de contraste para seguir legible. */
 .card-item.seleccionado .badge,
-.posicion-item.seleccionado .badge {
+.posicion-item.seleccionado .badge,
+.movimiento-item.seleccionado .badge {
     color: var(--border);
     background: var(--background);
 }

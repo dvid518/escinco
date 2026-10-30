@@ -643,6 +643,10 @@ async function cargarPreferencias() {
         if (accResaltar) {
             accResaltar.checked = acc.resaltarIngresoGasto !== false
         }
+        const accAccionesSiempre = document.getElementById("acc-acciones-siempre-visibles")
+        if (accAccionesSiempre) {
+            accAccionesSiempre.checked = acc.accionesSiempreVisibles === true
+        }
 
         // Precios de activos
         const preciosAuto = document.getElementById("toggle-precios-auto")
@@ -1123,6 +1127,7 @@ function construirPreferencias() {
         unClickSeleccion: document.getElementById("acc-un-click-seleccion")?.checked === true,
         lateralidadCuentaInfo: getLateralidadCuentaUI(),
         resaltarIngresoGasto: document.getElementById("acc-resaltar-ingreso-gasto")?.checked !== false,
+        accionesSiempreVisibles: document.getElementById("acc-acciones-siempre-visibles")?.checked === true,
         configComoPagina: document.querySelector("#toggle-config-modo .toggle-option.active")?.dataset.configModo !== "modal"
     }
 
@@ -1201,6 +1206,15 @@ async function aplicarPreferencias(preferencias) {
         // En memoria si se guarda el estado completo (defaults incluidos): la
         // app lee siempre desde ahi.
         sesion.setPreferencias(preferencias)
+
+        // Aplicar de inmediato "acciones siempre visibles" en las listas
+        try {
+            const siempre = preferencias.accesibilidad?.accionesSiempreVisibles === true
+            document.getElementById("lista-movimientos")?.classList.toggle("acciones-siempre-visibles", siempre)
+            document.getElementById("lista-movimientos-cuenta")?.classList.toggle("acciones-siempre-visibles", siempre)
+        } catch {
+            // no bloquea el guardado si las listas aún no están montadas
+        }
 
         // Aplicar de inmediato la seguridad configurada
         try {

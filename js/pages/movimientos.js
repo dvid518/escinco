@@ -576,9 +576,6 @@ function filaMovimiento(m, cuentaId = null) {
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
     const etiquetas = (m.etiquetas || []).filter(Boolean)
-    const etiquetasHtml = etiquetas
-        .map(e => `<span class="badge">${escapeHtml(e)}</span>`)
-        .join("")
 
     return {
         valores: {
@@ -590,14 +587,17 @@ function filaMovimiento(m, cuentaId = null) {
             "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
-            tipo: tipoNombre,
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
             "valor": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`,
             "valor@class": `movimiento-valor ${clase}`
         },
         html: {
-            etiquetas: etiquetasHtml,
-            "icono-favorito": icono("star", 16)
+            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({
+                valores: { badge: e }
+            })),
+            "icono-favorito": icono("star", 16),
+            "icono-editar": icono("pencil", 15),
+            "icono-eliminar": icono("trash", 15)
         }
     }
 }
@@ -678,6 +678,14 @@ function configurarEventos() {
     container?.addEventListener("dblclick", manejarDobleClickCard)
     vincularGestosCard(container)
     configurarEventosGlobales()
+    aplicarAccionesSiempreVisibles()
+}
+
+function aplicarAccionesSiempreVisibles() {
+    const lista = document.getElementById("lista-movimientos")
+    if (!lista) return
+    const siempre = sesion.getPreferencias()?.accesibilidad?.accionesSiempreVisibles === true
+    lista.classList.toggle("acciones-siempre-visibles", siempre)
 }
 
 function configurarEventosGlobales() {
