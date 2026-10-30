@@ -191,6 +191,7 @@
     transition: all 0.2s ease;
     flex-shrink: 0;
     gap: 12px;
+    height: 64px;
 }
 
 .movimiento-item:hover {
@@ -222,18 +223,28 @@
     flex-shrink: 0;
 }
 
+.movimiento-detalle-linea {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
 .movimiento-detalle {
     font-size: 0.75rem;
     color: var(--textSecondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .movimiento-etiquetas {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 4px;
+    flex-shrink: 0;
 }
 
 .movimiento-etiquetas:empty {
