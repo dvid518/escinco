@@ -222,19 +222,6 @@
     text-overflow: ellipsis;
 }
 
-/* Asegurar que el badge global se vea bien */
-.movimiento-info .badge {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--backgroundAlt);
-    color: var(--textSecondary);
-    display: inline-flex;
-    align-items: center;
-    white-space: nowrap;
-    flex-shrink: 0;
-}
-
 .movimiento-detalle {
     font-size: 0.75rem;
     color: var(--textSecondary);
@@ -376,10 +363,6 @@
     background: var(--backgroundAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-concepto > span:first-child {
-    color: var(--textAlt);
-}
-
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-detalle {
     color: var(--surface);
 }
@@ -429,9 +412,8 @@
     flex-shrink: 0;
 }
 
-/* La estrella vive a la izquierda de la fila, como hermana de `.card-item-main`
-   y fuera de `.card-item-acciones` (que queda solo con editar y eliminar).
-   Réplica de `.posicion-favorito` para que ambas listas se vean igual. */
+/* La estrella vive a la izquierda de la fila, fuera de `.movimiento-acciones`
+   (que queda solo con editar y eliminar). Réplica de `.posicion-favorito`. */
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-favorito {
     display: flex;
     align-items: center;
@@ -474,95 +456,56 @@
     line-height: 1;
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .movimiento-favorito:not(.es-favorito) {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito:not(.es-favorito) {
     color: var(--textAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item.seleccionado .movimiento-favorito.es-favorito {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito.es-favorito {
     color: var(--ambarAlt);
 }
 
-/* Las acciones se superponen justo a la izquierda del precio:
-   salen del flujo (position: absolute) para no empujar ningún
-   contenido y se anclan al borde izquierdo del precio. */
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-acciones {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: calc(100% + 12px);
-    display: inline-flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 8px;
-    width: var(--card-acciones-w);
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.acciones-visibles .card-item-acciones,
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:focus-within .card-item-acciones {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-@media (hover: hover) and (pointer: fine) {
-    :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:hover .card-item-acciones {
-        opacity: 1;
-        pointer-events: auto;
-    }
-}
-
-/* Accesibilidad: acciones de movimiento siempre visibles */
-#lista-movimientos.acciones-siempre-visibles .card-item-acciones,
-#lista-movimientos-cuenta.acciones-siempre-visibles .card-item-acciones {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    border-radius: 50%;
-    border: 1px solid var(--border);
-    background: var(--background);
-    color: var(--textSecondary);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn:hover {
-    color: var(--text);
-    border-color: var(--text);
-    background: var(--lightHover);
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn.danger:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-concepto {
     color: var(--textAlt);
-    background-color: var(--negative);
-    border-color: var(--negative);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-item-acciones button {
-    color: var(--textAlt);
-    border-color: var(--text);
-    background-color: var(--border);
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-action-btn:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-detalle {
     color: var(--surface);
-    border-color: var(--borderAlt);
-    background-color: var(--text);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .card-action-btn.danger:hover {
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-etiquetas .badge {
+    background: var(--surface);
+    color: var(--textAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-accion {
+    color: var(--textAlt);
+    border-color: var(--border);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-accion:hover {
     color: var(--text);
-    border-color: var(--negativeAlt);
-    background-color: var(--negativeAlt);
+    background: var(--surface);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor {
+    color: var(--textAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.positive {
+    color: var(--positiveAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.negative {
+    color: var(--negativeAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor.ambar {
+    color: var(--ambarAlt);
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito:hover {
+    background: color-mix(in srgb, var(--textAlt) 14%, transparent);
+    border-color: var(--border);
 }
 
 /* --------------------------------------------
