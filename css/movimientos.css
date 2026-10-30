@@ -207,15 +207,6 @@
 }
 
 .movimiento-concepto {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.movimiento-concepto > span:first-child {
     font-weight: 500;
     color: var(--text);
     overflow: hidden;
@@ -228,19 +219,10 @@
     color: var(--textSecondary);
 }
 
-.movimiento-tipo {
-    font-size: 11px;
-    color: var(--textSecondary);
-    opacity: 0.8;
-}
+
 
 .movimiento-valores {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
     text-align: right;
-    min-width: 0;
 }
 
 .movimiento-valor {
@@ -255,29 +237,6 @@
 
 .movimiento-valor.negative {
     color: var(--negative);
-}
-
-/* Etiquetas: que fluyan debajo del monto sin superponerse */
-.movimiento-etiquetas {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 4px;
-    max-width: 100%;
-    overflow: hidden;
-}
-
-.movimiento-etiquetas .badge,
-.movimiento-etiquetas span {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--backgroundAlt);
-    color: var(--textSecondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100px;
 }
 
 /* --------------------------------------------

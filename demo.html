@@ -119,6 +119,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
     </template>
 
+    <template id="tpl-confirmar-eliminar-favorito">
+        <div class="modal-message">
+            <p class="modal-message-title-danger">¿Eliminar este favorito?</p>
+            <p class="modal-message-desc">
+                <strong data-tpl="nombre"></strong>
+                <span data-tpl="hint" data-tpl-oculto></span>
+            </p>
+            <p class="modal-message-hint" data-tpl="desvincula" data-tpl-oculto>
+                Los movimientos que lo usaban se conservan, pero quedan desvinculados.
+            </p>
+        </div>
+    </template>
+
     <!-- Genéricos reutilizables por varios modales -->
 
     <template id="tpl-mensaje">
@@ -585,6 +598,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <button type="button" class="glass-btn cuenta-modal-ant" aria-label="Anterior" data-tpl="anterior"></button>
             <button type="button" class="glass-btn cuenta-modal-sig" aria-label="Siguiente" data-tpl="siguiente"></button>
         </div>
+    </template>
+
+    <!-- Editar plantilla de favorito (movimientos) -->
+
+    <template id="tpl-modal-editar-favorito">
+        <form class="form-movimiento" data-tpl="form" data-tpl-attr="id">
+            <div class="form-group">
+                <label class="form-label">Nombre del favorito</label>
+                <input type="text" id="editar-favorito-nombre" class="form-input" data-tpl="nombre" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Cuenta</label>
+                <select id="editar-favorito-cuenta" class="form-select" data-tpl="cuenta" data-tpl-attr="value"></select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Monto</label>
+                <input type="number" id="editar-favorito-monto" class="form-input" step="0.01" min="0.01" data-tpl="monto" data-tpl-attr="value" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Divisa</label>
+                <select id="editar-favorito-divisa" class="form-select" data-tpl="divisa" data-tpl-attr="value">
+                    <option value="PEN">PEN</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                    <option value="USDT">USDT</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Concepto</label>
+                <input type="text" id="editar-favorito-concepto" class="form-input" data-tpl="concepto" data-tpl-attr="value">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Etiquetas</label>
+                <input type="text" id="editar-favorito-etiquetas" class="form-input" data-tpl="etiquetas" data-tpl-attr="value" placeholder="etiqueta1, etiqueta2">
+            </div>
+        </form>
     </template>
 
     <!-- Dashboard: editor de cards, patrimonio y evolución -->
@@ -2084,7 +2133,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                         <span class="toggle-option" data-periodo="7d">7D</span>
                         <span class="toggle-option" data-periodo="30d">30D</span>
                         <span class="toggle-option" data-periodo="90d">90D</span>
-                        <span class="toggle-option" data-periodo="1a">1A</span>
                         <span class="toggle-option" data-periodo="todo">Todo</span>
                     </div>
                 </div>
@@ -2441,30 +2489,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-badge-etiqueta"> <span class="badge" data-tpl="badge"></span></template>
 
-    <template id="tpl-movimiento-card">
-        <div class="card-item" data-tpl="item" data-tpl-attr="class,data-id">
-            <!-- La estrella va a la izquierda de la fila, fuera del bloque de
-                 acciones (como `.posicion-favorito` en inversiones). Su clase
-                 estatica coincide con la que escribe `favorito@class`, asi que
-                 el `data-tpl-attr="class"` no la pisa. -->
-            <button type="button" class="movimiento-favorito" data-accion="favorito"
-                    data-tpl="favorito" data-tpl-attr="class,data-favorito-id,aria-label,title"
-                    aria-label="Marcar como favorito" title="Marcar como favorito">
+    <template id="tpl-movimiento-item">
+        <div class="movimiento-item" data-tpl="item" data-tpl-attr="class,data-movimiento-id,data-favorito-id">
+            <button type="button" class="movimiento-favorito" data-tpl="favorito" data-tpl-attr="class,data-favorito-id,aria-label,title">
                 <span data-tpl="icono-favorito"></span>
             </button>
-            <div class="card-item-main">
-                <div class="card-item-info">
-                    <span class="card-item-titulo"><span data-tpl="titulo"></span><span data-tpl="etiquetas"></span></span>
-                    <span class="card-item-detalle" data-tpl="detalle"></span>
-                </div>
-                <div class="card-item-valor-wrap">
-                    <span class="card-item-valor" data-tpl="valor" data-tpl-attr="class"><span data-tpl="valor-texto"></span></span>
-                    <div class="card-item-acciones">
-                        <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
-                        <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
-                    </div>
+            <div class="movimiento-info">
+                <div class="movimiento-concepto" data-tpl="concepto"></div>
+                <div class="movimiento-detalle" data-tpl="detalle"></div>
+            </div>
+            <div class="card-item-valor-wrap">
+                <div class="movimiento-valores">
+                    <div class="movimiento-valor" data-tpl="valor" data-tpl-attr="class"></div>
                 </div>
             </div>
+        </div>
+    </template>
+
+    <template id="tpl-favorito-item">
+        <div class="favorito-item" data-tpl="item" data-tpl-attr="class,data-favorito-id" role="button" tabindex="0">
+            <div class="favorito-info">
+                <span class="favorito-nombre" data-tpl="nombre"></span>
+                <span class="favorito-tipo" data-tpl="tipo"></span>
+            </div>
+            <span class="favorito-monto" data-tpl="monto"></span>
+            <div class="favorito-etiquetas" data-tpl="etiquetas"></div>
+            <button type="button" class="favorito-ejecutar" data-tpl="icono-ejecutar" title="Ejecutar favorito" aria-label="Ejecutar favorito"></button>
         </div>
     </template>
 
@@ -2817,18 +2867,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <span class="favorito-simbolo" data-tpl="simbolo"></span>
             </div>
             <span class="favorito-precio" data-tpl="precio"></span>
-        </div>
-    </template>
-
-    <template id="tpl-favorito-item">
-        <div class="favorito-item" data-tpl="item" data-tpl-attr="data-favorito-id" role="button" tabindex="0" title="Ejecutar favorito">
-            <div class="favorito-info">
-                <span class="favorito-nombre" data-tpl="nombre"></span>
-                <span class="favorito-tipo" data-tpl="tipo"></span>
-                <div class="favorito-etiquetas" data-tpl="etiquetas"></div>
-            </div>
-            <span class="favorito-monto" data-tpl="monto"></span>
-            <button type="button" class="favorito-ejecutar" data-accion="ejecutar-favorito" title="Ejecutar" aria-label="Ejecutar favorito" data-tpl="icono-ejecutar"></button>
         </div>
     </template>
 
