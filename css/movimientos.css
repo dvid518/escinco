@@ -208,9 +208,6 @@
 }
 
 .movimiento-concepto {
-    display: flex;
-    align-items: center;
-    gap: 8px;
     font-weight: 500;
     color: var(--text);
     white-space: nowrap;
@@ -218,37 +215,24 @@
     text-overflow: ellipsis;
 }
 
-.movimiento-concepto .badge {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 4px;
-    background: var(--backgroundAlt);
-    color: var(--textSecondary);
-    flex-shrink: 0;
-}
-
 .movimiento-detalle {
     font-size: 0.75rem;
     color: var(--textSecondary);
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .movimiento-etiquetas {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
+    font-size: 0.65rem;
+    color: var(--textSecondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .movimiento-etiquetas:empty {
     display: none;
-}
-
-.movimiento-etiquetas .badge {
-    font-size: 0.6rem;
-    padding: 1px 5px;
-    border-radius: 4px;
-    background: var(--backgroundAlt);
-    color: var(--textSecondary);
 }
 
 .movimiento-valores {
