@@ -182,8 +182,8 @@
 .movimiento-item {
     box-sizing: border-box;
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 12px 25px 12px 16px;
     background: var(--surface);
     border-radius: 40px;
@@ -193,6 +193,8 @@
     cursor: pointer;
     transition: all 0.2s ease;
     gap: 12px;
+    position: relative;
+    overflow: hidden;
 }
 
 .movimiento-item:hover {
@@ -234,9 +236,6 @@
 }
 
 .movimiento-detalle {
-    display: flex;
-    align-items: center;
-    gap: 6px;
     font-size: 0.75rem;
     color: var(--textSecondary);
     white-space: nowrap;
@@ -274,9 +273,27 @@
 }
 
 .card-item-acciones {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 88px;
     display: flex;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
+    padding-right: 12px;
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.2s ease, opacity 0.2s ease;
     flex-shrink: 0;
+}
+
+.movimiento-item.acciones-visibles .card-item-acciones {
+    transform: translateX(0);
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .card-action-btn {
