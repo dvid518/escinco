@@ -213,36 +213,88 @@ async function editarPlantillaFavoritoDesdeItem(favoritoId) {
     const favorito = favoritosCache.find(f => f.id === favoritoId)
     if (!favorito) return
     limpiarSeleccionFavoritos()
-    await abrirFormularioMovimiento(favorito.tipo, null, {
-        titulo: "Editar favorito",
-        confirmText: "Guardar cambios",
-        nombreFavorito: true,
-        valores: {
-            favoritoNombre: favorito.nombre,
-            cuenta: favorito.cuenta,
-            monto: favorito.monto,
-            divisa: favorito.divisa,
-            concepto: favorito.concepto || "",
-            etiquetas: favorito.etiquetas || []
-        },
-        alConfirmar: async (datos, formulario) => {
-            // `recogerDatosFormulario` solo devuelve los campos del movimiento;
-            // el nombre del favorito es un campo añadido por este formulario.
-            const nombre = formulario.querySelector("#campo-favoritoNombre")?.value || ""
-            await editarPlantillaFavorito(uid, favorito, {
-                nombre,
-                // Un pago con tarjeta guarda la cuenta en el campo `tarjeta`, no
-                // en `cuenta`: si el formulario no trae cuenta (porque no la
-                // pide), se conserva la que ya tenía la plantilla en vez de
-                // dejarla vacía.
-                cuenta: datos.cuenta || favorito.cuenta,
-                monto: datos.monto,
-                divisa: datos.divisa,
-                concepto: datos.concepto,
-                etiquetas: datos.etiquetas
+
+    const contenido = contenidoDesdeTemplate("tpl-modal-editar-favorito")
+
+    const selectCuenta = contenido.querySelector("#editar-favorito-cuenta")
+    const inputNombre = contenido.querySelector("#editar-favorito-nombre")
+    const inputMonto = contenido.querySelector("#editar-favorito-monto")
+    const selectDivisa = contenido.querySelector("#editar-favorito-divisa")
+    const inputConcepto = contenido.querySelector("#editar-favorito-concepto")
+    const inputEtiquetas = contenido.querySelector("#editar-favorito-etiquetas")
+
+    // Poblar cuentas (solo activas, no archivadas)
+    try {
+        const cuentasLista = await obtenerCuentas(uid)
+        const cuentasActivas = cuentasLista.filter(c => c.estado !== "archivada")
+        selectCuenta.replaceChildren(
+            ...cuentasActivas.map(c => {
+                const opcion = document.createElement("option")
+                opcion.value = c.id
+                opcion.textContent = `${c.nombre || c.id} (${(c.moneda || "PEN").toUpperCase()})`
+                if (c.id === favorito.cuenta) opcion.selected = true
+                return opcion
             })
-            mostrarNotificacion("exito", "Favorito actualizado")
-            await renderFavoritos(uid)
+        )
+    } catch {
+        selectCuenta.replaceChildren()
+    }
+
+    // Rellenar valores del favorito
+    inputNombre.value = favorito.nombre || ""
+    inputMonto.value = favorito.monto || ""
+    selectDivisa.value = favorito.divisa || "pen"
+    inputConcepto.value = favorito.concepto || ""
+    inputEtiquetas.value = (favorito.etiquetas || []).join(", ")
+
+    const modalEl = abrirModal({
+        titulo: `Editar favorito: ${favorito.nombre}`,
+        contenido,
+        variante: "form",
+        confirmText: "Guardar cambios",
+        cancelText: "Cancelar",
+        onConfirm: async () => {
+            const nombre = inputNombre.value.trim()
+            const cuenta = selectCuenta.value
+            const monto = Number(inputMonto.value)
+            const divisa = selectDivisa.value
+            const concepto = inputConcepto.value.trim()
+            const etiquetasRaw = inputEtiquetas.value.trim()
+            const etiquetas = etiquetasRaw
+                ? etiquetasRaw.split(",").map(e => e.trim()).filter(Boolean)
+                : []
+
+            if (!nombre) {
+                mostrarNotificacion("error", "El nombre es obligatorio")
+                return false
+            }
+            if (!Number.isFinite(monto) || monto <= 0) {
+                mostrarNotificacion("error", "El monto debe ser mayor que cero")
+                return false
+            }
+            if (!cuenta) {
+                mostrarNotificacion("error", "Selecciona una cuenta")
+                return false
+            }
+
+            try {
+                await editarPlantillaFavorito(uid, favorito, {
+                    nombre,
+                    cuenta,
+                    monto,
+                    divisa,
+                    concepto,
+                    etiquetas
+                })
+                await renderFavoritos(uid)
+                await cargarMovimientos()
+                mostrarNotificacion("exito", "Favorito actualizado")
+                return true
+            } catch (error) {
+                console.error("Error editando favorito:", error)
+                mostrarNotificacion("error", `No se pudo actualizar: ${error.message || "error desconocido"}`)
+                return false
+            }
         }
     })
 }
@@ -527,22 +579,22 @@ function filaMovimiento(m, cuentaId = null) {
 
     return {
         valores: {
-            "item@class": `card-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
-            "item@data-id": m.id,
+            "item@class": `movimiento-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
+            "item@data-movimiento-id": m.id,
+            "item@data-favorito-id": m.favoritoId || "",
             "favorito@class": `movimiento-favorito${m.favoritoId ? " es-favorito" : ""}`,
             "favorito@data-favorito-id": m.favoritoId || "",
             "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
-            titulo: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            "tipo": tipoNombre,
+            "tipo@class": `movimiento-tipo ${clase}`,
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
-        "valor@class": `card-item-valor ${clase}`,
-        "valor-texto": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`
+            "valor": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`,
+            "valor@class": `movimiento-valor ${clase}`
         },
         html: {
             etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
-            "icono-editar": icono("pencil", 16),
-            "icono-eliminar": icono("trash", 16),
-            "icono-ejecutar": icono("play", 16),
             "icono-favorito": icono("star", 16)
         }
     }
@@ -670,12 +722,14 @@ function seleccionarPorUnClick(id, conShift) {
 async function alternarFavoritoMovimiento(m) {
     if (m.favoritoId) {
         await desvincularMovimiento(uid, m.id)
+        m.favoritoId = null
     } else {
         if (!esTipoFavoritable(m.tipo)) {
             mostrarNotificacion("info", "Este tipo de movimiento no se puede guardar como favorito")
             return
         }
-        await crearFavoritoDesdeMovimiento(uid, m)
+        const favoritoId = await crearFavoritoDesdeMovimiento(uid, m)
+        m.favoritoId = favoritoId
     }
     // No recargar movimientos completo (evita esqueletos y lecturas de red
     // innecesarias). Solo invalidar las capas de caché para que la próxima
@@ -683,13 +737,13 @@ async function alternarFavoritoMovimiento(m) {
     // la estrella en la tarjeta actual sin repintar toda la lista.
     cacheCapa.invalidarPrefijo(uid, "favoritos")
     cacheCapa.invalidarPrefijo(uid, "movimientos")
-    const card = document.querySelector(`.card-item[data-id="${m.id}"]`)
+    const card = document.querySelector(`.movimiento-item[data-movimiento-id="${m.id}"]`)
     if (card) {
         const estrella = card.querySelector(".movimiento-favorito")
         if (estrella) {
-            estrella.classList.toggle("es-favorito", !m.favoritoId)
-            estrella.setAttribute("aria-label", m.favoritoId ? "Marcar como favorito" : "Quitar de favoritos")
-            estrella.setAttribute("title", m.favoritoId ? "Marcar como favorito" : "Quitar de favoritos")
+            estrella.classList.toggle("es-favorito", Boolean(m.favoritoId))
+            estrella.setAttribute("aria-label", m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito")
+            estrella.setAttribute("title", m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito")
         }
     }
 }
@@ -701,10 +755,10 @@ async function manejarClickCard(evento) {
     const botonFavorito = evento.target.closest(".movimiento-favorito")
     if (botonFavorito) {
         evento.stopPropagation()
-        const card = botonFavorito.closest(".card-item")
+        const card = botonFavorito.closest(".movimiento-item")
         // `alternarFavoritoMovimiento` espera el movimiento entero (lee tipo y
         // favoritoId), no su id.
-        const m = movimientos.find(x => x.id === card?.dataset.id)
+        const m = movimientos.find(x => x.id === card?.dataset.movimientoId)
         if (m) await alternarFavoritoMovimiento(m)
         return
     }
@@ -713,8 +767,8 @@ async function manejarClickCard(evento) {
     const accionBtn = evento.target.closest(".card-action-btn")
     if (accionBtn) {
         evento.stopPropagation()
-        const card = accionBtn.closest(".card-item")
-        const m = movimientos.find(x => x.id === card?.dataset.id)
+        const card = accionBtn.closest(".movimiento-item")
+        const m = movimientos.find(x => x.id === card?.dataset.movimientoId)
         ocultarAccionesCards()
         if (!m) return
         if (accionBtn.dataset.accion === "editar") {
@@ -725,7 +779,7 @@ async function manejarClickCard(evento) {
         return
     }
 
-    const card = evento.target.closest(".card-item")
+    const card = evento.target.closest(".movimiento-item")
 
     // Un toque sobre la card con acciones reveladas solo las oculta.
     if (cardConAcciones) {
@@ -742,7 +796,7 @@ async function manejarClickCard(evento) {
 
     if (!card) return
 
-    const id = card.dataset.id
+    const id = card.dataset.movimientoId
 
     if (evento.shiftKey && expandirSeleccion(movimientos.map(m => m.id), id, seleccionados, ordenSeleccion)) {
         actualizarSeleccionEnDOM()
@@ -776,7 +830,7 @@ async function manejarClickCard(evento) {
 
 function manejarDobleClickCard(evento) {
     if (evento.target.closest(".card-action-btn, .movimiento-favorito")) return
-    const card = evento.target.closest(".card-item")
+    const card = evento.target.closest(".movimiento-item")
     if (!card) return
     if (clickTimer) {
         clearTimeout(clickTimer)
@@ -785,15 +839,15 @@ function manejarDobleClickCard(evento) {
     // Con la opción activa el click ya selecciona; el doble click abre el detalle.
     if (modoUnClickSeleccion()) {
         limpiarSeleccion()
-        abrirDetalleMovimiento(card.dataset.id)
+        abrirDetalleMovimiento(card.dataset.movimientoId)
         return
     }
-    toggleSeleccion(card.dataset.id)
+    toggleSeleccion(card.dataset.movimientoId)
 }
 
 function manejarClickFueraCards(evento) {
     if (!document.getElementById("lista-movimientos")) return
-    if (evento.target.closest(".card-item")) return
+    if (evento.target.closest(".movimiento-item")) return
     if (evento.target.closest("#app-footer")) return
     if (evento.target.closest(".modal-overlay")) return
     ocultarAccionesCards()
@@ -833,7 +887,7 @@ function vincularGestosCard(container) {
         if (evento.pointerType === "mouse" && evento.button !== 0) return
         if (evento.target.closest(".card-action-btn, .movimiento-favorito")) return
 
-        const card = evento.target.closest(".card-item")
+        const card = evento.target.closest(".movimiento-item")
         if (!card) return
 
         cancelar()
@@ -853,7 +907,7 @@ function vincularGestosCard(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccion(card.dataset.id)
+            toggleSeleccion(card.dataset.movimientoId)
             marcarSupresorClick()
             cancelar()
         }, duracion)
@@ -993,7 +1047,7 @@ function aplicarFiltro() {
         return
     }
 
-    container.replaceChildren(contenidoDesdeFilas("tpl-movimiento-card", filtrados, m => filaMovimiento(m, cuentaId)))
+    container.replaceChildren(contenidoDesdeFilas("tpl-movimiento-item", filtrados, m => filaMovimiento(m, cuentaId)))
 }
 
 // ============================================
@@ -1770,8 +1824,8 @@ function limpiarSeleccion() {
 }
 
 function actualizarSeleccionEnDOM() {
-    document.querySelectorAll(".card-item").forEach(card => {
-        card.classList.toggle("seleccionado", seleccionados.has(card.dataset.id))
+    document.querySelectorAll(".movimiento-item").forEach(card => {
+        card.classList.toggle("seleccionado", seleccionados.has(card.dataset.movimientoId))
     })
 }
 
@@ -2004,10 +2058,15 @@ export async function eliminarSeleccionadosFavoritos() {
 // (doble click y click fuera).
 
 async function abrirModalEliminarVariosFavoritos(lista) {
+    const hayVarios = lista.length > 1
     const modalEl = abrirModal({
-        titulo: "Eliminar favorito(s)",
-        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-varios", {
-            valores: { pregunta: `¿Eliminar ${lista.length} favorito(s)?` }
+        titulo: hayVarios ? "Eliminar favoritos" : "Eliminar favorito",
+        contenido: contenidoDesdeTemplate("tpl-confirmar-eliminar-favorito", {
+            valores: {
+                nombre: hayVarios ? `${lista.length} favorito(s)` : (lista[0]?.nombre || "Favorito"),
+                hint: hayVarios ? `Se eliminarán ${lista.length} favorito(s).` : "",
+                desvincula: "true"
+            }
         }),
         variante: "confirm",
         confirmText: "Eliminar",
