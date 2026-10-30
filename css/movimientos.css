@@ -180,18 +180,19 @@
    -------------------------------------------- */
 
 .movimiento-item {
+    box-sizing: border-box;
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
     padding: 12px 25px 12px 16px;
     background: var(--surface);
     border-radius: 40px;
     border: 1px solid var(--border);
+    min-height: 64px;
+    flex-shrink: 0;
     cursor: pointer;
     transition: all 0.2s ease;
-    flex-shrink: 0;
     gap: 12px;
-    height: 64px;
 }
 
 .movimiento-item:hover {
@@ -211,7 +212,7 @@
 .movimiento-concepto {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     font-weight: 500;
     color: var(--text);
     white-space: nowrap;
@@ -219,19 +220,23 @@
     text-overflow: ellipsis;
 }
 
-.movimiento-concepto .badge {
+/* Asegurar que el badge global se vea bien */
+.movimiento-info .badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--backgroundAlt);
+    color: var(--textSecondary);
+    display: inline-flex;
+    align-items: center;
+    white-space: nowrap;
     flex-shrink: 0;
 }
 
-.movimiento-detalle-linea {
+.movimiento-detalle {
     display: flex;
     align-items: center;
     gap: 6px;
-    flex-wrap: nowrap;
-    min-width: 0;
-}
-
-.movimiento-detalle {
     font-size: 0.75rem;
     color: var(--textSecondary);
     white-space: nowrap;
@@ -242,9 +247,8 @@
 
 .movimiento-etiquetas {
     display: flex;
-    flex-wrap: nowrap;
     gap: 4px;
-    flex-shrink: 0;
+    align-items: center;
 }
 
 .movimiento-etiquetas:empty {
@@ -267,6 +271,57 @@
 
 .movimiento-valor.negative {
     color: var(--negative);
+}
+
+.card-item-acciones {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.card-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.card-action-btn:hover {
+    color: var(--text);
+    border-color: var(--text);
+    background: var(--lightHover);
+}
+
+.card-action-btn.danger:hover {
+    color: var(--textAlt);
+    background-color: var(--negative);
+    border-color: var(--negative);
+}
+
+.movimiento-item.seleccionado .card-item-acciones button {
+    color: var(--textAlt);
+    border-color: var(--text);
+    background-color: var(--border);
+}
+
+.movimiento-item.seleccionado .card-item-acciones button:hover {
+    color: var(--surface);
+    border-color: var(--borderAlt);
+    background-color: var(--text);
+}
+
+.movimiento-item.seleccionado .card-item-acciones button.danger:hover {
+    color: var(--text);
+    border-color: var(--negativeAlt);
+    background-color: var(--negativeAlt);
 }
 
 /* --------------------------------------------
@@ -356,8 +411,6 @@
     --card-acciones-w: 88px;
     position: relative;
     overflow: visible;
-    padding: 0;
-    gap: 0;
     cursor: pointer;
     touch-action: pan-y;
     user-select: none;

@@ -576,6 +576,9 @@ function filaMovimiento(m, cuentaId = null) {
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
     const etiquetas = (m.etiquetas || []).filter(Boolean)
+    const etiquetasHtml = etiquetas
+        .map(e => `<span class="badge">${escapeHtml(e)}</span>`)
+        .join("")
 
     return {
         valores: {
@@ -587,14 +590,13 @@ function filaMovimiento(m, cuentaId = null) {
             "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
-            "tipo@class": `badge badge-${clase}`,
             tipo: tipoNombre,
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
             "valor": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`,
             "valor@class": `movimiento-valor ${clase}`
         },
         html: {
-            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
+            etiquetas: etiquetasHtml,
             "icono-favorito": icono("star", 16)
         }
     }
