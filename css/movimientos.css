@@ -181,8 +181,8 @@
 
 .movimiento-item {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
     padding: 12px 25px 12px 16px;
     background: var(--surface);
     border-radius: 40px;
@@ -190,6 +190,7 @@
     cursor: pointer;
     transition: all 0.2s ease;
     flex-shrink: 0;
+    gap: 12px;
 }
 
 .movimiento-item:hover {
@@ -207,26 +208,58 @@
 }
 
 .movimiento-concepto {
+    display: flex;
+    align-items: center;
+    gap: 8px;
     font-weight: 500;
     color: var(--text);
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
+}
+
+.movimiento-concepto .badge {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--backgroundAlt);
+    color: var(--textSecondary);
+    flex-shrink: 0;
+}
+
+.movimiento-detalle-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
 }
 
 .movimiento-detalle {
-    font-size: 12px;
+    font-size: 0.75rem;
+    color: var(--textSecondary);
+    white-space: nowrap;
+}
+
+.movimiento-etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.movimiento-etiquetas .badge {
+    font-size: 0.6rem;
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: var(--backgroundAlt);
     color: var(--textSecondary);
 }
 
-
-
 .movimiento-valores {
     text-align: right;
+    flex-shrink: 0;
 }
 
 .movimiento-valor {
-    font-family: var(--font-secondary);
     font-weight: 600;
     white-space: nowrap;
 }

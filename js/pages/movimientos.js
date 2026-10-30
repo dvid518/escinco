@@ -575,6 +575,7 @@ function filaMovimiento(m, cuentaId = null) {
     const tipoNombre = CONFIG_MOVIMIENTOS[m.tipo]?.nombre || m.tipo || "Desconocido"
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
+    const etiquetas = (m.etiquetas || []).filter(Boolean)
     return {
         valores: {
             "item@class": `movimiento-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
@@ -585,11 +586,14 @@ function filaMovimiento(m, cuentaId = null) {
             "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
             concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
+            "tipo@class": `badge badge-${clase}`,
+            tipo: tipoNombre,
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
             "valor": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`,
             "valor@class": `movimiento-valor ${clase}`
         },
         html: {
+            etiquetas: contenidoDesdeFilas("tpl-badge-etiqueta", etiquetas, e => ({ valores: { badge: e } })),
             "icono-favorito": icono("star", 16)
         }
     }
