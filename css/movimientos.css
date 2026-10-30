@@ -227,13 +227,6 @@
     flex-shrink: 0;
 }
 
-.movimiento-detalle-wrap {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
 .movimiento-detalle {
     font-size: 0.75rem;
     color: var(--textSecondary);
@@ -244,6 +237,10 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
+}
+
+.movimiento-etiquetas:empty {
+    display: none;
 }
 
 .movimiento-etiquetas .badge {
