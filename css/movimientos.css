@@ -208,11 +208,18 @@
 }
 
 .movimiento-concepto {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     font-weight: 500;
     color: var(--text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.movimiento-concepto .badge {
+    flex-shrink: 0;
 }
 
 .movimiento-detalle {
@@ -224,11 +231,9 @@
 }
 
 .movimiento-etiquetas {
-    font-size: 0.65rem;
-    color: var(--textSecondary);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .movimiento-etiquetas:empty {
