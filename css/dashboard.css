@@ -256,7 +256,7 @@ body.dashboard-card-dragging * {
 
 /* Hover */
 .dashboard .card:hover {
-    transform: translateY(-2px);
+    transform: scale(1.01);
     border-color: var(--border);
     --glow: inset 0 0 10px var(--shadow);
 }
