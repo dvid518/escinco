@@ -80,17 +80,15 @@
     --cottonCandy: #FE8F8F;
     --banana: #FECA6F;
 
-    --paleSky: #E0EFFE;
-    --lightPaleSky: #e0effe5f;
+    --paleSky: #D4E1ED;
+    --lightPaleSky: #D4E1ED5f;
     --whiteSmoke: #F1F1F1;
     --lightWhiteSmoke: #F1F1F136;
     --frostedWhiteSmoke: #f1f1f1ae;
-    --smoke: #cfcfcf;
 
     --tropicalMint: #00a269;
     --raspberryRed: #DC0051;
     --mustard: #f5a623;
-    --royalBlue: #2b6ff2;
 
     --font-primary: "Inter", Arial, sans-serif;
     --font-secondary: "Roboto Mono", "Courier New", monospace;
@@ -107,12 +105,17 @@
     --etiqueta-menta: var(--tropicalMint);
     --etiqueta-frambuesa: var(--raspberryRed);
     --etiqueta-mostaza: var(--mustard);
-    --etiqueta-cielo: var(--royalBlue);
 
-    --distribucion-liquidez: var(--lightGreen);
-    --distribucion-inversiones: var(--tropicalMint);
-    --distribucion-inmovil: var(--cottonCandy);
-    --distribucion-deudas: var(--raspberryRed);
+    --orange: #FF7817;
+    --violet: #741FA2;
+    --piggie: #FF5A91;
+    --aqua: #1EAA9C;
+    --cappuccino: #7C1818;
+
+    --distribucion-liquidez: var(--aqua);
+    --distribucion-inversiones: var(--orange);
+    --distribucion-inmovil: var(--violet);
+    --distribucion-deudas: var(--negative);
 }
 
 /* Tema oscuro */
@@ -144,6 +147,12 @@
     --blurBackground: var(--lightOnyx);
 
     --glass-frosted: var(--frostedGraphite);
+
+    --orange: #FFBC8C;
+    --violet: #DFA3FF;
+    --piggie: #FFC3D7;
+    --aqua: #B0FFF7;
+    --cappuccino: #FFD0B9;
 }
 
 /* Tema claro */
@@ -175,6 +184,12 @@
     --blurBackground: var(--lightPaleSky);
 
     --glass-frosted: var(--frostedWhiteSmoke);
+
+    --orange: #FF7817;
+    --violet: #741FA2;
+    --piggie: #FF5A91;
+    --aqua: #1EAA9C;
+    --cappuccino: #7C1818;
 }
 
 /* ============================================

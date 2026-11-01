@@ -1199,41 +1199,43 @@ body.dashboard-card-dragging * {
     background: var(--distribucion-deudas);
 }
 
-/* Distribución por tipo de activo: cuatro clases de activo, cada una con su
+/* Distribución por tipo de activo: cinco clases de activo, cada una con su
    color para que se comparen de un vistazo sin leer la etiqueta. */
 .distribucion-barra span[data-clase="accion"] {
-    background: var(--positive);
+    background: var(--violet);
 }
 
 .distribucion-barra span[data-clase="etf"] {
-    background: var(--positiveAlt);
+    background: var(--aqua);
 }
 
 .distribucion-barra span[data-clase="cripto"] {
-    background: var(--ambar);
+    background: var(--orange);
 }
 
-.distribucion-barra span[data-clase="bono"],
+.distribucion-barra span[data-clase="bono"] {
+    background: var(--piggie);
+}
+
 .distribucion-barra span[data-clase="otros"] {
-    background: var(--border);
+    background: var(--cappuccino);
 }
 
-/* Patrimonio por divisa: el color es de la moneda, no del importe. Las
-   divisas sin clase propia (criptos, EUR) caen al neutro de base. */
+/* Patrimonio por divisa: el color es de la moneda, no del importe. */
 .distribucion-barra span[data-clase="pen"] {
-    background: var(--positive);
+    background: var(--orange);
 }
 
 .distribucion-barra span[data-clase="usd"] {
-    background: var(--positiveAlt);
+    background: var(--violet);
 }
 
 .distribucion-barra span[data-clase="eur"] {
-    background: var(--ambar);
+    background: var(--piggie);
 }
 
 .distribucion-barra span[data-clase="usdt"] {
-    background: var(--ambar);
+    background: var(--aqua);
 }
 
 .distribucion-valor {
