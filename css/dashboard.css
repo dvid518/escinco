@@ -37,9 +37,6 @@
    Especificidad (0,3,0) para ganar a `.dashboard .card`, que fija
    height:auto, max-height:none y overflow:visible. */
 .dashboard .card.grafico-patrimonio-card {
-    height: 320px;
-    min-height: 320px;
-    max-height: 320px;
     overflow: hidden;
 }
 
@@ -99,8 +96,28 @@
     gap: 4px;
 }
 
-.dashboard-edicion-activo .dashboard-card-edicion {
-    display: flex;
+.dashboard-edicion-activo {
+    /* Disolver al entrar/salir del modo edición */
+    transition: opacity 0.25s ease, filter 0.25s ease;
+    opacity: 1;
+}
+
+.dashboard-edicion-activo .dashboard > * {
+    /* Las cards se desvanecen ligeramente para que los controles de edición resalten */
+    opacity: 0.92;
+    transition: opacity 0.25s ease, transform 0.22s ease;
+}
+
+/* Al entrar a modo edición, las cards hacen un micro-salto de disolver */
+.dashboard-edicion-activo .dashboard-card-entra {
+    animation: none;
+    opacity: 1;
+    transform: none;
+}
+
+/* Cuando sale del modo edición, las cards vuelven a su estado normal con disolver */
+.dashboard:not(.dashboard-edicion-activo) .dashboard-card-entra {
+    animation: tarjeta-entra 0.2s ease forwards;
 }
 
 .dashboard-card-edicion > * {

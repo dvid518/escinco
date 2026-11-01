@@ -660,6 +660,63 @@ let lineaInsercion = null
     reinsertarla en cada `dragover` en el mismo hueco parpadeaba. */
 let posicionInsercionActual = -1
 
+/** Temporizador de auto-scroll durante el drag. Se activa cuando el puntero
+    está cerca del borde superior o inferior del contenedor y hace scroll
+    continuo para que el usuario pueda llevar una card de abajo hacia arriba
+    (o viceversa) sin tener que posicionarla exactamente en un hueco visible. */
+let timerAutoScroll = null
+
+/** Contenedor scrollable del dashboard (#app-content). Se resuelve una vez. */
+let contenedorScrollDashboard = null
+
+function obtenerContenedorScrollDashboard() {
+    if (!contenedorScrollDashboard) {
+        contenedorScrollDashboard = document.getElementById("app-content")
+    }
+    return contenedorScrollDashboard
+}
+
+function iniciarAutoScroll(evento) {
+    const contenedor = obtenerContenedorScrollDashboard()
+    if (!contenedor) return
+
+    const rect = contenedor.getBoundingClientRect()
+    const y = evento.clientY
+    const umbral = 70 // px desde el borde para activar scroll
+
+    let direccion = 0
+    if (y < rect.top + umbral) direccion = -1 // arriba
+    else if (y > rect.bottom - umbral) direccion = 1 // abajo
+
+    if (direccion === 0) {
+        detenerAutoScroll()
+        return
+    }
+
+    // Velocidad proporcional a qué tan cerca está del borde
+    const distancia = direccion === -1
+        ? (rect.top + umbral) - y
+        : y - (rect.bottom - umbral)
+    const velocidad = Math.min(20, Math.max(5, Math.floor(distancia / 10)))
+
+    function paso() {
+        contenedor.scrollBy(0, direccion * velocidad)
+        // Seguir verificando la posición del puntero (puede haberse movido)
+        // pero usamos la última posición conocida del evento. Si el usuario
+        // movió el mouse, el siguiente dragover actualizará el temporizador.
+    }
+
+    paso()
+    timerAutoScroll = setInterval(paso, 40)
+}
+
+function detenerAutoScroll() {
+    if (timerAutoScroll) {
+        clearInterval(timerAutoScroll)
+        timerAutoScroll = null
+    }
+}
+
 /** Cards visibles, en el orden en que se leen (izquierda a derecha, de arriba abajo). */
 function cardsVisiblesEnOrden() {
     const grid = document.querySelector(".dashboard")
@@ -950,6 +1007,12 @@ grid.addEventListener("dragover", (evento) => {
         if (!modoEdicionDashboard) return
         evento.preventDefault()
         if (evento.dataTransfer) evento.dataTransfer.dropEffect = "move"
+
+        // Auto-scroll: si el puntero está cerca del borde superior o inferior
+        // del contenedor, se hace scroll continuo para permitir arrastrar
+        // cards de abajo hacia arriba (o viceversa) sin esfuerzo.
+        iniciarAutoScroll(evento)
+
         marcarDestinoInsercion(evento)
     })
 
@@ -959,6 +1022,7 @@ grid.addEventListener("dragleave", (evento) => {
         // marca de inserción.
         if (evento.relatedTarget && grid.contains(evento.relatedTarget)) return
         limpiarDestinoInsercion()
+        detenerAutoScroll()
     })
 
 grid.addEventListener("drop", (evento) => {
@@ -966,6 +1030,7 @@ grid.addEventListener("drop", (evento) => {
         evento.preventDefault()
         const origen = evento.dataTransfer?.getData("text/plain")
         limpiarDestinoInsercion()
+        detenerAutoScroll()
 
         if (!origen || origen === "patrimonio") return
 
@@ -987,6 +1052,7 @@ grid.addEventListener("dragend", (evento) => {
         setTimeout(() => card?.classList.remove("encajando"), 200)
         document.body.classList.remove("dashboard-card-dragging")
         limpiarDestinoInsercion()
+        detenerAutoScroll()
     })
 
     grid.addEventListener("click", (evento) => {
