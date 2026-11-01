@@ -4,6 +4,7 @@ import { pintarTextoEnriquecido } from "./textoEnriquecido.js"
 import { preguntarAsistente, asistenteDisponible } from "../services/IaServicio.js"
 import { obtenerContextoAsistente } from "../services/ContextoServicio.js"
 import { VozServicio } from "../services/VozServicio.js"
+import { obtenerPreferencias, aplicarPreferenciasDiff } from "../../firebase/firestore.js"
 import { sesion } from "../core/sesion.js"
 import { getPaginaActual } from "../core/router.js"
 
@@ -14,6 +15,39 @@ import { getPaginaActual } from "../core/router.js"
 // se pierde al recargar. El servicio no guarda nada en Firestore.
 
 const BIENVENIDA = "Hola. Soy <strong>drov</strong>, el asistente de <strong>escinco.</strong> Puedo ayudarte a encontrar una función, entender un concepto o resolver dudas sobre la app. ¿Qué necesitas?"
+
+// ============================================
+// MENSAJES PREDEFINIDOS DE DROV · PERMISOS
+// ============================================
+// Estructuras de mensajes que Drov puede usar para solicitar y confirmar
+// permisos de acceso a los datos del usuario. Se guardan en el usuario
+// (Firestore) porque están relacionados a la manipulación de la cuenta.
+const MENSAJES_DROV = {
+    permisoLecturaEscritura: {
+        texto: "Drov puede leer tus datos financieros y, si lo autorizas, también registrar movimientos por ti. ¿Qué nivel de acceso prefieres?",
+        botones: [
+            { texto: "Aceptar lectura y edición", accion: "lectura_escritura" },
+            { texto: "Solo lectura", accion: "lectura" },
+            { texto: "Cancelar", accion: "ninguno" }
+        ]
+    },
+    permisoSoloEdicion: {
+        texto: "Drov solo puede registrar movimientos, no leer tus saldos. ¿Aceptas?",
+        botones: [
+            { texto: "Aceptar edición", accion: "lectura_escritura" },
+            { texto: "Cancelar", accion: "ninguno" }
+        ]
+    },
+    permisoConcedido: {
+        texto: "Permisos concedidos. Ya puedes usar Drov."
+    },
+    permisoDenegado: {
+        texto: "Drov no tiene acceso a tus datos. Puedes cambiar los permisos más tarde."
+    }
+}
+
+// Permiso actual del usuario: lectura | lectura_escritura | ninguno | null
+let permisoDrov = null
 
 let historial = []
 
@@ -44,6 +78,27 @@ export async function abrirAsistente() {
     if (!registro || !formulario || !entrada || !boton) {
         console.error("[ERROR] El asistente no tiene el markup esperado")
         return modalEl
+    }
+
+    // Verificar permiso del usuario antes de habilitar el chat.
+    // El permiso se guarda en el usuario (Firestore) porque está relacionado
+    // a la manipulación de la cuenta.
+    const permisoGuardado = await obtenerPermisoDrov(sesion.uid)
+    permisoDrov = permisoGuardado
+
+    if (!permisoDrov || permisoDrov === "ninguno") {
+        cerrarModal()
+        const accion = await mostrarModalPermisos()
+        await guardarPermisoDrov(sesion.uid, accion)
+        permisoDrov = accion
+
+        if (accion === "ninguno") {
+            mostrarNotificacion("info", MENSAJES_DROV.permisoDenegado.texto)
+            return
+        }
+
+        // Volver a abrir el asistente con el nuevo permiso guardado
+        return abrirAsistente()
     }
 
     registro.addEventListener("scroll", () => actualizarOverflow(registro))
@@ -104,6 +159,16 @@ export async function abrirAsistente() {
         )
     }
 
+    // Habilitar entrada según el permiso del usuario
+    if (permisoDrov === "lectura" || permisoDrov === "lectura_escritura") {
+        entrada.disabled = false
+        boton.disabled = entrada.value.trim() === ""
+    } else {
+        entrada.disabled = true
+        boton.disabled = true
+        agregarMensaje(registro, "model", MENSAJES_DROV.permisoDenegado.texto, true)
+    }
+
     let enviando = false
 
     async function enviar() {
@@ -119,7 +184,7 @@ export async function abrirAsistente() {
         if (!texto) return
 
         entrada.value = ""
-        entrada.style.height = "44px"
+        entrada.style.height = "22px"
         enviando = true
         entrada.disabled = true
         boton.disabled = true
@@ -229,4 +294,62 @@ function agregarEscribiendo(registro) {
     registro.scrollTop = registro.scrollHeight
 
     return indicador
+}
+
+// ============================================
+// FUNCIONES DE PERMISOS DE DROV
+// ============================================
+// Los permisos se guardan en el usuario (Firestore) porque están relacionados
+// a la manipulación de la cuenta de escinco.
+
+async function obtenerPermisoDrov(uid) {
+    if (!uid) return null
+    try {
+        const prefs = await obtenerPreferencias(uid)
+        return prefs?.permisosDrov || null
+    } catch {
+        return null
+    }
+}
+
+async function guardarPermisoDrov(uid, permiso) {
+    if (!uid) return
+    try {
+        await aplicarPreferenciasDiff(uid, { set: { permisosDrov: permiso } })
+    } catch (error) {
+        console.error("[Drov] No se pudo guardar el permiso:", error)
+    }
+}
+
+async function mostrarModalPermisos(tipo = "lecturaEscritura") {
+    const config =
+        tipo === "soloEdicion"
+            ? MENSAJES_DROV.permisoSoloEdicion
+            : MENSAJES_DROV.permisoLecturaEscritura
+
+    return new Promise(resolver => {
+        const modalEl = abrirModal({
+            titulo: "Permisos de Drov",
+            contenido: contenidoDesdeTemplate("tpl-drov-permisos", {
+                valores: { texto: config.texto }
+            }),
+            cancelText: null,
+            confirmText: null
+        })
+
+        const botones = modalEl.querySelectorAll(".drov-permisos-btn")
+        botones.forEach(boton => {
+            boton.addEventListener("click", () => {
+                const accion = boton.dataset.accion
+                cerrarModal()
+                resolver(accion)
+            })
+        })
+
+        // Ocultar botón de solo lectura si el modo es solo edición
+        if (tipo === "soloEdicion") {
+            const btnSoloLectura = modalEl.querySelector('[data-accion="lectura"]')
+            if (btnSoloLectura) btnSoloLectura.classList.add("oculto")
+        }
+    })
 }

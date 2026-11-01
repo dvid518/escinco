@@ -3106,7 +3106,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-asistente-form">
         <form class="asistente-form">
-            <textarea id="asistente-input" class="asistente-input" rows="1" maxlength="2000" placeholder="Pregunta a drov lo que quieras sobre escinco…" aria-label="Mensaje para drov" autocomplete="off"></textarea>
+            <textarea id="asistente-input" class="asistente-input" rows="1" maxlength="2000" placeholder="Pregunta a drov…" aria-label="Mensaje para drov" autocomplete="off"></textarea>
             <button type="button" class="asistente-microfono" aria-label="Dictar con voz" title="Dictar con voz">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3Z"/>
@@ -3122,6 +3122,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </svg>
             </button>
         </form>
+    </template>
+
+    <template id="tpl-drov-permisos">
+        <div class="drov-permisos">
+            <p class="drov-permisos-texto" data-tpl="texto"></p>
+            <div class="drov-permisos-botones">
+                <button type="button" class="drov-permisos-btn aceptar" data-accion="lectura_escritura">Aceptar lectura y edición</button>
+                <button type="button" class="drov-permisos-btn solo-lectura" data-accion="lectura">Solo lectura</button>
+                <button type="button" class="drov-permisos-btn cancelar" data-accion="ninguno">Cancelar</button>
+            </div>
+        </div>
     </template>
 
     <!-- PLANTILLAS DE MODAL · FIN -->
