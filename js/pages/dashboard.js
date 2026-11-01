@@ -958,11 +958,7 @@ function prepararEdicionCardsDashboard() {
         const controles = document.createElement("div")
         controles.className = "dashboard-card-edicion"
         controles.append(contenidoDesdeTemplate("tpl-dashboard-card-edicion", {
-            valores: {
-                "subir@data-id": id,
-                "bajar@data-id": id,
-                "eliminar@data-id": id
-            },
+            valores: {},
             html: { handle: icono("grip", 16), "icono-eliminar": icono("minus", 16) }
         }))
         card.appendChild(controles)
@@ -1093,7 +1089,10 @@ function configurarEdicionDashboard() {
         document.addEventListener("keydown", manejarTeclaEdicionDashboard)
     }
 
-    document.getElementById("dashboard-abrir-cards")?.addEventListener("click", abrirSelectorCardsDashboard)
+    document.getElementById("dashboard-abrir-cards")?.addEventListener("click", () => {
+        activarModoEdicionDashboard()
+        abrirSelectorCardsDashboard()
+    })
     document.getElementById("dashboard-listo")?.addEventListener("click", guardarYSalirEdicionDashboard)
 }
 

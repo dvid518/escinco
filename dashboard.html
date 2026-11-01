@@ -1876,8 +1876,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-configuracion">
         <div class="config-modal" aria-busy="true">
-            <div id="configuracion-cargando" data-tpl="skeleton" data-tpl-reemplazar></div>
-            <div id="configuracion-contenido" class="configuracion-cargando" hidden>
+            <div id="configuracion-contenido" class="configuracion-cargando">
+                <div id="configuracion-cargando" data-tpl="skeleton" data-tpl-reemplazar></div>
                 <div class="config-layout">
                 <nav class="config-nav" aria-label="Secciones de configuración">
                     <div data-tpl="nav-botones" data-tpl-reemplazar></div>
@@ -2743,8 +2743,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-dashboard-card-edicion">
         <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card" data-tpl="handle"></span>
-        <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="subir" data-tpl-attr="data-id" data-direccion="-1" aria-label="Mover card hacia arriba">↑</button>
-        <button type="button" class="dashboard-card-mover" data-dashboard-mover data-tpl="bajar" data-tpl-attr="data-id" data-direccion="1" aria-label="Mover card hacia abajo">↓</button>
         <button type="button" class="dashboard-card-eliminar" data-dashboard-eliminar data-tpl="eliminar" data-tpl-attr="data-id" aria-label="Eliminar card del dashboard" title="Eliminar card"><span data-tpl="icono-eliminar"></span></button>
     </template>
 

@@ -929,7 +929,8 @@
 
 .asistente-input {
     flex: 1;
-    height: 22px;
+    height: auto;
+    min-height: 44px;
     max-height: 120px;
     padding: 11px 14px;
     border: 1px solid var(--border);
@@ -944,6 +945,17 @@
 
 .asistente-input::placeholder {
     color: var(--textSecondary);
+}
+
+/* Altura fijada por JS (textarea autoajustable): se aplica vía variable CSS
+   en vez de estilo inline. */
+.asistente-input--fija {
+    height: var(--asistente-input-altura, auto);
+}
+
+/* Reset de altura tras enviar un mensaje. */
+.asistente-input--reset {
+    height: 22px;
 }
 
 .asistente-input:focus {

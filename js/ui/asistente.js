@@ -87,7 +87,7 @@ export async function abrirAsistente() {
     permisoDrov = permisoGuardado
 
     if (!permisoDrov || permisoDrov === "ninguno") {
-        // Mostrar solicitud de permiso como mensaje dentro del chat
+        // Mostrar solicitud de permiso como mensaje dentro del chat (sin cerrar el modal)
         const accion = await solicitarPermisoEnChat(registro)
         await guardarPermisoDrov(sesion.uid, accion)
         permisoDrov = accion
@@ -95,11 +95,19 @@ export async function abrirAsistente() {
         if (accion === "ninguno") {
             entrada.disabled = true
             boton.disabled = true
+            agregarMensaje(registro, "model", MENSAJES_DROV.permisoDenegado.texto, true)
+            registro.addEventListener("scroll", () => actualizarOverflow(registro))
             return
         }
 
-        // Volver a abrir el asistente con el nuevo permiso guardado
-        return abrirAsistente()
+        // Permiso concedido: mostrar bienvenida y habilitar entrada en el mismo chat
+        permisoDrov = accion
+        entrada.disabled = false
+        boton.disabled = entrada.value.trim() === ""
+        historial.push({ rol: "model", texto: BIENVENIDA })
+        agregarMensaje(registro, "model", BIENVENIDA)
+        registro.addEventListener("scroll", () => actualizarOverflow(registro))
+        return
     }
 
     registro.addEventListener("scroll", () => actualizarOverflow(registro))
@@ -139,14 +147,6 @@ export async function abrirAsistente() {
 
     microfono?.addEventListener("click", alternarVoz)
 
-    if (historial.length === 0) {
-        historial.push({ rol: "model", texto: BIENVENIDA })
-    }
-
-    for (const mensaje of historial) {
-        agregarMensaje(registro, mensaje.rol, mensaje.texto)
-    }
-
     const configurada = await asistenteDisponible()
     if (!configurada) {
         entrada.disabled = true
@@ -169,6 +169,16 @@ export async function abrirAsistente() {
         boton.disabled = true
     }
 
+    // Mostrar historial previo o bienvenida si es la primera vez en la sesión
+    if (historial.length === 0) {
+        historial.push({ rol: "model", texto: BIENVENIDA })
+        agregarMensaje(registro, "model", BIENVENIDA)
+    } else {
+        for (const mensaje of historial) {
+            agregarMensaje(registro, mensaje.rol, mensaje.texto)
+        }
+    }
+
     let enviando = false
 
     async function enviar() {
@@ -184,7 +194,7 @@ export async function abrirAsistente() {
         if (!texto) return
 
         entrada.value = ""
-        entrada.style.height = "22px"
+        entrada.classList.remove("asistente-input--fija", "asistente-input--reset")
         enviando = true
         entrada.disabled = true
         boton.disabled = true
@@ -239,7 +249,7 @@ export async function abrirAsistente() {
         // Dejar altura natural para medir scrollHeight (incluye padding)
         entrada.style.height = "auto";
         const alturaNatural = entrada.scrollHeight;
-        const alturaFinal = Math.max(44, Math.min(alturaNatural, 120));
+        const alturaFinal = Math.min(alturaNatural, 120);
         entrada.style.height = alturaFinal + "px";
         boton.disabled = entrada.value.trim() === ""
     })
