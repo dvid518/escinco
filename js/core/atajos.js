@@ -6,6 +6,29 @@ import { CONFIG_MOVIMIENTOS } from "../../constants/tiposMovimiento.js"
 import { contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 
 // ============================================
+// DETECCIÓN DE PLATAFORMA
+// ============================================
+// En Mac el modificador principal de los atajos globales es Comando (⌘),
+// no Alt. Se detecta una sola vez al cargar el módulo.
+const ES_MAC = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
+
+/**
+ * Devuelve el nombre del modificador principal según la plataforma:
+ * "⌘" en Mac, "Alt" en Windows/Linux.
+ */
+function teclaModificador() {
+    return ES_MAC ? "⌘" : "Alt"
+}
+
+/**
+ * Formatea una secuencia de teclas para mostrarla en la UI.
+ * En Mac reemplaza "Alt+" por "⌘+".
+ */
+function formatearTeclas(teclas) {
+    return ES_MAC ? teclas.replace(/^Alt\+/, "⌘+") : teclas
+}
+
+// ============================================
 // BÚSCADOR GLOBAL
 // ============================================
 
@@ -257,7 +280,7 @@ export async function abrirModalAtajos() {
         valores: { titulo: grupo.titulo },
         html: {
             filas: contenidoDesdeFilas("tpl-atajo-fila", grupo.filas, fila => ({
-                valores: { teclas: fila.teclas, descripcion: fila.descripcion }
+                valores: { teclas: formatearTeclas(fila.teclas), descripcion: fila.descripcion }
             }))
         }
     }))
@@ -275,8 +298,8 @@ export async function abrirModalAtajos() {
 // ATAJOS GLOBALES
 // ============================================
 // Alt+K buscador · Alt+I asistente · Alt+P pendientes · Alt+M metas ·
-// Alt+N notificaciones · Alt+A ayuda de atajos. Funcionan aunque haya un campo
-// de texto enfocado.
+// Alt+N notificaciones · Alt+A ayuda de atajos. En Mac: ⌘+letra.
+// Funcionan aunque haya un campo de texto enfocado.
 
 let atajosInicializados = false
 
@@ -286,7 +309,9 @@ export function initAtajos() {
 
     document.addEventListener("keydown", evento => {
         if (evento.repeat) return
-        if (!evento.altKey || evento.ctrlKey || evento.metaKey || evento.shiftKey) return
+        // Modificador principal: Alt en Windows/Linux, Comando (meta) en Mac.
+        const modificadorPrincipal = ES_MAC ? evento.metaKey : evento.altKey
+        if (!modificadorPrincipal || evento.ctrlKey || evento.shiftKey) return
 
         let accion = null
 
