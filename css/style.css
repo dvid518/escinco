@@ -69,22 +69,22 @@
 :root {
     --onyx: #141414;
     --lightOnyx: #141414AE;
-    --graphite: #2C2C2C;
-    --lightGraphite: #2C2C2C36;
-    --frostedGraphite: #2C2C2CC0;
+    --graphite: #1F1F1F;
+    --lightGraphite: #1F1F1F36;
+    --frostedGraphite: #1F1F1FC0;
 
-    --slateGrey: #738391;
-    --lightSlateGrey: #7383915f;
+    --slateGrey: #465B6D;
+    --lightSlateGrey: #465B6D5f;
 
-    --lightGreen: #BFFFC5;
-    --cottonCandy: #FFA4A4;
-    --banana: #ffd181;
+    --lightGreen: #88FF94;
+    --cottonCandy: #FF8282;
+    --banana: #FDC565;
 
-    --paleSky: #D0DCE8;
-    --lightPaleSky: #d0dce85f;
-    --whiteSmoke: #F3F3F3;
-    --lightWhiteSmoke: #F3F3F336;
-    --frostedWhiteSmoke: #f3f3f3ae;
+    --paleSky: #BDDEFF;
+    --lightPaleSky: #bddeff5f;
+    --whiteSmoke: #F1F1F1;
+    --lightWhiteSmoke: #F1F1F136;
+    --frostedWhiteSmoke: #f1f1f1ae;
     --smoke: #cfcfcf;
 
     --tropicalMint: #00a269;
