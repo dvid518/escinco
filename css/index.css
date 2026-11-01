@@ -309,16 +309,45 @@
 
 .distribucion-barra .cripto {
     width: 42%;
+    background: var(--orange);
 }
 
 .distribucion-barra .accion {
     width: 28%;
+    background: var(--violet);
 }
 
 .distribucion-barra .etf {
     width: 20%;
+    background: var(--aqua);
 }
 
 .distribucion-barra .bono {
     width: 10%;
+    background: var(--piggie);
+}
+
+.distribucion-barra .otros {
+    width: 0%;
+    background: var(--cappuccino);
+}
+
+.distribucion-barra .pen {
+    width: 0%;
+    background: var(--orange);
+}
+
+.distribucion-barra .usd {
+    width: 0%;
+    background: var(--violet);
+}
+
+.distribucion-barra .eur {
+    width: 0%;
+    background: var(--piggie);
+}
+
+.distribucion-barra .usdt {
+    width: 0%;
+    background: var(--aqua);
 }

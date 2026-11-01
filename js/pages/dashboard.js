@@ -2714,15 +2714,15 @@ const COLORES_DISTRIBUCION = {
     inversiones: "--distribucion-inversiones",
     inmovil: "--distribucion-inmovil",
     deudas: "--distribucion-deudas",
-    accion: "--positive",
-    etf: "--positiveAlt",
-    cripto: "--ambar",
-    bono: "--border",
-    otros: "--border",
-    pen: "--positive",
-    usd: "--positiveAlt",
-    eur: "--ambar",
-    usdt: "--ambar"
+    accion: "--violet",
+    etf: "--aqua",
+    cripto: "--orange",
+    bono: "--piggie",
+    otros: "--cappuccino",
+    pen: "--orange",
+    usd: "--violet",
+    eur: "--piggie",
+    usdt: "--aqua"
 }
 
 // La dona solo se recrea si cambió la composición: comparar huellas evita
