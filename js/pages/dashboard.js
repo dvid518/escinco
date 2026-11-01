@@ -36,6 +36,7 @@ import { abrirModalPresupuestos, abrirModalEditarPresupuesto } from "../ui/presu
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
+import { rastrearEvento } from "../services/AnalyticsServicio.js"
 
 import { obtenerMetas } from "../repositories/MetaRepositorio.js"
 import { abrirModalMeta, abrirModalAporteMeta } from "../ui/metas.js"
@@ -1053,23 +1054,15 @@ function opcionesInstanciasCuentas(activas) {
     // muestra el total de la familia. Ofrecirlas duplicaria el patrimonio.
     const lista = cuentasVisibles(cuentas)
 
-    // Una sola card de cuenta a la vez. Con varias, el grid mostraría un muro
-    // importes iguales sin contexto: nadie distingue "mi saldo" de "el saldo
-    // de una tarjeta". Cuando se pueda elegir bien (una card que agrupe, o un
-    // selector con la foto y el nombre grande), se levanta el tope.
-    const yaHay = lista.some(cuenta => activas.has(idCardCuenta(cuenta.id)))
-
     return contenidoDesdeFilas("tpl-dashboard-card-instancia", lista, cuenta => {
         const id = idCardCuenta(cuenta.id)
         const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
         const activa = activas.has(id)
-        const bloqueada = !activa && yaHay
         return {
             valores: {
-                "instancia@class": `dashboard-card-opcion${bloqueada ? " bloqueada" : ""}`,
+                "instancia@class": `dashboard-card-opcion`,
                 "valor@value": id,
                 "valor@checked": activa,
-                "valor@disabled": bloqueada,
                 nombre: cuenta.nombre || "Cuenta",
                 tipo: etiqueta
             }
@@ -1078,20 +1071,15 @@ function opcionesInstanciasCuentas(activas) {
 }
 
 function opcionesInstanciasActivos(activas) {
-    // Mismo tope que en las cuentas: una sola card de activo.
-    const yaHay = posicionesData.some(posicion => activas.has(idCardActivo(posicion.activoId)))
-
     return contenidoDesdeFilas("tpl-dashboard-card-instancia", posicionesData, posicion => {
         const id = idCardActivo(posicion.activoId)
         const activo = posicion.activo || {}
         const activa = activas.has(id)
-        const bloqueada = !activa && yaHay
         return {
             valores: {
-                "instancia@class": `dashboard-card-opcion${bloqueada ? " bloqueada" : ""}`,
+                "instancia@class": `dashboard-card-opcion`,
                 "valor@value": id,
                 "valor@checked": activa,
-                "valor@disabled": bloqueada,
                 nombre: activo.simbolo || activo.nombre || "Activo",
                 tipo: ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"
             }
@@ -1113,14 +1101,14 @@ function abrirSelectorCardsDashboard() {
     }))
 
     const cuentasBloque = bloqueInstanciasSelector(
-        "Tu cuenta en el dashboard",
-        "Solo una: una card por cuenta llenaba el dashboard de cifras iguales sin contexto. Cambia de cuenta quitando esta y eligiendo otra.",
+        "Tus cuentas en el dashboard",
+        "Puedes agregar una card por cada cuenta que tengas.",
         opcionesInstanciasCuentas(activas),
         "Todavía no tienes cuentas."
     )
     const activosBloque = bloqueInstanciasSelector(
-        "Tu activo en el dashboard",
-        "Solo uno, por el mismo motivo que en las cuentas.",
+        "Tus activos en el dashboard",
+        "Puedes agregar una card por cada activo que tengas.",
         opcionesInstanciasActivos(activas),
         "No tienes posiciones abiertas todavía."
     )
@@ -1156,6 +1144,12 @@ function abrirSelectorCardsDashboard() {
                 montarCardsInstanciadas()
                 if (modoEdicionDashboard) prepararEdicionCardsDashboard()
                 reordenarDashboard(true)
+
+                // Evento de analytics: cada card nueva agregada al dashboard.
+                for (const cardId of nuevas) {
+                    rastrearEvento("dashboard_card_agregada", { card_id: cardId })
+                }
+
                 mostrarNotificacion("exito", "Cards del dashboard actualizadas")
                 return true
             } catch (error) {

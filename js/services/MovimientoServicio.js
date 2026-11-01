@@ -94,6 +94,14 @@ export async function registrarMovimiento(uid, tipo, datos) {
 
     notificarMovimientosActualizados()
 
+    // Evento de analytics: movimiento creado (sin montos ni datos personales).
+    try {
+        const { rastrearEvento } = await import("./AnalyticsServicio.js")
+        rastrearEvento("movimiento_creado", { tipo: tipoFinal })
+    } catch {
+        // Silencioso: Analytics no bloquea la lógica de negocio.
+    }
+
     return movimiento
 }
 

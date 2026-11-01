@@ -21,6 +21,7 @@
     {
       "target": "landing",
       "public": ".",
+      "predeploy": ["node tools/generar-build.mjs"],
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -32,22 +33,48 @@
         "package-lock.json",
         "skills-lock.json",
         "*.md",
-        "docs/**"
+        "docs/**",
+        "tests/**",
+        "tools/**",
+        "experimentos/**"
       ],
+      "404": "/404.html",
       "rewrites": [
         { "source": "/privacidad", "destination": "/privacidad.html" },
         { "source": "/terminos", "destination": "/terminos.html" },
         { "source": "/eliminar-datos", "destination": "/eliminar-datos.html" },
         { "source": "/demo", "destination": "/demo.html" },
-        { "source": "/demo/**", "destination": "/demo.html" },
-        { "source": "**", "destination": "/index.html" }
+        { "source": "/demo/**", "destination": "/demo.html" }
       ],
       "headers": [
         {
+          "source": "**",
+          "headers": [
+            { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://identitytoolkit.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src 'self' https://fonts.gstatic.com;" }
+          ]
+        },
+        {
           "source": "**/*.@(html|js|mjs|css)",
           "headers": [
-            { "key": "Cache-Control", "value": "no-cache" },
-            { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://identitytoolkit.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://www.googletagmanager.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src 'self' https://fonts.gstatic.com;" }
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/@(privacidad|terminos|eliminar-datos|demo)",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/demo/**",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
           ]
         },
         {
@@ -86,6 +113,7 @@
     {
       "target": "app",
       "public": ".",
+      "predeploy": ["node tools/generar-build.mjs"],
       "ignore": [
         "firebase.json",
         "**/.*",
@@ -98,8 +126,12 @@
         "skills-lock.json",
         "*.md",
         "docs/**",
+        "tests/**",
+        "tools/**",
+        "experimentos/**",
         "index.html"
       ],
+      "404": "/404.html",
       "rewrites": [
         { "source": "/login", "destination": "/auth.html" },
         { "source": "/register", "destination": "/auth.html" },
@@ -114,10 +146,27 @@
       ],
       "headers": [
         {
+          "source": "**",
+          "headers": [
+            { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://identitytoolkit.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://www.google-analytics.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src 'self' https://fonts.gstatic.com;" }
+          ]
+        },
+        {
           "source": "**/*.@(html|js|mjs|css)",
           "headers": [
-            { "key": "Cache-Control", "value": "no-cache" },
-            { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' https://www.gstatic.com https://www.googletagmanager.com https://identitytoolkit.googleapis.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://www.googletagmanager.com https://*.googleapis.com https://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; font-src 'self' https://fonts.gstatic.com;" }
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/@(login|register|reset-password|dashboard|cuentas|movimientos|inversiones|trading|configuracion)",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
+          ]
+        },
+        {
+          "source": "/",
+          "headers": [
+            { "key": "Cache-Control", "value": "no-cache" }
           ]
         },
         {

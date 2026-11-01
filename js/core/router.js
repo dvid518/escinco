@@ -1,5 +1,6 @@
 import { getLastbar, activarTooltipsLastbar } from "./lastbar.js"
 import { sesion } from "./sesion.js"
+import { rastrearPantalla } from "../services/AnalyticsServicio.js"
 
 const routes = {
     '/dashboard': 'dashboard',
@@ -173,11 +174,13 @@ function transicionPagina(callback) {
     transicionActiva = true
     try {
         const transicion = document.startViewTransition(callback)
+        // Cualquier rechazo de ready/finished/updateCallbackDone se captura
+        // aquí para evitar "Uncaught (in promise)" en el navegador.
         return Promise.all([
             transicion.ready,
             transicion.finished,
             transicion.updateCallbackDone
-        ]).catch(() => {})
+        ]).catch(() => undefined)
     } catch (error) {
         // Si lanza de forma sincrona el callback no se ha ejecutado: hay que
         // lanzarlo aqui o la navegacion se quedaria a medias.
@@ -437,6 +440,9 @@ async function renderPage(page) {
 
         currentPage = page
         updateActiveNav(page)
+
+        // Evento de analytics: vista de pantalla.
+        rastrearPantalla(page)
 
         const path = rutaConBase(page)
         if (window.location.pathname !== path) {

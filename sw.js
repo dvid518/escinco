@@ -1,23 +1,58 @@
 import { VERSION } from "./constants/version.js"
+import { BUILD_ID } from "./constants/build.js"
 
-// El nombre de las cachés incluye la versión de constants/version.js: al
-// subirla, el SW instalado borra las cachés viejas y vuelve a precachear.
-const VERSION_APP = `escinco-v${VERSION.numero}`
-const CACHE_SHELL = `${VERSION_APP}-shell`
-const CACHE_RUNTIME = `${VERSION_APP}-runtime`
+// ============================================
+// SERVICE WORKER · escinco
+// ============================================
+// Objetivo: que un despliegue nuevo llegue al navegador sin que nadie tenga que
+// limpiar la caché, y que la app siga funcionando sin conexión.
+//
+// Dos identificadores distintos, a propósito:
+//   · VERSION.numero (constants/version.js) → versión COMERCIAL del producto.
+//   · BUILD_ID (constants/build.js)         → despliegue TÉCNICO concreto.
+// El nombre de la caché lleva los dos: cambiar cualquiera de ellos estrena
+// caché y tira la anterior. BUILD_ID lo genera tools/generar-build.mjs desde el
+// `predeploy` de firebase.json, así que no depende de subir la versión a mano.
+//
+// Estrategias (y por qué):
+//   · Navegaciones  → red primero. Nunca se sirve un HTML viejo teniendo red.
+//   · JS/CSS        → red primero. El código nuevo manda en la PRIMERA carga.
+//   · Fuentes       → caché primero (no cambian nunca; ahorran 2 MB de red).
+//   · Iconos/imgs   → stale-while-revalidate (pueden esperar una carga).
+//   · Otros orígenes (SDK de Firebase en gstatic, fuentes de Google, analítica)
+//                    → no se interceptan: los gestiona el navegador.
+// ============================================
 
-// Assets que se precargan al instalar el SW
-// "/" está porque es la raíz pública y su copia deprecada serviría de respaldo
-// si index.html no llegara a cachearse.
+const CACHE_SHELL = `escinco-${VERSION.numero}-${BUILD_ID}-shell`
+const CACHE_RUNTIME = `escinco-${VERSION.numero}-${BUILD_ID}-runtime`
+
+// Prefijo propio: `activate` solo borra cachés que empiecen por aquí. Nunca
+// toca cachés de otras apps del mismo origen.
+const PREFIJO_CACHE = "escinco-"
+
+// ============================================
+// PRECACHÉ (lo mínimo para arrancar sin red)
+// ============================================
+// Todo lo de esta lista se descarga con `cache: "reload"` (saltándose el HTTP
+// cache del navegador) y, si algo falla, la instalación se aborta entera: es
+// preferible seguir con el SW anterior que quedarse con un offline a medias.
+//
+// NO se incluye `/index.html`: el target `app` no lo publica (firebase.json lo
+// ignora), así que pedirlo daría 404 y tumbaría la instalación. La portada de
+// cada sitio se cachea como `/`, que sí responde en los dos targets (landing →
+// index.html, app → dashboard.html). Las fuentes tampoco se precachean: son
+// 2 MB y se cachean en caliente con cache-first.
 const SHELL_ASSETS = [
+    // Documentos
     "/",
-    "/index.html",
     "/demo.html",
     "/dashboard.html",
     "/auth.html",
     "/reset-password.html",
     "/privacidad.html",
     "/terminos.html",
+    "/eliminar-datos.html",
+    "/404.html",
     "/manifest.webmanifest",
 
     // SEO
@@ -42,6 +77,7 @@ const SHELL_ASSETS = [
     "/css/componentes.css",
     "/css/iconos.css",
     "/css/legal.css",
+    "/css/404.css",
 
     // JS core
     "/js/core/app.js",
@@ -59,6 +95,8 @@ const SHELL_ASSETS = [
     "/js/core/atajos.js",
     "/js/core/escape.js",
     "/js/core/etiquetas.js",
+    "/js/core/iaConfig.js",
+    "/js/core/gtm.js",
 
     // JS pages
     "/js/pages/index.js",
@@ -70,15 +108,19 @@ const SHELL_ASSETS = [
     "/js/pages/movimientos.js",
     "/js/pages/inversiones.js",
     "/js/pages/trading.js",
+    "/js/pages/404.js",
 
     // JS UI
     "/js/ui/modal.js",
     "/js/ui/changelog.js",
+    "/js/ui/asistente.js",
+    "/js/ui/textoEnriquecido.js",
     "/js/ui/configuracion.js",
     "/js/ui/panelVersion.js",
     "/js/ui/formularioMovimiento.js",
     "/js/ui/pendientes.js",
     "/js/ui/metas.js",
+    "/js/ui/presupuestos.js",
     "/js/ui/graficos.js",
     "/js/ui/notificaciones.js",
     "/js/ui/exportar.js",
@@ -88,6 +130,7 @@ const SHELL_ASSETS = [
     "/js/ui/seleccion.js",
     "/js/ui/etiquetas.js",
     "/js/ui/accionesLista.js",
+    "/js/ui/doodles.js",
 
     // JS models
     "/js/models/Activo.js",
@@ -98,6 +141,8 @@ const SHELL_ASSETS = [
     "/js/models/Meta.js",
     "/js/models/Estrategia.js",
     "/js/models/Etiqueta.js",
+    "/js/models/Favorito.js",
+    "/js/models/Presupuesto.js",
 
     // JS repositories
     "/js/repositories/ActivoRepositorio.js",
@@ -111,9 +156,13 @@ const SHELL_ASSETS = [
     "/js/repositories/EstrategiaRepositorio.js",
     "/js/repositories/PrecioRepositorio.js",
     "/js/repositories/EtiquetaRepositorio.js",
+    "/js/repositories/FavoritoRepositorio.js",
+    "/js/repositories/PresupuestoRepositorio.js",
 
     // JS services
     "/js/services/ActivoServicio.js",
+    "/js/services/AuthServicio.js",
+    "/js/services/AnalyticsServicio.js",
     "/js/services/PosicionServicio.js",
     "/js/services/PendienteServicio.js",
     "/js/services/TradingServicio.js",
@@ -130,6 +179,10 @@ const SHELL_ASSETS = [
     "/js/services/MetaServicio.js",
     "/js/services/EstrategiaServicio.js",
     "/js/services/PrecioServicio.js",
+    "/js/services/FavoritoServicio.js",
+    "/js/services/PresupuestoServicio.js",
+    "/js/services/IaServicio.js",
+    "/js/services/ContextoServicio.js",
 
     // JS firebase
     "/firebase/firebaseClient.js",
@@ -147,6 +200,7 @@ const SHELL_ASSETS = [
 
     // JS constants
     "/constants/version.js",
+    "/constants/build.js",
     "/constants/changelog.js",
     "/constants/tiposMovimiento.js",
     "/constants/divisas.js",
@@ -155,7 +209,7 @@ const SHELL_ASSETS = [
     "/js/strategies/ManualPrecioStrategy.js",
     "/js/strategies/PrecioAutomaticoStrategy.js",
 
-    // JS libs
+    // JS libs (chart.js servido en local)
     "/js/lib/chart.umd.min.js",
 
     // Iconos
@@ -171,48 +225,62 @@ const SHELL_ASSETS = [
 // ============================================
 
 self.addEventListener("install", (event) => {
-    console.log("[SW] Install")
-
-    event.waitUntil(
-        caches.open(CACHE_SHELL)
-            .then(async cache => {
-                for (const url of SHELL_ASSETS) {
-                    try {
-                        await cache.add(url)
-                    } catch (e) {
-                        console.warn("[SW] Fallo al cachear:", url, e)
-                    }
-                }
-            })
-            .then(() => self.skipWaiting())
-            .catch(error => {
-                console.error("[SW] Error precacheando:", error)
-            })
-    )
+    console.log("[SW] Install", BUILD_ID)
+    event.waitUntil(precachear())
 })
+
+async function precachear() {
+    const cache = await caches.open(CACHE_SHELL)
+    const fallos = []
+
+    // En serie y con `cache: "reload"`: lo que se guarda es lo que el servidor
+    // está sirviendo AHORA, no una copia con `max-age` del HTTP cache.
+    for (const url of SHELL_ASSETS) {
+        try {
+            const respuesta = await fetch(new Request(url, { cache: "reload" }))
+            if (!respuesta || respuesta.status !== 200) {
+                throw new Error(`HTTP ${respuesta ? respuesta.status : "sin respuesta"}`)
+            }
+            await cache.put(url, respuesta)
+        } catch (error) {
+            fallos.push(url)
+            console.warn("[SW] No se pudo precachear:", url, error)
+        }
+    }
+
+    if (fallos.length > 0) {
+        // Instalación incompleta → no dejar un SW a medias sirviendo un offline
+        // parcial. Se borra la caché y se deja al SW anterior al mando.
+        await caches.delete(CACHE_SHELL)
+        throw new Error(`[SW] Precache incompleto (${fallos.length}): ${fallos.join(", ")}`)
+    }
+
+    // Ya hay shell completo: se activa sin esperar a que se cierren las pestañas.
+    await self.skipWaiting()
+}
 
 // ============================================
 // ACTIVATE
 // ============================================
 
 self.addEventListener("activate", (event) => {
-    console.log("[SW] Activate")
-
-    event.waitUntil(
-        caches.keys()
-            .then(keys => {
-                return Promise.all(
-                    keys
-                        .filter(key => key !== CACHE_SHELL && key !== CACHE_RUNTIME)
-                        .map(key => {
-                            console.log("[SW] Eliminando cache antigua:", key)
-                            return caches.delete(key)
-                        })
-                )
-            })
-            .then(() => self.clients.claim())
-    )
+    console.log("[SW] Activate", CACHE_SHELL)
+    event.waitUntil(limpiarYReclamar())
 })
+
+async function limpiarYReclamar() {
+    const claves = await caches.keys()
+    const propias = claves.filter(clave => clave.startsWith(PREFIJO_CACHE))
+    const sobrantes = propias.filter(clave => clave !== CACHE_SHELL && clave !== CACHE_RUNTIME)
+
+    await Promise.all(sobrantes.map(clave => {
+        console.log("[SW] Eliminando caché antigua de escinco:", clave)
+        return caches.delete(clave)
+    }))
+
+    // Las cachés de otras apps del mismo origen se quedan como están.
+    await self.clients.claim()
+}
 
 // ============================================
 // FETCH
@@ -220,55 +288,52 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
     const { request } = event
-    const url = new URL(request.url)
-
-    // Ignorar métodos que no sean GET
     if (request.method !== "GET") return
 
-    // Ignorar chrome-extension, etc.
+    const url = new URL(request.url)
     if (!url.protocol.startsWith("http")) return
 
-    // 1. Firebase / Firestore → siempre red (nunca cache)
-    if (esFirebaseOGoogle(url)) {
-        return
-    }
+    // Solo se atiende lo del propio origen. Un `fetch()` lanzado por el SW se
+    // evalúa contra el `connect-src` de la CSP de la página; si interceptáramos
+    // el SDK de Firebase (gstatic) y esa directiva no lo incluyera, el módulo
+    // fallaría con "Refused to connect" y el login se quedaría sin SDK. Además,
+    // gstatic ya sirve esos archivos con caché inmutable: el navegador los
+    // gestiona mejor sin nosotros.
+    if (url.origin !== self.location.origin) return
 
-    // 2. Fuentes (.ttf, .woff, .woff2) → stale-while-revalidate
-    if (esFuente(url)) {
-        event.respondWith(staleWhileRevalidate(request, CACHE_RUNTIME))
-        return
-    }
+    // Consultas que el navegador debe resolver con su propio HTTP cache
+    // (`only-if-cached` no puede ir a red por definición).
+    if (request.cache === "only-if-cached") return
 
-    // 3. Navegación (documentos HTML) → network-first
+    // 1. Navegaciones → red primero + respaldo offline.
     if (request.mode === "navigate") {
-        event.respondWith(networkFirst(request, CACHE_RUNTIME, htmlRespaldo(url.pathname)))
+        event.respondWith(redPrimero(event, CACHE_RUNTIME, () => respaldoOffline(url.pathname)))
         return
     }
 
-    // 4. Mismo origen (CSS, JS, iconos, etc.) → stale-while-revalidate
-    //    Sirve de caché al instante y actualiza en segundo plano. Los cambios
-    //    de código llegan en la siguiente carga, no en la actual.
-    if (url.origin === self.location.origin) {
-        event.respondWith(staleWhileRevalidate(request, CACHE_RUNTIME))
+    // 2. Código del propio sitio (JS/CSS) → red primero: el cambio se ejecuta
+    //    en la primera carga. Si no hay red, se sirve la copia cacheada.
+    if (esCodigo(url)) {
+        event.respondWith(redPrimero(event, CACHE_RUNTIME, null))
         return
     }
 
-    // 5. Resto (CDNs externos, etc.) → stale-while-revalidate
-    event.respondWith(staleWhileRevalidate(request, CACHE_RUNTIME))
+    // 3. Fuentes → caché primero (los .ttf no cambian de contenido).
+    if (esFuente(url) || request.destination === "font") {
+        event.respondWith(cachePrimero(event, CACHE_RUNTIME))
+        return
+    }
+
+    // 4. Iconos, imágenes y resto de estáticos → stale-while-revalidate.
+    event.respondWith(redYLuegoCache(event, CACHE_RUNTIME))
 })
 
 // ============================================
-// FILTROS
+// CLASIFICACIÓN DE PETICIONES
 // ============================================
 
-function esFirebaseOGoogle(url) {
-    return (
-        url.hostname.includes("firebase") ||
-        url.hostname.includes("firestore") ||
-        url.hostname.includes("googleapis.com") ||
-        url.hostname.includes("gstatic.com") ||
-        url.hostname.includes("google.com")
-    )
+function esCodigo(url) {
+    return /\.(js|mjs|css)$/i.test(url.pathname)
 }
 
 function esFuente(url) {
@@ -278,69 +343,166 @@ function esFuente(url) {
 // ============================================
 // HTML DE RESPALDO SIN CONEXIÓN
 // ============================================
-// Cuando una navegación falla y no hay nada en caché, se sirve una página HTML
-// precacheada. El mismo repositorio sirve dos sitios: la landing (www.escinco.com)
-// y la app (app.escinco.com). En la landing "/" es la portada; en la app "/" es el
-// panel, así que el respaldo depende del host. Si en la app se devolviera index.html,
-// la landing cacheada tiraría al visitante a un sitio que no es la app.
-//
-// Las rutas que no son públicas (/dashboard, /cuentas…) caen en dashboard.html, que
-// es lo que la app necesita para funcionar sin red.
-const HOSTS_APP = ["app.escinco.com", "app-escinco.web.app"]
+// Cada sitio (landing / app) guarda su portada en la clave `/`, así que el
+// respaldo no depende de adivinar el host: se sirve la `/` cacheada en ESTE
+// origen. Antes se comparaba contra una lista de hosts (app.escinco.com,
+// app-escinco.web.app) y cualquier otro dominio de la app —por ejemplo
+// app-escinco.firebaseapp.com— caía en un index.html que la app no publica.
+async function respaldoOffline(ruta) {
+    const shell = await caches.open(CACHE_SHELL)
+    const runtime = await caches.open(CACHE_RUNTIME)
 
-function htmlRespaldo(ruta) {
-    if (ruta.startsWith("/demo")) return "/demo.html"
-    if (HOSTS_APP.includes(self.location.hostname)) return "/dashboard.html"
-    const publica = ruta === "/" || ruta === "/index.html"
-    if (publica) return "/index.html"
-    return "/dashboard.html"
+    const candidatos = []
+    if (ruta.startsWith("/demo")) candidatos.push("/demo.html")
+    if (ruta === "/login" || ruta === "/register") candidatos.push("/auth.html")
+    if (ruta === "/reset-password") candidatos.push("/reset-password.html")
+    candidatos.push("/")
+
+    for (const candidato of candidatos) {
+        const respuesta = await shell.match(candidato, { ignoreSearch: true })
+        if (respuesta) return respuesta
+        const enRuntime = await runtime.match(candidato, { ignoreSearch: true })
+        if (enRuntime) return enRuntime
+    }
+
+    return paginaSinConexion()
+}
+
+function paginaSinConexion() {
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>escinco | Sin conexión</title>
+</head>
+<body>
+<main>
+<h1>Sin conexión</h1>
+<p>No hay red y esta página todavía no estaba guardada en el dispositivo.</p>
+<p>Vuelve a conectarte y recarga para continuar.</p>
+</main>
+</body>
+</html>`
+    return new Response(html, {
+        status: 503,
+        statusText: "Sin conexión",
+        headers: { "Content-Type": "text/html; charset=utf-8" }
+    })
 }
 
 // ============================================
 // ESTRATEGIAS
 // ============================================
 
-async function staleWhileRevalidate(request, cacheName) {
-    const cache = await caches.open(cacheName)
-    const cached = await cache.match(request)
-
-    const networkPromise = fetch(request)
-        .then(response => {
-            if (response && response.status === 200) {
-                cache.put(request, response.clone())
-            }
-            return response
-        })
-        .catch(() => cached)
-
-    return cached || networkPromise
+// Extiende la vida del evento para que la escritura en caché no se cancele al
+// responder. Si el evento ya cerró, la promesa sigue su curso igualmente.
+function esperar(evento, promesa) {
+    try {
+        evento.waitUntil(promesa)
+    } catch {
+        /* el evento ya no admite waitUntil: la escritura no es crítica */
+    }
 }
 
-async function networkFirst(request, cacheName, fallbackHtml) {
-    try {
-        // cache: "no-cache" fuerza revalidación con el servidor y evita que el
-        // HTTP cache del navegador devuelva módulos JS obsoletos.
-        const response = await fetch(request, { cache: "no-cache" })
-        if (response && response.status === 200) {
-            const cache = await caches.open(cacheName)
-            cache.put(request, response.clone())
-        }
-        return response
-    } catch (error) {
-        const cached = await caches.match(request)
-        if (cached) return cached
+function sePuedeGuardar(respuesta) {
+    return !!respuesta && respuesta.status === 200 && (respuesta.type === "basic" || respuesta.type === "cors")
+}
 
-        // Fallback offline: servir dashboard.html
-        if (fallbackHtml) {
-            const fallback = await caches.match(fallbackHtml)
-            if (fallback) return fallback
+// Evita que el HTTP cache del navegador devuelva un JS/CSS viejo aunque algún
+// día se configure un `max-age` largo por error. `no-store` y `only-if-cached`
+// se respetan tal cual porque expresan una intención explícita del que llama.
+function peticionFresca(request) {
+    if (request.cache === "no-store") return request
+    try {
+        return new Request(request, { cache: "no-cache" })
+    } catch {
+        return request
+    }
+}
+
+async function redPrimero(evento, cacheName, alFallar) {
+    const { request } = evento
+
+    try {
+        const respuesta = await fetch(peticionFresca(request))
+        if (sePuedeGuardar(respuesta)) {
+            const cache = await caches.open(cacheName)
+            esperar(evento, cache.put(request, respuesta.clone()).catch(() => {}))
+        }
+        return respuesta
+    } catch (error) {
+        const enCache = await buscarEnCachesPropias(request)
+        if (enCache) return enCache
+
+        if (alFallar) {
+            const respaldo = await alFallar()
+            if (respaldo) return respaldo
         }
         throw error
     }
 }
 
+async function cachePrimero(evento, cacheName) {
+    const { request } = evento
+    const cache = await caches.open(cacheName)
+    const enCache = await cache.match(request)
+    if (enCache) return enCache
+
+    try {
+        const respuesta = await fetch(request)
+        if (sePuedeGuardar(respuesta)) {
+            esperar(evento, cache.put(request, respuesta.clone()).catch(() => {}))
+        }
+        return respuesta
+    } catch (error) {
+        const otra = await buscarEnCachesPropias(request)
+        if (otra) return otra
+        throw error
+    }
+}
+
+async function redYLuegoCache(evento, cacheName) {
+    const { request } = evento
+    const cache = await caches.open(cacheName)
+    const enCache = await cache.match(request)
+
+    const desdeRed = fetch(request)
+        .then(respuesta => {
+            if (sePuedeGuardar(respuesta)) {
+                esperar(evento, cache.put(request, respuesta.clone()).catch(() => {}))
+            }
+            return respuesta
+        })
+        .catch(() => null)
+
+    if (enCache) {
+        // Se responde ya con la copia y la red se resuelve en segundo plano.
+        esperar(evento, desdeRed)
+        return enCache
+    }
+
+    const respuesta = await desdeRed
+    if (respuesta) return respuesta
+
+    const otra = await buscarEnCachesPropias(request)
+    if (otra) return otra
+    throw new Error(`[SW] Sin red ni caché para ${request.url}`)
+}
+
+// Busca SOLO en las cachés de escinco: `caches.match()` recorre todas las del
+// origen y podría devolver la copia de otra aplicación.
+async function buscarEnCachesPropias(request) {
+    for (const cacheName of [CACHE_RUNTIME, CACHE_SHELL]) {
+        const cache = await caches.open(cacheName)
+        const respuesta = await cache.match(request)
+        if (respuesta) return respuesta
+    }
+    return null
+}
+
 // ============================================
-// MENSAJES (para forzar actualización desde la app)
+// MENSAJES (para forzar el relevo desde la app)
 // ============================================
 
 self.addEventListener("message", (event) => {

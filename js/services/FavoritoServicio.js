@@ -90,7 +90,18 @@ export async function ejecutarFavorito(uid, favorito, deps = {}) {
         fechaRealizacion: getFechaHoyFn(),
         favoritoId: favorito.id
     }
-    return registrarMovimientoFn(uid, favorito.tipo, datos)
+    const movimiento = await registrarMovimientoFn(uid, favorito.tipo, datos)
+
+    // Evento de analytics tras crear la instancia del movimiento vinculada al favorito.
+    // Se importa de forma dinámica para que el módulo cargue incluso si Analytics no está disponible.
+    try {
+        const { rastrearEvento } = await import("./AnalyticsServicio.js")
+        rastrearEvento("favorito_ejecutado", { tipo: favorito.tipo })
+    } catch {
+        // Silencioso: Analytics no bloquea la lógica de negocio.
+    }
+
+    return movimiento
 }
 
 /**
