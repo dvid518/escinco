@@ -949,14 +949,21 @@
 }
 
 /* Altura fijada por JS (textarea autoajustable): se aplica vía variable CSS
-   en vez de estilo inline. */
+   en vez de estilo inline. Crece hasta 120px sin scroll; al llegar al límite
+   se activa overflow para que el scroll aparezca solo cuando es necesario. */
 .asistente-input--fija {
     height: var(--asistente-input-altura, auto);
+    overflow-y: hidden;
+}
+
+.asistente-input--con-scroll {
+    overflow-y: auto;
 }
 
 /* Reset de altura tras enviar un mensaje. */
 .asistente-input--reset {
     height: 22px;
+    overflow-y: hidden;
 }
 
 .asistente-input:focus {
