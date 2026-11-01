@@ -1,6 +1,6 @@
 {
   "name": "escinco-functions",
-  "description": "Cloud Functions para escinco (proxy de Drov, asistente IA)",
+  "description": "Cloud Functions para escinco (proxy de drov, asistente IA)",
   "scripts": {
     "serve": "firebase emulators:start --only functions",
     "shell": "firebase functions:shell",

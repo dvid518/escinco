@@ -247,10 +247,11 @@ export async function abrirAsistente() {
 
     entrada.addEventListener("input", () => {
         // Dejar altura natural para medir scrollHeight (incluye padding)
-        entrada.style.height = "auto";
+        entrada.classList.remove("asistente-input--reset")
+        entrada.classList.add("asistente-input--fija")
         const alturaNatural = entrada.scrollHeight;
         const alturaFinal = Math.min(alturaNatural, 120);
-        entrada.style.height = alturaFinal + "px";
+        entrada.style.setProperty("--asistente-input-altura", alturaFinal + "px")
         boton.disabled = entrada.value.trim() === ""
     })
     boton.disabled = entrada.value.trim() === ""
@@ -327,7 +328,7 @@ async function guardarPermisoDrov(uid, permiso) {
     try {
         await aplicarPreferenciasDiff(uid, { set: { permisosDrov: permiso } })
     } catch (error) {
-        console.error("[Drov] No se pudo guardar el permiso:", error)
+        console.error("[drov] No se pudo guardar el permiso:", error)
     }
 }
 

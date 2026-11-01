@@ -93,7 +93,7 @@ export async function llamarGemini(prompt) {
         const datos = await respuesta.json()
         return datos.texto || ""
     } catch (error) {
-        console.error("[DrovServicio]", error.message)
+        console.error("[drovServicio]", error.message)
         throw error
     }
 }

@@ -930,7 +930,7 @@
 .asistente-input {
     flex: 1;
     height: auto;
-    min-height: 44px;
+    min-height: 22px;
     max-height: 120px;
     padding: 11px 14px;
     border: 1px solid var(--border);
