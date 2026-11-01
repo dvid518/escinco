@@ -2729,11 +2729,11 @@ function actualizarDistribucion() {
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra@class": item.clase,
-            "barra@style": `width: ${Math.max(0, Math.min(100, item.porcentaje))}%`,
+            "barra@class": "barra barra-progreso " + item.clase,
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
+    aplicoAnchoBarras(analiticaData.distribucion)
 
     dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
 }

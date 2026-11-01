@@ -2743,6 +2743,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-dashboard-card-edicion">
         <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card" data-tpl="handle"></span>
+        <button type="button" class="dashboard-card-subir" data-tpl="subir" data-tpl-attr="data-id" aria-label="Subir card" title="Subir card"></button>
+        <button type="button" class="dashboard-card-bajar" data-tpl="bajar" data-tpl-attr="data-id" aria-label="Bajar card" title="Bajar card"></button>
         <button type="button" class="dashboard-card-eliminar" data-dashboard-eliminar data-tpl="eliminar" data-tpl-attr="data-id" aria-label="Eliminar card del dashboard" title="Eliminar card"><span data-tpl="icono-eliminar"></span></button>
     </template>
 
@@ -2779,7 +2781,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <strong data-tpl="porcentaje"></strong>
             </div>
             <div class="distribucion-barra">
-                <span data-tpl="barra" data-tpl-attr="class,style"></span>
+                <span class="barra barra-progreso" data-tpl="barra" data-tpl-attr="class"></span>
             </div>
             <span class="distribucion-valor" data-tpl="valor"></span>
         </div>
