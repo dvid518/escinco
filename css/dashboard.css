@@ -41,7 +41,8 @@
 }
 
 .grafico-patrimonio-card canvas,
-.distribucion-dona canvas {
+.distribucion-dona canvas,
+.divisa-dona canvas {
     display: block;
     width: 100% !important;
     height: 100% !important;
@@ -936,6 +937,22 @@ body.dashboard-card-dragging * {
     z-index: 1;
 }
 
+/* Dona de "Patrimonio por divisa": misma estructura que la dona de distribución,
+   pero para el desglose en PEN / USD / USDT / EUR. */
+.divisa-dona {
+    position: relative;
+    width: 100%;
+    max-width: 220px;
+    height: 170px;
+    margin: 0 auto 14px;
+    overflow: hidden;
+}
+
+.divisa-dona canvas {
+    position: relative;
+    z-index: 1;
+}
+
 .dona-esqueleto {
     width: 94px;
     height: 94px;
@@ -1108,6 +1125,7 @@ body.dashboard-card-dragging * {
 }
 
 .distribucion-barra {
+    width: 100%;
     height: 7px;
     overflow: hidden;
     border-radius: 40px;
@@ -1116,63 +1134,69 @@ body.dashboard-card-dragging * {
 
 .distribucion-barra span {
     display: block;
-    height: 100%;
+    height: 7px;           /* altura fija y visible, no depende del padre */
     border-radius: inherit;
     background: var(--border);
 }
 
+/* El ancho de la barra se aplica vía estilo inline con el porcentaje exacto.
+   Por defecto empieza en 0% para que nunca se vea llena antes de calcularse. */
+.distribucion-barra .barra-progreso {
+    width: 0%;
+}
+
 /* Distribución patrimonial: los cuatro bloques con color fijo (el mismo en
    los dos temas), para que el anillo y las barras se lean igual. */
-.distribucion-barra span.liquidez {
+.distribucion-barra span[data-clase="liquidez"] {
     background: var(--distribucion-liquidez);
 }
 
-.distribucion-barra span.inversiones {
+.distribucion-barra span[data-clase="inversiones"] {
     background: var(--distribucion-inversiones);
 }
 
-.distribucion-barra span.inmovil {
+.distribucion-barra span[data-clase="inmovil"] {
     background: var(--distribucion-inmovil);
 }
 
-.distribucion-barra span.deudas {
+.distribucion-barra span[data-clase="deudas"] {
     background: var(--distribucion-deudas);
 }
 
 /* Distribución por tipo de activo: cuatro clases de activo, cada una con su
    color para que se comparen de un vistazo sin leer la etiqueta. */
-.distribucion-barra span.accion {
+.distribucion-barra span[data-clase="accion"] {
     background: var(--positive);
 }
 
-.distribucion-barra span.etf {
+.distribucion-barra span[data-clase="etf"] {
     background: var(--positiveAlt);
 }
 
-.distribucion-barra span.cripto {
+.distribucion-barra span[data-clase="cripto"] {
     background: var(--ambar);
 }
 
-.distribucion-barra span.bono,
-.distribucion-barra span.otros {
+.distribucion-barra span[data-clase="bono"],
+.distribucion-barra span[data-clase="otros"] {
     background: var(--border);
 }
 
 /* Patrimonio por divisa: el color es de la moneda, no del importe. Las
    divisas sin clase propia (criptos, EUR) caen al neutro de base. */
-.distribucion-barra span.pen {
+.distribucion-barra span[data-clase="pen"] {
     background: var(--positive);
 }
 
-.distribucion-barra span.usd {
+.distribucion-barra span[data-clase="usd"] {
     background: var(--positiveAlt);
 }
 
-.distribucion-barra span.eur {
+.distribucion-barra span[data-clase="eur"] {
     background: var(--ambar);
 }
 
-.distribucion-barra span.usdt {
+.distribucion-barra span[data-clase="usdt"] {
     background: var(--ambar);
 }
 
@@ -1720,6 +1744,11 @@ body.dashboard-card-dragging * {
     border-radius: inherit;
     background: var(--positive);
     transition: width 0.3s ease;
+}
+
+/* El ancho de la barra de uso se aplica vía variable CSS. */
+.card-uso-barra .barra-progreso {
+    width: var(--barra-ancho, 0%);
 }
 
 .card-uso-barra span.aviso {

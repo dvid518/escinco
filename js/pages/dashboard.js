@@ -1540,6 +1540,7 @@ const GENERADORES_CARD = {
             <div class="card-header">
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
+            <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="divisa-lista" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
@@ -1682,6 +1683,8 @@ function limpiarEsqueletosDashboard() {
     })
     const dona = document.getElementById("distribucion-dona-placeholder")
     if (dona) dona.replaceChildren()
+    const donaDivisa = document.getElementById("patrimonio-divisa-dona-placeholder")
+    if (donaDivisa) donaDivisa.replaceChildren()
     const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
         "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
     valores.forEach(id => {
@@ -2676,12 +2679,46 @@ const COLORES_DISTRIBUCION = {
     otros: "--border",
     pen: "--positive",
     usd: "--positiveAlt",
+    eur: "--ambar",
     usdt: "--ambar"
 }
 
 // La dona solo se recrea si cambió la composición: comparar huellas evita
 // redibujar en cada refresco del dashboard cuando el reparto no varió.
 let ultimaDonaDistribucion = ""
+let ultimaDonaDivisa = ""
+
+async function dibujarDonaDivisa(items) {
+    const contenedor = document.getElementById("patrimonio-divisa-dona-placeholder")
+    if (!contenedor) return
+    if (!items || items.length === 0) {
+        contenedor.replaceChildren()
+        return
+    }
+
+    const huella = items.map(item => `${item.clave}:${item.valor}`).join("|")
+    if (huella === ultimaDonaDivisa && contenedor.querySelector("canvas")) return
+    ultimaDonaDivisa = huella
+
+    let canvas = contenedor.querySelector("canvas")
+    if (!canvas) {
+        contenedor.replaceChildren()
+        canvas = document.createElement("canvas")
+        canvas.id = "patrimonio-divisa-dona"
+        contenedor.appendChild(canvas)
+    }
+
+    if (!document.getElementById("patrimonio-divisa-dona")) return
+
+    await crearGraficoDistribucion("patrimonio-divisa-dona", {
+        labels: items.map(item => item.etiqueta),
+        data: items.map(item => convertirMonto(item.valor, item.clave, divisaActual)),
+        colores: items.map(item => COLORES_DISTRIBUCION[item.clave] || "--positive")
+    }, {
+        chartKey: "patrimonio-divisa-dona",
+        formatear: monto => formatearMontoConDivisa(monto, divisaActual)
+    })
+}
 
 async function dibujarDonaDistribucion(items) {
     const contenedor = document.getElementById("distribucion-dona-placeholder")
@@ -2724,9 +2761,10 @@ async function dibujarDonaDistribucion(items) {
 function aplicoAnchoBarras(items) {
     const barras = document.querySelectorAll(".distribucion-barra .barra-progreso")
     barras.forEach((barra, i) => {
-        if (items[i]) {
-            barra.style.setProperty("--barra-ancho", items[i].porcentaje + "%")
-        }
+        if (!items[i]) return
+        const pct = items[i].porcentaje
+        barra.style.display = "block"
+        barra.style.width = `${pct}%`
     })
 }
 
@@ -2740,7 +2778,7 @@ function actualizarDistribucion() {
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra@class": "barra barra-progreso " + item.clase,
+            "barra-clase@data-clase": item.clase,
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
@@ -2813,7 +2851,7 @@ function actualizarDistribucionActivos() {
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra@class": "barra barra-progreso " + item.clase,
+            "barra-clase@data-clase": item.clase,
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
@@ -2881,7 +2919,7 @@ function actualizarPatrimonioDivisa() {
             valores: {
                 "etiqueta": item.etiqueta,
                 "porcentaje": `${porcentaje.toFixed(0)}%`,
-                "barra@class": "barra barra-progreso " + item.clave,
+                "barra-clase@data-clase": item.clave,
                 "valor": formatearMontoConDivisa(item.valor, item.clave)
             }
         }
@@ -2890,6 +2928,8 @@ function actualizarPatrimonioDivisa() {
         ...item,
         porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
     })))
+
+    dibujarDonaDivisa(items).catch(() => {})
 }
 
 function actualizarProgramados() {
