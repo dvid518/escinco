@@ -1,4 +1,6 @@
-# Reglas de renderizado y mantenimiento — escinco
+﻿# Reglas de renderizado y mantenimiento — escinco
+> Antes de crear cualquier componente visual, consultar DISENO.md para verificar si ya existe una clase reutilizable. Si no existe, seguir las convenciones de nombres y añadir el componente a css/componentes.css.
+
 
 Este archivo rige cualquier modificación de la capa de UI del proyecto. Su objetivo es evitar regresiones a `innerHTML`, estilos inline y mezcla de lógica de negocio con renderizado.
 
