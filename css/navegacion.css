@@ -9,7 +9,7 @@
     display: flex;
     align-items: center;
     flex-direction: row;
-    height: 50px;
+    height: 64px;
     width: 90%;
     justify-content: space-between;
     margin: 0 auto;
@@ -24,7 +24,7 @@
 .logo-container {
     height: inherit;
     width: 50px;
-    border-radius: 60px;
+    border-radius: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -58,14 +58,14 @@
     height: inherit;
     display: flex;
     flex-direction: row;
-    border-radius: 60px;
+    border-radius: 32px;
     gap: 10px;
     transition: all 0.3s ease;
 }
 
 .nav-container a {
     height: inherit;
-    border-radius: 50px;
+    border-radius: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -86,7 +86,7 @@
 .user-container {
     height: inherit;
     width: 50px;
-    border-radius: 60px;
+    border-radius: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
