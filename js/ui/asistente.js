@@ -119,6 +119,7 @@ export async function abrirAsistente() {
         if (!texto) return
 
         entrada.value = ""
+        entrada.style.height = "44px"
         enviando = true
         entrada.disabled = true
         boton.disabled = true
@@ -170,6 +171,9 @@ export async function abrirAsistente() {
     })
 
     entrada.addEventListener("input", () => {
+        // Ajustar altura del textarea según el contenido (máximo 120px)
+        entrada.style.height = "44px";
+        entrada.style.height = Math.min(entrada.scrollHeight, 120) + "px";
         boton.disabled = entrada.value.trim() === ""
     })
     boton.disabled = entrada.value.trim() === ""

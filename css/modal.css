@@ -940,7 +940,6 @@
     font-size: 14px;
     line-height: 1.4;
     resize: none;
-    field-sizing: content;
 }
 
 .asistente-input::placeholder {
