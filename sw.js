@@ -198,6 +198,7 @@ const SHELL_ASSETS = [
     "/firebase/demo/firestore.js",
     "/firebase/demo/auth.js",
     "/firebase/demo/app.js",
+    "/firebase/demo/analytics.js",
 
     // JS constants
     "/constants/version.js",

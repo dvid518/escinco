@@ -37,7 +37,8 @@
             "imports": {
                 "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js": "/firebase/demo/app.js",
                 "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js": "/firebase/demo/auth.js",
-                "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js": "/firebase/demo/firestore.js"
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js": "/firebase/demo/firestore.js",
+                "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js": "/firebase/demo/analytics.js"
             }
         }
     </script>
@@ -46,7 +47,7 @@
 <body class="loading">
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
     <div class="demo-aviso" role="note">
         <span><strong>escinco demo.</strong> Datos de prueba guardados solo en este navegador.</span>
@@ -2786,7 +2787,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-dashboard-card-uso">
         <div class="card-uso">
-            <div class="card-uso-barra"><span data-tpl="barra" data-tpl-attr="id"></span></div>
+            <div class="card-uso-barra"><span class="barra-progreso" data-tpl="barra" data-tpl-attr="id"></span></div>
             <span class="card-uso-pct" data-tpl="porcentaje" data-tpl-attr="id"></span>
         </div>
     </template>
@@ -2856,7 +2857,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <strong data-tpl="porcentaje"></strong>
             </div>
             <div class="distribucion-barra">
-                <span class="barra barra-progreso" data-tpl="barra" data-tpl-attr="class"></span>
+                <span class="barra-progreso" data-tpl="barra-clase" data-tpl-attr="data-clase"></span>
             </div>
             <span class="distribucion-valor" data-tpl="valor"></span>
         </div>
