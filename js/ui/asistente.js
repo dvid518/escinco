@@ -3,6 +3,7 @@ import { mostrarNotificacion } from "./notificaciones.js"
 import { pintarTextoEnriquecido } from "./textoEnriquecido.js"
 import { preguntarAsistente, asistenteDisponible } from "../services/IaServicio.js"
 import { obtenerContextoAsistente } from "../services/ContextoServicio.js"
+import { VozServicio } from "../services/VozServicio.js"
 import { sesion } from "../core/sesion.js"
 import { getPaginaActual } from "../core/router.js"
 
@@ -38,11 +39,47 @@ export async function abrirAsistente() {
     const formulario = modalEl.querySelector(".asistente-form")
     const entrada = modalEl.querySelector("#asistente-input")
     const boton = modalEl.querySelector(".asistente-enviar")
+    const microfono = modalEl.querySelector(".asistente-microfono")
 
     if (!registro || !formulario || !entrada || !boton) {
         console.error("[ERROR] El asistente no tiene el markup esperado")
         return modalEl
     }
+
+    const voz = new VozServicio()
+
+    if (!voz.soportado || !microfono) {
+        microfono?.classList.add("oculto")
+    }
+
+    let escuchandoVoz = false
+
+    function alternarVoz() {
+        if (!voz.soportado) return
+
+        if (!escuchandoVoz) {
+            voz.iniciar(
+                transcript => {
+                    entrada.value = transcript
+                    entrada.dispatchEvent(new Event("input", { bubbles: true }))
+                },
+                error => {
+                    mostrarNotificacion("error", error)
+                    microfono.classList.remove("activo")
+                    escuchandoVoz = false
+                }
+            )
+            microfono.classList.add("activo")
+            escuchandoVoz = true
+            entrada.focus()
+        } else {
+            voz.detener()
+            microfono.classList.remove("activo")
+            escuchandoVoz = false
+        }
+    }
+
+    microfono?.addEventListener("click", alternarVoz)
 
     if (historial.length === 0) {
         historial.push({ rol: "model", texto: BIENVENIDA })
@@ -69,6 +106,12 @@ export async function abrirAsistente() {
 
     async function enviar() {
         if (enviando || !configurada) return
+
+        if (escuchandoVoz) {
+            voz.detener()
+            microfono.classList.remove("activo")
+            escuchandoVoz = false
+        }
 
         const texto = entrada.value.trim()
         if (!texto) return

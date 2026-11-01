@@ -51,7 +51,7 @@ const SHELL_ASSETS = [
     "/reset-password.html",
     "/privacidad.html",
     "/terminos.html",
-    "/eliminar-datos.html",
+    "/tratamiento-datos.html",
     "/404.html",
     "/manifest.webmanifest",
 
@@ -112,7 +112,6 @@ const SHELL_ASSETS = [
 
     // JS UI
     "/js/ui/modal.js",
-    "/js/ui/changelog.js",
     "/js/ui/asistente.js",
     "/js/ui/textoEnriquecido.js",
     "/js/ui/configuracion.js",
@@ -183,6 +182,7 @@ const SHELL_ASSETS = [
     "/js/services/PresupuestoServicio.js",
     "/js/services/IaServicio.js",
     "/js/services/ContextoServicio.js",
+    "/js/services/VozServicio.js",
 
     // JS firebase
     "/firebase/firebaseClient.js",
@@ -201,7 +201,6 @@ const SHELL_ASSETS = [
     // JS constants
     "/constants/version.js",
     "/constants/build.js",
-    "/constants/changelog.js",
     "/constants/tiposMovimiento.js",
     "/constants/divisas.js",
 

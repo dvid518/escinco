@@ -796,6 +796,23 @@
     padding-right: 4px;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+    /* Difuminado superior e inferior: oculta suavemente lo que sale del contenedor
+       sin cambiar el color de fondo. La máscara es opaca en el centro y transparente
+       en los bordes, así el contenido se desvanece al entrar/salir. */
+    mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 12%,
+        black 88%,
+        transparent 100%
+    );
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 12%,
+        black 88%,
+        transparent 100%
+    );
 }
 
 .asistente-mensajes::-webkit-scrollbar {
@@ -867,11 +884,11 @@
 
 .asistente-input {
     flex: 1;
-    min-height: 44px;
+    height: 44px;
     max-height: 120px;
     padding: 11px 14px;
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 22px;
     background: var(--surface);
     color: var(--text);
     font-family: var(--font-primary);
@@ -913,6 +930,52 @@
 .asistente-enviar:disabled {
     cursor: not-allowed;
     opacity: 0.4;
+}
+
+.oculto {
+    display: none !important;
+}
+
+.asistente-microfono {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    flex-shrink: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--surface);
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.asistente-microfono:hover:not(:disabled) {
+    transform: scale(1.05);
+    color: var(--text);
+}
+
+.asistente-microfono.activo {
+    background: var(--positive);
+    color: #ffffff;
+    animation: asistente-microfono-pulso 1.5s ease-in-out infinite;
+}
+
+.asistente-microfono:disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+@keyframes asistente-microfono-pulso {
+    0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 0 0 var(--positive);
+    }
+    50% {
+        opacity: 0.7;
+        box-shadow: 0 0 0 6px rgba(100, 100, 255, 0.3);
+    }
 }
 
 .asistente-escribiendo {
