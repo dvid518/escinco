@@ -1148,3 +1148,36 @@
         max-width: 92%;
     }
 }
+
+/* ============================================
+   SCROLLBARS · SIN FONDO BLANCO EN NINGÚN CASO
+   ============================================
+   Regla general: ningún scrollbar muestra fondo blanco en el track.
+   El track es transparente; solo se ve el pulgar cuando hay contenido
+   que desplazar. Se activa solo cuando el contenido excede el contenedor
+   (overflow: auto), nunca por defecto. */
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.asistente-input {
+    overflow-y: auto;
+}
+
+.asistente-input::-webkit-scrollbar {
+    width: 6px;
+}
+
+.asistente-input::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.asistente-input::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+.asistente-input::-webkit-scrollbar-thumb:hover {
+    background: var(--textSecondary);
+}
