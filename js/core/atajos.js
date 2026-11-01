@@ -204,7 +204,7 @@ const ATAJOS_AYUDA = [
         titulo: "Globales",
         filas: [
             { teclas: "Alt+K", descripcion: "Buscar en toda la app" },
-            { teclas: "Alt+I", descripcion: "Abrir drov" },
+            { teclas: "Alt+D", descripcion: "Abrir drov" },
             { teclas: "Alt+P", descripcion: "Pendientes" },
             { teclas: "Alt+M", descripcion: "Metas" },
             { teclas: "Alt+N", descripcion: "Centro de notificaciones" },
@@ -274,7 +274,7 @@ export async function abrirModalAtajos() {
 // ============================================
 // ATAJOS GLOBALES
 // ============================================
-// Alt+K buscador · Alt+I asistente · Alt+P pendientes · Alt+M metas ·
+// Alt+K buscador · Alt+D asistente · Alt+P pendientes · Alt+M metas ·
 // Alt+N notificaciones · Alt+A ayuda de atajos. Funcionan aunque haya un campo
 // de texto enfocado.
 
