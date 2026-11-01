@@ -997,22 +997,23 @@
 
 .drov-permisos-botones {
     display: flex;
-    gap: 10px;
+    gap: 8px;
     justify-content: center;
     flex-wrap: wrap;
 }
 
 .drov-permisos-btn {
-    flex: 1 1 auto;
-    min-width: 120px;
-    padding: 10px 16px;
+    flex: none;
+    padding: 6px 12px;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: 6px;
     background: var(--surface);
     color: var(--text);
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .drov-permisos-btn:hover:not(:disabled) {
@@ -1021,18 +1022,16 @@
 }
 
 .drov-permisos-btn.aceptar {
-    background: var(--positive);
     border-color: var(--positive);
-    color: #ffffff;
+    color: var(--positive);
 }
 
 .drov-permisos-btn.aceptar:hover:not(:disabled) {
-    opacity: 0.9;
+    background: color-mix(in srgb, var(--positive) 15%, transparent);
+    color: var(--positive);
 }
 
 .drov-permisos-btn.cancelar {
-    background: var(--surface);
-    border-color: var(--border);
     color: var(--textSecondary);
 }
 
