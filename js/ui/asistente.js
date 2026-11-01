@@ -171,9 +171,11 @@ export async function abrirAsistente() {
     })
 
     entrada.addEventListener("input", () => {
-        // Ajustar altura del textarea según el contenido (máximo 120px)
-        entrada.style.height = "44px";
-        entrada.style.height = Math.min(entrada.scrollHeight, 120) + "px";
+        // Dejar altura natural para medir scrollHeight (incluye padding)
+        entrada.style.height = "auto";
+        const alturaNatural = entrada.scrollHeight;
+        const alturaFinal = Math.max(44, Math.min(alturaNatural, 120));
+        entrada.style.height = alturaFinal + "px";
         boton.disabled = entrada.value.trim() === ""
     })
     boton.disabled = entrada.value.trim() === ""
