@@ -140,7 +140,8 @@ const ETIQUETAS_TIPO_ACTIVO = {
     accion: "Acción",
     etf: "ETF",
     crypto: "Cripto",
-    bono: "Bono"
+    bono: "Bono",
+    otros: "Otros"
 }
 
 function esCardInstancia(id) {
@@ -2847,7 +2848,8 @@ const CLASES_TIPO_ACTIVO = {
     accion: "accion",
     etf: "etf",
     crypto: "cripto",
-    bono: "bono"
+    bono: "bono",
+    otros: "otros"
 }
 
 function actualizarDistribucionActivos() {
