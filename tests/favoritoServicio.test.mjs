@@ -93,7 +93,8 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
         const favoritoId = await cargarFuncion(src, "ejecutarFavorito", {
             esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
             registrarMovimiento: async (u, tipo, datos) => { registrado = datos; return "mov-9" },
-            getFechaHoy: () => hoy
+            getFechaHoy: () => hoy,
+            rastrearEvento: () => {}
         })(UID, {
             id: "f1",
             tipo: "gasto",
@@ -111,7 +112,8 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
             try {
                 await cargarFuncion(src, "ejecutarFavorito", {
                     esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
-                    registrarMovimiento: async () => "m"
+                    registrarMovimiento: async () => "m",
+                    rastrearEvento: () => {}
                 })(UID, { tipo: "transferencia", cuenta: "c1", monto: 50 })
             } catch (e) { lanzo = true }
             t.check("ejecutarFavorito: rechaza tipos no favoritables", lanzo === true)

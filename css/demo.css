@@ -16,7 +16,6 @@
     color: var(--textSecondary);
     background: var(--background);
     border-bottom: 1px solid var(--surface);
-    backdrop-filter: blur(8px);
 }
 
 .demo-aviso strong {

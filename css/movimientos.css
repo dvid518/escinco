@@ -477,16 +477,6 @@
     color: var(--textAlt);
 }
 
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-accion {
-    color: var(--textAlt);
-    border-color: var(--border);
-}
-
-:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-accion:hover {
-    color: var(--text);
-    background: var(--surface);
-}
-
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-valor {
     color: var(--textAlt);
 }
@@ -506,6 +496,65 @@
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.seleccionado .movimiento-favorito:hover {
     background: color-mix(in srgb, var(--textAlt) 14%, transparent);
     border-color: var(--border);
+}
+
+/* --------------------------------------------
+   ACCIONES DE CARD (revelado por swipe/hover)
+   -------------------------------------------- */
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item .card-item-acciones {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: calc(100% + 12px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: var(--card-acciones-w);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item.acciones-visibles .card-item-acciones,
+:is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:focus-within .card-item-acciones {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+@media (hover: hover) and (pointer: fine) {
+    :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item:hover .card-item-acciones {
+        opacity: 1;
+        pointer-events: auto;
+    }
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-acciones.revelado {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 22px;
+    background: var(--background);
+    color: var(--text);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+
+:is(#lista-movimientos, #lista-movimientos-cuenta) .card-action-btn:hover {
+    color: var(--text);
+    border-color: var(--text);
+    background-color: var(--lightHover);
+    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 /* --------------------------------------------

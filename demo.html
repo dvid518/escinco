@@ -10,6 +10,7 @@
     <meta http-equiv='X-UA-Compatible' content='IE=edge'>
     <title>escinco | Demo interactiva</title>
     <meta name='viewport' content='width=device-width, initial-scale=1, viewport-fit=cover'>
+    <meta name="view-transition" content="same-origin">
     <meta name="description"
         content="Prueba escinco con datos de ejemplo: dashboard, cuentas, movimientos, inversiones y trading. Todo se guarda en tu navegador.">
     <meta name="theme-color" content="#141414">
@@ -1955,7 +1956,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <div class="config-layout">
                 <nav class="config-nav" aria-label="Secciones de configuración">
                     <div data-tpl="nav-botones" data-tpl-reemplazar></div>
-                    <div class="config-nav-pie">
+                    <div class="config-nav-pie glass">
                         <a class="footer-brand" href="/" target="_blank" rel="noopener noreferrer" data-tpl="footer-nombre"></a>
                         <span class="footer-version" id="config-version" data-tpl="footer-version"></span>
                         <span class="footer-copy" data-tpl="footer-copy"></span>
@@ -2921,7 +2922,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </template>
 
     <template id="tpl-notificacion">
-        <div class="notificacion" data-tpl="notificacion">
+        <div class="notificacion glass" data-tpl="notificacion">
             <span class="notificacion-icono" data-tpl="icono"></span>
             <div class="notificacion-contenido">
                 <span class="notificacion-mensaje" data-tpl="mensaje"></span>
@@ -3153,6 +3154,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
             </div>
         </div>
+    </template>
+
+    <!-- ASISTENTE IA -->
+    <template id="tpl-asistente-panel">
+        <div class="asistente">
+            <div class="asistente-mensajes" role="log" aria-live="polite" aria-label="Conversación con drov"></div>
+            <p class="asistente-aviso">drov consulta un resumen de tus datos y puede equivocarse: comprueba la información importante.</p>
+        </div>
+    </template>
+
+    <template id="tpl-asistente-mensaje">
+        <div class="asistente-mensaje">
+            <p class="asistente-texto" data-tpl="texto"></p>
+        </div>
+    </template>
+
+    <template id="tpl-asistente-escribiendo">
+        <div class="asistente-mensaje asistente-mensaje-ia asistente-escribiendo" role="status" aria-label="drov está escribiendo">
+            <span class="asistente-punto"></span>
+            <span class="asistente-punto"></span>
+            <span class="asistente-punto"></span>
+        </div>
+    </template>
+
+    <template id="tpl-asistente-form">
+        <form class="asistente-form">
+            <textarea id="asistente-input" class="asistente-input" rows="1" maxlength="2000" placeholder="Pregunta a drov lo que quieras sobre escinco…" aria-label="Mensaje para drov" autocomplete="off"></textarea>
+            <button type="submit" class="asistente-enviar" aria-label="Enviar" title="Enviar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                    <path d="m21.854 2.147-10.94 10.939"/>
+                </svg>
+            </button>
+        </form>
     </template>
 
     <!-- PLANTILLAS DE MODAL · FIN -->

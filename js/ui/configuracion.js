@@ -805,6 +805,7 @@ function configurarDetectorCambios() {
         "acc-doodles",
         "acc-un-click-seleccion",
         "acc-resaltar-ingreso-gasto",
+        "acc-acciones-siempre-visibles",
         "toggle-precios-auto"
     ]
 

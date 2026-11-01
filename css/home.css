@@ -58,9 +58,11 @@
     margin-top: 22px;
     border-radius: 50px;
     border: 1px solid var(--lightBorder, var(--border));
+    /* El velo y el difuminado los aporta .glass (class en index.html); aquí
+       solo se fija el nivel y se anula el glow para no sumar otra sombra. */
+    --blur-frosted: 14px;
+    --glow: none;
     background-color: var(--glass-frosted);
-    -webkit-backdrop-filter: blur(var(--blur-frosted, 14px));
-    backdrop-filter: blur(var(--blur-frosted, 14px));
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
 }
 
@@ -394,29 +396,11 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* En la app las columnas las reparte un masonry en JS y siempre son las que
-   caben en el ancho. Aquí son tres fijas en el markup, así que al bajar a dos
-   o una, la tercera se quedaría sola en una fila. Con display:contents las
-   tres dejan de ser cajas y todas sus cards pasan a ser elementos directos de
-   la rejilla, que ya trae su propio gap y sus propios breakpoints. */
-@media (max-width: 899px) {
-    .home-maqueta .dashboard-column {
-        display: contents;
-    }
-}
-
-@media (max-width: 899px) and (min-width: 600px) {
-    .home-maqueta .metas-card,
-    .home-maqueta .pendientes-card {
-        display: none;
-    }
-}
-
-@media (max-width: 599px) {
-    .home-maqueta .card-cuenta,
-    .home-maqueta .distribucion-activos-card,
-    .home-maqueta .metas-card,
-    .home-maqueta .pendientes-card {
+/* En tablets y teléfonos la maqueta del panel no aporta información que no
+   se lea ya en las secciones de arriba, y ocupa vertical innecesario: se
+   oculta entera en vez de apilarse en columnas. */
+@media (max-width: 1024px) {
+    .home-captura {
         display: none;
     }
 }

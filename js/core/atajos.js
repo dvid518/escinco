@@ -204,6 +204,7 @@ const ATAJOS_AYUDA = [
         titulo: "Globales",
         filas: [
             { teclas: "Alt+K", descripcion: "Buscar en toda la app" },
+            { teclas: "Alt+I", descripcion: "Abrir drov" },
             { teclas: "Alt+P", descripcion: "Pendientes" },
             { teclas: "Alt+M", descripcion: "Metas" },
             { teclas: "Alt+N", descripcion: "Centro de notificaciones" },
@@ -273,8 +274,9 @@ export async function abrirModalAtajos() {
 // ============================================
 // ATAJOS GLOBALES
 // ============================================
-// Alt+K buscador · Alt+P pendientes · Alt+M metas · Alt+N notificaciones ·
-// Alt+A ayuda de atajos. Funcionan aunque haya un campo de texto enfocado.
+// Alt+K buscador · Alt+I asistente · Alt+P pendientes · Alt+M metas ·
+// Alt+N notificaciones · Alt+A ayuda de atajos. Funcionan aunque haya un campo
+// de texto enfocado.
 
 let atajosInicializados = false
 
@@ -291,6 +293,9 @@ export function initAtajos() {
         switch (evento.code) {
             case "KeyK":
                 accion = abrirBuscadorGlobal
+                break
+            case "KeyI":
+                accion = () => import("../ui/asistente.js").then(m => m.abrirAsistente())
                 break
             case "KeyP":
                 accion = () => import("../ui/pendientes.js").then(m => m.mostrarPendientes())

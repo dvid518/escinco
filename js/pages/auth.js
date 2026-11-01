@@ -13,6 +13,7 @@ import {
 } from "../../firebase/auth.js"
 import { iniciarSesionConFacebook, vincularCredencialFacebook, hayCredencialFacebookPendiente } from "../services/AuthServicio.js"
 import { contenidoDesdeTemplate } from "../ui/modal.js"
+import { rastrearEvento, identificarUsuario } from "../services/AnalyticsServicio.js"
 import { initTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
 import { initDoodles } from "../ui/doodles.js"
@@ -207,6 +208,7 @@ async function trasAutenticar(user) {
     // no. La landing usa esa marca para no volvérsele a enseñar a quien ya la
     // vio una vez (ver firebase/auth.js: marcarSesionGuardada).
     marcarSesionGuardada()
+    identificarUsuario(user.uid)
 
     // Si hay una credencial de Facebook pendiente (porque el correo ya existía
     // con otro método al intentar entrar con Facebook), vincularla ahora.
@@ -241,6 +243,7 @@ async function iniciarSesion() {
 
     try {
         const { user } = await login(email, password)
+        rastrearEvento("login", { method: "email" })
         await trasAutenticar(user)
     } catch (error) {
         desbloquearFormulario("login")
@@ -272,6 +275,7 @@ async function crearCuenta() {
         // registrarConEmail ya guarda el nombre en el perfil de Auth y en el doc
         // de Firestore; aquí solo queda la verificación del correo.
         const { user } = await registrarConEmail(nombre, email, password)
+        rastrearEvento("registro", { method: "email" })
         await trasAutenticar(user)
     } catch (error) {
         desbloquearFormulario("registro")
@@ -405,6 +409,7 @@ async function entrarConGoogle(estado) {
 
     try {
         const { user } = estado === "registro" ? await registrarConGoogle() : await loginConGoogle()
+        rastrearEvento(estado === "registro" ? "registro" : "login", { method: "google" })
         await trasAutenticar(user)
     } catch (error) {
         desbloquearFormulario(estado)
@@ -424,6 +429,7 @@ async function entrarConFacebook(estado) {
 
     try {
         const { user } = await iniciarSesionConFacebook()
+        rastrearEvento("login", { method: "facebook" })
 
         // Si el correo de Facebook ya existe con otro proveedor, la credencial
         // quedó guardada en sessionStorage. Vincularla ahora que el usuario

@@ -40,6 +40,13 @@
     color: var(--text);
 }
 
+.error-404-mensaje {
+    margin: 0;
+    font-family: var(--font-primary);
+    font-size: 16px;
+    color: var(--textSecondary);
+}
+
 .error-404-enlace {
     display: inline-flex;
     align-items: center;

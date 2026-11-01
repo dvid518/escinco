@@ -69,18 +69,19 @@
     color: var(--text);
     border-radius: 30px;
     --blur-frosted: 14px;
+    /* El velo y el difuminado los aporta .glass; aquí solo se fija el nivel.
+       Sin borde ni glow en reposo, igual que antes de llevar .glass. */
+    --glow: none;
+    border: 0;
     --acento: var(--textSecondary);
     --duracion: 3000ms;
     background-color: var(--glass-frosted);
-    -webkit-backdrop-filter: blur(var(--blur-frosted));
-    backdrop-filter: blur(var(--blur-frosted));
     opacity: 0;
     transform: translateY(-16px);
     transition: all 0.3s ease;
 }
 
 .notificacion:hover {
-    --glow: inset 0 0 24px var(--shadow);
     border: 1px solid var(--border);
 }
 

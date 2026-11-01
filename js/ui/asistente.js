@@ -1,0 +1,157 @@
+import { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } from "./modal.js"
+import { mostrarNotificacion } from "./notificaciones.js"
+import { pintarTextoEnriquecido } from "./textoEnriquecido.js"
+import { preguntarAsistente, asistenteDisponible } from "../services/IaServicio.js"
+import { obtenerContextoAsistente } from "../services/ContextoServicio.js"
+import { sesion } from "../core/sesion.js"
+import { getPaginaActual } from "../core/router.js"
+
+// ============================================
+// drov · VENTANA DE CHAT
+// ============================================
+// El historial vive en memoria: se conserva mientras la pestaña esté abierta y
+// se pierde al recargar. El servicio no guarda nada en Firestore.
+
+const BIENVENIDA = "Hola. Soy <strong>drov</strong>, el asistente de <strong>escinco.</strong> Puedo ayudarte a encontrar una función, entender un concepto o resolver dudas sobre la app. ¿Qué necesitas?"
+
+let historial = []
+
+/**
+ * Abre (o cierra, si ya está abierto) la ventana del asistente.
+ */
+export async function abrirAsistente() {
+    if (estaAbierto() && document.querySelector(".asistente")) {
+        cerrarModal()
+        return
+    }
+
+    const modalEl = abrirModal({
+        titulo: "drov",
+        variante: "asistente",
+        contenido: contenidoDesdeTemplate("tpl-asistente-panel"),
+        footerExtra: contenidoDesdeTemplate("tpl-asistente-form"),
+        cancelText: null,
+        confirmText: null
+    })
+
+    const registro = modalEl.querySelector(".asistente-mensajes")
+    const formulario = modalEl.querySelector(".asistente-form")
+    const entrada = modalEl.querySelector("#asistente-input")
+    const boton = modalEl.querySelector(".asistente-enviar")
+
+    if (!registro || !formulario || !entrada || !boton) {
+        console.error("[ERROR] El asistente no tiene el markup esperado")
+        return modalEl
+    }
+
+    if (historial.length === 0) {
+        historial.push({ rol: "model", texto: BIENVENIDA })
+    }
+
+    for (const mensaje of historial) {
+        agregarMensaje(registro, mensaje.rol, mensaje.texto)
+    }
+
+    const configurada = await asistenteDisponible()
+    if (!configurada) {
+        entrada.disabled = true
+        boton.disabled = true
+        entrada.placeholder = "drov no está disponible"
+        agregarMensaje(
+            registro,
+            "model",
+            "drov no está disponible en este servidor. En local, arranca \"npm run local\" y define GEMINI_API_KEY en .env.local.",
+            true
+        )
+    }
+
+    let enviando = false
+
+    async function enviar() {
+        if (enviando || !configurada) return
+
+        const texto = entrada.value.trim()
+        if (!texto) return
+
+        entrada.value = ""
+        enviando = true
+        entrada.disabled = true
+        boton.disabled = true
+        registro.setAttribute("aria-busy", "true")
+
+        agregarMensaje(registro, "user", texto)
+        historial.push({ rol: "user", texto })
+
+        const indicador = agregarEscribiendo(registro)
+
+        try {
+            const contexto = await obtenerContextoAsistente(sesion.uid)
+            const respuesta = await preguntarAsistente(historial, {
+                nombre: sesion.nombre,
+                pagina: getPaginaActual(),
+                contexto
+            })
+            indicador?.remove()
+            historial.push({ rol: "model", texto: respuesta })
+            agregarMensaje(registro, "model", respuesta)
+        } catch (error) {
+            indicador?.remove()
+            const mensaje = error?.message || "No se pudo obtener respuesta del asistente."
+            agregarMensaje(registro, "model", mensaje, true)
+            mostrarNotificacion("error", mensaje)
+        } finally {
+            enviando = false
+            entrada.disabled = false
+            boton.disabled = entrada.value.trim() === ""
+            registro.removeAttribute("aria-busy")
+            entrada.focus()
+        }
+    }
+
+    formulario.addEventListener("submit", evento => {
+        evento.preventDefault()
+        enviar()
+    })
+
+    entrada.addEventListener("keydown", evento => {
+        if (evento.key === "Enter" && !evento.shiftKey) {
+            evento.preventDefault()
+            enviar()
+        }
+    })
+
+    entrada.addEventListener("input", () => {
+        boton.disabled = entrada.value.trim() === ""
+    })
+    boton.disabled = entrada.value.trim() === ""
+
+    entrada.focus()
+
+    return modalEl
+}
+
+function agregarMensaje(registro, rol, texto, esError = false) {
+    const fragmento = contenidoDesdeTemplate("tpl-asistente-mensaje")
+    const mensaje = fragmento.firstElementChild
+
+    if (mensaje) {
+        mensaje.classList.add(rol === "user" ? "asistente-mensaje-usuario" : "asistente-mensaje-ia")
+        if (esError) mensaje.classList.add("asistente-mensaje-error")
+        pintarTextoEnriquecido(mensaje.querySelector(".asistente-texto"), texto)
+    }
+
+    registro.appendChild(fragmento)
+    registro.scrollTop = registro.scrollHeight
+
+    return mensaje
+}
+
+function agregarEscribiendo(registro) {
+    const fragmento = contenidoDesdeTemplate("tpl-asistente-escribiendo")
+    const indicador = fragmento.firstElementChild
+
+    registro.appendChild(fragmento)
+    registro.scrollTop = registro.scrollHeight
+
+    return indicador
+}

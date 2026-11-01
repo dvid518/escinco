@@ -91,6 +91,13 @@ const ITEM_BUSCAR = `
     </div>
 `
 
+const ITEM_ASISTENTE = `
+    <div class="item glass" data-accion="asistente" role="button" tabindex="0">
+        <span class="glass">drov</span>
+        ${icono("sparkles", 20)}
+    </div>
+`
+
 const ITEM_NOTIFICACIONES = `
     <div class="item glass" data-accion="notificaciones" role="button" tabindex="0">
         <span class="glass">Notificaciones</span>
@@ -112,7 +119,7 @@ const ITEM_CERRAR_SESION = `
     </div>
 `
 
-const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_PRESUPUESTOS}${ITEM_BUSCAR}${ITEM_NOTIFICACIONES}</div>`
+const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_PRESUPUESTOS}${ITEM_BUSCAR}${ITEM_ASISTENTE}${ITEM_NOTIFICACIONES}</div>`
 
 // Mapa de lastbars por página.
 // El botón de tema SOLO aparece en el dashboard.
@@ -410,6 +417,11 @@ const MAPA_ACCIONES = {
     "notificaciones": async () => {
         const { abrirCentroNotificaciones } = await import("../ui/notificaciones.js")
         await abrirCentroNotificaciones()
+    },
+
+    "asistente": async () => {
+        const { abrirAsistente } = await import("../ui/asistente.js")
+        await abrirAsistente()
     },
 
     "cerrar-sesion": async () => {

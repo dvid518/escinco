@@ -93,17 +93,8 @@ export default async function ejecutar(t) {
             !desact("editar-movimiento") && !desact("eliminar-movimiento") && !desact("etiquetar-movimiento"))
     }
     {
-        const { ctx, desact } = crearLastbarFalsa(new Set(["f1"]), FAVS)
-        ctx.actualizarEstadoLastbar()
-        t.check("1 favorito: editar ACTIVO (edita el favorito)",
-            desact("editar-movimiento") === false)
-        t.check("1 favorito: eliminar ACTIVO", desact("eliminar-movimiento") === false)
-        t.check("1 favorito: etiquetar también activo (siempre lo está)",
-            desact("etiquetar-movimiento") === false)
-    }
-    {
         // El botón Etiquetar va siempre activo, con selección o sin ella.
-        for (const [nombre, sel] of [["sin selección", new Set()], ["con favoritos", new Set(["f1"])], ["con movimientos", new Set(["m1"])]]) {
+        for (const [nombre, sel] of [["sin selección", new Set()], ["con movimientos", new Set(["m1"])]]) {
             const { ctx, desact } = crearLastbarFalsa(sel, FAVS)
             if (nombre === "con movimientos") ctx.seleccionados = new Set(["m1"])
             ctx.actualizarEstadoLastbar()
@@ -111,140 +102,72 @@ export default async function ejecutar(t) {
         }
     }
     {
-        const { ctx, desact } = crearLastbarFalsa(new Set(["f1", "f2"]), FAVS)
+        const { ctx, desact } = crearLastbarFalsa(new Set(), FAVS)
+        ctx.seleccionados = new Set(["m1", "m2"])
         ctx.actualizarEstadoLastbar()
-        t.check("2 favoritos: editar DESACTIVO (solo se edita de a uno)",
+        t.check("2 movimientos: editar DESACTIVO (solo se edita de a uno)",
             desact("editar-movimiento") === true)
-        t.check("2 favoritos: eliminar sigue activo", desact("eliminar-movimiento") === false)
+        t.check("2 movimientos: eliminar sigue activo", desact("eliminar-movimiento") === false)
     }
 
-    console.log("\nD) El botón Editar edita la PLANTILLA del favorito")
-    {
-        const abiertas = []
-        const ctx = correrCon(srcMov, "editarSeleccionados", {}, [
-            "var seleccionadosFavoritos = new Set(['f1'])",
-            "var seleccionados = new Set()",
-            "var movimientos = []",
-            "var limpios = 0",
-            "async function editarPlantillaFavoritoDesdeItem(id){ abiertas.push(id) }",
-            "function limpiarSeleccion(){ limpios++ }",
-            "function abrirFormularioMovimiento(){}"
-        ])
-        ctx.abiertas = abiertas
-        await ctx.editarSeleccionados()
-        t.check("edita el favorito marcado", abiertas.length === 1 && abiertas[0] === "f1", JSON.stringify(abiertas))
-    }
-    {
-        const abiertas = []
-        const ctx = correrCon(srcMov, "editarSeleccionados", {}, [
-            "var seleccionadosFavoritos = new Set(['f1','f2'])",
-            "var seleccionados = new Set()",
-            "var movimientos = []",
-            "function limpiarSeleccion(){}",
-            "async function editarPlantillaFavoritoDesdeItem(id){ abiertas.push(id) }",
-            "function abrirFormularioMovimiento(){ abiertas.push('mov') }"
-        ])
-        ctx.abiertas = abiertas
-        await ctx.editarSeleccionados()
-        t.check("con 2 favoritos no abre nada (queda deseleccionado)",
-            abiertas.length === 0, JSON.stringify(abiertas))
-    }
+    console.log("\nD) El botón Editar edita el movimiento seleccionado")
     {
         const abiertas = []
         const ctx = correrCon(srcMov, "editarSeleccionados", {}, [
             "var seleccionadosFavoritos = new Set()",
             "var seleccionados = new Set(['m1'])",
+            "var sel = { ids: seleccionados, orden: [] }",
             "var movimientos = [{ id: 'm1', tipo: 'gasto' }]",
-            "function limpiarSeleccion(){}",
-            "async function editarPlantillaFavoritoDesdeItem(id){ abiertas.push(id) }",
+            "function limpiarSeleccionHelper(){}",
+            "function actualizarSeleccionEnDOM(){}",
+            "function actualizarEstadoLastbar(){}",
             "function abrirFormularioMovimiento(tipo){ abiertas.push(tipo) }"
         ])
         ctx.abiertas = abiertas
         await ctx.editarSeleccionados()
-        t.check("sin favoritos, edita el movimiento como siempre",
-            abiertas.length === 1 && abiertas[0] === "gasto", JSON.stringify(abiertas))
+        t.check("edita el movimiento marcado", abiertas.length === 1 && abiertas[0] === "gasto", JSON.stringify(abiertas))
+    }
+    {
+        const abiertas = []
+        const ctx = correrCon(srcMov, "editarSeleccionados", {}, [
+            "var seleccionadosFavoritos = new Set()",
+            "var seleccionados = new Set(['m1','m2'])",
+            "var movimientos = []",
+            "function limpiarSeleccion(){}",
+            "function abrirFormularioMovimiento(){ abiertas.push('mov') }"
+        ])
+        ctx.abiertas = abiertas
+        await ctx.editarSeleccionados()
+        t.check("con 2 movimientos no abre nada (queda deseleccionado)",
+            abiertas.length === 0, JSON.stringify(abiertas))
     }
 
-    console.log("\nD2) Editar el favorito no crea movimientos")
-    {
-        const ctx = correrCon(srcMov, "editarPlantillaFavoritoDesdeItem", {}, [
-            "var favoritosCache = [{ id: 'f1', nombre: 'Café', tipo: 'gasto', cuenta: 'c1', monto: -5, divisa: 'pen', etiquetas: ['ocio'] }]",
-            "var uid = 'u1'",
-            "var guardados = [], pintados = 0, avisos = [], abierta = null",
-            "function limpiarSeleccionFavoritos(){}",
-            "function mostrarNotificacion(tipo, texto){ avisos.push(texto) }",
-            "async function editarPlantillaFavorito(u, f, datos){ guardados.push({ f, datos }) }",
-            "async function renderFavoritos(u){ pintados++ }",
-            "async function abrirFormularioMovimiento(tipo, mov, opciones){ abierta = opciones }"
-        ])
-        await ctx.editarPlantillaFavoritoDesdeItem("f1")
-        const op = ctx.abierta
-        t.check("abre el formulario con el campo de nombre", op?.nombreFavorito === true)
-        t.check("precarga la plantilla", op?.valores?.favoritoNombre === "Café" && op?.valores?.monto === -5,
-            JSON.stringify(op?.valores))
-        t.check("no se pasa favoritoId (no crea una instancia vinculada)", !op?.favoritoId)
-        const datos = { cuenta: "c1", monto: -8, divisa: "pen", concepto: "café bueno", etiquetas: ["ocio", "ahorro"] }
-        await op.alConfirmar(datos, { querySelector: sel => sel === "#campo-favoritoNombre" ? { value: "Café bueno" } : null })
-        t.check("guarda la plantilla con el nombre del campo",
-            ctx.guardados.length === 1 && ctx.guardados[0].datos.nombre === "Café bueno" && ctx.guardados[0].datos.monto === -8,
-            JSON.stringify(ctx.guardados))
-        t.check("avisa y repinta los favoritos", ctx.pintados === 1 && ctx.avisos[0] === "Favorito actualizado")
-    }
-    {
-        // Un pago con tarjeta no pide cuenta en el formulario: si se perdiera,
-        // la plantilla se quedaría sin ella.
-        const ctx = correrCon(srcMov, "editarPlantillaFavoritoDesdeItem", {}, [
-            "var favoritosCache = [{ id: 'f2', nombre: 'Visa', tipo: 'compraTarjeta', cuenta: 'c9', monto: 70, divisa: 'pen', etiquetas: [] }]",
-            "var uid = 'u1'",
-            "var guardados = [], pintados = 0, avisos = [], abierta = null",
-            "function limpiarSeleccionFavoritos(){}",
-            "function mostrarNotificacion(){}",
-            "async function editarPlantillaFavorito(u, f, datos){ guardados.push(datos) }",
-            "async function renderFavoritos(){}",
-            "async function abrirFormularioMovimiento(tipo, mov, opciones){ abierta = opciones }"
-        ])
-        await ctx.editarPlantillaFavoritoDesdeItem("f2")
-        await ctx.abierta.alConfirmar({ cuenta: "", monto: 90, divisa: "pen", concepto: "", etiquetas: [] }, { querySelector: () => null })
-        t.check("sin campo de cuenta, conserva la que tenía la plantilla",
-            ctx.guardados[0].cuenta === "c9" && ctx.guardados[0].monto === 90,
-            JSON.stringify(ctx.guardados[0]))
-    }
-    {
-        // El toque simple es lo que crea una instancia: no debe pasar por la
-        // edición de plantilla ni perder los datos del favorito.
-        const src = codigo(/async function abrirFormularioConFavorito[\s\S]*?\n    \}/.exec(srcMov)[0])
-        t.check("el toque simple precarga con `valores` (no `valoresIniciales`)",
-            /\bvalores:/.test(src) && !/valoresIniciales/.test(src),
-            src.replace(/\s+/g, " ").slice(0, 110))
-        t.check("y sí crea una instancia vinculada", /favoritoId: favorito\.id/.test(src))
-    }
-
-    console.log("\nE) El botón Eliminar es dual")
+    console.log("\nE) El botón Eliminar borra los movimientos seleccionados")
     {
         const ctx = correrCon(srcMov, "eliminarSeleccionados", {}, [
-            "var seleccionadosFavoritos = new Set(['f1'])",
+            "var seleccionadosFavoritos = new Set()",
             "var seleccionados = new Set()",
-            "var borradosFav = 0, borradosMov = 0",
-            "async function eliminarSeleccionadosFavoritos(){ borradosFav++ }",
+            "var borradosMov = 0",
             "function abrirModalEliminarVarios(){ borradosMov++ }"
         ])
         await ctx.eliminarSeleccionados()
-        t.check("con favoritos borra los favoritos", ctx.borradosFav === 1, String(ctx.borradosFav))
-        t.check("y no toca movimientos", ctx.borradosMov === 0, String(ctx.borradosMov))
+        t.check("sin selección no borra nada", ctx.borradosMov === 0, String(ctx.borradosMov))
     }
     {
         const ctx = correrCon(srcMov, "eliminarSeleccionados", {}, [
             "var seleccionadosFavoritos = new Set()",
             "var seleccionados = new Set(['m1'])",
+            "var sel = { ids: seleccionados, orden: [] }",
             "var movimientos = [{ id: 'm1' }]",
-            "var borradosFav = 0, borradosMov = 0",
-            "async function eliminarSeleccionadosFavoritos(){ borradosFav++ }",
-            "function limpiarSeleccion(){}",
+            "var borradosMov = 0",
+            "function limpiarSeleccionHelper(){}",
+            "function actualizarSeleccionEnDOM(){}",
+            "function actualizarEstadoLastbar(){}",
             "function abrirModalEliminarVarios(l){ borradosMov = l.length }"
         ])
         await ctx.eliminarSeleccionados()
-        t.check("sin favoritos borra movimientos como antes",
-            ctx.borradosMov === 1 && ctx.borradosFav === 0, `mov=${ctx.borradosMov} fav=${ctx.borradosFav}`)
+        t.check("borra los movimientos seleccionados",
+            ctx.borradosMov === 1, String(ctx.borradosMov))
     }
 
     console.log("\nF) Ejecutar sigue funcionando (doble click en el contenedor)")
@@ -263,8 +186,8 @@ export default async function ejecutar(t) {
 
     console.log("\nG) La card de una cuenta no lleva el botón de favoritos")
     const cuentas = leer("js/pages/cuentas.js")
-    const usos = [...cuentas.matchAll(/contenidoDesdeFilas\("tpl-movimiento-card"/g)]
-    const filtrados = [...cuentas.matchAll(/sinBotonFavorito\(\s*contenidoDesdeFilas\("tpl-movimiento-card"/g)]
+    const usos = [...cuentas.matchAll(/contenidoDesdeFilas\("tpl-movimiento-item"/g)]
+    const filtrados = [...cuentas.matchAll(/sinBotonFavorito\(\s*contenidoDesdeFilas\("tpl-movimiento-item"/g)]
     t.check("cuentas.js usa la card de movimientos", usos.length === 2, String(usos.length))
     t.check("los 2 usos pasan por sinBotonFavorito()", filtrados.length === 2, String(filtrados.length))
 

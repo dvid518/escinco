@@ -332,13 +332,16 @@ export function startInactivityTimer() {
 // cerrarAlCerrarPestana = true  → sessionStorage (memoria de pestaña)
 // cerrarAlCerrarPestana = false → localStorage
 //
-// DESHABILITADO temporalmente: setPersistence con browser*Persistence usa
-// IndexedDB, que en algunos entornos de hosting deja al cliente de Firebase
-// en estado "offline" permanente ("Failed to get document because the
-// client is offline"). Hasta identificar la causa raíz, se omite la llamada
-// a setPersistence y Firebase usa su persistencia en memoria por defecto.
+// Se aplica realmente mediante setPersistence de Firebase Auth:
+// - sessionStorage: la sesión muere al cerrar la pestaña/ventana.
+// - localStorage:  la sesión sobrevive al cerrar la pestaña.
+// La llamada es idempotente y segura tras el login: afecta a la sesión actual
+// y a futuras sesiones en este navegador.
 export async function aplicarPersistenciaSesion(cerrarAlCerrarPestana = true) {
-    // setPersistence(auth, persistencia) ← omitido a propósito
+    const persistencia = cerrarAlCerrarPestana
+        ? browserSessionPersistence
+        : browserLocalPersistence
+    await setPersistence(auth, persistencia)
     return true
 }
 

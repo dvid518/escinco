@@ -765,6 +765,9 @@ option {
     transition: all 0.3s ease;
 }
 
+/* Único sitio que declara el difuminado de fondo. Cualquier superficie que
+   quiera ese efecto lleva la clase .glass y, si necesita otro nivel, solo
+   redefine --blur-frosted en su propia regla. */
 .glass {
     --glow: 0 2px 16px rgba(0, 0, 0, 0.025), 0 4px 5px rgba(0, 0, 0, 0.025);
     --blur-frosted: 10px;

@@ -18,7 +18,7 @@ import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable,
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { expandirSeleccion } from "../ui/seleccion.js"
+import { crearSeleccion, alternarSeleccion, seleccionarRango, seleccionarTodos, limpiarSeleccion as limpiarSeleccionHelper, expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
@@ -44,6 +44,7 @@ let favoritosCache = []
 let favoritoPressTimer = null
 let favoritoClickTimer = null
 const ordenSeleccion = []
+const sel = { ids: seleccionados, orden: ordenSeleccion }
 let clickTimer = null
 let supresorClick = false
 let supresorClickTimer = null
@@ -535,7 +536,9 @@ async function cargarMovimientos() {
     try {
         movimientos = await obtenerMovimientos(uid)
         movimientos.sort(compararMovimientosPorFecha)
-        limpiarSeleccion()
+        limpiarSeleccionHelper(sel)
+        actualizarSeleccionEnDOM()
+        actualizarEstadoLastbar()
         actualizarOpcionesEtiquetas()
         aplicarFiltro()
         await renderFavoritos(uid)
@@ -717,14 +720,14 @@ function modoUnClickSeleccion() {
 // selección con ese movimiento; Shift + click añade o quita de la selección.
 function seleccionarPorUnClick(id, conShift) {
     if (conShift) {
-        toggleSeleccion(id)
+        alternarSeleccion(sel, id)
+        actualizarSeleccionEnDOM()
+        actualizarEstadoLastbar()
         return
     }
     if (seleccionados.size === 1 && seleccionados.has(id)) return
-    seleccionados.clear()
-    ordenSeleccion.length = 0
-    seleccionados.add(id)
-    ordenSeleccion.push(id)
+    limpiarSeleccionHelper(sel)
+    alternarSeleccion(sel, id)
     actualizarSeleccionEnDOM()
     actualizarEstadoLastbar()
 }
@@ -808,34 +811,17 @@ async function manejarClickCard(evento) {
 
     const id = card.dataset.movimientoId
 
-    if (evento.shiftKey && expandirSeleccion(movimientos.map(m => m.id), id, seleccionados, ordenSeleccion)) {
+    // Shift + click: seleccionar rango (reemplaza la selección actual).
+    if (evento.shiftKey && seleccionarRango(sel, movimientos.map(m => m.id), id)) {
         actualizarSeleccionEnDOM()
         actualizarEstadoLastbar()
         return
     }
 
-    // Modo "un click para seleccionar": el click selecciona de inmediato.
-    if (modoUnClickSeleccion()) {
-        seleccionarPorUnClick(id, evento.shiftKey)
-        return
-    }
-
-    // Comportamiento clásico: con selección activa, un click la alterna;
-    // si no, un click simple abre el detalle del movimiento.
-    if (seleccionados.size > 0) {
-        toggleSeleccion(id)
-        return
-    }
-
-    if (clickTimer) {
-        clearTimeout(clickTimer)
-        clickTimer = null
-    }
-
-    clickTimer = setTimeout(() => {
-        clickTimer = null
-        if (seleccionados.size === 0) abrirDetalleMovimiento(id)
-    }, 280)
+    // Click simple o Ctrl/Cmd + click: alternar la card clickeada.
+    alternarSeleccion(sel, id)
+    actualizarSeleccionEnDOM()
+    actualizarEstadoLastbar()
 }
 
 function manejarDobleClickCard(evento) {
@@ -846,13 +832,8 @@ function manejarDobleClickCard(evento) {
         clearTimeout(clickTimer)
         clickTimer = null
     }
-    // Con la opción activa el click ya selecciona; el doble click abre el detalle.
-    if (modoUnClickSeleccion()) {
-        limpiarSeleccion()
-        abrirDetalleMovimiento(card.dataset.movimientoId)
-        return
-    }
-    toggleSeleccion(card.dataset.movimientoId)
+    // Doble click siempre abre el detalle (D3).
+    abrirDetalleMovimiento(card.dataset.movimientoId)
 }
 
 function manejarClickFueraCards(evento) {
@@ -861,7 +842,9 @@ function manejarClickFueraCards(evento) {
     if (evento.target.closest("#app-footer")) return
     if (evento.target.closest(".modal-overlay")) return
     ocultarAccionesCards()
-    limpiarSeleccion()
+    limpiarSeleccionHelper(sel)
+    actualizarSeleccionEnDOM()
+    actualizarEstadoLastbar()
 }
 
 function manejarTecladoSeleccion(evento) {
@@ -871,8 +854,19 @@ function manejarTecladoSeleccion(evento) {
     if (evento.key === "Escape") {
         if (seleccionados.size > 0) {
             ocultarAccionesCards()
-            limpiarSeleccion()
+            limpiarSeleccionHelper(sel)
+            actualizarSeleccionEnDOM()
+            actualizarEstadoLastbar()
         }
+        return
+    }
+
+    // Ctrl + A: seleccionar todos los visibles
+    if (evento.key === "a" && (evento.ctrlKey || evento.metaKey)) {
+        evento.preventDefault()
+        seleccionarTodos(sel, movimientos.map(m => m.id))
+        actualizarSeleccionEnDOM()
+        actualizarEstadoLastbar()
         return
     }
 
@@ -880,7 +874,7 @@ function manejarTecladoSeleccion(evento) {
     if (evento.target.matches("input, textarea, select")) return
     if (seleccionados.size === 0) return
     evento.preventDefault()
-    deseleccionarUltimo()
+    eliminarSeleccionados()
 }
 
 function vincularGestosCard(container) {
@@ -917,8 +911,12 @@ function vincularGestosCard(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccion(card.dataset.movimientoId)
-            marcarSupresorClick()
+            if (!seleccionados.has(card.dataset.movimientoId)) {
+                alternarSeleccion(sel, card.dataset.movimientoId)
+                actualizarSeleccionEnDOM()
+                actualizarEstadoLastbar()
+                marcarSupresorClick()
+            }
             cancelar()
         }, duracion)
     })
@@ -1801,38 +1799,6 @@ async function manejarAccionDetalle(accion, m, modalEl) {
 // Escape o un click fuera de la lista limpian la selección.
 // Suprimir/Delete quita el último movimiento seleccionado.
 
-function toggleSeleccion(id) {
-    if (seleccionados.has(id)) {
-        seleccionados.delete(id)
-        const indice = ordenSeleccion.indexOf(id)
-        if (indice !== -1) ordenSeleccion.splice(indice, 1)
-    } else {
-        seleccionados.add(id)
-        if (!ordenSeleccion.includes(id)) ordenSeleccion.push(id)
-    }
-    actualizarSeleccionEnDOM()
-    actualizarEstadoLastbar()
-}
-
-function deseleccionarUltimo() {
-    const id = ordenSeleccion.pop()
-    if (!id) return
-    seleccionados.delete(id)
-    actualizarSeleccionEnDOM()
-    actualizarEstadoLastbar()
-}
-
-function limpiarSeleccion() {
-    if (seleccionados.size === 0) {
-        actualizarEstadoLastbar()
-        return
-    }
-    seleccionados.clear()
-    ordenSeleccion.length = 0
-    actualizarSeleccionEnDOM()
-    actualizarEstadoLastbar()
-}
-
 function actualizarSeleccionEnDOM() {
     document.querySelectorAll(".movimiento-item").forEach(card => {
         card.classList.toggle("seleccionado", seleccionados.has(card.dataset.movimientoId))
@@ -1862,6 +1828,10 @@ function actualizarEstadoLastbar() {
     })
 }
 
+export function haySeleccionActiva() {
+    return seleccionados.size > 0
+}
+
 export async function editarSeleccionados() {
     // Editar sirve para los dos tipos de selección. Si hay favoritos
     // marcados mandan ellos; el botón queda desactivo con más de uno, así que
@@ -1878,7 +1848,9 @@ export async function editarSeleccionados() {
     const movimiento = movimientos.find(m => m.id === id)
     if (!movimiento) return
 
-    limpiarSeleccion()
+    limpiarSeleccionHelper(sel)
+    actualizarSeleccionEnDOM()
+    actualizarEstadoLastbar()
     abrirFormularioMovimiento(movimiento.tipo, movimiento)
 }
 
@@ -1897,7 +1869,9 @@ export async function eliminarSeleccionados() {
         .map(id => movimientos.find(m => m.id === id))
         .filter(Boolean)
 
-    limpiarSeleccion()
+    limpiarSeleccionHelper(sel)
+    actualizarSeleccionEnDOM()
+    actualizarEstadoLastbar()
     abrirModalEliminarVarios(lista)
 }
 
@@ -1983,7 +1957,9 @@ async function abrirModalEtiquetarMasivo(lista) {
                 }))
                 await aplicarEtiquetasEnLote(uidSesion, cambios)
                 await cargarMovimientos()
-                limpiarSeleccion()
+                limpiarSeleccionHelper(sel)
+                actualizarSeleccionEnDOM()
+                actualizarEstadoLastbar()
                 ofrecerDeshacer({
                     mensaje: `Etiquetas aplicadas a ${lista.length} movimiento(s). ¿Deshacer?`,
                     restaurar: () => aplicarEtiquetasEnLote(uidSesion, originales),

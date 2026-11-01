@@ -1,5 +1,6 @@
 import { icono } from "../core/iconos.js"
 import { sesion } from "../core/sesion.js"
+import { haySeleccionActiva } from "../pages/movimientos.js"
 import { contenidoDesdeTemplate } from "./modal.js"
 
 // ============================================
@@ -186,6 +187,7 @@ export function cerrarNotificacionMasAntigua() {
 
 document.addEventListener("keydown", (evento) => {
     if (evento.key !== "Delete" || evento.target.closest("input, textarea, select, [contenteditable='true']")) return
+    if (haySeleccionActiva()) return  // Dejar que movimientos maneje el borrado con confirmación
     cerrarNotificacionMasAntigua()
 })
 
