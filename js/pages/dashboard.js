@@ -817,13 +817,14 @@ function quitarCardDashboard(id) {
 }
 
 function prepararEdicionCardsDashboard() {
+    // [DEUDA TÉCNICA Proyecto Final] Drag & drop desactivado temporalmente con
+    // el cambio a Masonry (multi-column): `posicionDeInsercion()` asume orden
+    // por filas y no funciona con columnas. Se reactiva al adaptar el cálculo
+    // de columna por `left` + posición vertical dentro de cada columna.
     document.querySelectorAll(".dashboard [data-dashboard-card]").forEach(card => {
         const id = card.dataset.dashboardCard
-        if (id === "patrimonio") {
-            card.draggable = false
-            return
-        }
-        card.draggable = true
+        card.draggable = false
+        if (id === "patrimonio") return
         const controlesExistentes = card.querySelector(".dashboard-card-edicion")
         if (controlesExistentes) {
             controlesExistentes.querySelector("[data-dashboard-drag-handle]")?.removeAttribute("draggable")
@@ -2569,6 +2570,10 @@ async function dibujarDonaDistribucion(items) {
         canvas.id = "distribucion-dona"
         contenedor.appendChild(canvas)
     }
+
+    // `limpiarEsqueletosDashboard()` puede borrar el placeholder mientras
+    // esperamos a que cargue Chart.js. Verificar que el canvas sigue vivo.
+    if (!document.getElementById("distribucion-dona")) return
 
     await crearGraficoDistribucion("distribucion-dona", {
         labels: items.map(item => item.label),
