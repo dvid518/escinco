@@ -95,7 +95,6 @@ const DASHBOARD_CARDS = [
     { id: "balance-periodo", label: "Balance" },
     { id: "deudas", label: "Deudas" },
     { id: "distribucion", label: "Distribución patrimonial" },
-    { id: "distribucion-activos", label: "Distribución por tipo de activo" },
     { id: "patrimonio-divisa", label: "Patrimonio por divisa" },
     { id: "programados", label: "Movimientos programados" },
     { id: "alertas", label: "Alertas" },
@@ -2369,10 +2368,16 @@ async function obtenerPatrimonioStats() {
 }
 
 async function actualizarCuentas() {
-    const stats = await obtenerPatrimonioStats()
+    let stats
+    try {
+        stats = await obtenerPatrimonioStats()
+    } catch (error) {
+        console.error("Error cargando cuentas:", error)
+        stats = { totalCuentas: 0 }
+    }
 
     const totalEl = document.getElementById("total-cuentas")
-    if (totalEl) totalEl.replaceChildren(document.createTextNode(stats.totalCuentas))
+    if (totalEl) totalEl.replaceChildren(document.createTextNode(stats.totalCuentas ?? 0))
 
     const detalleEl = document.getElementById("patrimonio-detalle")
     if (detalleEl) {
