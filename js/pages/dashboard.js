@@ -2818,7 +2818,10 @@ const CLASES_TIPO_ACTIVO = {
 
 function actualizarDistribucionActivos() {
     const lista = document.getElementById("distribucion-activos-lista")
+    const dona = document.getElementById("distribucion-activos-dona-placeholder")
     if (!lista) return
+
+    if (dona) dona.replaceChildren()
 
     if (!posicionesData || posicionesData.length === 0) {
         lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
