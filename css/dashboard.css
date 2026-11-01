@@ -131,7 +131,11 @@
 }
 
 .dashboard-card-arrastrando {
-    opacity: 0.5;
+    opacity: 0.6;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px var(--shadow);
+    cursor: grabbing;
+    z-index: 100;
 }
 
 /* Las cards se desplazan con transición al reordenar: el masonry las
@@ -140,10 +144,7 @@
     transition: transform 0.22s ease, opacity 0.22s ease;
 }
 
-/* Línea que marca en qué hueco caerá la card que se arrastra. Va como hermano
-   dentro de la columna del masonry, con el ancho de la columna, para que se
-   lea como "aquí" y no como un borde pegado a una card. Aparece con
-   transición en vez de golpe seco. */
+/* Línea de inserción: aparece con fade suave en vez de golpe seco. */
 .dashboard-card-insercion {
     display: block;
     height: 3px;
@@ -154,11 +155,46 @@
     pointer-events: none;
     opacity: 0;
     transform: scaleY(0.4);
-    animation: insercion-entra 0.22s ease forwards;
+    transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-@keyframes insercion-entra {
-    to { opacity: 1; transform: scaleY(1); }
+.dashboard-card-insercion.visible {
+    opacity: 1;
+    transform: scaleY(1);
+}
+
+/* Animación de encaje al soltar la card en su nueva posición. */
+.dashboard-card.encajando {
+    animation: encajar 0.2s ease-out;
+}
+
+@keyframes encajar {
+    0% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .dashboard-card-arrastrando {
+        transition: none !important;
+        animation: none !important;
+    }
+    .dashboard-column [data-dashboard-card] {
+        transition: none !important;
+    }
+    .dashboard-card-insercion {
+        transition: none !important;
+        animation: none !important;
+        opacity: 1 !important;
+        transform: scaleY(1) !important;
+    }
+    .dashboard-card-insercion.visible {
+        opacity: 1 !important;
+        transform: scaleY(1) !important;
+    }
+    .dashboard-card.encajando {
+        animation: none !important;
+        transform: scale(1) !important;
+    }
 }
 
 /* Entrada de tarjeta nueva: aparece con fade + translateY hacia arriba. */

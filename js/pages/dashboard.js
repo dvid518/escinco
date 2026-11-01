@@ -675,13 +675,13 @@ function cardsVisiblesEnOrden() {
 }
 
 /**
- * Índice de inserción para la posición del puntero: el número de cards
- * visibles que quedan por delante.
+ * Índice de inserción para la posición del puntero en un layout multi-column.
  *
- * El cálculo es directo sobre todas las cards (hijas directas del grid):
- *  1. Si el puntero está por encima de una card → va antes de esa card.
- *  2. Si está dentro de una card, por la mitad izquierda o superior → va antes.
- *  3. Si está por la mitad inferior derecha → se sigue buscando.
+ * Agrupa las cards visibles por columna (misma coordenada `left`) y, dentro
+ * de cada columna, las ordena por `top`. Detecta en qué columna está el
+ * puntero por su `clientX` y, dentro de esa columna, si se inserta antes o
+ * después de una card según su `clientY`.
+ *
  * @returns {number} de 0 (antes de la primera) a n (al final)
  */
 function posicionDeInsercion(evento) {
@@ -691,27 +691,78 @@ function posicionDeInsercion(evento) {
     const x = evento.clientX
     const y = evento.clientY
 
-    let insertar = cards.length
-    for (let i = 0; i < cards.length; i++) {
-        const caja = cards[i].getBoundingClientRect()
-        // Hueco entre cards: el puntero está por encima de esta → va ANTES de esta.
+    // Agrupar por columna: todas las cards que comparten el mismo `left`
+    const columnas = new Map()
+    cards.forEach(card => {
+        const caja = card.getBoundingClientRect()
+        const clave = Math.round(caja.left)
+        if (!columnas.has(clave)) columnas.set(clave, [])
+        columnas.get(clave).push({ card, caja })
+    })
+
+    // Ordenar columnas de izquierda a derecha
+    const clavesColumna = [...columnas.keys()].sort((a, b) => a - b)
+
+    // Encontrar la columna donde está el puntero
+    let columnaElegida = null
+    for (const clave of clavesColumna) {
+        const grupo = columnas.get(clave)
+        const primera = grupo[0].caja
+        // La columna abarca desde su left hasta left + width de su primera card
+        if (x >= primera.left && x < primera.left + primera.width) {
+            columnaElegida = clave
+            break
+        }
+    }
+
+    // Si no cayó en ninguna columna (p. ej. entre columnas), usar la más cercana por X
+    if (columnaElegida === null) {
+        let mejorDif = Infinity
+        for (const clave of clavesColumna) {
+            const caja = columnas.get(clave)[0].caja
+            const dif = Math.abs(x - (caja.left + caja.width / 2))
+            if (dif < mejorDif) {
+                mejorDif = dif
+                columnaElegida = clave
+            }
+        }
+    }
+
+    const grupo = columnas.get(columnaElegida)
+    // Ordenar cards de la columna por `top` (de arriba a abajo)
+    grupo.sort((a, b) => a.caja.top - b.caja.top)
+
+    // Dentro de la columna, buscar posición por Y
+    let indiceEnColumna = grupo.length
+    for (let i = 0; i < grupo.length; i++) {
+        const caja = grupo[i].caja
         if (y < caja.top) {
-            insertar = i
+            indiceEnColumna = i
             break
         }
         if (y >= caja.top && y <= caja.bottom) {
-            // Dentro de la card: la mitad vertical y la horizontal deciden.
-            const mitadX = caja.left + caja.width / 2
             const mitadY = caja.top + caja.height / 2
-            if (x < mitadX || y < mitadY) {
-                insertar = i
+            if (y < mitadY) {
+                indiceEnColumna = i
                 break
             }
-            // Mitad inferior derecha: va después, se sigue buscando.
-            continue
+            // Mitad inferior: va después, seguir buscando
         }
     }
-    return insertar
+
+    // Traducir índice de columna a índice en la lista plana de cards visibles
+    // (orden de lectura: columna por columna, de arriba a abajo)
+    let indicePlano = 0
+    for (const clave of clavesColumna) {
+        const g = columnas.get(clave)
+        if (clave === columnaElegida) {
+            indicePlano += indiceEnColumna
+            break
+        }
+        indicePlano += g.length
+    }
+
+    return indicePlano
 }
 
 /** Línea de inserción entre dos cards, para que se vea dónde va a caer. */
@@ -723,8 +774,7 @@ function marcarDestinoInsercion(evento) {
     const cards = cardsVisiblesEnOrden()
 
     // La card de patrimonio es la primera y fija: nunca se admite un hueco
-    // delante de ella. "Permitir la primera columna" es poder soltar a partir
-    // del segundo hueco, no mover lo que no se puede mover.
+    // delante de ella.
     if (cards[0]?.dataset.dashboardCard === "patrimonio" && posicion < 1) {
         limpiarDestinoInsercion()
         return
@@ -748,13 +798,20 @@ function marcarDestinoInsercion(evento) {
         if (!ultima) return
         ultima.parentElement.insertBefore(lineaInsercion, ultima.nextSibling)
     }
+
+    // Fade-in suave de la línea de inserción
+    requestAnimationFrame(() => lineaInsercion.classList.add("visible"))
     posicionInsercionActual = posicion
 }
 
 function limpiarDestinoInsercion() {
     if (!lineaInsercion) return
-    lineaInsercion.remove()
-    lineaInsercion = null
+    lineaInsercion.classList.remove("visible")
+    // Esperar a que termine el fade-out antes de remover el nodo
+    setTimeout(() => {
+        lineaInsercion.remove()
+        lineaInsercion = null
+    }, 150)
     posicionInsercionActual = -1
 }
 
@@ -829,17 +886,16 @@ async function quitarCardDashboard(id) {
 }
 
 function prepararEdicionCardsDashboard() {
-    // [DEUDA TÉCNICA Proyecto Final] Drag & drop desactivado temporalmente con
-    // el cambio a Masonry (multi-column): `posicionDeInsercion()` asume orden
-    // por filas y no funciona con columnas. Se reactiva al adaptar el cálculo
-    // de columna por `left` + posición vertical dentro de cada columna.
     document.querySelectorAll(".dashboard [data-dashboard-card]").forEach(card => {
         const id = card.dataset.dashboardCard
-        card.draggable = false
-        if (id === "patrimonio") return
+        if (id === "patrimonio") {
+            card.draggable = false
+            return
+        }
+        card.draggable = true
         const controlesExistentes = card.querySelector(".dashboard-card-edicion")
         if (controlesExistentes) {
-            controlesExistentes.querySelector("[data-dashboard-drag-handle]")?.removeAttribute("draggable")
+            controlesExistentes.querySelector("[data-dashboard-drag-handle]")?.setAttribute("draggable", "true")
             return
         }
         const controles = document.createElement("div")
@@ -859,7 +915,7 @@ function prepararEdicionCardsDashboard() {
 function desactivarEdicionCardsDashboard() {
     document.querySelectorAll(".dashboard [data-dashboard-card]").forEach(card => {
         card.draggable = false
-        card.classList.remove("dashboard-card-arrastrando")
+        card.classList.remove("dashboard-card-arrastrando", "encajando")
     })
     document.body.classList.remove("dashboard-card-dragging")
 }
@@ -925,7 +981,10 @@ grid.addEventListener("drop", (evento) => {
     })
 
 grid.addEventListener("dragend", (evento) => {
-        evento.target.closest("[data-dashboard-card]")?.classList.remove("dashboard-card-arrastrando")
+        const card = evento.target.closest("[data-dashboard-card]")
+        card?.classList.remove("dashboard-card-arrastrando")
+        card?.classList.add("encajando")
+        setTimeout(() => card?.classList.remove("encajando"), 200)
         document.body.classList.remove("dashboard-card-dragging")
         limpiarDestinoInsercion()
     })
