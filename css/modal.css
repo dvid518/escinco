@@ -798,16 +798,48 @@
     scrollbar-color: var(--border) transparent;
 }
 
-/* Difuminado solo cuando el contenido sobrepasa el flujo (se activa desde JS). */
-.asistente-mensajes.tiene-overflow {
+/* Difuminado superior: solo cuando hay scroll hacia arriba (scrollTop > 0) */
+.asistente-mensajes.fade-top {
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 15%,
+        black 100%
+    );
     mask-image: linear-gradient(
+        to bottom,
+        transparent 0%,
+        black 15%,
+        black 100%
+    );
+}
+
+/* Difuminado inferior: solo cuando no se llegó al final (scrollTop + clientHeight < scrollHeight) */
+.asistente-mensajes.fade-bottom {
+    -webkit-mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black 85%,
+        transparent 100%
+    );
+    mask-image: linear-gradient(
+        to bottom,
+        black 0%,
+        black 85%,
+        transparent 100%
+    );
+}
+
+/* Ambos difuminados a la vez */
+.asistente-mensajes.fade-both {
+    -webkit-mask-image: linear-gradient(
         to bottom,
         transparent 0%,
         black 12%,
         black 88%,
         transparent 100%
     );
-    -webkit-mask-image: linear-gradient(
+    mask-image: linear-gradient(
         to bottom,
         transparent 0%,
         black 12%,
@@ -834,6 +866,18 @@
     color: var(--text);
     font-size: 14px;
     line-height: 1.45;
+    animation: mensaje-entrada 0.35s ease-out;
+}
+
+@keyframes mensaje-entrada {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .asistente-mensaje-ia {
@@ -958,7 +1002,7 @@
 }
 
 .asistente-microfono.activo {
-    background: var(--positive);
+    background: var(--borderAlt);
     color: #ffffff;
     animation: asistente-microfono-pulso 1.5s ease-in-out infinite;
 }

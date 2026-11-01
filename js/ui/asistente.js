@@ -46,6 +46,8 @@ export async function abrirAsistente() {
         return modalEl
     }
 
+    registro.addEventListener("scroll", () => actualizarOverflow(registro))
+
     const voz = new VozServicio()
 
     if (!voz.soportado || !microfono) {
@@ -125,6 +127,10 @@ export async function abrirAsistente() {
         agregarMensaje(registro, "user", texto)
         historial.push({ rol: "user", texto })
 
+        // Pequeño delay para que el mensaje del usuario se asiente antes de mostrar "escribiendo"
+        await new Promise(resolver => setTimeout(resolver, 500))
+        if (!enviando) return
+
         const indicador = agregarEscribiendo(registro)
 
         try {
@@ -193,10 +199,19 @@ function agregarMensaje(registro, rol, texto, esError = false) {
 
 function actualizarOverflow(registro) {
     if (!registro) return
-    if (registro.scrollHeight > registro.clientHeight) {
-        registro.classList.add("tiene-overflow")
-    } else {
-        registro.classList.remove("tiene-overflow")
+
+    const { scrollTop, scrollHeight, clientHeight } = registro
+    const enTope = scrollTop <= 0
+    const enFondo = scrollTop + clientHeight >= scrollHeight - 1
+
+    registro.classList.remove("fade-top", "fade-bottom", "fade-both")
+
+    if (!enTope && !enFondo) {
+        registro.classList.add("fade-both")
+    } else if (!enTope) {
+        registro.classList.add("fade-top")
+    } else if (!enFondo) {
+        registro.classList.add("fade-bottom")
     }
 }
 
