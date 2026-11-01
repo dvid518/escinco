@@ -323,7 +323,7 @@ input[type="number"] {
     color: var(--text);
     font-family: var(--font-primary);
     font-size: 14px;
-    transition: all 0.3s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
     outline: none;
 }
 
@@ -331,6 +331,12 @@ input[type="number"] {
     background-color: var(--lightHover);
     border-color: var(--text);
     box-shadow: inset 0 0 10px var(--shadow);
+}
+
+.form-input:focus {
+    background-color: var(--lightHover);
+    border-color: var(--text);
+    box-shadow: inset 0 0 10px var(--shadow), 0 0 0 3px color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 .form-input::placeholder {
@@ -352,7 +358,7 @@ button {
     background-color: var(--surface);
     font-family: var(--font-primary);
     border: 1px solid transparent;
-    transition: all 0.3s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     padding: 8px 12px;
     cursor: pointer;
 }
@@ -371,7 +377,7 @@ select {
     background-color: var(--surface);
     font-family: var(--font-primary);
     border: 1px solid transparent;
-    transition: all 0.3s ease;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
     outline: none;
     padding: 8px 12px;
     cursor: pointer;
@@ -883,5 +889,46 @@ option {
     .skeleton-panel.info-derecha .skeleton-panel-list,
     .skeleton-panel.info-derecha .skeleton-panel-info {
         order: initial;
+    }
+}
+
+/* ============================================
+   VIEW TRANSITIONS
+   ============================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+    animation: view-transition-fade-out 0.25s ease both;
+}
+
+::view-transition-new(root) {
+    animation: view-transition-fade-in 0.25s ease both;
+}
+
+@keyframes view-transition-fade-out {
+    from { opacity: 1; }
+    to { opacity: 0; }
+}
+
+@keyframes view-transition-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* ============================================
+   REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        transition: none !important;
+        animation: none !important;
     }
 }

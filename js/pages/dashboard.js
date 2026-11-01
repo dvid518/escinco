@@ -333,6 +333,8 @@ function montarCardsInstanciadas() {
         if (montadas.has(id)) return
         const nodo = construirCardInstancia(id)
         if (!(nodo instanceof Element)) return
+        // Animación de entrada: aparece con fade + translateY.
+        nodo.classList.add("dashboard-card-entra")
         grid.appendChild(nodo)
         enlazarCardInstancia(nodo, id)
         montadas.set(id, nodo)
@@ -808,15 +810,19 @@ function moverCardDashboard(id, direccion) {
     reordenarDashboard()
 }
 
-function quitarCardDashboard(id) {
+async function quitarCardDashboard(id) {
     if (id === "patrimonio") return
     const indice = cardsOrdenDashboard.indexOf(id)
     if (indice >= 0) {
         cardsOrdenDashboard.splice(indice, 1)
-        // También quitar de cardsVisiblesDashboard si estaba ahí
         const idxVis = cardsVisiblesDashboard.indexOf(id)
         if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
-        document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)?.remove()
+        const card = document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
+        if (card) {
+            card.classList.add("dashboard-card-sale")
+            await new Promise(resolve => setTimeout(resolve, 200))
+            card.remove()
+        }
         cambiosPendientesDashboard = true
         reordenarDashboard()
     }

@@ -161,6 +161,38 @@
     to { opacity: 1; transform: scaleY(1); }
 }
 
+/* Entrada de tarjeta nueva: aparece con fade + translateY hacia arriba. */
+@keyframes tarjeta-entra {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.dashboard-card-entra {
+    animation: tarjeta-entra 0.2s ease forwards;
+}
+
+/* Salida de tarjeta: se desvanece antes de que el nodo sea removido del DOM. */
+@keyframes tarjeta-sale {
+    from {
+        opacity: 1;
+        transform: translateY(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+}
+
+.dashboard-card-sale {
+    animation: tarjeta-sale 0.2s ease forwards;
+}
+
 body.dashboard-card-dragging,
 body.dashboard-card-dragging * {
     cursor: grabbing !important;
@@ -224,7 +256,7 @@ body.dashboard-card-dragging * {
 
 /* Hover */
 .dashboard .card:hover {
-    transform: scale(1.01);
+    transform: translateY(-2px);
     border-color: var(--border);
     --glow: inset 0 0 10px var(--shadow);
 }

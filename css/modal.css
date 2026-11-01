@@ -345,7 +345,7 @@
     font-family: var(--font-primary);
     font-size: 14px;
     outline: none;
-    transition: all 0.3s ease;
+    transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .form-group .form-input:hover {
