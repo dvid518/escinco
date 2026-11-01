@@ -1016,16 +1016,17 @@
 
 .drov-permisos-btn {
     flex: none;
-    padding: 6px 12px;
+    padding: 5px 10px;
     border: 1px solid var(--border);
-    border-radius: 6px;
+    border-radius: 30px;
     background: var(--surface);
     color: var(--text);
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
     white-space: nowrap;
+    animation: mensaje-entrada 0.35s ease-out;
 }
 
 .drov-permisos-btn:hover:not(:disabled) {
@@ -1044,11 +1045,15 @@
 }
 
 .drov-permisos-btn.cancelar {
-    color: var(--textSecondary);
+    background: var(--background);
+    border-color: var(--negative);
+    color: var(--negative);
 }
 
 .drov-permisos-btn.cancelar:hover:not(:disabled) {
-    color: var(--text);
+    background: var(--negative);
+    border-color: var(--text);
+    color: var(--textAlt);
 }
 
 .asistente-microfono {
