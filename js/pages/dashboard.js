@@ -479,8 +479,8 @@ function pintarCardCuenta(cuenta, card) {
 
         const barraEl = card.querySelector(`#${prefijo}-barra`)
         if (barraEl) {
-            barraEl.style.width = `${Math.min(100, uso.porcentaje).toFixed(1)}%`
-            barraEl.className = uso.nivel
+            barraEl.style.setProperty("--barra-ancho", `${Math.min(100, uso.porcentaje).toFixed(1)}%`)
+            barraEl.className = "barra-progreso " + uso.nivel
         }
         const porcentajeEl = card.querySelector(`#${prefijo}-porcentaje`)
         if (porcentajeEl) {
@@ -2719,6 +2719,17 @@ async function dibujarDonaDistribucion(items) {
     })
 }
 
+/* Aplica el ancho de cada barra de distribución vía variable CSS
+   (el width vive en .distribucion-barra .barra-progreso). */
+function aplicoAnchoBarras(items) {
+    const barras = document.querySelectorAll(".distribucion-barra .barra-progreso")
+    barras.forEach((barra, i) => {
+        if (items[i]) {
+            barra.style.setProperty("--barra-ancho", items[i].porcentaje + "%")
+        }
+    })
+}
+
 function actualizarDistribucion() {
     const lista = document.getElementById("distribucion-lista")
     const totalEl = document.getElementById("distribucion-total")
@@ -2802,11 +2813,11 @@ function actualizarDistribucionActivos() {
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra@class": item.clase,
-            "barra@style": `width: ${Math.max(0, Math.min(100, item.porcentaje))}%`,
+            "barra@class": "barra barra-progreso " + item.clase,
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
+    aplicoAnchoBarras(items)
 }
 
 // ============================================
@@ -2870,12 +2881,15 @@ function actualizarPatrimonioDivisa() {
             valores: {
                 "etiqueta": item.etiqueta,
                 "porcentaje": `${porcentaje.toFixed(0)}%`,
-                "barra@class": item.clave,
-                "barra@style": `width: ${porcentaje}%`,
+                "barra@class": "barra barra-progreso " + item.clave,
                 "valor": formatearMontoConDivisa(item.valor, item.clave)
             }
         }
     }))
+    aplicoAnchoBarras(items.map((item, i) => ({
+        ...item,
+        porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
+    })))
 }
 
 function actualizarProgramados() {
