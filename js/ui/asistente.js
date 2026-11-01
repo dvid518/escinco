@@ -252,6 +252,15 @@ export async function abrirAsistente() {
         const alturaNatural = entrada.scrollHeight;
         const alturaFinal = Math.min(alturaNatural, 120);
         entrada.style.setProperty("--asistente-input-altura", alturaFinal + "px")
+
+        // El scroll solo aparece cuando el textarea alcanza su altura máxima
+        // y el usuario sigue escribiendo. Antes de eso, overflow está oculto.
+        if (alturaNatural >= 120) {
+            entrada.classList.add("asistente-input--con-scroll")
+        } else {
+            entrada.classList.remove("asistente-input--con-scroll")
+        }
+
         boton.disabled = entrada.value.trim() === ""
     })
     boton.disabled = entrada.value.trim() === ""
