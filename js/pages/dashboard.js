@@ -2347,7 +2347,7 @@ async function actualizarCuentas() {
     const stats = await obtenerPatrimonioStats()
 
     const totalEl = document.getElementById("total-cuentas")
-    if (totalEl) totalEl.textContent = stats.totalCuentas
+    if (totalEl) totalEl.replaceChildren(document.createTextNode(stats.totalCuentas))
 
     const detalleEl = document.getElementById("patrimonio-detalle")
     if (detalleEl) {
@@ -3010,7 +3010,10 @@ function formatearProximaEjecucion(fecha) {
 
 function actualizarMovimientos() {
     const lista = document.getElementById("movimientos-lista")
+    const detalleEl = document.getElementById("movimientos-detalle")
     if (!lista) return
+
+    if (detalleEl) detalleEl.replaceChildren()
 
     if (movimientosData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Sin movimientos por ahora."))
