@@ -621,17 +621,21 @@ function reordenarDashboard() {
     const orden = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
 
     const cards = new Map()
-    grid.querySelectorAll("[data-dashboard-card]").forEach(card => {
+    grid.querySelectorAll(":scope > [data-dashboard-card]").forEach(card => {
         cards.set(card.dataset.dashboardCard, card)
     })
 
-    // Mover cada tarjeta a su posición según el orden guardado
+    const fragmento = document.createDocumentFragment()
     orden.forEach(id => {
         const card = cards.get(id)
-        if (card && card.parentElement === grid) {
-            grid.appendChild(card)
+        if (card) {
+            fragmento.appendChild(card)
+            cards.delete(card.dataset.dashboardCard)
         }
     })
+    // Tarjetas no listadas en `orden` van al final, nunca se quedan delante
+    cards.forEach(card => fragmento.appendChild(card))
+    grid.appendChild(fragmento)
 }
 
 // ============================================
@@ -811,6 +815,7 @@ function quitarCardDashboard(id) {
         // También quitar de cardsVisiblesDashboard si estaba ahí
         const idxVis = cardsVisiblesDashboard.indexOf(id)
         if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
+        document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)?.remove()
         cambiosPendientesDashboard = true
         reordenarDashboard()
     }
@@ -1231,9 +1236,10 @@ function obtenerPeriodoFlujo(id) {
 // Se usan para renderizar el dashboard dinámicamente a partir de
 // cardsVisiblesDashboard y cardsOrdenDashboard.
 
-function generarCardMetrica(id, titulo, subtitulo, valorId, detalleId, claseExtra = "") {
+function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseExtra = "") {
+    const id = `card-${cardId}`;
     return `
-        <div class="glass card card-navegable metric-card ${claseExtra}" id="${id}" data-dashboard-card="${id}" role="button" tabindex="0" title="${titulo}">
+        <div class="glass card card-navegable metric-card ${claseExtra}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
             <div class="card-value" id="${valorId}">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="${detalleId}">${skeletonText()}</div>
@@ -1241,12 +1247,13 @@ function generarCardMetrica(id, titulo, subtitulo, valorId, detalleId, claseExtr
     `;
 }
 
-function generarCardListaSimple(id, titulo, filas, detalleId = null, subtituloHtml = "") {
+function generarCardListaSimple(cardId, titulo, filas, detalleId = null, subtituloHtml = "") {
+    const id = `card-${cardId}`;
     const detalle = detalleId ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>` : "";
     return `
-        <div class="glass card card-navegable ${claseExtra(id)}" id="${id}" data-dashboard-card="${id}" role="button" tabindex="0" title="${titulo}">
+        <div class="glass card card-navegable ${claseExtra(cardId)}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
-            <div class="${id}-lista" id="${id}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
+            <div class="${cardId}-lista" id="${cardId}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
             ${detalle}
         </div>
     `;
@@ -1362,10 +1369,10 @@ const GENERADORES_CARD = {
     "distribucion": generarCardDistribucionDona,
     "metas": generarCardMetas,
     "presupuestos": generarCardPresupuestos,
-    "cuentas": () => generarCardMetrica("card-cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
-    "inversiones": () => generarCardMetrica("card-inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
-    "vencimientos": () => generarCardMetrica("card-vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
-    "movimientos": () => generarCardListaSimple("card-movimientos", "Últimos movimientos", 2, "movimientos-detalle"),
+    "cuentas": () => generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
+    "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
+    "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
+    "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2, "movimientos-detalle"),
     "favoritos": () => `
         <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
             <div class="card-header">
@@ -1421,7 +1428,7 @@ const GENERADORES_CARD = {
             <div class="estrategias-lista" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
         </div>
     `,
-    "flujo-caja": () => generarCardMetrica("card-flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
+    "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
     "gastos-periodo": () => `
         <div class="glass card card-navegable metric-card gastos-periodo-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
@@ -1450,8 +1457,8 @@ const GENERADORES_CARD = {
             <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
         </div>
     `,
-    "balance-periodo": () => generarCardMetrica("card-balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
-    "deudas": () => generarCardMetrica("card-deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
+    "balance-periodo": () => generarCardMetrica("balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
+    "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
     "programados": () => `
         <div class="glass card programados-card" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
             <div class="card-header">
