@@ -38,3 +38,32 @@ Este archivo rige cualquier modificación de la capa de UI del proyecto. Su obje
 - Ejecutar `npm test` tras cada cambio (debe quedar TODO OK).
 - No modificar tests existentes salvo que sea estrictamente necesario para cubrir un componente migrado.
 - Antes de tocar una página, verificar que exista el `<template>` correspondiente en `dashboard.html` y `demo.html`.
+
+## 7. Clave de Gemini (Drov)
+
+La API Key de Gemini **nunca** debe vivir en el cliente en producción.
+
+### Desarrollo local (localhost)
+
+1. Crear `.env.local` (gitignorado) con:
+   ```
+   GEMINI_API_KEY=TU_API_KEY_DE_GEMINI
+   ```
+2. Arrancar el servidor local con `npm run local`.
+3. `DrovServicio.js` detecta `localhost` y hace fetch directo a Gemini usando esa clave.
+
+### Producción (Firebase Hosting)
+
+1. Configurar el secreto en Secret Manager:
+   ```
+   firebase functions:secrets:set GEMINI_API_KEY
+   ```
+2. Desplegar la Cloud Function:
+   ```
+   firebase deploy --only functions
+   ```
+3. `DrovServicio.js` detecta producción y llama a `drovProxy`, que lee la clave de Secret Manager y nunca la expone al navegador.
+
+### Rotación de clave
+
+La clave actual ya estuvo expuesta en el cliente. Rótenla en Google AI Studio antes de desplegar a producción.
