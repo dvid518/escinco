@@ -97,6 +97,9 @@
     --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
     --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
 
+    --seleccion-bg: var(--positive);
+    --seleccion-color: var(--text);
+
     --etiqueta-verde: var(--lightGreen);
     --etiqueta-rojo: var(--cottonCandy);
     --etiqueta-ambar: var(--banana);
@@ -931,4 +934,18 @@ option {
         transition: none !important;
         animation: none !important;
     }
+}
+
+/* Fallback noscript de Google Analytics: se oculta vía CSS, nunca estilo inline. */
+.iframe-ga-noscript {
+    display: none;
+    visibility: hidden;
+}
+
+/* ============================================
+   SELECCIÓN DE TEXTO
+   ============================================ */
+::selection {
+    background-color: var(--seleccion-bg);
+    color: var(--seleccion-color);
 }
