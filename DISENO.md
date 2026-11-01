@@ -42,13 +42,13 @@ Todas las variables CSS de :root viven en css/style.css. Se declaran una sola ve
 | Variable | Tema oscuro | Tema claro | Uso ejemplo |
 | --- | --- | --- | --- |
 | --background | --onyx (#141414) | --whiteSmoke (#F1F1F1) | Fondo del body |
-| --backgroundAlt | --paleSky (#D4E9FF) | --graphite (#1F1F1F) | Fondo alternativo (cards seleccionadas) |
-| --surface | --graphite (#1F1F1F) | --paleSky (#D4E9FF) | Superficie de cards, inputs, modales |
+| --backgroundAlt | --paleSky (#E0EFFE) | --graphite (#1F1F1F) | Fondo alternativo (cards seleccionadas) |
+| --surface | --graphite (#1F1F1F) | --paleSky (#E0EFFE) | Superficie de cards, inputs, modales |
 | --text | --whiteSmoke (#F1F1F1) | --onyx (#141414) | Texto principal |
-| --textSecondary | --paleSky (#D4E9FF) | --slateGrey (#465B6D) | Texto secundario, pistas |
+| --textSecondary | --paleSky (#E0EFFE) | --slateGrey (#465B6D) | Texto secundario, pistas |
 | --textAct | --whiteSmoke | --graphite | Texto activo |
 | --textAlt | --graphite (#1F1F1F) | --whiteSmoke (#F1F1F1) | Texto de alto contraste sobre fondo alternativo |
-| --border | --paleSky (#D4E9FF) | --slateGrey (#465B6D) | Bordes por defecto |
+| --border | --paleSky (#E0EFFE) | --slateGrey (#465B6D) | Bordes por defecto |
 | --borderAlt | --slateGrey (#465B6D) | --graphite (#1F1F1F) | Bordes alternativos |
 | --positive | --lightGreen (#96FFA1) | --tropicalMint (#00a269) | Colores positivos / exito |
 | --positiveAlt | --tropicalMint (#00a269) | --lightGreen (#96FFA1) | Positivo sobre fondo alternativo |
@@ -56,11 +56,11 @@ Todas las variables CSS de :root viven en css/style.css. Se declaran una sola ve
 | --negativeAlt | --raspberryRed (#DC0051) | --cottonCandy (#FE8F8F) | Negativo sobre fondo alternativo |
 | --ambar | --banana (#FECA6F) | --mustard (#f5a623) | Colores de aviso |
 | --ambarAlt | --mustard (#f5a623) | --banana (#FECA6F) | Aviso sobre fondo alternativo |
-| --lightHover | --lightSlateGrey (#465B6D5f) | --lightPaleSky (#D4E9FF5f) | Fondo al pasar el cursor |
+| --lightHover | --lightSlateGrey (#465B6D5f) | --lightPaleSky (#E0EFFE5f) | Fondo al pasar el cursor |
 | --lightBorder | --lightWhiteSmoke (#F1F1F136) | --lightGraphite (#1F1F1F36) | Borde sutil / hover |
-| --shadow | --lightPaleSky (#D4E9FF5f) | --lightSlateGrey (#465B6D) | Sombra / glow interior |
+| --shadow | --lightPaleSky (#E0EFFE5f) | --lightSlateGrey (#465B6D) | Sombra / glow interior |
 | --glass-frosted | --frostedGraphite (#1F1F1FC0) | --frostedWhiteSmoke (#F1F1F1ae) | Superficie difuminada (.glass) |
-| --blurBackground | --lightOnyx (#141414AE) | --lightPaleSky (#D4E9FF5f) | Fondo de overlays (.modal-overlay) |
+| --blurBackground | --lightOnyx (#141414AE) | --lightPaleSky (#E0EFFE5f) | Fondo de overlays (.modal-overlay) |
 Colores de marca/base (sin tema, usados directamente):
 | Variable | Valor | Uso ejemplo |
 | --- | --- | --- |
@@ -74,8 +74,8 @@ Colores de marca/base (sin tema, usados directamente):
 | --lightGreen | #96FFA1 | Verde claro |
 | --cottonCandy | #FE8F8F | Rojo claro / algodon de azucar |
 | --banana | #FECA6F | Amarillo / banana |
-| --paleSky | #D4E9FF | Cielo palido |
-| --lightPaleSky | #D4E9FF5f | Cielo palido semitransparente |
+| --paleSky | #E0EFFE | Cielo palido |
+| --lightPaleSky | #E0EFFE5f | Cielo palido semitransparente |
 | --whiteSmoke | #F1F1F1 | Blanco humo |
 | --lightWhiteSmoke | #F1F1F136 | Blanco humo semitransparente |
 | --frostedWhiteSmoke | #F1F1F1ae | Blanco humo difuminado |
@@ -275,5 +275,6 @@ nombre (sin @ dentro). |
 - Tokens: css/style.css (seccion :root, [data-theme=
 dark], [data-theme=light]). |
 - Animaciones: css/style.css (seccion @media (prefers-reduced-motion: reduce)) y @keyframes en componentes.css / modal.css. |
+
 
 

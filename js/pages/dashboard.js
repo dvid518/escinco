@@ -1505,7 +1505,7 @@ const GENERADORES_CARD = {
     "cuentas": () => generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
     "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
-    "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2, "movimientos-detalle"),
+    "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2),
     "favoritos": () => `
         <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
             <div class="card-header">
