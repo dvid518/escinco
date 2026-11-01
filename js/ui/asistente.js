@@ -186,7 +186,18 @@ function agregarMensaje(registro, rol, texto, esError = false) {
     registro.appendChild(fragmento)
     registro.scrollTop = registro.scrollHeight
 
+    actualizarOverflow(registro)
+
     return mensaje
+}
+
+function actualizarOverflow(registro) {
+    if (!registro) return
+    if (registro.scrollHeight > registro.clientHeight) {
+        registro.classList.add("tiene-overflow")
+    } else {
+        registro.classList.remove("tiene-overflow")
+    }
 }
 
 function agregarEscribiendo(registro) {

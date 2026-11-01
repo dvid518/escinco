@@ -796,9 +796,10 @@
     padding-right: 4px;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
-    /* Difuminado superior e inferior: oculta suavemente lo que sale del contenedor
-       sin cambiar el color de fondo. La máscara es opaca en el centro y transparente
-       en los bordes, así el contenido se desvanece al entrar/salir. */
+}
+
+/* Difuminado solo cuando el contenido sobrepasa el flujo (se activa desde JS). */
+.asistente-mensajes.tiene-overflow {
     mask-image: linear-gradient(
         to bottom,
         transparent 0%,
@@ -920,7 +921,7 @@
     background: var(--border);
     color: var(--textAlt);
     cursor: pointer;
-    transition: transform 0.2s ease, opacity 0.2s ease;
+    transition: all 0.3s ease;
 }
 
 .asistente-enviar:hover:not(:disabled) {
