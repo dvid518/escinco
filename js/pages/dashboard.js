@@ -2166,6 +2166,10 @@ async function actualizarUI() {
     // Las cards de cuenta/ activo se crean y pintan aquí: dependen de datos
     // que acaban de cargar, así que no pueden vivir en el render().
     montarCardsInstanciadas()
+    // actualizarMovimientos va primero: si cualquier actualización posterior
+    // falla, al menos la lista de movimientos queda pintada y no con esqueleto
+    // permanente.
+    actualizarMovimientos()
     await actualizarCuentas()
     await actualizarPatrimonio()
     actualizarPatrimonioDivisa()
@@ -2183,7 +2187,6 @@ async function actualizarUI() {
     actualizarDistribucion()
     actualizarProgramados()
     actualizarAlertas()
-    actualizarMovimientos()
     reordenarDashboard(true)
 }
 
