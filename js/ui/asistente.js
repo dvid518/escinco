@@ -87,13 +87,14 @@ export async function abrirAsistente() {
     permisoDrov = permisoGuardado
 
     if (!permisoDrov || permisoDrov === "ninguno") {
-        cerrarModal()
-        const accion = await mostrarModalPermisos()
+        // Mostrar solicitud de permiso como mensaje dentro del chat
+        const accion = await solicitarPermisoEnChat(registro)
         await guardarPermisoDrov(sesion.uid, accion)
         permisoDrov = accion
 
         if (accion === "ninguno") {
-            mostrarNotificacion("info", MENSAJES_DROV.permisoDenegado.texto)
+            entrada.disabled = true
+            boton.disabled = true
             return
         }
 
@@ -166,7 +167,6 @@ export async function abrirAsistente() {
     } else {
         entrada.disabled = true
         boton.disabled = true
-        agregarMensaje(registro, "model", MENSAJES_DROV.permisoDenegado.texto, true)
     }
 
     let enviando = false
@@ -321,35 +321,46 @@ async function guardarPermisoDrov(uid, permiso) {
     }
 }
 
-async function mostrarModalPermisos(tipo = "lecturaEscritura") {
-    const config =
-        tipo === "soloEdicion"
-            ? MENSAJES_DROV.permisoSoloEdicion
-            : MENSAJES_DROV.permisoLecturaEscritura
+async function solicitarPermisoEnChat(registro) {
+    const config = MENSAJES_DROV.permisoLecturaEscritura
+
+    // Agregar mensaje de IA con el texto del permiso dentro del chat
+    const mensajePermiso = agregarMensaje(registro, "model", config.texto)
+
+    // Crear contenedor de botones debajo del mensaje
+    const contenedorBotones = document.createElement("div")
+    contenedorBotones.className = "drov-permisos-botones"
+
+    config.botones.forEach(({ texto, accion }) => {
+        const btn = document.createElement("button")
+        btn.type = "button"
+        btn.className = `drov-permisos-btn ${
+            accion === "lectura_escritura" ? "aceptar" : accion === "ninguno" ? "cancelar" : ""
+        }`
+        btn.dataset.accion = accion
+        btn.textContent = texto
+        contenedorBotones.appendChild(btn)
+    })
+
+    registro.appendChild(contenedorBotones)
+    registro.scrollTop = registro.scrollHeight
 
     return new Promise(resolver => {
-        const modalEl = abrirModal({
-            titulo: "Permisos de Drov",
-            contenido: contenidoDesdeTemplate("tpl-drov-permisos", {
-                valores: { texto: config.texto }
-            }),
-            cancelText: null,
-            confirmText: null
-        })
+        contenedorBotones.addEventListener(
+            "click",
+            evento => {
+                const btn = evento.target.closest("button")
+                if (!btn) return
 
-        const botones = modalEl.querySelectorAll(".drov-permisos-btn")
-        botones.forEach(boton => {
-            boton.addEventListener("click", () => {
-                const accion = boton.dataset.accion
-                cerrarModal()
+                const accion = btn.dataset.accion
+
+                // Remover mensaje de permiso y botones del chat
+                mensajePermiso?.remove()
+                contenedorBotones.remove()
+
                 resolver(accion)
-            })
-        })
-
-        // Ocultar botón de solo lectura si el modo es solo edición
-        if (tipo === "soloEdicion") {
-            const btnSoloLectura = modalEl.querySelector('[data-accion="lectura"]')
-            if (btnSoloLectura) btnSoloLectura.classList.add("oculto")
-        }
+            },
+            { once: true }
+        )
     })
 }
