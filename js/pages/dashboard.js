@@ -1,4 +1,4 @@
-import { asegurarEstilos } from "../core/estilos.js"
+﻿import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
@@ -464,17 +464,7 @@ function pintarCardCuenta(cuenta, card) {
         }
 
         if (estadoEl) {
-            estadoEl.classList.remove("badge--aviso", "badge--negative", "badge--positive")
-            if (ciclo.pagadoCompleto) {
-                estadoEl.textContent = "Pagado"
-                estadoEl.classList.add("badge--positive")
-            } else if (ciclo.restante > 0) {
-                estadoEl.textContent = "Pendiente"
-                estadoEl.classList.add(uso.nivel === "critico" ? "badge--negative" : "badge--aviso")
-            } else {
-                estadoEl.textContent = "Al día"
-                estadoEl.classList.add("badge--positive")
-            }
+            estadoEl.hidden = true
         }
 
         const barraEl = card.querySelector(`#${prefijo}-barra`)
@@ -1532,6 +1522,7 @@ const GENERADORES_CARD = {
             <div class="card-header">
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
+            <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="distribucion-lista" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
@@ -1685,6 +1676,8 @@ function limpiarEsqueletosDashboard() {
     if (dona) dona.replaceChildren()
     const donaDivisa = document.getElementById("patrimonio-divisa-dona-placeholder")
     if (donaDivisa) donaDivisa.replaceChildren()
+    const donaActivos = document.getElementById("distribucion-activos-dona-placeholder")
+    if (donaActivos) donaActivos.replaceChildren()
     const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
         "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
     valores.forEach(id => {
@@ -1720,6 +1713,22 @@ function mostrarEsqueletosDashboard() {
         div.className = "dona-esqueleto"
         div.setAttribute("aria-hidden", "true")
         dona.appendChild(div)
+    }
+    const donaDivisa = document.getElementById("patrimonio-divisa-dona-placeholder")
+    if (donaDivisa) {
+        donaDivisa.replaceChildren()
+        const div = document.createElement("div")
+        div.className = "dona-esqueleto"
+        div.setAttribute("aria-hidden", "true")
+        donaDivisa.appendChild(div)
+    }
+    const donaActivos = document.getElementById("distribucion-activos-dona-placeholder")
+    if (donaActivos) {
+        donaActivos.replaceChildren()
+        const div = document.createElement("div")
+        div.className = "dona-esqueleto"
+        div.setAttribute("aria-hidden", "true")
+        donaActivos.appendChild(div)
     }
     VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
@@ -4013,3 +4022,4 @@ export function destroy() {
     destruirGraficoPatrimonio()
     destruirGraficoPatrimonio("evolucion-modal")
 }
+

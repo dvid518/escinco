@@ -1,4 +1,4 @@
-
+﻿
 /* ============================================
    DASHBOARD - GRID
    ============================================ */
@@ -878,6 +878,12 @@ body.dashboard-card-dragging * {
 .programados-card .card-header .card-title,
 .alertas-card .card-header .card-title {
     margin-bottom: 0;
+}
+.card-header .card-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .btn-meta-nueva {
@@ -1846,3 +1852,5 @@ body.dashboard-card-dragging * {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+
