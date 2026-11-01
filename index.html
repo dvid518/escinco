@@ -94,7 +94,7 @@
 <body class="home">
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
     <div class="home-scroll">
 
@@ -572,7 +572,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <!-- PIE -->
         <footer class="home-footer">
-            <span class="home-footer-marca">escinco.</span>
+            <div class="home-footer-marca-con-version">
+                <div data-panel-version></div>
+            </div>
             <nav class="home-footer-links" aria-label="Enlaces legales">
                 <a class="home-footer-link" href="/privacidad">Privacidad</a>
                 <a class="home-footer-link" href="/terminos">Términos</a>
@@ -599,6 +601,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon preview-icon">
             <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>
         </svg>
+    </template>
+
+    <template id="tpl-panel-version">
+        <span class="panel-version-texto">
+            <span class="panel-version-brand" data-tpl="nombre"></span>
+            <span class="panel-version-numero" data-tpl="numero"></span>
+        </span>
     </template>
 
     <script type="module" src="js/pages/index.js"></script>

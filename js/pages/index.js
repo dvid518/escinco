@@ -2,6 +2,7 @@ import { initTemaLocal, getTemaLocal, cambiarTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
 import { contenidoDesdeTemplate } from "../ui/modal.js"
 import { crearGraficoPatrimonio, crearGraficoDistribucion } from "../ui/graficos.js"
+import { pintarVersionPanel } from "../ui/panelVersion.js"
 
 // ============================================
 // LANDING
@@ -124,10 +125,7 @@ function initFaq() {
             )
             animacion.onfinish = () => {
                 estado = "abierto"
-                // Se sueltan las alturas fijadas por la animación para que el
-                // texto pueda reflujar (rotar el móvil, cambiar el ancho).
-                respuesta.style.height = ""
-                respuesta.style.opacity = ""
+                respuesta.classList.add("home-faq-respuesta--abierta")
             }
         }
 
@@ -147,8 +145,7 @@ function initFaq() {
             animacion.onfinish = () => {
                 estado = "cerrado"
                 item.open = false
-                respuesta.style.height = ""
-                respuesta.style.opacity = ""
+                respuesta.classList.remove("home-faq-respuesta--abierta")
             }
         }
     })
@@ -290,4 +287,5 @@ async function initGraficosMaqueta() {
 initTemaLocal()
 initPWA()
 initLanding()
+pintarVersionPanel()
 

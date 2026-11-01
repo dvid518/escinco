@@ -495,6 +495,8 @@
     border-radius: 30px;
     color: var(--text);
     border: 1px solid var(--lightBorder);
+    left: var(--tooltip-left, 0);
+    top: var(--tooltip-top, 0);
     --glow: inset 0 0 10px var(--shadow);
     /* Mismo criterio que .notificacion: flota sobre la app sin capa detrás,
        así que lleva velo + difuminado. Los aporta .glass; aquí va el nivel,
@@ -954,5 +956,22 @@
 .pendientes-lista.scroll-fade.scroll-fade-bottom,
 .vencimientos-lista.scroll-fade.scroll-fade-bottom,
 .sidebar-wrap #sidebar.scroll-fade.scroll-fade-bottom {
+    --scroll-fade-bottom: 18px;
+}
+
+/* Scroll fade del conjunto del dashboard (main). Se aplica a #app-content
+   solo cuando la página activa es dashboard: el contenedor scrolla internamente
+   cuando el dashboard supera la altura del viewport. El degradado aparece en el
+   borde que tenga contenido oculto (arriba y/o abajo). */
+#app-content.scroll-fade {
+    --scroll-fade-top: 0px;
+    --scroll-fade-bottom: 0px;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 var(--scroll-fade-top), #000 calc(100% - var(--scroll-fade-bottom)), transparent 100%);
+}
+#app-content.scroll-fade.scroll-fade-top {
+    --scroll-fade-top: 18px;
+}
+#app-content.scroll-fade.scroll-fade-bottom {
     --scroll-fade-bottom: 18px;
 }

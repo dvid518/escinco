@@ -16,7 +16,7 @@ import { icono } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 
 asegurarEstilos("trading")
 
@@ -134,20 +134,6 @@ async function evaluarYNotificar() {
     } catch (error) {
         console.error("Error evaluando órdenes:", error)
         return { ejecutadas: 0 }
-    }
-}
-
-/**
- * Refresca trades y órdenes, evaluando antes las órdenes pendientes.
- * Usada por el botón "Actualizar" de la lastbar.
- */
-export async function recargarTrading() {
-    iniciarCargaVisible()
-    try {
-        await evaluarYNotificar()
-        await Promise.all([cargarTrades(), cargarOrdenes()])
-    } finally {
-        finalizarCargaVisible()
     }
 }
 
@@ -1258,7 +1244,7 @@ async function cargarCuentasEnSelect(selectId) {
             const opcion = document.createElement('option')
             opcion.value = c.id
             opcion.dataset.moneda = (c.moneda || 'pen').toLowerCase()
-            opcion.textContent = `${c.nombre} (${c.moneda?.toUpperCase() || 'PEN'})`
+            opcion.textContent = `${c.nombre} (${presentarDivisa(c.moneda)})`
             select.appendChild(opcion)
         }
     } catch (error) {

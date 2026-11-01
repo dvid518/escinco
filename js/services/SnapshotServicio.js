@@ -260,21 +260,3 @@ export async function obtenerPatrimonioParaGrafico(uid, dias = 30) {
     }
 }
 
-/**
- * Snapshot de hoy o lo crea si no existe.
- */
-export async function obtenerOCrearSnapshotHoy(uid) {
-    try {
-        let snapshot = await obtenerSnapshotHoy(uid)
-
-        if (!snapshot) {
-            await registrarSnapshot(uid)
-            snapshot = await obtenerSnapshotHoy(uid)
-        }
-
-        return snapshot
-    } catch (error) {
-        console.error("Error obteniendo snapshot de hoy:", error)
-        return null
-    }
-}

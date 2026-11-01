@@ -35,7 +35,7 @@ import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } fro
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa, formatearMontoMinimo, recortarDecimales } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa, formatearMontoMinimo, recortarDecimales, presentarDivisa } from "../services/DivisaServicio.js"
 
 asegurarEstilos("inversiones")
 
@@ -1496,7 +1496,7 @@ async function cargarCuentasEnSelect(selectId) {
             const opcion = document.createElement("option")
             opcion.value = c.id
             opcion.dataset.moneda = (c.moneda || "pen").toLowerCase()
-            opcion.textContent = `${c.nombre} (${c.moneda?.toUpperCase() || "PEN"})`
+            opcion.textContent = `${c.nombre} (${presentarDivisa(c.moneda)})`
             select.appendChild(opcion)
         }
     } catch (error) {

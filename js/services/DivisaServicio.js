@@ -11,10 +11,6 @@ export function getDivisaPrincipal() {
     return prefs?.divisaPrincipal || DIVISAS.PEN
 }
 
-export function getSimboloDivisaPrincipal() {
-    return DIVISAS_SYMBOLS[getDivisaPrincipal()] || "S/"
-}
-
 // ============================================
 // FORMATO DE DIVISA · SÍMBOLO ($) O CÓDIGO (USD)
 // ============================================
@@ -143,12 +139,6 @@ export function formatearMonto(monto, divisa = null) {
     }
     const simbolo = DIVISAS_SYMBOLS[div] || "S/"
     return `${simbolo} ${Number(monto).toFixed(2)}`
-}
-
-export function formatearMontoEnPrincipal(monto, divisaOrigen) {
-    const divPrincipal = getDivisaPrincipal()
-    const montoConvertido = convertirMonto(monto, divisaOrigen, divPrincipal)
-    return formatearMonto(montoConvertido, divPrincipal)
 }
 
 // --------------------------------------------

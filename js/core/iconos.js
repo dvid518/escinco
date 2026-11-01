@@ -108,5 +108,3 @@ export function icono(nombre, tamano = 20, strokewidth = "2") {
         `${paths}</svg>`
     )
 }
-
-export const ICONOS_DISPONIBLES = Object.keys(ICONOS)

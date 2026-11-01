@@ -11,7 +11,7 @@ import { leer, RAIZ, nuevoReporter } from "./helpers.mjs"
 
 const HTML_FILES = [
     "index.html", "dashboard.html", "demo.html", "auth.html",
-    "404.html", "eliminar-datos.html", "privacidad.html",
+    "404.html", "tratamiento-datos.html", "privacidad.html",
     "terminos.html", "reset-password.html"
 ]
 

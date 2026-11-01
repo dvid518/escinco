@@ -24,7 +24,7 @@ const DOCUMENTOS = [
     "/demo.html",
     "/privacidad.html",
     "/terminos.html",
-    "/eliminar-datos.html",
+    "/tratamiento-datos.html",
     "/404.html",
     "/manifest.webmanifest"
 ]

@@ -31,6 +31,7 @@ import { createServer } from "node:http"
 import { readFile, stat } from "node:fs/promises"
 import { extname, resolve, sep } from "node:path"
 import { fileURLToPath } from "node:url"
+import { createHash } from "node:crypto"
 import { IA_CONFIG } from "../js/core/iaConfig.js"
 
 const RAIZ = resolve(fileURLToPath(new URL("..", import.meta.url)))
@@ -47,6 +48,58 @@ const PUERTO_APP = Number(process.env.PUERTO_APP || 5085)
 const RUTA_IA = "/api/ia"
 const RUTA_ESTADO = "/api/ia/estado"
 const MAX_CUERPO_IA = 512 * 1024
+
+// ============================================
+// CACHÉ Y RATE LIMITING DEL PROXY
+// ============================================
+// Evita reenviar a Gemini peticiones idénticas (mismo cuerpo) y limita la
+// frecuencia para no agotar la cuota gratuita (429 Too Many Requests).
+
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutos
+const cacheRespuestas = new Map() // hash -> { texto, status, expira }
+
+function hashDe(texto) {
+    return createHash("sha256").update(texto).digest("hex")
+}
+
+function obtenerDeCache(hash) {
+    const entrada = cacheRespuestas.get(hash)
+    if (!entrada || Date.now() > entrada.expira) {
+        cacheRespuestas.delete(hash)
+        return null
+    }
+    return entrada
+}
+
+function guardarEnCache(hash, texto, status) {
+    cacheRespuestas.set(hash, { texto, status, expira: Date.now() + CACHE_TTL_MS })
+    if (cacheRespuestas.size > 200) {
+        const primera = cacheRespuestas.keys().next().value
+        if (primera !== undefined) cacheRespuestas.delete(primera)
+    }
+}
+
+// Rate limiting: máximo 20 peticiones por minuto (ventana deslizante simple).
+const LIMITE_PETICIONES = 20
+const VENTANA_MS = 60 * 1000
+const marcasPorIp = new Map() // ip -> [timestamps]
+
+function rateLimitOK(ip) {
+    const ahora = Date.now()
+    const inicio = ahora - VENTANA_MS
+    const marcas = marcasPorIp.get(ip) || []
+    const recientes = marcas.filter(m => m > inicio)
+
+    if (recientes.length >= LIMITE_PETICIONES) return false
+
+    recientes.push(ahora)
+    marcasPorIp.set(ip, recientes)
+    return true
+}
+
+function ipDe(req) {
+    return (req.headers["x-forwarded-for"] || req.socket?.remoteAddress || "").split(",")[0].trim() || "local"
+}
 
 const entornoLocal = await leerEntornoLocal()
 const CLAVE_IA = (process.env.GEMINI_API_KEY || entornoLocal.GEMINI_API_KEY || "").trim()
@@ -155,6 +208,15 @@ async function manejarIa(req, res, ruta) {
         return
     }
 
+    // Rate limiting por IP
+    const ip = ipDe(req)
+    if (!rateLimitOK(ip)) {
+        responderJson(res, 429, {
+            error: { message: "Demasiadas peticiones al asistente. Espera un momento." }
+        })
+        return
+    }
+
     let cuerpo
     try {
         cuerpo = await leerCuerpo(req, MAX_CUERPO_IA)
@@ -164,6 +226,21 @@ async function manejarIa(req, res, ruta) {
             return
         }
         responderJson(res, 400, { error: { message: "No se pudo leer la petición." } })
+        return
+    }
+
+    // Caché: si ya hicimos esta petición exacta hace menos de 5 min, la servimos
+    // sin consultar a Gemini.
+    const hash = hashDe(cuerpo)
+    const cacheado = obtenerDeCache(hash)
+    if (cacheado) {
+        res.writeHead(cacheado.status, {
+            "Content-Type": "application/json; charset=utf-8",
+            "Content-Length": Buffer.byteLength(cacheado.texto),
+            "Cache-Control": "no-store",
+            "X-Proxy-Cache": "hit"
+        })
+        res.end(cacheado.texto)
         return
     }
 
@@ -185,11 +262,23 @@ async function manejarIa(req, res, ruta) {
         )
 
         const texto = await respuesta.text()
-        res.writeHead(respuesta.status, {
+
+        // Guarda en caché respuestas exitosas (200)
+        if (respuesta.ok) {
+            guardarEnCache(hash, texto, respuesta.status)
+        }
+
+        // Si Gemini responde 429, reenvía el estado y un mensaje claro al cliente
+        const cabeceras = {
             "Content-Type": respuesta.headers.get("content-type") || "application/json; charset=utf-8",
             "Content-Length": Buffer.byteLength(texto),
             "Cache-Control": "no-store"
-        })
+        }
+        if (respuesta.headers.has("retry-after")) {
+            cabeceras["Retry-After"] = respuesta.headers.get("retry-after")
+        }
+
+        res.writeHead(respuesta.status, cabeceras)
         res.end(texto)
     } catch (error) {
         const abortado = error?.name === "AbortError"

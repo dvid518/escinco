@@ -269,7 +269,7 @@ export async function crearGraficoPatrimonio(canvasId, datos, opciones = {}) {
         // Si quien llama no pasó `formatear` ni `etiquetaDivisa`, hace falta
         // DivisaServicio. Se espera una sola vez, aquí: los callbacks de
         // Chart.js son síncronos y no pueden esperar un import.
-        const monedaGrafico = divisa.toLowerCase()
+        const monedaGrafico = divisa
         let formatearConDivisa = null
         let presentarDivisa = () => ""
         if (!opcionesGrafico.formatear || !opcionesGrafico.etiquetaDivisa) {

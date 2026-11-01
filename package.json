@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "scripts": {
     "test": "node tests/run.mjs",
     "test:rules": "firebase emulators:exec --only firestore,auth \"node tests/run.mjs rules\"",
@@ -7,6 +8,11 @@
     "emulators": "firebase emulators:start",
     "deploy:hosting": "firebase deploy --only hosting",
     "deploy:rules": "firebase deploy --only firestore:rules",
-    "deploy": "firebase deploy --only hosting,firestore:rules"
+    "deploy": "firebase deploy --only hosting,firestore:rules",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.7",
+    "eslint": "^9.16.0"
   }
 }

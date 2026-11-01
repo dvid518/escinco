@@ -97,8 +97,8 @@
     --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
     --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
 
-    --seleccion-bg: var(--positive);
-    --seleccion-color: var(--text);
+    --seleccion-bg: var(--border);
+    --seleccion-color: var(--textAlt);
 
     --etiqueta-verde: var(--lightGreen);
     --etiqueta-rojo: var(--cottonCandy);

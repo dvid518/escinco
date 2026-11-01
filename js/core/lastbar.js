@@ -371,8 +371,8 @@ export function activarTooltipsLastbar() {
     const mostrar = item => {
         const rect = item.getBoundingClientRect()
         tooltip.textContent = item.dataset.tooltip || ""
-        tooltip.style.left = `${rect.left + rect.width / 2}px`
-        tooltip.style.top = `${rect.top - 10}px`
+        tooltip.style.setProperty("--tooltip-left", `${rect.left + rect.width / 2}px`)
+        tooltip.style.setProperty("--tooltip-top", `${rect.top - 10}px`)
         tooltip.classList.add("visible")
     }
 

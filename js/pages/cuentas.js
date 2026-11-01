@@ -17,7 +17,7 @@ import {
 } from "../../firebase/firestore.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { DIVISAS_LABELS, DIVISAS_SYMBOLS, compararDivisas } from "../../constants/divisas.js"
-import { convertirMonto, etiquetaDivisa } from "../services/DivisaServicio.js"
+import { convertirMonto, etiquetaDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 import { calcularPatrimonio } from "../services/SnapshotServicio.js"
 import {
     esHija,
@@ -1036,7 +1036,7 @@ function plantillaInfoNormal(c, opciones = {}) {
             "saldo@class": `resumen-valor ${esPositivo ? "positive" : "negative"}`,
             "saldo-texto": formatearMontoConDivisa(saldo, c.moneda),
             "tipo-detalle": nombreTipo(c.tipo),
-            moneda: (c.moneda || "PEN").toUpperCase(),
+            moneda: presentarDivisa(c.moneda),
             patrimonio: c.esPatrimonio === false ? "No" : "Sí"
         },
         html: {
@@ -1192,7 +1192,7 @@ function renderizarTotalesCuenta(cuenta, involucrados) {
         : involucrados
 
     movimientosTotales.forEach(m => {
-        const divisa = (m.divisa || cuenta.moneda || "PEN").toUpperCase()
+        const divisa = (m.divisa || cuenta.moneda || "pen").toLowerCase()
         if (!porDivisa[divisa]) porDivisa[divisa] = { positivo: 0, negativo: 0 }
         const monto = montoDeMovimiento(m, cuenta.id)
         if (esMovimientoPositivo(m, cuenta.id)) porDivisa[divisa].positivo += monto

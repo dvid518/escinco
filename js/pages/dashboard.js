@@ -77,11 +77,6 @@ let secuenciaGraficoDashboard = 0
 const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
 // migración. Una tanda solo se aplica si su marca sigue sin poner: así el
-// usuario que ya quitó a mano una card de una tanda anterior no la ve
-// reaparecer, y las tandas nuevas sí llegan a todo el mundo.
-const NUEVAS_CARDS_V1 = ["flujo-caja", "deudas", "distribucion", "programados", "alertas"]
-const NUEVAS_CARDS_V2 = ["gastos-periodo", "ingresos-periodo", "balance-periodo"]
-const NUEVAS_CARDS_V3 = ["distribucion-activos", "patrimonio-divisa"]
 const DASHBOARD_CARDS = [
     { id: "patrimonio", label: "Patrimonio total" },
     { id: "cuentas", label: "Cuentas" },
@@ -105,13 +100,6 @@ const DASHBOARD_CARDS = [
     { id: "programados", label: "Movimientos programados" },
     { id: "alertas", label: "Alertas" },
     { id: "grafico", label: "Evolución patrimonial" }
-]
-
-// Orden estable de las tandas: las nuevas se añaden al final de la lista.
-const TANDAS_CARDS = [
-    ["nuevasCardsV1", NUEVAS_CARDS_V1],
-    ["nuevasCardsV2", NUEVAS_CARDS_V2],
-    ["nuevasCardsV3", NUEVAS_CARDS_V3]
 ]
 
 // Cards visibles de partida para una cuenta nueva o sin elección guardada.
@@ -191,26 +179,9 @@ function normalizarCardsOrden(valor) {
     return [...validos, ...DEFAULT_CARDS_ORDEN.filter(id => !validos.includes(id))]
 }
 
-// Aplica las tandas de cards nuevas que este usuario todavía no ha recibido.
-// Devuelve las listas ya normalizadas y la lista de marcas a guardar.
-function aplicarTandasNuevasCards(dashboard, cardsGuardadas) {
-    const visibles = normalizarCardsVisibles(cardsGuardadas)
-    const marcas = {}
-
-    for (const [marca, cards] of TANDAS_CARDS) {
-        if (!Array.isArray(cardsGuardadas) || dashboard?.[marca] === true) continue
-        const pendientes = cards.filter(id => !visibles.includes(id))
-        if (pendientes.length > 0) visibles.push(...pendientes)
-        marcas[marca] = true
-    }
-
-    return { visibles: normalizarCardsVisibles(visibles), marcas }
-}
-
 function configurarCardsDashboardDesdeSesion() {
     const dashboard = sesion.getPreferencias()?.dashboard
-    const { visibles } = aplicarTandasNuevasCards(dashboard, dashboard?.cardsVisibles)
-    cardsVisiblesDashboard = visibles
+    cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
     cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
 }
 
@@ -219,15 +190,8 @@ async function cargarCardsVisiblesDashboard() {
     try {
         const preferencias = sesion.getPreferencias() || await obtenerPreferencias(uid)
         const dashboard = preferencias?.dashboard
-        const { visibles, marcas } = aplicarTandasNuevasCards(dashboard, dashboard?.cardsVisibles)
-        cardsVisiblesDashboard = visibles
+        cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
         cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
-        if (Object.keys(marcas).length > 0) {
-            actualizarPreferencias(uid, {
-                "dashboard.cardsVisibles": cardsVisiblesDashboard,
-                ...Object.fromEntries(Object.entries(marcas).map(([marca]) => [`dashboard.${marca}`, true]))
-            }).catch(error => console.warn("No se pudo guardar la migración de cards:", error))
-        }
     } catch (error) {
         console.warn("No se pudieron cargar las cards visibles del dashboard:", error)
         cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
@@ -244,31 +208,13 @@ async function guardarPreferenciasDashboard(dashboard) {
     if (dashboard.cardsVisibles !== undefined) cambios["dashboard.cardsVisibles"] = dashboard.cardsVisibles
     if (dashboard.orden !== undefined) cambios["dashboard.orden"] = dashboard.orden
 
-    // Guardar una selección explícita da por recibidas TODAS las tandas: si no,
-    // un usuario que nunca pasó por una migración se volvería a encontrar
-    // dentro de un tiempo con cards que había quitado a mano.
-    const marcasRecibidas = {}
-    for (const [marca] of TANDAS_CARDS) {
-        if (dashboard[marca] !== undefined) {
-            cambios[`dashboard.${marca}`] = dashboard[marca]
-            marcasRecibidas[marca] = dashboard[marca]
-        }
-    }
-    if (dashboard.cardsVisibles !== undefined) {
-        for (const [marca] of TANDAS_CARDS) {
-            cambios[`dashboard.${marca}`] = true
-            marcasRecibidas[marca] = true
-        }
-    }
-
     await actualizarPreferencias(uid, cambios)
     const preferencias = sesion.getPreferencias()
     sesion.setPreferencias({
         ...preferencias,
         dashboard: {
             ...(preferencias.dashboard || {}),
-            ...dashboard,
-            ...marcasRecibidas
+            ...dashboard
         }
     })
 }
@@ -629,6 +575,79 @@ function reordenarDashboard() {
     // Tarjetas no listadas en `orden` van al final, nunca se quedan delante
     cards.forEach(card => fragmento.appendChild(card))
     grid.appendChild(fragmento)
+}
+
+// ============================================
+// SCROLL FADE DE LAS LISTAS DEL DASHBOARD
+// ============================================
+// Las listas con `.scroll-fade` muestran un degradado en el borde que tiene
+// contenido oculto (arriba y/o abajo). El degradado se controla con las
+// clases .scroll-fade-top / .scroll-fade-bottom de navegacion.css, que ajustan
+// las variables --scroll-fade-top / --scroll-fade-bottom de la máscara. Cuando
+// no hay contenido oculto en ningún lado no se aplica ninguna clase y la
+// máscara base queda opaca: sin fade visible.
+
+function actualizarScrollFade(contenedor) {
+    if (!(contenedor instanceof HTMLElement)) return
+    const scrollTop = contenedor.scrollTop
+    const scrollHeight = contenedor.scrollHeight
+    const clientHeight = contenedor.clientHeight
+    const ocultoArriba = scrollTop > 0
+    const ocultoAbajo = scrollTop + clientHeight < scrollHeight - 1
+    contenedor.classList.toggle("scroll-fade-top", ocultoArriba)
+    contenedor.classList.toggle("scroll-fade-bottom", ocultoAbajo)
+}
+
+function configurarScrollFade() {
+    // Se ejecuta tras cada render: los nodos se recrean al navegar de página,
+    // así que el atributo de datos evita volver a enganchar listeners a un
+    // contenedor que ya los tiene (p. ej. recarga de datos sin render).
+    document.querySelectorAll(".scroll-fade").forEach(contenedor => {
+        if (contenedor.dataset.scrollFadeListo === "1") return
+        contenedor.dataset.scrollFadeListo = "1"
+        let solicitud = null
+        contenedor.addEventListener("scroll", () => {
+            if (solicitud) return
+            solicitud = requestAnimationFrame(() => {
+                solicitud = null
+                actualizarScrollFade(contenedor)
+            })
+        }, { passive: true })
+        actualizarScrollFade(contenedor)
+    })
+}
+
+// ============================================
+// SCROLL FADE DEL CONJUNTO DEL DASHBOARD (main)
+// ============================================
+// Cuando el dashboard supera la altura del viewport, #app-content scrollea
+// internamente. El degradado aparece en el borde que tenga contenido oculto
+// (arriba y/o abajo), controlado con .scroll-fade-top / .scroll-fade-bottom.
+
+function actualizarScrollFadeApp() {
+    const app = document.getElementById("app-content")
+    if (!(app instanceof HTMLElement)) return
+    const { scrollTop, scrollHeight, clientHeight } = app
+    const ocultoArriba = scrollTop > 0
+    const ocultoAbajo = scrollTop + clientHeight < scrollHeight - 1
+    app.classList.toggle("scroll-fade-top", ocultoArriba)
+    app.classList.toggle("scroll-fade-bottom", ocultoAbajo)
+}
+
+function configurarScrollFadeApp() {
+    const app = document.getElementById("app-content")
+    if (!app || app.dataset.scrollFadeApp === "1") return
+    app.dataset.scrollFadeApp = "1"
+    app.classList.add("scroll-fade")
+    let solicitud = null
+    app.addEventListener("scroll", () => {
+        if (solicitud) return
+        solicitud = requestAnimationFrame(() => {
+            solicitud = null
+            actualizarScrollFadeApp()
+        })
+    }, { passive: true })
+    actualizarScrollFadeApp()
 }
 
 // ============================================
@@ -1367,7 +1386,7 @@ function generarCardListaSimple(cardId, titulo, filas, detalleId = null, subtitu
     return `
         <div class="glass card card-navegable ${claseExtra(cardId)}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
-            <div class="${cardId}-lista" id="${cardId}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
+            <div class="${cardId}-lista scroll-fade" id="${cardId}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
             ${detalle}
         </div>
     `;
@@ -1444,7 +1463,7 @@ function generarCardDistribucionDona() {
                 <span class="card-title">Distribución patrimonial</span>
             </div>
             <div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-            <div class="distribucion-lista" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="distribucion-lista scroll-fade" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
 }
@@ -1458,7 +1477,7 @@ function generarCardMetas() {
                     ${icono("plus-circle", 14)} Nueva
                 </button>
             </div>
-            <div class="metas-lista" id="metas-lista">
+            <div class="metas-lista scroll-fade" id="metas-lista">
                 ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
             </div>
         </div>
@@ -1472,7 +1491,7 @@ function generarCardPresupuestos() {
                 <span class="card-title">Presupuestos</span>
                 <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="presupuestos-lista" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="presupuestos-lista scroll-fade" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
 }
@@ -1493,7 +1512,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Favoritos</span>
                 <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="favoritos-lista" id="favoritos-lista">
+            <div class="favoritos-lista scroll-fade" id="favoritos-lista">
                 ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
             </div>
         </div>
@@ -1504,7 +1523,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Pendientes</span>
                 <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="pendientes-lista" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+            <div class="pendientes-lista scroll-fade" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
     "ordenes": () => `
@@ -1513,7 +1532,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Órdenes</span>
                 <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="ordenes-lista" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+            <div class="ordenes-lista scroll-fade" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
             <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
         </div>
     `,
@@ -1523,7 +1542,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
             <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-            <div class="distribucion-lista" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="distribucion-lista scroll-fade" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
     "patrimonio-divisa": () => `
@@ -1532,7 +1551,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
             <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-            <div class="divisa-lista" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="divisa-lista scroll-fade" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
     "estrategias": () => `
@@ -1541,7 +1560,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Estrategias</span>
                 <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="estrategias-lista" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
+            <div class="estrategias-lista scroll-fade" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
         </div>
     `,
     "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
@@ -1581,7 +1600,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Programados</span>
                 <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="programados-lista" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+            <div class="programados-lista scroll-fade" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
     `,
     "alertas": () => `
@@ -1590,7 +1609,7 @@ const GENERADORES_CARD = {
                 <span class="card-title">Alertas</span>
                 <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="alertas-lista" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+            <div class="alertas-lista scroll-fade" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
     `
 };
@@ -1670,7 +1689,10 @@ function limpiarEsqueletosDashboard() {
         "distribucion-activos-lista", "patrimonio-divisa-lista", "programados-lista", "alertas-lista"]
     listas.forEach(id => {
         const lista = document.getElementById(id)
-        if (lista) lista.replaceChildren()
+        if (lista) {
+            lista.replaceChildren()
+            actualizarScrollFade(lista)
+        }
     })
     const dona = document.getElementById("distribucion-dona-placeholder")
     if (dona) dona.replaceChildren()
@@ -1780,6 +1802,8 @@ export async function init() {
         dashboard?.classList.remove("dashboard-cargando")
         dashboard?.removeAttribute("aria-busy")
         cargado = true
+        configurarScrollFade()
+        configurarScrollFadeApp()
     }
 }
 
@@ -2441,7 +2465,10 @@ function mostrarErrorCarga() {
     if (detalleEl) detalleEl.textContent = "Error al cargar datos"
     LISTAS_DASHBOARD.forEach(({ id }) => {
         const lista = document.getElementById(id)
-        if (lista) lista.replaceChildren(tarjetaVacia("No se pudieron cargar estos datos."))
+        if (lista) {
+            lista.replaceChildren(tarjetaVacia("No se pudieron cargar estos datos."))
+            actualizarScrollFade(lista)
+        }
     })
     VALORES_DASHBOARD.forEach(id => {
         const valor = document.getElementById(id)
@@ -2465,6 +2492,7 @@ function actualizarPendientes() {
     if (cantidadEl) cantidadEl.textContent = pendientesData.length
     if (pendientesData.length === 0) {
         lista.replaceChildren(tarjetaVacia("No tienes cobros ni pagos pendientes."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2483,6 +2511,7 @@ function actualizarPendientes() {
             }
         }
     }))
+    actualizarScrollFade(lista)
 }
 
 // ============================================
@@ -2545,6 +2574,7 @@ function actualizarOrdenes() {
 
     if (pendientes.length === 0) {
         lista.replaceChildren(tarjetaVacia("No tienes órdenes pendientes."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2572,6 +2602,7 @@ function actualizarOrdenes() {
         fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - ORDENES_MAX_FILAS} más…`))
     }
     lista.replaceChildren(fragmento)
+    actualizarScrollFade(lista)
 }
 
 function actualizarEstrategias() {
@@ -2582,6 +2613,7 @@ function actualizarEstrategias() {
     if (cantidadEl) cantidadEl.textContent = estrategiasData.length
     if (estrategiasData.length === 0) {
         lista.replaceChildren(tarjetaVacia("No tienes estrategias activas."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2606,6 +2638,7 @@ function actualizarEstrategias() {
             html: { extra: controlCuenta }
         }
     }))
+    actualizarScrollFade(lista)
 }
 
 function pluralizarMovimientos(cantidad) {
@@ -2797,6 +2830,7 @@ function actualizarDistribucion() {
         }
     })))
     aplicoAnchoBarras(lista, analiticaData.distribucion)
+    actualizarScrollFade(lista)
 
     dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
 }
@@ -2825,6 +2859,7 @@ function actualizarDistribucionActivos() {
 
     if (!posicionesData || posicionesData.length === 0) {
         lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2860,6 +2895,7 @@ function actualizarDistribucionActivos() {
     const total = items.reduce((suma, item) => suma + item.valor, 0)
     if (items.length === 0 || total <= 0) {
         lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
+        actualizarScrollFade(lista)
         return
     }
     for (const item of items) item.porcentaje = (item.valor / total) * 100
@@ -2873,6 +2909,7 @@ function actualizarDistribucionActivos() {
         }
     })))
     aplicoAnchoBarras(lista, items)
+    actualizarScrollFade(lista)
 }
 
 // ============================================
@@ -2896,6 +2933,7 @@ function actualizarPatrimonioDivisa() {
 
     if (!patrimonioStats) {
         lista.replaceChildren(tarjetaVacia("No se pudo calcular el patrimonio."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2926,6 +2964,7 @@ function actualizarPatrimonioDivisa() {
 
     if (total <= 0) {
         lista.replaceChildren(tarjetaVacia("Sin patrimonio registrado."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2941,6 +2980,7 @@ function actualizarPatrimonioDivisa() {
             }
         }
     }))
+    actualizarScrollFade(lista)
     aplicoAnchoBarras(items.map((item, i) => ({
         ...item,
         porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
@@ -2957,6 +2997,7 @@ function actualizarProgramados() {
     if (cantidadEl) cantidadEl.textContent = analiticaData.programados.length
     if (analiticaData.programados.length === 0) {
         lista.replaceChildren(tarjetaVacia("No hay movimientos programados próximos."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2967,6 +3008,7 @@ function actualizarProgramados() {
             "valor-texto": formatearMontoConDivisa(item.monto, divisaActual)
         }
     })))
+    actualizarScrollFade(lista)
 }
 
 function actualizarAlertas() {
@@ -2982,6 +3024,7 @@ function actualizarAlertas() {
 
     if (alertas.length === 0) {
         lista.replaceChildren(tarjetaVacia("Todo en orden. No hay alertas."))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -2993,6 +3036,7 @@ function actualizarAlertas() {
         },
         html: { icono: icono("triangle-alert", 14) }
     })))
+    actualizarScrollFade(lista)
 }
 
 function formatearProximaEjecucion(fecha) {
@@ -3017,11 +3061,13 @@ function actualizarMovimientos() {
 
     if (movimientosData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Sin movimientos por ahora."))
+        actualizarScrollFade(lista)
         return
     }
 
     lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-movimiento", movimientosData, plantillaMovimiento))
     enlazarMovimientos(lista)
+    actualizarScrollFade(lista)
 }
 
 function enlazarMovimientos(lista) {
@@ -3352,7 +3398,7 @@ async function abrirModalEvolucionDashboard() {
     const opcionesGrafico = categoria => {
         const item = CATEGORIAS_GRAFICO.find(c => c.id === categoria) || CATEGORIAS_GRAFICO[0]
         return {
-            divisa: divisaActual.toUpperCase(),
+            divisa: divisaActual,
             etiquetaDivisa: presentarDivisa(divisaActual),
             chartKey: "evolucion-modal",
             categoria: item.id,
@@ -3613,11 +3659,13 @@ function actualizarFavoritos() {
 
     if (favoritosData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Marca activos con la estrella en Inversiones."))
+        actualizarScrollFade(lista)
         return
     }
 
     lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-favorito", favoritosData, plantillaFavorito))
     enlazarFavoritos(lista)
+    actualizarScrollFade(lista)
 }
 
 function enlazarFavoritos(lista) {
@@ -3720,11 +3768,13 @@ async function actualizarPresupuestos() {
 
     if (presupuestos.length === 0) {
         lista.replaceChildren(tarjetaVacia("Crea tu primer presupuesto."))
+        actualizarScrollFade(lista)
         return
     }
 
     lista.replaceChildren(contenidoDesdeFilas("tpl-presupuesto-card", presupuestos, plantillaPresupuestoDashboard))
     enlazarListaPresupuestos(lista)
+    actualizarScrollFade(lista)
 }
 
 function plantillaPresupuestoDashboard(p) {
@@ -3780,11 +3830,13 @@ function actualizarMetas() {
 
     if (metasData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Crea tu primera meta de ahorro."))
+        actualizarScrollFade(lista)
         return
     }
 
     lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-meta", metasData, plantillaMeta))
     enlazarListaMetas(lista)
+    actualizarScrollFade(lista)
 }
 
 // Tarjeta al estilo de "Últimos movimientos"/"Favoritos": el nombre con el
@@ -3859,7 +3911,7 @@ function configurarDivisa() {
         // Redibujar el gráfico manteniendo el periodo actual
         if (datosGrafico?.labels?.length) {
             await crearGraficoPatrimonio("grafico-patrimonio", datosGrafico, {
-                divisa: divisaActual.toUpperCase(),
+                divisa: divisaActual,
                 etiquetaDivisa: presentarDivisa(divisaActual)
             })
         }
@@ -3987,7 +4039,7 @@ async function dibujarGrafico(datos = datosGrafico, secuencia = secuenciaGrafico
     const canvas = document.getElementById("grafico-patrimonio")
     if (!card?.isConnected || !canvas?.isConnected || secuencia !== secuenciaGraficoDashboard) return null
     return crearGraficoPatrimonio("grafico-patrimonio", datos, {
-        divisa: divisaActual.toUpperCase(),
+        divisa: divisaActual,
         etiquetaDivisa: presentarDivisa(divisaActual)
     })
 }
@@ -4027,5 +4079,9 @@ export function destroy() {
     secuenciaGraficoDashboard++
     destruirGraficoPatrimonio()
     destruirGraficoPatrimonio("evolucion-modal")
+    const app = document.getElementById("app-content")
+    if (app) {
+        app.classList.remove("scroll-fade", "scroll-fade-top", "scroll-fade-bottom")
+    }
 }
 

@@ -19,7 +19,7 @@ import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { crearSeleccion, alternarSeleccion, seleccionarRango, seleccionarTodos, limpiarSeleccion as limpiarSeleccionHelper, expandirSeleccion } from "../ui/seleccion.js"
-import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
+import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { escapeHtml } from "../core/escape.js"
@@ -76,6 +76,9 @@ function filtrosVisibles() {
 }
 
 export function render() {
+    const uidActual = sesion.uid
+    const movimientosCache = uidActual ? cacheCapa.leerCache(uidActual, "movimientos") : null
+    const hayCache = !!movimientosCache
     const botones = filtrosVisibles()
         .map(f => `
             <button class="glass${f.filtro === "todos" ? " act" : ""}" data-filtro="${f.filtro}">
@@ -161,12 +164,12 @@ export function render() {
                     </button>
                 </div>
             </div>
-            <div id="totales-movimientos" class="totales" aria-busy="true">
-                ${skeletonMarkup({ rows: 1, className: "skeleton-totals" })}
+            <div id="totales-movimientos" class="totales" aria-busy="${hayCache ? 'false' : 'true'}">
+                ${hayCache ? '' : skeletonMarkup({ rows: 1, className: "skeleton-totals" })}
             </div>
             <div id="favoritos-movimientos" class="favoritos-movimientos" hidden></div>
-            <div id="lista-movimientos" class="lista-cards" aria-busy="true">
-                ${skeletonMarkup({ rows: 4 })}
+            <div id="lista-movimientos" class="lista-cards${hayCache ? ' contenido-entrante' : ''}" aria-busy="${hayCache ? 'false' : 'true'}">
+                ${hayCache ? '' : skeletonMarkup({ rows: 4 })}
             </div>
         </section>
     `
@@ -232,7 +235,7 @@ async function editarPlantillaFavoritoDesdeItem(favoritoId) {
             ...cuentasActivas.map(c => {
                 const opcion = document.createElement("option")
                 opcion.value = c.id
-                opcion.textContent = `${c.nombre || c.id} (${(c.moneda || "PEN").toUpperCase()})`
+                opcion.textContent = `${c.nombre || c.id} (${presentarDivisa(c.moneda)})`
                 if (c.id === favorito.cuenta) opcion.selected = true
                 return opcion
             })
@@ -529,6 +532,33 @@ function actualizarOpcionesEtiquetas() {
 async function cargarMovimientos() {
     const container = document.getElementById("lista-movimientos")
     const totales = document.getElementById("totales-movimientos")
+
+    // Si ya hay datos en caché (memoria o localStorage), no mostrar esqueleto:
+    // renderizar directamente. Esto evita el parpadeo al cambiar de pestaña
+    // cuando los datos ya se recibieron antes de la BD.
+    const cache = cacheCapa.leerCache(uid, "movimientos")
+    if (cache) {
+        movimientos = cache
+        container?.removeAttribute("aria-busy")
+        totales?.removeAttribute("aria-busy")
+        movimientos.sort(compararMovimientosPorFecha)
+        limpiarSeleccionHelper(sel)
+        actualizarSeleccionEnDOM()
+        actualizarEstadoLastbar()
+        actualizarOpcionesEtiquetas()
+        aplicarFiltro()
+
+        // Entrada suave del contenido cuando ya viene de caché (sin esqueleto):
+        // aparece con opacity 0 y se desvanece a 1 en 0.2 s, sin salto brusco.
+        container.classList.add("contenido-entrante")
+        requestAnimationFrame(() => {
+            container.classList.remove("contenido-entrante")
+        })
+
+        await renderFavoritos(uid)
+        return
+    }
+
     container?.setAttribute("aria-busy", "true")
     totales?.setAttribute("aria-busy", "true")
     if (container) container.replaceChildren(esqueletoContenedor("list", 4))
@@ -1073,7 +1103,7 @@ async function pintarTotales(contenedor, filtrados, cuentaId = null) {
     const porDivisa = {}
 
     filtrados.forEach(m => {
-        const divisa = (m.divisa || "PEN").toUpperCase()
+        const divisa = (m.divisa || "pen").toLowerCase()
         if (!porDivisa[divisa]) {
             porDivisa[divisa] = { positivo: 0, negativo: 0 }
         }
@@ -1401,7 +1431,7 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
                 for (const c of lista) {
                     const opt = document.createElement("option")
                     opt.value = c.id
-                    opt.textContent = `${c.nombre || c.id} (${(c.moneda || "PEN").toUpperCase()})`
+                    opt.textContent = `${c.nombre || c.id} (${presentarDivisa(c.moneda)})`
                     opt.dataset.moneda = (c.moneda || "pen").toLowerCase()
                     opt.dataset.tipo = c.tipo || "otro"
                     select.appendChild(opt)
@@ -2138,7 +2168,7 @@ export async function exportarExtractoCSV() {
                 m.concepto || m.activo || CONFIG_MOVIMIENTOS[m.tipo]?.nombre || "Sin concepto",
                 nombreCuentaDeMovimiento(m),
                 `${esMovimientoPositivo(m) ? "+" : "-"}${escapeHtml(Math.abs(montoDeMovimiento(m)).toFixed(2))}`,
-                (m.divisa || "PEN").toUpperCase(),
+                presentarDivisa(m.divisa),
                 (m.etiquetas || []).filter(Boolean).join(", ")
             ])
 

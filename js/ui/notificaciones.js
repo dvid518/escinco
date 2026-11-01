@@ -307,14 +307,6 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
     return cerrar
 }
 
-/** Cierra todas las notificaciones visibles. */
-export function cerrarNotificaciones() {
-    for (const { cerrar } of activas.values()) {
-        cerrar()
-    }
-    activas.clear()
-}
-
 // ============================================
 // GESTO SWIPE HORIZONTAL PARA DESCARTAR
 // ============================================

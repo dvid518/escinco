@@ -42,6 +42,67 @@ function claveCompuesta(uid, clave) {
     return `${uid}::${clave}`
 }
 
+// ============================================
+// PERSISTENCIA EN localStorage
+// ============================================
+// Las entradas ya leídas de Firestore se guardan en localStorage para que
+// sobrevivan a recargas y a cambiar de pestaña del navegador. Así, al volver
+// a una página ya cargada, se sirve desde ahí y no se vuelve a pintar el
+// esqueleto ni a gastar una lectura de red.
+// Se usa de forma defensiva: si no hay localStorage (Node/privado) o se
+// agota la cuota, se ignora y la caché en memoria sigue funcionando igual.
+const STORAGE_PREFIX = "escinco_cache:"
+
+function storageKey(uid, clave) {
+    return `${STORAGE_PREFIX}${claveCompuesta(uid, clave)}`
+}
+
+function leerPersistido(uid, clave) {
+    try {
+        if (typeof localStorage === "undefined") return null
+        const k = storageKey(uid, clave)
+        const raw = localStorage.getItem(k)
+        if (!raw) return null
+        const entrada = JSON.parse(raw)
+        if (!entrada || typeof entrada.expira !== "number") return null
+        if (Date.now() > entrada.expira) {
+            borrarPersistido(uid, clave)
+            return null
+        }
+        return entrada.datos
+    } catch {
+        return null
+    }
+}
+
+function persistir(uid, clave, datos, expira) {
+    try {
+        if (typeof localStorage === "undefined") return
+        localStorage.setItem(storageKey(uid, clave), JSON.stringify({ datos, expira }))
+    } catch {
+        // Cuota excedida o modo privado: se ignora, la caché en memoria sigue.
+    }
+}
+
+function borrarPersistido(uid, clave) {
+    try {
+        if (typeof localStorage === "undefined") return
+        localStorage.removeItem(storageKey(uid, clave))
+    } catch {}
+}
+
+function borrarPrefijoPersistido(prefijo) {
+    try {
+        if (typeof localStorage === "undefined") return
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i)
+            if (k && k.startsWith(prefijo)) {
+                localStorage.removeItem(k)
+            }
+        }
+    } catch {}
+}
+
 function registrarIngresoClave(clave, campo) {
     const entradaClave = stats.porClave.get(clave) ||
         { solicitadas: 0, aciertos: 0, aciertosEnVuelo: 0, red: 0 }
@@ -71,6 +132,17 @@ export const cacheCapa = {
             return entrada.datos
         }
 
+        // Caché persistente (localStorage): sobrevive a recargas y a cambiar
+        // de pestaña del navegador, así no se vuelve a pintar esqueleto ni a
+        // gastar una lectura de red cuando ya se tienen datos de la BD.
+        const persistido = leerPersistido(uid, clave)
+        if (persistido !== null) {
+            stats.aciertos++
+            registrarIngresoClave(clave, "aciertos")
+            entradas.set(k, { datos: persistido, expira: ahora + ttl })
+            return persistido
+        }
+
         // Reutilizar la petición si hay una en vuelo
         if (enVuelo.has(k)) {
             stats.aciertosEnVuelo++
@@ -85,6 +157,7 @@ export const cacheCapa = {
             .then(fn)
             .then(datos => {
                 entradas.set(k, { datos, expira: Date.now() + ttl })
+                persistir(uid, clave, datos, Date.now() + ttl)
                 return datos
             })
             .finally(() => {
@@ -95,6 +168,30 @@ export const cacheCapa = {
         return promesa
     },
 
+    /**
+     * Lee datos ya cacheados (memoria o localStorage) sin ejecutar fetchFn ni
+     * tocar la red. Devuelve null si no hay nada válido. No registra
+     * estadísticas: es una consulta de "¿ya tenemos esto?".
+     */
+    leerCache(uid, clave) {
+        if (!uid) return null
+        const k = claveCompuesta(uid, clave)
+        const ahora = Date.now()
+
+        const entrada = entradas.get(k)
+        if (entrada && entrada.expira > ahora) {
+            return entrada.datos
+        }
+
+        const persistido = leerPersistido(uid, clave)
+        if (persistido !== null) {
+            entradas.set(k, { datos: persistido, expira: ahora + TTL_DEFAULT })
+            return persistido
+        }
+
+        return null
+    },
+
     invalidar(uid, clave) {
         if (!uid) return
         const k = claveCompuesta(uid, clave)
@@ -102,6 +199,7 @@ export const cacheCapa = {
             entradas.delete(k)
             stats.invalidaciones++
         }
+        borrarPersistido(uid, clave)
     },
 
     /**
@@ -149,6 +247,7 @@ export const cacheCapa = {
                 stats.invalidaciones++
             }
         }
+        borrarPrefijoPersistido(`${STORAGE_PREFIX}${p}`)
     },
 
     limpiar(uid) {
@@ -160,6 +259,7 @@ export const cacheCapa = {
                 stats.invalidaciones++
             }
         }
+        borrarPrefijoPersistido(`${STORAGE_PREFIX}${p}`)
     },
 
     // --------------------------------------------

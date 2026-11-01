@@ -477,7 +477,7 @@ Fuente: `docs/modelo-datos.md:16-31`.
 | `divisaPrincipal` | string | `pen` (def.) \| `usd` \| `usdt` |
 | `tipoCambio` | object | `{ pen_usd, modo, actualizacion }` |
 | `paginas` | object | visibilidad por ruta (6 booleanos) |
-| `dashboard` | object | `{ cardsVisibles[], orden[], nuevasCardsV1 }` |
+| `dashboard` | object | `{ cardsVisibles[], orden[] }` |
 | `periodoEvolucion` | string | `30d` por defecto |
 | `periodoFlujo` | string | período del flujo de caja |
 | `resaltarPatrimonio` | number | `0` \| `1` \| `2` |
@@ -761,7 +761,7 @@ movimiento.
 `pendientes`, `metas`.
 
 **Persistencia del layout**: en Firestore `preferencias.dashboard.{cardsVisibles,
-orden, nuevasCardsV1}` (`js/pages/dashboard.js:196-208`) con espejo en
+orden}` (`js/pages/dashboard.js`) con espejo en
 `sessionStorage`. **Ya no usa `localStorage["escinco_dashboard_cards"]`** — la
 auditoría (`docs/auditoria-dashboard.md:175-191`) describe el estado anterior.
 
@@ -1143,7 +1143,7 @@ Extraídos de `js/pages/*.js`, `js/services/*.js` y `docs/requisitos.md:28-114`.
 | RF-DAS-06 | Añadir cards instanciadas por cuenta y por activo | `js/pages/dashboard.js:249-510` |
 | RF-DAS-07 | Podar automáticamente cards de cuentas/activos inexistentes | `js/pages/dashboard.js:230-244` |
 | RF-DAS-08 | Persistir visibilidad y orden de cards en Firestore | `js/pages/dashboard.js:196-208` |
-| RF-DAS-09 | Migrar automáticamente cards nuevas (flag `nuevasCardsV1`) | `js/pages/dashboard.js:162-184` |
+| RF-DAS-09 | Migrar automáticamente cards nuevas al catálogo fijo | `js/pages/dashboard.js` |
 | RF-DAS-10 | Mostrar el flujo de caja del periodo (gastado/ingresado/balance) | `js/pages/dashboard.js:1980-2043` |
 | RF-DAS-11 | Mostrar los últimos movimientos (2-5 configurables) | `js/pages/dashboard.js:2108-2136` |
 | RF-DAS-12 | Mostrar próximos vencimientos consolidados | `js/pages/dashboard.js:1813-1862` |

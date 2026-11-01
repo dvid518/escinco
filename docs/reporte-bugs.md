@@ -76,11 +76,16 @@ o acción destructiva) · **Media** (funciona mal en un caso real) · **Baja**
 > transferencias, pero solo se aplicó a `js/pages/cuentas.js`. Las otras dos
 > copias de la función quedaron atrás: ver **BUG-024** y **DEUDA-004**.
 
-> **Nota sobre BUG-014, BUG-015, BUG-020, BUG-027, BUG-029 y BUG-030:** los seis
-> están commiteados y revisados en código, pero **ninguno verificado todavía en
+> **Nota sobre BUG-014, BUG-015, BUG-020, BUG-027 y BUG-030:** los cinco están
+> commiteados y revisados en código, pero **ninguno verificado todavía en
 > navegador** (salvo BUG-030, que se verificó por ejecución). Se anotan como
 > resueltos de forma provisional: si al verificarlos fallaran, se revierte el
 > commit y vuelven a la lista de pendientes.
+>
+> **BUG-029** ha sido verificado mediante `tests/bug029.test.mjs` (11/11 pasando)
+> y `npm test` (TODO OK). El `ReferenceError: tipo is not defined` ya no existe
+> en `js/pages/movimientos.js:1724-1753`, que usa `m.tipo` y ejecuta
+> `bloquearFormulario(true)` + `renderizarAccionesDetalle` sin error.
 
 ### Cierre de los cinco pendientes de 2026-10-05
 

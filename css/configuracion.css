@@ -194,22 +194,76 @@
    que pasan por detrás no se transparenten. En modal sigue dentro de la
    columna del nav. */
 .config-pagina .config-pie-pagina {
-    position: sticky;
-    bottom: 0;
+    position: static;
+    bottom: auto;
     z-index: 1;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    text-align: center;
-    gap: 2px;
-    margin-top: auto;
-    padding: 12px 4px;
+    gap: 12px;
+    margin: 0;
+    padding: 8px 16px;
     border-top: 1px solid var(--border);
+    background-color: transparent;
     font-size: 12px;
+    color: var(--textSecondary);
+    width: 100%;
+    box-sizing: border-box;
+    flex-shrink: 0;
     /* Mismo velo y difuminado que el pie del menú (`.config-nav-pie`): las
        secciones que pasan por detrás no se transparenten. El difuminado lo
        aporta .glass (ver plantilla en dashboard.html/demo.html). */
-    background-color: var(--glass-frosted);
+}
+
+/* Fila única del pie en modo panel: marca, versión y copyright a la izquierda;
+   políticas (Privacidad · Términos) a la derecha, ambos lados con margen. */
+.config-pagina .config-pie-pagina .footer-legal {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.config-pagina .config-pie-pagina .footer-legal a {
+    color: var(--text);
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.config-pagina .config-pie-pagina .footer-legal a:hover {
+    color: var(--border);
+}
+
+#panel.config-pagina {
+    overflow-y: visible;
+}
+
+.config-pagina .config-layout {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding: 0px 16px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar {
+    width: 6px;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+
+.config-pagina .config-layout::-webkit-scrollbar-thumb:hover {
+    background: var(--textSecondary);
 }
 
 /* El menú es la columna fija del grid. `position: sticky` para que siga
@@ -588,18 +642,15 @@
 .footer-version {
     font-family: var(--font-secondary);
     font-size: 12px;
-    padding: 0;
-    border: none;
-    background: none;
     color: var(--textSecondary);
-    text-align: left;
-    cursor: pointer;
-    transition: color 0.2s ease;
 }
 
-.footer-version:hover {
-    color: var(--text);
-    text-decoration: underline;
+.footer-build {
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--textSecondary);
+    margin-left: 6px;
+    opacity: 0.8;
 }
 
 .footer-copy {

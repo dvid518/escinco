@@ -127,3 +127,19 @@ button:disabled {
     background-color: transparent;
     color: var(--positive);
 }
+
+/* Logos de proveedores en el botón social: el color de relleno vive en CSS,
+   nunca en estilo inline del <path>. */
+.logo-fill-azul {
+    fill: #0866ff;
+    fill-opacity: 1;
+    fill-rule: nonzero;
+    stroke: none;
+}
+
+.logo-fill-blanco {
+    fill: #ffffff;
+    fill-opacity: 1;
+    fill-rule: nonzero;
+    stroke: none;
+}

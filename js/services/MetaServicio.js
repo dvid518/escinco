@@ -1,7 +1,7 @@
 import { actualizarMeta } from "../repositories/MetaRepositorio.js"
 import { registrarMovimiento } from "./MovimientoServicio.js"
 import { obtenerCuenta } from "../../firebase/firestore.js"
-import { TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
+import { presentarDivisa } from "../services/DivisaServicio.js"
 
 // ============================================
 // META SERVICIO
@@ -38,7 +38,7 @@ export async function aportarMeta(uid, meta, { monto, cuentaId, fecha = new Date
     const divisaMeta = (meta.divisa || "pen").toLowerCase()
     if (monedaCuenta !== divisaMeta) {
         throw new Error(
-            `La cuenta "${cuenta.nombre}" está en ${monedaCuenta.toUpperCase()} y la meta en ${divisaMeta.toUpperCase()}. Selecciona una cuenta en ${divisaMeta.toUpperCase()}.`
+            `La cuenta "${cuenta.nombre}" está en ${presentarDivisa(monedaCuenta)} y la meta en ${presentarDivisa(divisaMeta)}. Selecciona una cuenta en ${presentarDivisa(divisaMeta)}.`
         )
     }
 

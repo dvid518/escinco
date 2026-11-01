@@ -23,7 +23,7 @@
 </head>
 <body class="loading">
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     <header class="nav-section">
         <div class="logo-container glass tab">
             <a href="/dashboard" data-page="dashboard" class="logo-texto" id="logo-link">
@@ -2442,12 +2442,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 </div>
             </div>
             <div class="card-item-valor-wrap">
-                <div class="movimiento-valores">
-                    <div class="movimiento-valor" data-tpl="valor" data-tpl-attr="class"></div>
-                </div>
                 <div class="card-item-acciones">
                     <button type="button" class="card-action-btn" data-accion="editar" title="Editar" aria-label="Editar" data-tpl="icono-editar"></button>
                     <button type="button" class="card-action-btn danger" data-accion="eliminar" title="Eliminar" aria-label="Eliminar" data-tpl="icono-eliminar"></button>
+                </div>
+                <div class="movimiento-valores">
+                    <div class="movimiento-valor" data-tpl="valor" data-tpl-attr="class"></div>
                 </div>
             </div>
         </div>
@@ -2711,7 +2711,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <template id="tpl-dashboard-card-uso">
         <div class="card-uso">
-            <div class="card-uso-barra"><span data-tpl="barra" data-tpl-attr="id"></span></div>
+            <div class="card-uso-barra"><span class="barra-progreso" data-tpl="barra" data-tpl-attr="id"></span></div>
             <span class="card-uso-pct" data-tpl="porcentaje" data-tpl-attr="id"></span>
         </div>
     </template>
@@ -2781,7 +2781,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <strong data-tpl="porcentaje"></strong>
             </div>
             <div class="distribucion-barra">
-                <span class="barra barra-progreso" data-tpl="barra" data-tpl-attr="class"></span>
+                <span class="barra-progreso" data-tpl="barra-clase" data-tpl-attr="data-clase"></span>
             </div>
             <span class="distribucion-valor" data-tpl="valor"></span>
         </div>

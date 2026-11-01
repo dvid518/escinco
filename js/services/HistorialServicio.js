@@ -23,29 +23,6 @@ export async function registrarPrecio(uid, activoId, precio) {
 }
 
 /**
- * Devuelve los datos listos para Chart.js: { labels, data }.
- */
-export async function obtenerHistorialParaGrafico(uid, activoId, dias = 7) {
-    try {
-        const historial = await obtenerHistorial(uid, activoId, dias)
-
-        return {
-            labels: historial.map(h => {
-                const fecha = new Date(h.fecha + 'T00:00:00')
-                return fecha.toLocaleDateString('es-PE', {
-                    day: '2-digit',
-                    month: '2-digit'
-                })
-            }),
-            data: historial.map(h => h.precio)
-        }
-    } catch (error) {
-        console.error("Error obteniendo historial:", error)
-        return { labels: [], data: [] }
-    }
-}
-
-/**
  * Devuelve el precio del día de HOY del historial del activo, o null.
  * (Distinto del precio actual del activo guardado en su doc: este es el
  * precio registrado en el doc de historial diario, no el `ultimoPrecio`.)

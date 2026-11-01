@@ -158,8 +158,15 @@
     flex: 1;
     padding-right: 4px;
     min-height: 0;
-    padding-bottom: 80px;
     overflow-y: auto;
+}
+
+/* Cuando la lista se pinta desde caché (sin esqueleto), empieza oculta y
+   entra suavemente en vez de aparecer de golpe. 0.2 s, ease. */
+#lista-movimientos.contenido-entrante {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease;
 }
 
 #lista-movimientos::-webkit-scrollbar {
@@ -409,7 +416,9 @@
 :is(#lista-movimientos, #lista-movimientos-cuenta) .card-item-valor-wrap {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
     flex-shrink: 0;
+    gap: 20px;
 }
 
 /* La estrella vive a la izquierda de la fila, fuera de `.movimiento-acciones`
@@ -502,10 +511,7 @@
    ACCIONES DE CARD (revelado por swipe/hover)
    -------------------------------------------- */
 :is(#lista-movimientos, #lista-movimientos-cuenta) .movimiento-item .card-item-acciones {
-    position: absolute;
-    top: 0;
-    bottom: 0;
-    right: calc(100% + 12px);
+    position: static;
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;

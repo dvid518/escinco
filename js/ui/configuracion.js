@@ -5,6 +5,7 @@ import { obtenerCuentas, obtenerPreferencias, aplicarPreferenciasDiff, actualiza
 import { abrirModal, cerrarModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "./modal.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { VERSION } from "../../constants/version.js"
+import { BUILD_ID } from "../../constants/build.js"
 import { TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
 import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, formatearMontoConDivisa, actualizarTipoCambioAuto, guardarDivisaPrincipal, guardarTipoCambio } from "../services/DivisaServicio.js"
 import { aplicarTema, setTemaLocal } from "../core/tema.js"
@@ -86,6 +87,7 @@ function plantillaConfiguracion() {
         valores: {
             "footer-nombre": VERSION.nombre,
             "footer-version": `v${VERSION.numero}`,
+            "footer-build": BUILD_ID,
             "footer-copy": `© ${VERSION.ano} ${VERSION.nombre}`,
             "tc-pen-usd@placeholder": TIPO_CAMBIO_DEFAULT.pen_usd,
             "tc-eur-usd@placeholder": TIPO_CAMBIO_DEFAULT.eur_usd
@@ -216,10 +218,7 @@ function separarSidebarDePanel() {
         sidebar.prepend(nav)
     }
     const pie = sidebar.querySelector(".config-nav-pie") || panel.querySelector(".config-nav-pie")
-    if (pie && pie.parentElement !== panel) {
-        pie.classList.add("config-pie-pagina")
-        panel.appendChild(pie)
-    } else if (pie) {
+    if (pie) {
         pie.classList.add("config-pie-pagina")
         panel.appendChild(pie)
     }
@@ -1377,14 +1376,11 @@ function configurarBotones() {
     document.getElementById("logout-btn")?.addEventListener("click", abrirModalLogout)
     document.getElementById("export-dvid")?.addEventListener("click", exportarDVID)
     document.getElementById("import-dvid")?.addEventListener("click", importarDVID)
-    document.getElementById("delete-data")?.addEventListener("click", eliminarTodosLosDatos)
+    document.getElementById("tratamiento-datos")?.addEventListener("click", tratamientoDatos)
     document.getElementById("delete-account")?.addEventListener("click", abrirModalEliminarCuenta)
     document.getElementById("restore-cuentas")?.addEventListener("click", abrirRestaurarCuentasArchivadas)
     document.getElementById("abrir-atajos")?.addEventListener("click", () => {
         import("../core/atajos.js").then(m => m.abrirModalAtajos())
-    })
-    document.getElementById("config-version")?.addEventListener("click", () => {
-        import("./changelog.js").then(m => m.abrirModalChangelog())
     })
 }
 
@@ -1413,6 +1409,7 @@ function configurarModoConfiguracion() {
             opciones.forEach(o => o.classList.remove("active"))
             opt.classList.add("active")
             marcarCambioNuevo()
+            actualizarEstadoGuardar()
             // No se persiste al instante: la pantalla tiene su propio Guardar.
             // Mientras tanto el engranaje sigue con el modo viejo, que es lo
             // coherente con el resto de cambios de esta pantalla.
@@ -1675,9 +1672,9 @@ function abrirModalPreviewImportacion(archivo, preview) {
 // ELIMINAR DATOS
 // ============================================
 
-function eliminarTodosLosDatos() {
+function tratamientoDatos() {
     abrirModal({
-        titulo: "Eliminar todos los datos",
+        titulo: "Tratamiento de todos los datos",
         contenido: contenidoDesdeTemplate("tpl-eliminar-todos"),
         variante: "confirm",
         confirmText: "Continuar",
@@ -1694,16 +1691,16 @@ function confirmarEliminacionFinal() {
     abrirModal({
         titulo: "Confirmación final",
         contenido: contenidoDesdeTemplate("tpl-confirmar-escritura", {
-            valores: { campo: "confirmar-eliminar" }
+            valores: { campo: "confirmar-tratamiento" }
         }),
         variante: "confirm",
-        confirmText: "Eliminar todo",
+        confirmText: "Tratar todos los datos",
         cancelText: "Cancelar",
         onConfirm: async () => {
-            const input = document.getElementById("confirmar-eliminar")
+            const input = document.getElementById("confirmar-tratamiento")
             const valor = input?.value.trim().toUpperCase()
 
-            if (valor !== "ELIMINAR") {
+            if (valor !== "TRATAR") {
                 input.classList.add("input-error")
                 input.focus()
                 return false

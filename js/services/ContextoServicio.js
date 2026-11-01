@@ -1,6 +1,6 @@
 import { obtenerCuentas, obtenerMovimientos } from "../../firebase/firestore.js"
 import { calcularPatrimonio } from "./SnapshotServicio.js"
-import { convertirMonto, getDivisaPrincipal, getTipoCambio } from "./DivisaServicio.js"
+import { convertirMonto, getDivisaPrincipal, getTipoCambio, presentarDivisa } from "./DivisaServicio.js"
 import { obtenerPosiciones } from "../repositories/PosicionRepositorio.js"
 import { TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import { montoDeMovimiento } from "../core/movimientos.js"
@@ -161,7 +161,7 @@ function lineasCuentas(cuentas) {
 
     for (const cuenta of visibles) {
         const tipo = TIPOS_CUENTA[cuenta.tipo] || cuenta.tipo || "cuenta"
-        const divisa = String(cuenta.moneda || "pen").toUpperCase()
+        const divisa = presentarDivisa(cuenta.moneda)
         const nombre = cuenta.nombre || "Sin nombre"
 
         if (cuenta.tipo === "credito") {
@@ -193,7 +193,7 @@ function lineasInversiones(posiciones) {
     for (const posicion of visibles) {
         const activo = posicion.activo || {}
         const simbolo = activo.simbolo || activo.nombre || "Activo"
-        const divisa = String(posicion.divisa || "usd").toUpperCase()
+        const divisa = presentarDivisa(posicion.divisa)
         const cantidad = Number(posicion.cantidad) || 0
         const precio = Number(activo.ultimoPrecio) || 0
         const valor = cantidad * precio

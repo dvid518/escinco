@@ -4,17 +4,6 @@
 
 export const DIVISAS_META = ["pen", "usd", "usdt"]
 
-export const ICONOS_META = [
-    { valor: "target", etiqueta: "Objetivo" },
-    { valor: "home", etiqueta: "Casa" },
-    { valor: "coins", etiqueta: "Ahorro" },
-    { valor: "wallet", etiqueta: "Billetera" },
-    { valor: "landmark", etiqueta: "Banco" },
-    { valor: "banknote", etiqueta: "Efectivo" },
-    { valor: "credit-card", etiqueta: "Tarjeta" },
-    { valor: "trending-up", etiqueta: "Inversión" }
-]
-
 export class Meta {
     constructor(datos) {
         this.id = datos.id || null

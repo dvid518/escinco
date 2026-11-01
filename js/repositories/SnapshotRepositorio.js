@@ -142,22 +142,3 @@ export async function obtenerSnapshotHoy(uid) {
     }, { ttl: TTL_SNAPSHOTS })
 }
 
-// ============================================
-// OBTENER SNAPSHOT POR FECHA
-// ============================================
-
-export async function obtenerSnapshotPorFecha(uid, fecha) {
-    return cacheCapa.obtener(uid, `snapshots:fecha:${fecha}`, async () => {
-        const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
-        const resultado = await getDoc(referencia)
-
-        if (!resultado.exists()) {
-            return null
-        }
-
-        return {
-            fecha: resultado.id,
-            ...resultado.data()
-        }
-    }, { ttl: TTL_SNAPSHOTS })
-}

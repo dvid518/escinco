@@ -926,6 +926,36 @@ body.dashboard-card-dragging * {
     padding-right: 4px;
 }
 
+/* ============================================
+   LISTAS CON SCROLL INTERNO DEL DASHBOARD
+   ============================================
+
+   Las listas llevan .scroll-fade (puesto por el JS del dashboard al renderizar
+   la card). Con la clase se restringen a un alto máximo y scrollan
+   internamente; el degradado de borde se controla con .scroll-fade-top y
+   .scroll-fade-bottom (definidos en navegacion.css). Cuando el contenido cabe
+   sin scroll no hay degradado: la regla base de .scroll-fade deja la máscara
+   opaca. Las reglas específicas de .dashboard > * (overflow: visible) no se
+   tocan: solo las listas con la clase se restringen. */
+
+.movimientos-lista.scroll-fade,
+.favoritos-lista.scroll-fade,
+.metas-lista.scroll-fade,
+.presupuestos-lista.scroll-fade,
+.pendientes-lista.scroll-fade,
+.ordenes-lista.scroll-fade,
+.estrategias-lista.scroll-fade,
+.distribucion-lista.scroll-fade,
+.distribucion-activos-lista.scroll-fade,
+.patrimonio-divisa-lista.scroll-fade,
+.programados-lista.scroll-fade,
+.alertas-lista.scroll-fade {
+    overflow-y: auto;
+    max-height: 220px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+}
+
 /* Dona de "Distribución patrimonial": cima de la card, centrada y compacta,
    con el listado de barras debajo. Al ser una card estrecha, la dona se apila
    y no compite en ancho con las barras. */

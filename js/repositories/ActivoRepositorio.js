@@ -90,22 +90,6 @@ export async function buscarActivoPorSimbolo(uid, simbolo) {
     return Activo.fromFirestore(documento.id, documento.data())
 }
 
-// --------------------------------------------
-// ACTUALIZAR
-// --------------------------------------------
-
-export async function actualizarActivo(uid, activoId, datos) {
-    const referencia = doc(db, "usuarios", uid, "activos", activoId)
-    const resultado = await updateDoc(referencia, {
-        ...datos,
-        ultimaActualizacion: serverTimestamp()
-    })
-    cacheCapa.invalidar(uid, "activos")
-    // Las posiciones unen el activo: su valor/ganancia cambia
-    cacheCapa.invalidar(uid, "posiciones")
-    return resultado
-}
-
 export async function actualizarPrecioActivo(uid, activoId, precio, fuente = null) {
     const referencia = doc(db, "usuarios", uid, "activos", activoId)
     const resultado = await updateDoc(referencia, {
@@ -130,14 +114,3 @@ export async function marcarFavoritoActivo(uid, activoId, favorito) {
     return resultado
 }
 
-// --------------------------------------------
-// ELIMINAR
-// --------------------------------------------
-
-export async function eliminarActivo(uid, activoId) {
-    const referencia = doc(db, "usuarios", uid, "activos", activoId)
-    const resultado = await deleteDoc(referencia)
-    cacheCapa.invalidar(uid, "activos")
-    cacheCapa.invalidar(uid, "posiciones")
-    return resultado
-}

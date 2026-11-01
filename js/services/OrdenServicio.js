@@ -67,14 +67,6 @@ export async function obtenerOrdenesConFiltros(uid, filtros = {}) {
 export async function editarOrden(uid, ordenId, datos) {
     return await actualizarOrden(uid, ordenId, datos)
 }
-
-/**
- * Cancela una orden pendiente (no la elimina).
- */
-export async function cancelarOrden(uid, ordenId) {
-    return await actualizarOrden(uid, ordenId, { estado: ESTADOS_ORDEN.CANCELADA })
-}
-
 /**
  * Elimina una orden.
  */

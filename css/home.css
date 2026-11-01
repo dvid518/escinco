@@ -380,6 +380,14 @@
     transform: none;
 }
 
+/* El logo de la maqueta no lleva id="logo" (evitamos duplicarlo con la
+   cabecera), así que el <a> hereda el color por defecto del navegador y el
+   svg (fill="currentColor") se ve azul/púrpura como un enlace. Se le asigna
+   el mismo color que usa el logo en el resto de la app (var(--text)). */
+.home-maqueta-nav .logo-container a {
+    color: var(--text);
+}
+
 @media (max-width: 768px) {
     .home-maqueta-nav {
         width: 100%;
@@ -728,6 +736,11 @@
     color: var(--textSecondary);
 }
 
+.home-faq-respuesta--abierta {
+    height: auto;
+    opacity: 1;
+}
+
 .home-faq-respuesta > span {
     display: block;
     padding: 0 20px 18px;
@@ -787,6 +800,40 @@
     flex-wrap: wrap;
     align-items: center;
     gap: 14px;
+}
+
+.home-footer-marca-con-version {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+}
+
+.home-footer .panel-version {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: flex-start;
+    width: auto;
+    margin: 0;
+    padding: 0;
+    opacity: 1;
+}
+
+.home-footer .panel-version-brand {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.home-footer .panel-version-numero {
+    font-family: var(--font-secondary);
+    font-size: 12px;
+    color: var(--text);
+    padding: 2px 10px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    background: var(--glass-frosted);
 }
 
 .home-footer-link {

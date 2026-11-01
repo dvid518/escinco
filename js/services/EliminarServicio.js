@@ -123,19 +123,6 @@ async function vaciarSubcoleccion(uid, coleccionPadre, docId, subcoleccion) {
 // ============================================
 // ELIMINAR POR COLECCIÓN
 // ============================================
-
-export async function eliminarColeccion(uid, coleccionNombre) {
-    try {
-        const resultado = await vaciarColeccion(uid, coleccionNombre)
-        cacheCapa.limpiar(uid)
-        return resultado
-    } catch (error) {
-        console.error(`Error eliminando ${coleccionNombre}:`, error)
-        throw error
-    }
-}
-
-// ============================================
 // ELIMINAR DOCUMENTO RAÍZ DEL USUARIO
 // ============================================
 
