@@ -2758,8 +2758,13 @@ async function dibujarDonaDistribucion(items) {
 
 /* Aplica el ancho de cada barra de distribución vía variable CSS
    (el width vive en .distribucion-barra .barra-progreso). */
-function aplicoAnchoBarras(items) {
-    const barras = document.querySelectorAll(".distribucion-barra .barra-progreso")
+function aplicoAnchoBarras(lista, items) {
+    // Retrocompatibilidad: llamada con un solo argumento (patrimonio por divisa).
+    if (!Array.isArray(items)) {
+        items = lista
+        lista = document
+    }
+    const barras = lista.querySelectorAll(".distribucion-barra .barra-progreso")
     barras.forEach((barra, i) => {
         if (!items[i]) return
         const pct = items[i].porcentaje
@@ -2782,7 +2787,7 @@ function actualizarDistribucion() {
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
-    aplicoAnchoBarras(analiticaData.distribucion)
+    aplicoAnchoBarras(lista, analiticaData.distribucion)
 
     dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
 }
@@ -2855,7 +2860,7 @@ function actualizarDistribucionActivos() {
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
-    aplicoAnchoBarras(items)
+    aplicoAnchoBarras(lista, items)
 }
 
 // ============================================
