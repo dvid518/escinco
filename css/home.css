@@ -434,6 +434,18 @@
     text-align: left;
 }
 
+/* Movimiento info a la izquierda, no centrado */
+.home-maqueta .movimiento-info {
+    align-items: flex-start;
+    text-align: left;
+}
+
+/* Metas: info a la izquierda, porcentaje a la derecha */
+.home-maqueta .meta-item {
+    justify-content: space-between;
+    align-items: flex-start;
+}
+
 /* Las cifras de la app miden 32px porque ocupan media pantalla; dentro del
    marco, a cuatro columnas, serían ilegibles. Es el único ajuste de tamaño. */
 .home-card-valor-medio {
