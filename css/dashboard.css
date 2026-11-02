@@ -370,6 +370,10 @@ body.dashboard-card-dragging * {
     flex-shrink: 0;
 }
 
+.dashboard .card .card-header {
+    margin-bottom: 12px;
+}
+
 .dashboard .card .card-title {
     overflow-wrap: anywhere;
 }
@@ -564,7 +568,7 @@ body.dashboard-card-dragging * {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 4px;
+    margin-bottom: 12px;
 }
 
 .patrimonio-card .card-header .card-title {
@@ -786,6 +790,7 @@ body.dashboard-card-dragging * {
     flex-direction: column;
     align-items: stretch;
     gap: 10px;
+    margin-bottom: 12px;
 }
 
 .metric-card .card-header .card-title {
@@ -864,7 +869,6 @@ body.dashboard-card-dragging * {
     justify-content: space-between;
     align-items: center;
     gap: 8px;
-    margin-bottom: 12px;
 }
 
 .favoritos-card .card-header .card-title,
