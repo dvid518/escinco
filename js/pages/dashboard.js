@@ -3845,13 +3845,15 @@ function plantillaMeta(meta) {
         meta.activa ? "" : "pausada"
     ].filter(Boolean).join(" ")
 
+    const monto = Number(meta.montoActual) || 0
+    const pct = Number(meta.porcentaje) || 0
     return {
         valores: {
             "item@class": clases,
             "item@data-meta-id": meta.id,
             "nombre": meta.nombre,
-            "cantidad": formatearMontoConDivisa(meta.montoActual, meta.divisa),
-            "porcentaje": `${meta.porcentaje.toFixed(0)}%`
+            "cantidad": formatearMontoConDivisa(monto, meta.divisa),
+            "porcentaje": `${pct.toFixed(0)}%`
         }
     }
 }
