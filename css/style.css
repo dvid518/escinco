@@ -108,6 +108,23 @@
     --icyAqua: #B0FFF7;
     --darkWine: #7C1818;
     --peachFuzz: #FFD0B9;
+
+    --barra-ancho: 0%;
+    --filtro-height: 40px;
+    --gap-card: 16px;
+    --modal-x: 0;
+    --modal-y: 0;
+    --progreso: 0%;
+    --scroll-fade-bottom: 0px;
+    --scroll-fade-top: 0px;
+    --seleccion-bg: #D4E1ED;
+    --seleccion-color: #1F1F1F;
+    --sidebar-btn: 44px;
+    --asistente-input-altura: auto;
+    --tooltip-left: 0;
+    --tooltip-top: 0;
+    --unidad-card: 148px;
+    --z-modal: 1000;
 }
 
 /* Tema oscuro */
@@ -139,12 +156,26 @@
     --blurBackground: var(--lightOnyx);
 
     --glass-frosted: var(--frostedGraphite);
+    --gradient: var(--icyBlue);
 
     --orange: var(--peachGlow);
     --violet: var(--mauve);
     --piggie: var(--softBlossom);
     --aqua: var(--icyAqua);
     --cappuccino: var(--peachFuzz);
+
+    --etiqueta-verde: var(--lightGreen);
+    --etiqueta-rojo: var(--cottonCandy);
+    --etiqueta-ambar: var(--banana);
+    --etiqueta-azul: var(--paleSky);
+    --etiqueta-menta: var(--tropicalMint);
+    --etiqueta-frambuesa: var(--raspberryRed);
+    --etiqueta-mostaza: var(--mustard);
+
+    --distribucion-liquidez: var(--aqua);
+    --distribucion-inversiones: var(--orange);
+    --distribucion-inmovil: var(--violet);
+    --distribucion-deudas: var(--negative);
 }
 
 /* Tema claro */
@@ -176,12 +207,26 @@
     --blurBackground: var(--lightPaleSky);
 
     --glass-frosted: var(--frostedWhiteSmoke);
+    --gradient: var(--balticBlue);
 
     --orange: var(--pupkinSpice);
     --violet: var(--indigoBloom);
     --piggie: var(--wildStrawberry);
     --aqua: var(--verdigris);
     --cappuccino: var(--darkWine);
+
+    --etiqueta-verde: var(--lightGreen);
+    --etiqueta-rojo: var(--cottonCandy);
+    --etiqueta-ambar: var(--banana);
+    --etiqueta-azul: var(--paleSky);
+    --etiqueta-menta: var(--tropicalMint);
+    --etiqueta-frambuesa: var(--raspberryRed);
+    --etiqueta-mostaza: var(--mustard);
+
+    --distribucion-liquidez: var(--aqua);
+    --distribucion-inversiones: var(--orange);
+    --distribucion-inmovil: var(--violet);
+    --distribucion-deudas: var(--negative);
 }
 
 /* ============================================
@@ -984,7 +1029,7 @@ option {
     width: 40vw;
     height: 40vw;
     background: radial-gradient(circle, var(--gradient) 0%, transparent 70%);
-    opacity: 0.5;
+    opacity: 0.25;
     animation: float 20s ease-in-out infinite alternate;
     animation-duration: 24s;
     animation-delay: 0s;
