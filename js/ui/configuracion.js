@@ -255,7 +255,6 @@ async function iniciarConfiguracion() {
     configurarModoConfiguracion()
     configurarLastbar()
     configurarDetectorCambios()
-    configurarTipoCambio()
     configurarFormatoDivisa()
     configurarLateralidadCuenta()
     configurarPeriodoEvolucion()
@@ -568,8 +567,9 @@ function leerCantidadMovimientos() {
 }
 
 async function cargarPreferencias() {
+    let prefs = {}
     try {
-        const prefs = await obtenerPreferencias(uid)
+        prefs = await obtenerPreferencias(uid)
 
         // Tema
         temaActual = prefs?.tema || "dark"
@@ -673,9 +673,11 @@ async function cargarPreferencias() {
 
     // Fondo
     const fondoGuardado = prefs?.fondo || "animado"
-    const selectFondo = document.getElementById("select-fondo")
-    if (selectFondo) {
-        selectFondo.value = fondoGuardado
+    const toggleFondo = document.getElementById("toggle-fondo")
+    if (toggleFondo) {
+        document.querySelectorAll("#toggle-fondo .toggle-option").forEach(opt => {
+            opt.classList.toggle("active", opt.dataset.fondo === fondoGuardado)
+        })
     }
     aplicarEstadoFondo(fondoGuardado)
 
@@ -797,7 +799,6 @@ function configurarDetectorCambios() {
         "acc-un-click-seleccion",
         "acc-resaltar-ingreso-gasto",
         "acc-acciones-siempre-visibles",
-        "toggle-precios-auto"
     ]
 
     ids.forEach(id => {
@@ -885,119 +886,7 @@ function getFormatoDivisaUI() {
     return document.querySelector("#formato-divisa .toggle-option.active")?.dataset.formato || "simbolo"
 }
 
-function getModoTipoCambioUI() {
-    const opt = document.querySelector("#tc-modo .toggle-option.active")
-    return opt?.dataset.modo || null
-}
 
-function refrescarModoTipoCambio(modo = null) {
-    const modoActual = modo || (getTipoCambio().modo === "auto" ? "auto" : "manual")
-    const opciones = document.querySelectorAll("#tc-modo .toggle-option")
-
-    opciones.forEach(opt => {
-        opt.classList.toggle("active", opt.dataset.modo === modoActual)
-    })
-
-    const esAuto = modoActual === "auto"
-    const inputManual = document.getElementById("tc-input-manual")
-    const inputAuto = document.getElementById("tc-input-auto")
-    const tcUSD = document.getElementById("tc-pen-usd")
-    const tcEUR = document.getElementById("tc-eur-usd")
-
-    if (inputManual) inputManual.hidden = esAuto
-    if (inputAuto) inputAuto.hidden = !esAuto
-    if (tcUSD) tcUSD.disabled = esAuto
-    if (tcEUR) tcEUR.disabled = esAuto
-
-    actualizarInfoAuto()
-}
-
-function actualizarInfoAuto() {
-    const tc = getTipoCambio()
-    const penUSD = tc.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
-    const eurUSD = tc.eur_usd || TIPO_CAMBIO_DEFAULT.eur_usd
-
-    const valorAuto = document.getElementById("tc-valor-auto")
-    if (valorAuto) {
-        valorAuto.textContent = `1 USD = ${Number(penUSD).toFixed(2)} PEN · ${Number(eurUSD).toFixed(2)} EUR`
-    }
-
-    const fechaAuto = document.getElementById("tc-fecha-auto")
-    if (fechaAuto) {
-        if (tc.modo === "auto" && tc.actualizacion) {
-            const fecha = new Date(tc.actualizacion)
-            fechaAuto.textContent = `Última actualización: ${fecha.toLocaleString("es-PE", { dateStyle: "short", timeStyle: "short" })}`
-        } else {
-            fechaAuto.textContent = "Aún sin actualización automática"
-        }
-    }
-}
-
-function configurarTipoCambio() {
-    const opciones = document.querySelectorAll("#tc-modo .toggle-option")
-
-    opciones.forEach(opt => {
-        opt.addEventListener("click", () => {
-            opciones.forEach(o => o.classList.remove("active"))
-            opt.classList.add("active")
-            refrescarModoTipoCambio(opt.dataset.modo)
-            actualizarEstadoGuardar()
-        })
-    })
-
-    const btnActualizar = document.getElementById("tc-actualizar-btn")
-    if (btnActualizar) {
-        btnActualizar.addEventListener("click", actualizarTipoCambioAutomatico)
-    }
-}
-
-async function actualizarTipoCambioAutomatico() {
-    const btn = document.getElementById("tc-actualizar-btn")
-    const btnText = btn?.querySelector(".tc-btn-text")
-    const status = document.getElementById("tc-status")
-    const autoBox = document.getElementById("tc-input-auto")
-    const valorAuto = document.getElementById("tc-valor-auto")
-    const fechaAuto = document.getElementById("tc-fecha-auto")
-
-    autoBox?.setAttribute("aria-busy", "true")
-    if (valorAuto) valorAuto.replaceChildren(esqueletoContenedor("list", 1, "skeleton-exchange"))
-    if (fechaAuto) fechaAuto.replaceChildren(esqueletoTexto())
-
-    if (status) {
-        status.hidden = true
-        status.textContent = ""
-    }
-
-    if (btn) {
-        btn.disabled = true
-        if (btnText) btnText.textContent = "Actualizando..."
-    }
-
-    try {
-        const penUSD = await actualizarTipoCambioAuto(uid)
-
-        const tcUSD = document.getElementById("tc-pen-usd")
-        if (tcUSD) tcUSD.value = penUSD
-
-        actualizarInfoAuto()
-        marcarCambioNuevo()
-        actualizarEstadoGuardar()
-        mostrarNotificacion("exito", `Tipo de cambio actualizado: 1 USD = ${penUSD.toFixed(2)} PEN`)
-    } catch (error) {
-        if (status) {
-            status.textContent = "No se pudo actualizar; se mantiene el valor actual"
-            status.hidden = false
-        }
-        mostrarNotificacion("error", `No se pudo actualizar el tipo de cambio: ${error.message}`)
-    } finally {
-        actualizarInfoAuto()
-        autoBox?.removeAttribute("aria-busy")
-        if (btn) {
-            btn.disabled = false
-            if (btnText) btnText.textContent = "Actualizar ahora"
-        }
-    }
-}
 
 // ============================================
 // AVISO DE CAMBIOS SIN GUARDAR
@@ -1155,8 +1044,7 @@ function construirPreferencias() {
         formatoDivisa: getFormatoDivisaUI(),
         seg,
         accesibilidad,
-        tiposMovimiento,
-        precios
+        tiposMovimiento
     }
 }
 
@@ -1174,18 +1062,8 @@ async function aplicarPreferencias(preferencias) {
             nombrePendiente = null
         }
 
-        const tc = preferencias.tipoCambio
-
-        // Divisa y tipo de cambio se persisten vía DivisaServicio. En modo
-        // "auto" se conserva la actualizacion previa (el TC no cambió).
+        // Divisa se persiste vía DivisaServicio.
         await guardarDivisaPrincipal(uid, preferencias.divisaPrincipal)
-        await guardarTipoCambio(
-            uid,
-            tc.pen_usd,
-            tc.modo,
-            tc.modo === "auto" && tc.actualizacion ? tc.actualizacion : null,
-            { eur_usd: tc.eur_usd, usdt_usd: tc.usdt_usd }
-        )
 
         // En Firestore solo queda lo que se aparta del default. Volver a marcar
         // un default borra su clave en vez de reescribirla, y un usuario que
