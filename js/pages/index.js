@@ -266,12 +266,12 @@ async function initGraficosMaqueta() {
     })
 
     await crearGraficoDistribucion("home-grafico-distribucion", {
-        labels: ["Cripto", "Acción", "ETF", "Bono"],
-        data: [42, 28, 20, 10],
+        labels: ["Liquidez", "Inversiones", "Inmovilizado", "Deudas"],
+        data: [45, 25, 20, 10],
         // Las mismas variables que pinta las barras .distribucion-barra de abajo
-        // (cripto, accion, etf, bono), para que el anillo y la lista se lean
-        // como una sola pieza y cambien de color con el tema.
-        colores: ["--ambar", "--positive", "--positiveAlt", "--border"]
+        // (liquidez, inversiones, inmovil, deudas), para que el anillo y la lista
+        // se lean como una sola pieza y cambien de color con el tema.
+        colores: ["--distribucion-liquidez", "--distribucion-inversiones", "--distribucion-inmovil", "--distribucion-deudas"]
     }, {
         chartKey: "home-distribucion",
         formatear: formatearSoles

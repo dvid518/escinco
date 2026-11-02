@@ -1568,11 +1568,6 @@ const GENERADORES_CARD = {
         <div class="glass card card-navegable metric-card gastos-periodo-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
                 <span class="card-title">Gastado</span>
-                <div class="toggle-group grafico-periodos" id="periodo-flujo-gastos" role="group" aria-label="Periodo de las cifras de gasto">
-                    ${PERIODOS_FLUJO.map(p => `
-                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
-                    `).join('')}
-                </div>
             </div>
             <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
@@ -1582,11 +1577,6 @@ const GENERADORES_CARD = {
         <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
             <div class="card-header">
                 <span class="card-title">Ingresado</span>
-                <div class="toggle-group grafico-periodos" id="periodo-flujo-ingresos" role="group" aria-label="Periodo del ingreso">
-                    ${PERIODOS_FLUJO.map(p => `
-                        <span class="toggle-option" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
-                    `).join('')}
-                </div>
             </div>
             <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
