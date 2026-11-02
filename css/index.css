@@ -356,16 +356,20 @@
    inline en index.html; ahora viven aquí para no mezclar estilo con markup). */
 .distribucion-barra span[data-clase="liquidez"] {
     width: 45%;
+    background: var(--aqua);
 }
 
 .distribucion-barra span[data-clase="inversiones"] {
     width: 25%;
+    background: var(--orange);
 }
 
 .distribucion-barra span[data-clase="inmovil"] {
     width: 20%;
+    background: var(--violet);
 }
 
 .distribucion-barra span[data-clase="deudas"] {
     width: 10%;
+    background: var(--negative);
 }
