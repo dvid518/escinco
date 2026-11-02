@@ -348,13 +348,12 @@ input[type="number"] {
 .form-input:hover {
     background-color: var(--lightHover);
     border-color: var(--text);
-    box-shadow: inset 0 0 10px var(--shadow);
 }
 
 .form-input:focus {
     background-color: var(--lightHover);
     border-color: var(--text);
-    box-shadow: inset 0 0 10px var(--shadow), 0 0 0 3px color-mix(in srgb, var(--text) 20%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--text) 20%, transparent);
 }
 
 .form-input::placeholder {
@@ -1111,4 +1110,15 @@ option {
     .bg-sweep {
         animation: none !important;
     }
+}
+
+/* Toggle-group multiselect para fondo y tipos de movimiento */
+.toggle-group .toggle-option.active {
+    background: var(--border);
+    color: var(--background);
+    font-weight: 500;
+}
+
+.toggle-group .toggle-option:hover:not(.active) {
+    background: var(--lightHover);
 }

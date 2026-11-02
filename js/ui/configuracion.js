@@ -1,4 +1,4 @@
-import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
+﻿import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
 import { sesion, PREFERENCIAS_POR_DEFECTO, fusionarProfundo, esObjetoPlano } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { obtenerCuentas, obtenerPreferencias, aplicarPreferenciasDiff, actualizarCuenta } from "../../firebase/firestore.js"
@@ -13,7 +13,7 @@ import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { accionExportar } from "./exportar.js"
 import { esqueletoContenedor, esqueletoTexto } from "./skeletons.js"
 import { envolverSidebar } from "./colapsoSidebar.js"
-import { montarSelectorEtiquetas } from "./etiquetas.js"
+
 
 let uid = null
 let hayCambios = false
@@ -57,7 +57,7 @@ const SECCIONES_CONFIGURACION = [
     { id: "cuenta", label: "Cuenta", icono: "circle-user" },
     { id: "apariencia", label: "Apariencia", icono: "palette" },
     { id: "moneda", label: "Moneda", icono: "coins" },
-    { id: "etiquetas", label: "Etiquetas", icono: "tag" },
+
     { id: "seguridad", label: "Seguridad", icono: "shield" },
     { id: "accesibilidad", label: "Accesibilidad", icono: "accessibility" },
     { id: "datos", label: "Datos", icono: "database" }
@@ -592,17 +592,9 @@ async function cargarPreferencias() {
         // y pintaba `undefined !== false` → marcado. La pantalla afirmaba que
         // Inversiones y Trading estaban activas cuando su valor real era false.
         const paginas = { ...sesion.getPaginasVisibles(), ...(prefs?.paginas || {}) }
-        const marcarPagina = (id, valor) => {
-            const el = document.getElementById(id)
-            // `valor` ya viene completo (defaults + guardado). Se compara con
-            // `=== true` en vez de `!== false`: si algún día faltara una clave,
-            // una casilla sin marcar es el estado seguro, no una activada.
-            if (el) el.checked = valor === true
-        }
-        marcarPagina("toggle-dashboard", paginas.dashboard)
-        marcarPagina("toggle-movimientos", paginas.movimientos)
-        marcarPagina("toggle-inversiones", paginas.inversiones)
-        marcarPagina("toggle-trading", paginas.trading)
+        document.querySelectorAll("#paginas-visibles .toggle-option").forEach(opt => {
+            opt.classList.toggle("active", paginas[opt.dataset.pagina] !== false)
+        })
 
         // Seguridad
         const seg = prefs?.seg || sesion.getPreferencias().seg || {}
@@ -648,25 +640,13 @@ async function cargarPreferencias() {
             accAccionesSiempre.checked = acc.accionesSiempreVisibles === true
         }
 
-        // Precios de activos
-        const preciosAuto = document.getElementById("toggle-precios-auto")
-        if (preciosAuto) {
-            preciosAuto.checked = prefs?.precios?.autoActualizar === true
-        }
 
-        // Tipos de movimiento en el selector (Apariencia)
+
+        // Tipos de movimiento en el selector (Apariencia) - toggle-group multiselect
         const tipos = prefs?.tiposMovimiento || {}
-        const marcarTipo = (id, valor) => {
-            const el = document.getElementById(id)
-            if (el) el.checked = valor !== false
-        }
-        marcarTipo("toggle-tipo-cambio-divisa", tipos.cambioDivisa)
-        marcarTipo("toggle-tipo-compra-activo", tipos.compraActivo)
-        marcarTipo("toggle-tipo-venta-activo", tipos.ventaActivo)
-        marcarTipo("toggle-tipo-pago-tarjeta", tipos.pagoTarjeta)
-        marcarTipo("toggle-tipo-p2p-compra", tipos.p2pCompra)
-        marcarTipo("toggle-tipo-p2p-venta", tipos.p2pVenta)
-        marcarTipo("toggle-tipo-trade", tipos.trade)
+        document.querySelectorAll("#tipos-movimiento .toggle-option").forEach(opt => {
+            opt.classList.toggle("active", tipos[opt.dataset.tipo] !== false)
+        })
 
         const periodoEvolucion = prefs?.periodoEvolucion || "30d"
         document.querySelectorAll("#periodo-evolucion .toggle-option").forEach(opcion => {
@@ -807,9 +787,9 @@ function configurarDetectorCambios() {
         "divisa-principal",
         "tc-pen-usd",
         "tc-eur-usd",
-        "select-fondo",
+        "toggle-fondo",
         "seg-inactividad",
-        "seg-cerrar-pestana",
+        "seg-cerrar-pestana",\n        "paginas-visibles",\n        "tipos-movimiento",
         "acc-modales-persistentes",
         "acc-doodles",
         "acc-un-click-seleccion",
@@ -1142,20 +1122,16 @@ function construirPreferencias() {
     }
 
     const tiposMovimiento = {
-        cambioDivisa: document.getElementById("toggle-tipo-cambio-divisa")?.checked === true,
-        compraActivo: document.getElementById("toggle-tipo-compra-activo")?.checked === true,
-        ventaActivo: document.getElementById("toggle-tipo-venta-activo")?.checked === true,
-        pagoTarjeta: document.getElementById("toggle-tipo-pago-tarjeta")?.checked === true,
-        p2pCompra: document.getElementById("toggle-tipo-p2p-compra")?.checked === true,
-        p2pVenta: document.getElementById("toggle-tipo-p2p-venta")?.checked === true,
-        trade: document.getElementById("toggle-tipo-trade")?.checked === true
+        cambioDivisa: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"cambioDivisa\\"]")?.classList.contains("active") !== false,
+        compraActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"compraActivo\\"]")?.classList.contains("active") !== false,
+        ventaActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"ventaActivo\\"]")?.classList.contains("active") !== false,
+        pagoTarjeta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"pagoTarjeta\\"]")?.classList.contains("active") !== false,
+        p2pCompra: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"p2pCompra\\"]")?.classList.contains("active") !== false,
+        p2pVenta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"p2pVenta\\"]")?.classList.contains("active") !== false,
+        trade: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"trade\\"]")?.classList.contains("active") !== false
     }
 
-    const precios = {
-        autoActualizar: document.getElementById("toggle-precios-auto")?.checked === true
-    }
-
-    const fondo = document.getElementById("select-fondo")?.value || "animado"
+    const fondo = document.querySelector("#toggle-fondo .toggle-option.active")?.dataset.fondo || "animado"
 
     return {
         tema: temaActual,
@@ -1164,18 +1140,17 @@ function construirPreferencias() {
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
         paginas: {
-            dashboard: leerTogglePagina("toggle-dashboard"),
+            dashboard: true,
             // `cuentas` y `configuracion` no son conmutables: la app siempre
             // las necesita. No hay checkbox que leer.
             cuentas: true,
-            movimientos: leerTogglePagina("toggle-movimientos"),
-            inversiones: leerTogglePagina("toggle-inversiones"),
-            trading: leerTogglePagina("toggle-trading"),
+            movimientos: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"movimientos\\"]")?.classList.contains("active") !== false,
+            inversiones: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"inversiones\\"]")?.classList.contains("active") !== false,
+            trading: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"trading\\"]")?.classList.contains("active") !== false,
             configuracion: true
         },
         divisaPrincipal,
         formatoDivisa: getFormatoDivisaUI(),
-        tipoCambio,
         seg,
         accesibilidad,
         tiposMovimiento,
@@ -1976,6 +1951,37 @@ function aplicarEstadoFondo(estado) {
 }
 
 function configurarFondo() {
+    const select = document.getElementById("toggle-fondo")
+    if (!select) return
+
+    const valorGuardado = sesion.getPreferencias()?.fondo || "animado"
+    document.querySelectorAll("#toggle-fondo .toggle-option").forEach(opt => {
+        opt.classList.toggle("active", opt.dataset.fondo === valorGuardado)
+    })
+    aplicarEstadoFondo(valorGuardado)
+
+    select.addEventListener("click", (e) => {
+        const opt = e.target.closest(".toggle-option")
+        if (!opt) return
+        document.querySelectorAll("#toggle-fondo .toggle-option").forEach(o => o.classList.remove("active"))
+        opt.classList.add("active")
+        const estado = opt.dataset.fondo
+        aplicarEstadoFondo(estado)
+        marcarCambioNuevo()
+        actualizarEstadoGuardar()
+    })
+}
+
+// ============================================
+// FONDO ANIMADO (Configuración › Apariencia › Fondo)
+// ============================================
+
+function aplicarEstadoFondo(estado) {
+    document.body.classList.remove("fondo-animado", "fondo-congelado", "fondo-apagado")
+    document.body.classList.add("fondo-" + estado)
+}
+
+function configurarFondo() {
     const select = document.getElementById("select-fondo")
     if (!select) return
 
@@ -1991,3 +1997,10 @@ function configurarFondo() {
         actualizarEstadoGuardar()
     })
 }
+
+
+
+
+
+
+
