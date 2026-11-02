@@ -789,7 +789,9 @@ function configurarDetectorCambios() {
         "tc-eur-usd",
         "toggle-fondo",
         "seg-inactividad",
-        "seg-cerrar-pestana",\n        "paginas-visibles",\n        "tipos-movimiento",
+        "seg-cerrar-pestana",
+        "paginas-visibles",
+        "tipos-movimiento",
         "acc-modales-persistentes",
         "acc-doodles",
         "acc-un-click-seleccion",
@@ -1122,13 +1124,13 @@ function construirPreferencias() {
     }
 
     const tiposMovimiento = {
-        cambioDivisa: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"cambioDivisa\\"]")?.classList.contains("active") !== false,
-        compraActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"compraActivo\\"]")?.classList.contains("active") !== false,
-        ventaActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"ventaActivo\\"]")?.classList.contains("active") !== false,
-        pagoTarjeta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"pagoTarjeta\\"]")?.classList.contains("active") !== false,
-        p2pCompra: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"p2pCompra\\"]")?.classList.contains("active") !== false,
-        p2pVenta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"p2pVenta\\"]")?.classList.contains("active") !== false,
-        trade: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\\"trade\\"]")?.classList.contains("active") !== false
+        cambioDivisa: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"cambioDivisa\"]")?.classList.contains("active") !== false,
+        compraActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"compraActivo\"]")?.classList.contains("active") !== false,
+        ventaActivo: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"ventaActivo\"]")?.classList.contains("active") !== false,
+        pagoTarjeta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"pagoTarjeta\"]")?.classList.contains("active") !== false,
+        p2pCompra: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"p2pCompra\"]")?.classList.contains("active") !== false,
+        p2pVenta: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"p2pVenta\"]")?.classList.contains("active") !== false,
+        trade: document.querySelector("#tipos-movimiento .toggle-option[data-tipo=\"trade\"]")?.classList.contains("active") !== false
     }
 
     const fondo = document.querySelector("#toggle-fondo .toggle-option.active")?.dataset.fondo || "animado"
@@ -1144,9 +1146,9 @@ function construirPreferencias() {
             // `cuentas` y `configuracion` no son conmutables: la app siempre
             // las necesita. No hay checkbox que leer.
             cuentas: true,
-            movimientos: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"movimientos\\"]")?.classList.contains("active") !== false,
-            inversiones: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"inversiones\\"]")?.classList.contains("active") !== false,
-            trading: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\\"trading\\"]")?.classList.contains("active") !== false,
+            movimientos: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\"movimientos\"]")?.classList.contains("active") !== false,
+            inversiones: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\"inversiones\"]")?.classList.contains("active") !== false,
+            trading: document.querySelector("#paginas-visibles .toggle-option[data-pagina=\"trading\"]")?.classList.contains("active") !== false,
             configuracion: true
         },
         divisaPrincipal,
@@ -1971,33 +1973,6 @@ function configurarFondo() {
         actualizarEstadoGuardar()
     })
 }
-
-// ============================================
-// FONDO ANIMADO (Configuración › Apariencia › Fondo)
-// ============================================
-
-function aplicarEstadoFondo(estado) {
-    document.body.classList.remove("fondo-animado", "fondo-congelado", "fondo-apagado")
-    document.body.classList.add("fondo-" + estado)
-}
-
-function configurarFondo() {
-    const select = document.getElementById("select-fondo")
-    if (!select) return
-
-    // Aplicar el valor guardado al abrir
-    const valorGuardado = sesion.getPreferencias()?.fondo || "animado"
-    select.value = valorGuardado
-    aplicarEstadoFondo(valorGuardado)
-
-    select.addEventListener("change", (e) => {
-        const estado = e.target.value
-        aplicarEstadoFondo(estado)
-        marcarCambioNuevo()
-        actualizarEstadoGuardar()
-    })
-}
-
 
 
 
