@@ -205,3 +205,12 @@ function mostrarErrorBoot(error) {
 document.addEventListener("DOMContentLoaded", () => initApp().catch(error => {
     console.error("[ERROR] Error en initApp:", error)
 }))
+
+// Cursor glow que sigue al ratón
+const cursorGlow = document.getElementById("cursorGlow")
+if (cursorGlow) {
+    document.addEventListener("mousemove", (e) => {
+        cursorGlow.style.left = e.clientX + "px"
+        cursorGlow.style.top = e.clientY + "px"
+    })
+}
