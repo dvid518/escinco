@@ -351,3 +351,21 @@
     width: 0%;
     background: var(--aqua);
 }
+
+/* Distribución patrimonial · ancho de barra por clase (antes eran estilos
+   inline en index.html; ahora viven aquí para no mezclar estilo con markup). */
+.distribucion-barra span[data-clase="liquidez"] {
+    width: 45%;
+}
+
+.distribucion-barra span[data-clase="inversiones"] {
+    width: 25%;
+}
+
+.distribucion-barra span[data-clase="inmovil"] {
+    width: 20%;
+}
+
+.distribucion-barra span[data-clase="deudas"] {
+    width: 10%;
+}
