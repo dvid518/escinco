@@ -987,6 +987,12 @@ option {
     animation-delay: 0s;
 }
 
+.bg-gradients > .bg:nth-child(1) { top: 10%; left: 10%; }
+.bg-gradients > .bg:nth-child(2) { top: 60%; right: 10%; }
+.bg-gradients > .bg:nth-child(3) { bottom: 10%; left: 30%; }
+.bg-gradients > .bg:nth-child(4) { top: 40%; left: 60%; }
+.bg-gradients > .bg:nth-child(5) { bottom: 40%; right: 20%; }
+
 @keyframes float {
     0% {
         transform: translate(0, 0) scale(1);
@@ -1018,6 +1024,27 @@ option {
     animation: sweep 8s linear infinite;
     pointer-events: none;
     z-index: 1;
+}
+
+@keyframes sweep {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.cursor-glow {
+    position: fixed;
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--text) 15%, transparent) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 5;
+    transform: translate(-50%, -50%);
+    transition: width 0.2s, height 0.2s;
 }
 
 @keyframes sweep {
