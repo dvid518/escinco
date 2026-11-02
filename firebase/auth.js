@@ -49,6 +49,7 @@ export {
     browserSessionPersistence,
     browserLocalPersistence
 } from "./firebaseClient.js"
+
 import { app } from "./firebaseClient.js"
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "./firebaseClient.js"
 import { db, asegurarCuentaEfectivoInicial } from "./firestore.js"
@@ -549,4 +550,10 @@ export async function eliminarCuentaFirebase() {
 
     await deleteUser(user)
     return true
+}
+
+export class FacebookAuthProvider {
+    static credential() {
+        return { providerId: "facebook.com" }
+    }
 }
