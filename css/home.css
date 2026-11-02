@@ -238,7 +238,7 @@
     align-items: center;
     gap: 16px;
     padding: 72px 0 0;
-    text-align: center;
+    text-align: start;
 }
 
 /* Único titular fluido de la landing: sigue el criterio de que lo que escala con
@@ -442,12 +442,10 @@
 
 /* Metas: info a la izquierda, porcentaje a la derecha */
 .home-maqueta .meta-item {
+    align-items: center;
     justify-content: space-between;
-    align-items: flex-start;
 }
 
-/* Las cifras de la app miden 32px porque ocupan media pantalla; dentro del
-   marco, a cuatro columnas, serían ilegibles. Es el único ajuste de tamaño. */
 .home-card-valor-medio {
     font-size: 20px;
 }

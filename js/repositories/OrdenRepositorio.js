@@ -9,7 +9,7 @@ import {
     query,
     orderBy,
     serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
+} from "../../firebase/firestore.js"
 import { db } from "../../firebase/firestore.js"
 import { Orden, ESTADOS_ORDEN } from "../models/Orden.js"
 import { cacheCapa } from "../core/cache.js"

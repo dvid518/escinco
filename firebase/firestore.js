@@ -10,8 +10,12 @@ import {
     deleteDoc,
     serverTimestamp,
     writeBatch,
-    deleteField
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
+    deleteField,
+    query,
+    where,
+    orderBy,
+    limit
+} from "./firebaseClient.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
 import { sesion } from "../js/core/sesion.js"
@@ -29,7 +33,25 @@ const db = getFirestore(app)
 
 // Re-exportamos utilidades de Firestore para que el resto de la app
 // no importe desde la CDN directamente (punto único de acceso).
-export { db, doc, updateDoc, deleteField, writeBatch }
+export {
+    db,
+    getFirestore,
+    doc,
+    getDoc,
+    getDocs,
+    collection,
+    addDoc,
+    setDoc,
+    updateDoc,
+    deleteDoc,
+    serverTimestamp,
+    writeBatch,
+    deleteField,
+    query,
+    where,
+    orderBy,
+    limit
+}
 
 // ============================================
 // USUARIO

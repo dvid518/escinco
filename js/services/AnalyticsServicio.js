@@ -1,5 +1,4 @@
-import { analytics } from "../../firebase/firebaseClient.js"
-import { logEvent, setUserId, setUserProperties } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js"
+import { analytics, logEvent, setUserId, setUserProperties } from "../../firebase/firebaseClient.js"
 
 // DebugView: activa el modo depuración de Analytics en localhost o con el
 // parámetro ?debug_analytics en la URL. Útil para ver eventos en tiempo real

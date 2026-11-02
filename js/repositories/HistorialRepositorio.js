@@ -9,7 +9,7 @@ import {
     orderBy,
     limit,
     serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
+} from "../../firebase/firestore.js"
 import { db } from "../../firebase/firestore.js"
 import { cacheCapa } from "../core/cache.js"
 import { getFechaHoy } from "../core/fechas.js"

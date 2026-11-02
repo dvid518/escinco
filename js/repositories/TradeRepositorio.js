@@ -9,7 +9,7 @@ import {
     query,
     where,
     serverTimestamp
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
+} from "../../firebase/firestore.js"
 import { db } from "../../firebase/firestore.js"
 import { Trade } from "../models/Trade.js"
 import { cacheCapa } from "../core/cache.js"
