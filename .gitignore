@@ -92,3 +92,6 @@ $RECYCLE.BIN/
 # scratch local
 prompt.txt
 videos.txt
+
+# Entorno de pruebas de fondo (no desplegar a producción)
+fondo.html
