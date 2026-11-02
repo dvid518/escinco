@@ -419,12 +419,19 @@
    el resto del feedback de hover de las cards. */
 .home-maqueta .dashboard .card {
     cursor: default;
+    border: 1px solid var(--lightBorder);
+    border-radius: 20px;
+    text-align: left;
 }
 
 .home-maqueta .dashboard .card:hover {
     transform: none;
     border-color: var(--lightBorder);
     box-shadow: none;
+}
+
+.home-maqueta .dashboard .card .card-title {
+    text-align: left;
 }
 
 /* Las cifras de la app miden 32px porque ocupan media pantalla; dentro del
@@ -534,7 +541,7 @@
     height: 44px;
     border-radius: 50px;
     background-color: var(--background);
-    color: var(--positive);
+    color: var(--border);
 }
 
 .home-feature-titulo {
@@ -912,4 +919,16 @@
         outline: 2px solid var(--textPrimary);
         outline-offset: 2px;
     }
+}
+
+/* Ícono de confianza en círculo, igual que las características */
+.home-confianza-icono {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 50px;
+    background-color: var(--background);
+    color: var(--positive);
 }
