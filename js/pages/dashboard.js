@@ -2816,8 +2816,23 @@ function actualizarDistribucion() {
     const totalEl = document.getElementById("distribucion-total")
     if (!lista || !analiticaData) return
 
-    if (totalEl) totalEl.textContent = formatearMontoConDivisa(analiticaData.brutoDistribucion, divisaActual)
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", analiticaData.distribucion, item => ({
+    // Recalcular porcentajes basándose en los valores reales para que la
+    // lista y la dona siempre usen los mismos datos y los porcentajes
+    // siempre sumen 100%. Sin esto, a veces la dona y las barras muestran
+    // datos inconsistentes (porcentajes que no coinciden con los valores
+    // o que no suman 100%).
+    const items = analiticaData.distribucion.map(item => ({
+        ...item,
+        valor: Math.max(0, item.valor)
+    }))
+    const total = items.reduce((sum, item) => sum + item.valor, 0)
+    const itemsConPorcentaje = items.map(item => ({
+        ...item,
+        porcentaje: total > 0 ? (item.valor / total) * 100 : 0
+    }))
+
+    if (totalEl) totalEl.textContent = formatearMontoConDivisa(total, divisaActual)
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", itemsConPorcentaje, item => ({
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
@@ -2825,10 +2840,10 @@ function actualizarDistribucion() {
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
-    aplicoAnchoBarras(lista, analiticaData.distribucion)
+    aplicoAnchoBarras(lista, itemsConPorcentaje)
     actualizarScrollFade(lista)
 
-    dibujarDonaDistribucion(analiticaData.distribucion).catch(() => {})
+    dibujarDonaDistribucion(itemsConPorcentaje).catch(() => {})
 }
 
 // ============================================
