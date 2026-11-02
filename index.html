@@ -215,9 +215,15 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                                 <div class="glass card card-navegable metrica-card">
                                     <div class="card-header">
                                         <span class="card-title">Ingresado</span>
+                                        <div class="toggle-group grafico-periodos" id="periodo-flujo-ingresos" role="group" aria-label="Periodo del ingreso">
+                                            <span class="toggle-option">7D</span>
+                                            <span class="toggle-option active">30D</span>
+                                            <span class="toggle-option">90D</span>
+                                            <span class="toggle-option">Todo</span>
+                                        </div>
                                     </div>
-                                    <div class="card-value home-card-valor-medio positive">S/ 4,180.20</div>
-                                    <div class="card-sub">este mes</div>
+                                    <div class="card-value home-card-valor-medio positive">S/ 3,023.02</div>
+                                    <div class="card-sub">Últimos 30 días · 7 movimientos</div>
                                 </div>
                             </div>
 
@@ -243,34 +249,41 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                                     <div class="card-header">
                                         <span class="card-title">Distribución patrimonial</span>
                                     </div>
+                                    <div class="distribucion-dona" role="img" aria-label="Gráfico de ejemplo: distribución patrimonial">
+                                        <canvas id="home-grafico-distribucion"></canvas>
+                                    </div>
                                     <div class="distribucion-lista">
                                         <div class="distribucion-item">
                                             <div class="distribucion-cabecera">
                                                 <span>Liquidez</span>
-                                                <strong>42%</strong>
+                                                <strong>57%</strong>
                                             </div>
                                             <div class="distribucion-barra"><span data-clase="liquidez"></span></div>
+                                            <span class="distribucion-valor">S/ 7,576.04</span>
                                         </div>
                                         <div class="distribucion-item">
                                             <div class="distribucion-cabecera">
                                                 <span>Inversiones</span>
-                                                <strong>28%</strong>
+                                                <strong>14%</strong>
                                             </div>
                                             <div class="distribucion-barra"><span data-clase="inversiones"></span></div>
+                                            <span class="distribucion-valor">S/ 1,985.38</span>
                                         </div>
                                         <div class="distribucion-item">
                                             <div class="distribucion-cabecera">
                                                 <span>Inmovilizado</span>
-                                                <strong>20%</strong>
+                                                <strong>28%</strong>
                                             </div>
                                             <div class="distribucion-barra"><span data-clase="inmovil"></span></div>
+                                            <span class="distribucion-valor">S/ 3,728.72</span>
                                         </div>
                                         <div class="distribucion-item">
                                             <div class="distribucion-cabecera">
                                                 <span>Deudas</span>
-                                                <strong>10%</strong>
+                                                <strong>0%</strong>
                                             </div>
                                             <div class="distribucion-barra"><span data-clase="deudas"></span></div>
+                                            <span class="distribucion-valor">S/ 0.00</span>
                                         </div>
                                     </div>
                                 </div>
@@ -312,26 +325,26 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                                         <span class="card-title">Últimos movimientos</span>
                                     </div>
                                     <div class="movimientos-lista">
-                                        <div class="dashboard-list-item">
-                                            <div class="dashboard-list-info">
-                                                <span class="dashboard-list-title">Supermercado</span>
-                                                <span class="dashboard-list-detail">hace 2 días</span>
+                                        <div class="movimiento-item">
+                                            <div class="movimiento-info">
+                                                <span class="movimiento-titulo">10 ma ...</span>
+                                                <span class="movimiento-detalle">14/10/2026</span>
                                             </div>
-                                            <span class="dashboard-list-value negative">S/ -145.30</span>
+                                            <span class="movimiento-monto positive">S/ +10.00</span>
                                         </div>
-                                        <div class="dashboard-list-item">
-                                            <div class="dashboard-list-info">
-                                                <span class="dashboard-list-title">Freelance diseño</span>
-                                                <span class="dashboard-list-detail">hace 5 días</span>
+                                        <div class="movimiento-item">
+                                            <div class="movimiento-info">
+                                                <span class="movimiento-titulo">Pago tarjet...</span>
+                                                <span class="movimiento-detalle">13/10/2026</span>
                                             </div>
-                                            <span class="dashboard-list-value positive">S/ +800.00</span>
+                                            <span class="movimiento-monto negative">S/ -0.23</span>
                                         </div>
-                                        <div class="dashboard-list-item">
-                                            <div class="dashboard-list-info">
-                                                <span class="dashboard-list-title">Netflix</span>
-                                                <span class="dashboard-list-detail">hace 8 días</span>
+                                        <div class="movimiento-item">
+                                            <div class="movimiento-info">
+                                                <span class="movimiento-titulo">Polo y p...</span>
+                                                <span class="movimiento-detalle">12/10/2026</span>
                                             </div>
-                                            <span class="dashboard-list-value negative">S/ -18.90</span>
+                                            <span class="movimiento-monto negative">S/ -129.95</span>
                                         </div>
                                     </div>
                                 </div>
