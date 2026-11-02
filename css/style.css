@@ -86,6 +86,9 @@
     --lightWhiteSmoke: #F1F1F136;
     --frostedWhiteSmoke: #f1f1f1ae;
 
+    --icyBlue: #B9DDFF;
+    --balticBlue: #2E5880;
+    
     --tropicalMint: #00a269;
     --raspberryRed: #DC0051;
     --mustard: #f5a623;
@@ -980,8 +983,8 @@ option {
     filter: blur(60px);
     width: 40vw;
     height: 40vw;
-    background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-    opacity: 0.2;
+    background: radial-gradient(circle, var(--gradient) 0%, transparent 70%);
+    opacity: 0.5;
     animation: float 20s ease-in-out infinite alternate;
     animation-duration: 24s;
     animation-delay: 0s;
@@ -1033,18 +1036,6 @@ option {
     100% {
         transform: translateX(100%);
     }
-}
-
-.cursor-glow {
-    position: fixed;
-    width: 200px;
-    height: 200px;
-    border-radius: 50%;
-    background: radial-gradient(circle, color-mix(in srgb, var(--text) 15%, transparent) 0%, transparent 70%);
-    pointer-events: none;
-    z-index: 5;
-    transform: translate(-50%, -50%);
-    transition: width 0.2s, height 0.2s;
 }
 
 @keyframes sweep {
