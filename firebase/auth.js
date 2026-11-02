@@ -22,9 +22,35 @@ import {
     setPersistence,
     browserSessionPersistence,
     browserLocalPersistence
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js"
+} from "./firebaseClient.js"
+
+export {
+    getAuth,
+    createUserWithEmailAndPassword,
+    updateProfile,
+    signInWithEmailAndPassword,
+    signInWithPopup,
+    signOut,
+    onAuthStateChanged,
+    GoogleAuthProvider,
+    EmailAuthProvider,
+    linkWithCredential,
+    updatePassword,
+    reauthenticateWithCredential,
+    fetchSignInMethodsForEmail,
+    getAdditionalUserInfo,
+    deleteUser,
+    sendEmailVerification,
+    sendPasswordResetEmail,
+    confirmPasswordReset,
+    applyActionCode,
+    reload,
+    setPersistence,
+    browserSessionPersistence,
+    browserLocalPersistence
+} from "./firebaseClient.js"
 import { app } from "./firebaseClient.js"
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "./firebaseClient.js"
 import { db, asegurarCuentaEfectivoInicial } from "./firestore.js"
 import { cacheCapa } from "../js/core/cache.js"
 import { sesion } from "../js/core/sesion.js"

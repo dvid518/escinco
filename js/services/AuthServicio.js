@@ -1,9 +1,8 @@
 import {
-    FacebookAuthProvider,
     signInWithPopup,
-    linkWithCredential
-} from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js"
-import { getAuth } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-auth.js"
+    linkWithCredential,
+    getAuth
+} from "../../firebase/auth.js"
 import { app } from "../../firebase/firebaseClient.js"
 
 const auth = getAuth(app)
@@ -22,22 +21,7 @@ const CLAVE_CREDENCIAL_PENDIENTE = "credencial_facebook_pendiente"
  * @returns {Promise<object>} Resultado de signInWithPopup con el usuario autenticado.
  */
 export async function iniciarSesionConFacebook() {
-    const provider = new FacebookAuthProvider()
-    provider.addScope("email")
-
-    try {
-        const resultado = await signInWithPopup(auth, provider)
-        return resultado
-    } catch (error) {
-        if (error.code === "auth/account-exists-with-different-credential") {
-            sessionStorage.setItem(
-                CLAVE_CREDENCIAL_PENDIENTE,
-                JSON.stringify(error.credential)
-            )
-            throw new Error("auth/cuenta-existe-con-otro-metodo")
-        }
-        throw error
-    }
+    throw new Error("Inicio de sesión con Facebook no disponible en esta versión")
 }
 
 /**
@@ -48,17 +32,7 @@ export async function iniciarSesionConFacebook() {
  * @returns {Promise<boolean>} true si se vinculó, false si no había credencial pendiente.
  */
 export async function vincularCredencialFacebook(usuario) {
-    const credencialJson = sessionStorage.getItem(CLAVE_CREDENCIAL_PENDIENTE)
-    if (!credencialJson) return false
-
-    const credencial = JSON.parse(credencialJson)
-    try {
-        await linkWithCredential(usuario, credencial)
-        sessionStorage.removeItem(CLAVE_CREDENCIAL_PENDIENTE)
-        return true
-    } catch (error) {
-        throw error
-    }
+    throw new Error("Vinculación de Facebook no disponible en esta versión")
 }
 
 /**
