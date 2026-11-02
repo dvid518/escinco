@@ -50,6 +50,7 @@ export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
     periodoEvolucion: "30d",
     resaltarPatrimonio: 0,
     formatoDivisa: "simbolo",
+    fondo: "animado",
     precios: Object.freeze({
         autoActualizar: false
     })
@@ -181,6 +182,9 @@ class Sesion {
         }
         if (preferencias?.formatoDivisa) {
             this.preferencias.formatoDivisa = preferencias.formatoDivisa
+        }
+        if (preferencias?.fondo !== undefined) {
+            this.preferencias.fondo = preferencias.fondo
         }
         if (preferencias?.dashboard) {
             this.preferencias.dashboard = {

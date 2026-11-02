@@ -22,6 +22,18 @@
     <link rel='stylesheet' type='text/css' media='screen' href='css/404.css'>
 </head>
 <body class="loading">
+
+    <!-- Fondo animado degradados (controlado desde Configuración › Apariencia › Fondo) -->
+    <div class="bg-gradients" aria-hidden="true">
+        <div class="bg-layer bg-purple"></div>
+        <div class="bg-layer bg-blue"></div>
+        <div class="bg-layer bg-mint"></div>
+        <div class="bg-layer bg-pink"></div>
+        <div class="bg-layer bg-teal"></div>
+        <div class="bg-sweep"></div>
+    </div>
+
+    <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2"
 height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     <header class="nav-section">
@@ -2012,6 +2024,19 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                     <span class="config-hint">
                         Qué tipos se ofrecen al crear un movimiento nuevo. Compra/venta de activo y pago de
                         tarjeta solo se registran desde sus propias páginas salvo que los actives aquí.
+                    </span>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Fondo</span>
+                    <select id="select-fondo" aria-label="Estado del fondo animado">
+                        <option value="animado">Animado</option>
+                        <option value="congelado">Congelado</option>
+                        <option value="apagado">Apagado</option>
+                    </select>
+                    <span class="config-hint">
+                        Animado: degradados en movimiento · Congelado: degradados estáticos ·
+                        Apagado: sin fondo decorativo.
                     </span>
                 </div>
 

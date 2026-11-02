@@ -260,6 +260,7 @@ async function iniciarConfiguracion() {
     configurarLateralidadCuenta()
     configurarPeriodoEvolucion()
     configurarResaltarPatrimonio()
+    configurarFondo()
     refrescarContadorArchivadas()
 
     // Referencia para detectar cambios: se toma DESPUÉS de que todos los
@@ -690,6 +691,14 @@ async function cargarPreferencias() {
         opcion.classList.toggle("active", opcion.dataset.formato === formato)
     })
 
+    // Fondo
+    const fondoGuardado = prefs?.fondo || "animado"
+    const selectFondo = document.getElementById("select-fondo")
+    if (selectFondo) {
+        selectFondo.value = fondoGuardado
+    }
+    aplicarEstadoFondo(fondoGuardado)
+
     // Tipo de cambio
     const tc = getTipoCambio()
     refrescarModoTipoCambio(tc.modo === "auto" ? "auto" : "manual")
@@ -798,6 +807,7 @@ function configurarDetectorCambios() {
         "divisa-principal",
         "tc-pen-usd",
         "tc-eur-usd",
+        "select-fondo",
         "seg-inactividad",
         "seg-cerrar-pestana",
         "acc-modales-persistentes",
@@ -1145,8 +1155,11 @@ function construirPreferencias() {
         autoActualizar: document.getElementById("toggle-precios-auto")?.checked === true
     }
 
+    const fondo = document.getElementById("select-fondo")?.value || "animado"
+
     return {
         tema: temaActual,
+        fondo,
         periodoEvolucion: getPeriodoEvolucionUI(),
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
@@ -1227,6 +1240,9 @@ async function aplicarPreferencias(preferencias) {
         // Persistir tema y modo de lastbar en localStorage
         setTemaLocal(temaActual)
         localStorage.setItem("escinco_lastbar_mode", lastbarModo)
+
+        // Aplicar el estado del fondo al body inmediatamente
+        aplicarEstadoFondo(preferencias.fondo)
 
         actualizarNavegacion(preferencias.paginas)
         nombrePendiente = null
@@ -1947,5 +1963,31 @@ function abrirModalErrorEliminar(error) {
         variante: "info",
         confirmText: "Cerrar",
         onConfirm: () => true
+    })
+}
+
+// ============================================
+// FONDO ANIMADO (Configuración › Apariencia › Fondo)
+// ============================================
+
+function aplicarEstadoFondo(estado) {
+    document.body.classList.remove("fondo-animado", "fondo-congelado", "fondo-apagado")
+    document.body.classList.add("fondo-" + estado)
+}
+
+function configurarFondo() {
+    const select = document.getElementById("select-fondo")
+    if (!select) return
+
+    // Aplicar el valor guardado al abrir
+    const valorGuardado = sesion.getPreferencias()?.fondo || "animado"
+    select.value = valorGuardado
+    aplicarEstadoFondo(valorGuardado)
+
+    select.addEventListener("change", (e) => {
+        const estado = e.target.value
+        aplicarEstadoFondo(estado)
+        marcarCambioNuevo()
+        actualizarEstadoGuardar()
     })
 }
