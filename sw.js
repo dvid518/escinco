@@ -98,6 +98,9 @@ const SHELL_ASSETS = [
     "/js/core/iaConfig.js",
     "/js/core/gtm.js",
 
+    // JS lib (third-party, self-hosted)
+    "/js/lib/sortable.min.js",
+
     // JS pages
     "/js/pages/index.js",
     "/js/pages/auth.js",

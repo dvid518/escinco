@@ -78,27 +78,27 @@ const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
 // migración. Una tanda solo se aplica si su marca sigue sin poner: así el
 const DASHBOARD_CARDS = [
-    { id: "patrimonio", label: "Patrimonio total" },
-    { id: "cuentas", label: "Cuentas" },
-    { id: "inversiones", label: "Inversiones" },
-    { id: "vencimientos", label: "Próximos vencimientos" },
-    { id: "movimientos", label: "Últimos movimientos" },
-    { id: "favoritos", label: "Favoritos" },
-    { id: "metas", label: "Metas de ahorro" },
-    { id: "presupuestos", label: "Presupuestos" },
-    { id: "pendientes", label: "Pendientes" },
-    { id: "ordenes", label: "Órdenes" },
-    { id: "estrategias", label: "Estrategias" },
-    { id: "flujo-caja", label: "Flujo de caja" },
-    { id: "gastos-periodo", label: "Gastado" },
-    { id: "ingresos-periodo", label: "Ingresado" },
-    { id: "balance-periodo", label: "Balance" },
-    { id: "deudas", label: "Deudas" },
-    { id: "distribucion", label: "Distribución patrimonial" },
-    { id: "patrimonio-divisa", label: "Patrimonio por divisa" },
-    { id: "programados", label: "Movimientos programados" },
-    { id: "alertas", label: "Alertas" },
-    { id: "grafico", label: "Evolución patrimonial" }
+    { id: "patrimonio", label: "Patrimonio total", spanColumnas: 1, spanFilas: 1 },
+    { id: "cuentas", label: "Cuentas", spanColumnas: 1, spanFilas: 1 },
+    { id: "inversiones", label: "Inversiones", spanColumnas: 1, spanFilas: 1 },
+    { id: "vencimientos", label: "Próximos vencimientos", spanColumnas: 1, spanFilas: 1 },
+    { id: "movimientos", label: "Últimos movimientos", spanColumnas: 1, spanFilas: 2, scroll: true },
+    { id: "favoritos", label: "Favoritos", spanColumnas: 1, spanFilas: 1 },
+    { id: "metas", label: "Metas de ahorro", spanColumnas: 1, spanFilas: 1 },
+    { id: "presupuestos", label: "Presupuestos", spanColumnas: 1, spanFilas: 1 },
+    { id: "pendientes", label: "Pendientes", spanColumnas: 1, spanFilas: 1 },
+    { id: "ordenes", label: "Órdenes", spanColumnas: 1, spanFilas: 1 },
+    { id: "estrategias", label: "Estrategias", spanColumnas: 1, spanFilas: 1 },
+    { id: "flujo-caja", label: "Flujo de caja", spanColumnas: 1, spanFilas: 1 },
+    { id: "gastos-periodo", label: "Gastado", spanColumnas: 1, spanFilas: 1 },
+    { id: "ingresos-periodo", label: "Ingresado", spanColumnas: 1, spanFilas: 1 },
+    { id: "balance-periodo", label: "Balance", spanColumnas: 1, spanFilas: 1 },
+    { id: "deudas", label: "Deudas", spanColumnas: 1, spanFilas: 1 },
+    { id: "distribucion", label: "Distribución patrimonial", spanColumnas: 1, spanFilas: 2 },
+    { id: "patrimonio-divisa", label: "Patrimonio por divisa", spanColumnas: 1, spanFilas: 1 },
+    { id: "programados", label: "Movimientos programados", spanColumnas: 1, spanFilas: 1 },
+    { id: "alertas", label: "Alertas", spanColumnas: 1, spanFilas: 1 },
+    { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 1 }
 ]
 
 // Cards visibles de partida para una cuenta nueva o sin elección guardada.
@@ -111,6 +111,23 @@ const DEFAULT_CARDS_VISIBLES = ["cuentas", "movimientos", "inversiones", "metas"
 const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
     .map(card => card.id)
     .filter(id => id !== "patrimonio")
+
+// Devuelve las clases CSS de dimensiones para una card dada su id.
+// Ejemplo: "card-span-2 card-con-scroll"
+// Considera primero las dimensiones personalizadas del usuario, luego las del catálogo.
+function clasesCard(id) {
+    const personalizada = cardsDimensionesDashboard[id]
+    const catalogo = DASHBOARD_CARDS.find(c => c.id === id)
+    const spanCol = personalizada?.columnas ?? catalogo?.spanColumnas ?? 1
+    const spanFil = personalizada?.filas ?? catalogo?.spanFilas ?? 1
+    const scroll = personalizada?.scroll ?? catalogo?.scroll ?? false
+    const clases = []
+    if (spanCol === 2) clases.push("card-span-2")
+    if (spanFil === 2) clases.push("card-span-row-2")
+    if (spanCol === 2 && spanFil === 2) clases.push("card-span-2x2")
+    if (scroll) clases.push("card-con-scroll")
+    return clases.join(" ")
+}
 
 // ============================================
 // CARDS INSTANCIADAS (cuenta / activo)
@@ -162,6 +179,7 @@ function entidadDeCardInstancia(id) {
 
 let cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
 let cardsOrdenDashboard = [...DEFAULT_CARDS_ORDEN]
+let cardsDimensionesDashboard = {}
 let modoEdicionDashboard = false
 let cambiosPendientesDashboard = false
 let eventosEdicionDashboardListos = false
@@ -183,6 +201,7 @@ function configurarCardsDashboardDesdeSesion() {
     const dashboard = sesion.getPreferencias()?.dashboard
     cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
     cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
+    cardsDimensionesDashboard = dashboard?.dimensiones || {}
 }
 
 async function cargarCardsVisiblesDashboard() {
@@ -192,10 +211,12 @@ async function cargarCardsVisiblesDashboard() {
         const dashboard = preferencias?.dashboard
         cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
         cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
+        cardsDimensionesDashboard = dashboard?.dimensiones || {}
     } catch (error) {
         console.warn("No se pudieron cargar las cards visibles del dashboard:", error)
         cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
         cardsOrdenDashboard = [...DEFAULT_CARDS_ORDEN]
+        cardsDimensionesDashboard = {}
     }
 }
 
@@ -207,6 +228,7 @@ async function guardarPreferenciasDashboard(dashboard) {
     const cambios = {}
     if (dashboard.cardsVisibles !== undefined) cambios["dashboard.cardsVisibles"] = dashboard.cardsVisibles
     if (dashboard.orden !== undefined) cambios["dashboard.orden"] = dashboard.orden
+    if (dashboard.dimensiones !== undefined) cambios["dashboard.dimensiones"] = dashboard.dimensiones
 
     await actualizarPreferencias(uid, cambios)
     const preferencias = sesion.getPreferencias()
@@ -657,80 +679,14 @@ function configurarScrollFadeApp() {
 }
 
 // ============================================
-// ARRASTRAR A CUALQUIER POSICIÓN
+// ARRASTRAR Y SOLTAR CON SORTABLEJS
 // ============================================
-// El grid es un CSS Grid puro, así que "soltar sobre una card" basta: el
-// destino se calcula con las coordenadas del puntero sobre la lista ORDEN
-// de cards visibles, y se marca con una línea de inserción entre dos cards.
-//
-// El orden guardado (`cardsOrdenDashboard`) es una lista plana que define el
-// orden de lectura (izquierda a derecha, de arriba abajo).
-// luego en columnas; insertar por índice de esa lista plana es exactamente lo
-// que "dejar la card en ese hueco" significa, sin importar en qué columna
-// caiga.
+// SortableJS gestiona el drag & drop sobre el grid de celdas uniformes,
+// incluyendo el indicador visual de inserción, el auto-scroll y el soporte
+// táctil nativo. Al soltar (onEnd), se lee el nuevo orden del DOM y se
+// persiste en `cardsOrdenDashboard` y Firestore.
 
-let lineaInsercion = null
-
-/** Último hueco donde se pintó la línea. Solo se reposiciona cuando cambia:
-    reinsertarla en cada `dragover` en el mismo hueco parpadeaba. */
-let posicionInsercionActual = -1
-
-/** Temporizador de auto-scroll durante el drag. Se activa cuando el puntero
-    está cerca del borde superior o inferior del contenedor y hace scroll
-    continuo para que el usuario pueda llevar una card de abajo hacia arriba
-    (o viceversa) sin tener que posicionarla exactamente en un hueco visible. */
-let timerAutoScroll = null
-
-/** Contenedor scrollable del dashboard (#app-content). Se resuelve una vez. */
-let contenedorScrollDashboard = null
-
-function obtenerContenedorScrollDashboard() {
-    if (!contenedorScrollDashboard) {
-        contenedorScrollDashboard = document.getElementById("app-content")
-    }
-    return contenedorScrollDashboard
-}
-
-function iniciarAutoScroll(evento) {
-    const contenedor = obtenerContenedorScrollDashboard()
-    if (!contenedor) return
-
-    const rect = contenedor.getBoundingClientRect()
-    const y = evento.clientY
-    const umbral = 70 // px desde el borde para activar scroll
-
-    let direccion = 0
-    if (y < rect.top + umbral) direccion = -1 // arriba
-    else if (y > rect.bottom - umbral) direccion = 1 // abajo
-
-    if (direccion === 0) {
-        detenerAutoScroll()
-        return
-    }
-
-    // Velocidad proporcional a qué tan cerca está del borde
-    const distancia = direccion === -1
-        ? (rect.top + umbral) - y
-        : y - (rect.bottom - umbral)
-    const velocidad = Math.min(20, Math.max(5, Math.floor(distancia / 10)))
-
-    function paso() {
-        contenedor.scrollBy(0, direccion * velocidad)
-        // Seguir verificando la posición del puntero (puede haberse movido)
-        // pero usamos la última posición conocida del evento. Si el usuario
-        // movió el mouse, el siguiente dragover actualizará el temporizador.
-    }
-
-    paso()
-    timerAutoScroll = setInterval(paso, 40)
-}
-
-function detenerAutoScroll() {
-    if (timerAutoScroll) {
-        clearInterval(timerAutoScroll)
-        timerAutoScroll = null
-    }
-}
+let sortableDashboard = null
 
 /** Cards visibles, en el orden en que se leen (izquierda a derecha, de arriba abajo). */
 function cardsVisiblesEnOrden() {
@@ -744,147 +700,6 @@ function cardsVisiblesEnOrden() {
         })
         .map(id => grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`))
         .filter(Boolean)
-}
-
-/**
- * Índice de inserción para la posición del puntero en un layout Grid.
- *
- * Calcula la distancia euclidiana entre el puntero y el centro de cada card
- * visible para encontrar la más cercana. Determina si el puntero está por
- * encima o por debajo de la línea media de esa card para decidir si se
- * inserta antes o después de ella.
- *
- * @returns {number} de 0 (antes de la primera) a n (al final)
- */
-function posicionDeInsercion(evento) {
-    const cards = cardsVisiblesEnOrden()
-    if (cards.length === 0) return 0
-
-    const x = evento.clientX
-    const y = evento.clientY
-
-    // Encontrar la card más cercana al puntero por distancia euclidiana al centro
-    let masCercana = null
-    let distanciaMinima = Infinity
-    cards.forEach(card => {
-        const caja = card.getBoundingClientRect()
-        const cx = caja.left + caja.width / 2
-        const cy = caja.top + caja.height / 2
-        const dx = x - cx
-        const dy = y - cy
-        const distancia = dx * dx + dy * dy
-        if (distancia < distanciaMinima) {
-            distanciaMinima = distancia
-            masCercana = { card, caja }
-        }
-    })
-
-    if (!masCercana) return cards.length
-
-    const { caja } = masCercana
-    const indiceCercana = cards.indexOf(masCercana.card)
-
-    // Si el puntero está por encima de la línea media de la card más cercana,
-    // se inserta antes de ella; si está por debajo, después de ella.
-    const mitadY = caja.top + caja.height / 2
-    if (y < mitadY) {
-        return indiceCercana
-    } else {
-        return indiceCercana + 1
-    }
-}
-
-/** Línea de inserción entre dos cards, para que se vea dónde va a caer. */
-function marcarDestinoInsercion(evento) {
-    const grid = document.querySelector(".dashboard")
-    if (!grid) return
-
-    const posicion = posicionDeInsercion(evento)
-    const cards = cardsVisiblesEnOrden()
-
-    // La card de patrimonio es la primera y fija: nunca se admite un hueco
-    // delante de ella.
-    if (cards[0]?.dataset.dashboardCard === "patrimonio" && posicion < 1) {
-        limpiarDestinoInsercion()
-        return
-    }
-
-    if (posicion === posicionInsercionActual && lineaInsercion?.isConnected) return
-
-    const antes = cards[posicion] || null
-
-    if (!lineaInsercion) {
-        lineaInsercion = document.createElement("div")
-        lineaInsercion.className = "dashboard-card-insercion"
-        lineaInsercion.setAttribute("aria-hidden", "true")
-    }
-
-    if (antes) {
-        antes.parentElement.insertBefore(lineaInsercion, antes)
-    } else {
-        // Al final: se va detrás de la última card visible.
-        const ultima = cards[cards.length - 1]
-        if (!ultima) return
-        ultima.parentElement.insertBefore(lineaInsercion, ultima.nextSibling)
-    }
-
-    // Fade-in suave de la línea de inserción
-    requestAnimationFrame(() => lineaInsercion.classList.add("visible"))
-    posicionInsercionActual = posicion
-}
-
-function limpiarDestinoInsercion() {
-    if (!lineaInsercion) return
-    lineaInsercion.classList.remove("visible")
-    // Esperar a que termine el fade-out antes de remover el nodo
-    setTimeout(() => {
-        lineaInsercion.remove()
-        lineaInsercion = null
-    }, 150)
-    posicionInsercionActual = -1
-}
-
-/** Mueve `idOrigen` al hueco `posicion` del orden visible. */
-function insertarCardDashboard(idOrigen, posicion) {
-    if (!idOrigen || idOrigen === "patrimonio") return
-
-    const origen = cardsOrdenDashboard.indexOf(idOrigen)
-    if (origen < 0) return
-
-    // El índice hay que traducirlo de "cards visibles" a "cardsOrdenDashboard":
-    // la lista plana incluye cards ocultas que no cuentan para el hueco, pero
-    // sí ocupan posición en el array.
-    const visiblesAntes = cardsVisiblesEnOrden()
-        .slice(0, posicion)
-        .map(card => card.dataset.dashboardCard)
-
-    cardsOrdenDashboard.splice(origen, 1)
-
-    let destino = cardsOrdenDashboard.length
-    if (visiblesAntes.length > 0) {
-        const ultimaVisible = visiblesAntes[visiblesAntes.length - 1]
-        const indiceUltima = cardsOrdenDashboard.indexOf(ultimaVisible)
-        if (indiceUltima >= 0) destino = indiceUltima + 1
-        else {
-            // La primera card visible no es la primera de la lista (hay
-            // ocultas delante): se inserta justo antes de ella.
-            const primeraVisible = cardsVisiblesEnOrden()[0]
-            if (primeraVisible) {
-                destino = cardsOrdenDashboard.indexOf(primeraVisible.dataset.dashboardCard)
-                if (destino < 0) destino = 0
-            }
-        }
-    } else {
-        const primeraVisible = cardsVisiblesEnOrden()[0]
-        if (primeraVisible) {
-            destino = cardsOrdenDashboard.indexOf(primeraVisible.dataset.dashboardCard)
-            if (destino < 0) destino = 0
-        }
-    }
-
-    cardsOrdenDashboard.splice(destino, 0, idOrigen)
-    cambiosPendientesDashboard = true
-    reordenarDashboard(true)
 }
 
 function moverCardDashboard(id, direccion) {
@@ -943,85 +758,21 @@ function desactivarEdicionCardsDashboard() {
         card.classList.remove("dashboard-card-arrastrando", "encajando")
     })
     document.body.classList.remove("dashboard-card-dragging")
+    if (sortableDashboard) {
+        sortableDashboard.destroy()
+        sortableDashboard = null
+    }
 }
 
 function configurarEventosReordenamientoDashboard() {
     const grid = document.querySelector(".dashboard")
-    if (!grid || grid.dataset.reordenamientoListos === "1") return
-    grid.dataset.reordenamientoListos = "1"
+    if (!grid) return
 
-    grid.addEventListener("dragstart", (evento) => {
-        const card = evento.target.closest("[data-dashboard-card]")
-        if (!modoEdicionDashboard || !card || card.dataset.dashboardCard === "patrimonio") {
-            evento.preventDefault()
-            return
-        }
-        evento.dataTransfer?.setData("text/plain", card.dataset.dashboardCard)
-        if (evento.dataTransfer) {
-            evento.dataTransfer.effectAllowed = "move"
-            evento.dataTransfer.setDragImage(card, 24, 24)
-        }
-        card.classList.add("dashboard-card-arrastrando")
-        document.body.classList.add("dashboard-card-dragging")
-    })
-
-grid.addEventListener("dragover", (evento) => {
-        // El destino puede ser cualquier punto del grid, no solo una card: el
-        // hueco entre dos columnas es tan válido como la card de al lado. Por
-        // eso se calcula la posición de inserción desde las coordenadas del
-        // puntero y no desde `closest("[data-dashboard-card]")`. Pasar sobre
-        // patrimonio no se evita aquí: `marcarDestinoInsercion` descarta los
-        // huecos previos a la primera card.
-        if (!modoEdicionDashboard) return
-        evento.preventDefault()
-        if (evento.dataTransfer) evento.dataTransfer.dropEffect = "move"
-
-        // Auto-scroll: si el puntero está cerca del borde superior o inferior
-        // del contenedor, se hace scroll continuo para permitir arrastrar
-        // cards de abajo hacia arriba (o viceversa) sin esfuerzo.
-        iniciarAutoScroll(evento)
-
-        marcarDestinoInsercion(evento)
-    })
-
-grid.addEventListener("dragleave", (evento) => {
-        // Solo se limpia al salir del grid entero: `dragleave` también salta
-        // entre hijos (y entre las columnas), y limpiar ahí parpadeaba la
-        // marca de inserción.
-        if (evento.relatedTarget && grid.contains(evento.relatedTarget)) return
-        limpiarDestinoInsercion()
-        detenerAutoScroll()
-    })
-
-grid.addEventListener("drop", (evento) => {
-        if (!modoEdicionDashboard) return
-        evento.preventDefault()
-        const origen = evento.dataTransfer?.getData("text/plain")
-        limpiarDestinoInsercion()
-        detenerAutoScroll()
-
-        if (!origen || origen === "patrimonio") return
-
-        const destino = posicionDeInsercion(evento)
-        if (destino == null) return
-
-        // Mismo límite que la línea: patrimonio es fija y primera, así que el
-        // hueco 0 (delante de ella) nunca es un destino válido.
-        const primera = cardsVisiblesEnOrden()[0]
-        if (primera?.dataset.dashboardCard === "patrimonio" && destino < 1) return
-
-        insertarCardDashboard(origen, destino)
-    })
-
-grid.addEventListener("dragend", (evento) => {
-        const card = evento.target.closest("[data-dashboard-card]")
-        card?.classList.remove("dashboard-card-arrastrando")
-        card?.classList.add("encajando")
-        setTimeout(() => card?.classList.remove("encajando"), 200)
-        document.body.classList.remove("dashboard-card-dragging")
-        limpiarDestinoInsercion()
-        detenerAutoScroll()
-    })
+    // Si SortableJS ya está inicializado, destruirlo antes de reiniciar
+    if (sortableDashboard) {
+        sortableDashboard.destroy()
+        sortableDashboard = null
+    }
 
     grid.addEventListener("click", (evento) => {
         const botonMover = evento.target.closest("[data-dashboard-mover]")
@@ -1040,6 +791,73 @@ grid.addEventListener("dragend", (evento) => {
         cambiosPendientesDashboard = true
         mostrarNotificacion("exito", "Card eliminada del dashboard")
     })
+}
+
+function inicializarSortableDashboard() {
+    const grid = document.querySelector(".dashboard")
+    if (!grid || sortableDashboard) return
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+
+    sortableDashboard = new Sortable(grid, {
+        handle: ".dashboard-card-handle",
+        draggable: "[data-dashboard-card]",
+        animation: reduceMotion ? 0 : 150,
+        scroll: true,
+        scrollSensitivity: 30,
+        scrollSpeed: 10,
+        disabled: !modoEdicionDashboard,
+        onStart: (evt) => {
+            if (!modoEdicionDashboard || evt.item.dataset.dashboardCard === "patrimonio") {
+                sortableDashboard.sort(true) // cancelar el drag
+                return
+            }
+            evt.item.classList.add("dashboard-card-arrastrando")
+            document.body.classList.add("dashboard-card-dragging")
+        },
+        onEnd: (evt) => {
+            if (!modoEdicionDashboard) return
+
+            const card = evt.item
+            card.classList.remove("dashboard-card-arrastrando")
+            document.body.classList.remove("dashboard-card-dragging")
+
+            // Leer el nuevo orden del DOM (solo cards visibles)
+            const nuevoOrden = []
+            grid.querySelectorAll("[data-dashboard-card]").forEach(c => {
+                const id = c.dataset.dashboardCard
+                if (id && id !== "patrimonio") {
+                    nuevoOrden.push(id)
+                }
+            })
+
+            // Reconstruir cardsOrdenDashboard: las cards que están en el DOM
+            // mantienen su orden relativo; las que no están en el DOM van al final
+            const ordenActual = cardsOrdenDashboard.filter(id => id !== "patrimonio")
+            const nuevoOrdenFiltrado = nuevoOrden.filter(id => ordenActual.includes(id))
+            const noEnDOM = ordenActual.filter(id => !nuevoOrden.includes(id))
+            const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnDOM]
+
+            // Actualizar cardsOrdenDashboard (manteniendo patrimonio primero)
+            cardsOrdenDashboard = ["patrimonio", ...nuevoOrdenCompleto]
+            cambiosPendientesDashboard = true
+
+            // Guardar en Firestore
+            guardarPreferenciasDashboard({
+                orden: cardsOrdenDashboard
+            }).then(() => {
+                cambiosPendientesDashboard = false
+            }).catch(error => {
+                console.error("Error guardando orden del dashboard:", error)
+            })
+        }
+    })
+}
+
+function activarSortableDashboard() {
+    if (sortableDashboard) {
+        sortableDashboard.option("disabled", !modoEdicionDashboard)
+    }
 }
 
 async function manejarTeclaEdicionDashboard(evento) {
@@ -1075,6 +893,7 @@ function activarModoEdicionDashboard() {
     document.querySelector(".dashboard")?.classList.add("dashboard-edicion-activo")
     configurarEventosReordenamientoDashboard()
     prepararEdicionCardsDashboard()
+    inicializarSortableDashboard()
     mostrarNotificacion("info", "Modo edición del dashboard activo")
 }
 
@@ -1332,10 +1151,11 @@ function obtenerPeriodoFlujo(id) {
 // Se usan para renderizar el dashboard dinámicamente a partir de
 // cardsVisiblesDashboard y cardsOrdenDashboard.
 
-function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseExtra = "") {
+function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseExtra = "", config = {}) {
     const id = `card-${cardId}`;
+    const clasesSpan = clasesCard(cardId)
     return `
-        <div class="glass card card-navegable metric-card ${claseExtra}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
+        <div class="glass card card-navegable metric-card ${claseExtra} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
             <div class="card-value" id="${valorId}">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="${detalleId}">${skeletonText()}</div>
@@ -1343,11 +1163,12 @@ function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, clase
     `;
 }
 
-function generarCardListaSimple(cardId, titulo, filas, detalleId = null, subtituloHtml = "") {
+function generarCardListaSimple(cardId, titulo, filas, detalleId = null, subtituloHtml = "", config = {}) {
     const id = `card-${cardId}`;
     const detalle = detalleId ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>` : "";
+    const clasesSpan = clasesCard(cardId)
     return `
-        <div class="glass card card-navegable ${claseExtra(cardId)}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
+        <div class="glass card card-navegable ${claseExtra(cardId)} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
             <div class="${cardId}-lista scroll-fade" id="${cardId}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
             ${detalle}
@@ -1400,9 +1221,10 @@ function generarCardPatrimonio(nivelResalte) {
     `;
 }
 
-function generarCardGrafico() {
+function generarCardGrafico(config = {}) {
+    const clasesSpan = clasesCard("grafico")
     return `
-        <div class="glass card grafico-patrimonio-card" data-dashboard-card="grafico" role="region" tabindex="0" aria-label="Evolución patrimonial">
+        <div class="glass card grafico-patrimonio-card ${clasesSpan}" data-dashboard-card="grafico" role="region" tabindex="0" aria-label="Evolución patrimonial">
             <div class="card-header">
                 <span class="card-title">Evolución patrimonial</span>
             </div>
@@ -1419,9 +1241,10 @@ function generarCardGrafico() {
     `;
 }
 
-function generarCardDistribucionDona() {
+function generarCardDistribucionDona(config = {}) {
+    const clasesSpan = clasesCard("distribucion")
     return `
-        <div class="glass card card-navegable distribucion-card" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
+        <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
             <div class="card-header">
                 <span class="card-title">Distribución patrimonial</span>
             </div>
@@ -1431,9 +1254,10 @@ function generarCardDistribucionDona() {
     `;
 }
 
-function generarCardMetas() {
+function generarCardMetas(config = {}) {
+    const clasesSpan = clasesCard("metas")
     return `
-        <div class="glass card metas-card" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
+        <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
             <div class="card-header">
                 <span class="card-title">Metas de ahorro</span>
                 <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
@@ -1447,9 +1271,10 @@ function generarCardMetas() {
     `;
 }
 
-function generarCardPresupuestos() {
+function generarCardPresupuestos(config = {}) {
+    const clasesSpan = clasesCard("presupuestos")
     return `
-        <div class="glass card presupuestos-card" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
+        <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
             <div class="card-header">
                 <span class="card-title">Presupuestos</span>
                 <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
@@ -1469,8 +1294,10 @@ const GENERADORES_CARD = {
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
     "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
     "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2),
-    "favoritos": () => `
-        <div class="glass card card-navegable favoritos-card" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
+    "favoritos": (config = {}) => {
+        const clasesSpan = clasesCard("favoritos")
+        return `
+        <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
             <div class="card-header">
                 <span class="card-title">Favoritos</span>
                 <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
@@ -1479,18 +1306,24 @@ const GENERADORES_CARD = {
                 ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
             </div>
         </div>
-    `,
-    "pendientes": () => `
-        <div class="glass card card-navegable pendientes-card" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
+    `;
+    },
+    "pendientes": (config = {}) => {
+        const clasesSpan = clasesCard("pendientes")
+        return `
+        <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
             <div class="card-header">
                 <span class="card-title">Pendientes</span>
                 <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
             <div class="pendientes-lista scroll-fade" id="pendientes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
-    `,
-    "ordenes": () => `
-        <div class="glass card card-navegable ordenes-card" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
+    `;
+    },
+    "ordenes": (config = {}) => {
+        const clasesSpan = clasesCard("ordenes")
+        return `
+        <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
             <div class="card-header">
                 <span class="card-title">Órdenes</span>
                 <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
@@ -1498,73 +1331,95 @@ const GENERADORES_CARD = {
             <div class="ordenes-lista scroll-fade" id="ordenes-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
             <div class="card-sub" id="ordenes-detalle">${skeletonText()}</div>
         </div>
-    `,
-    "distribucion-activos": () => `
-        <div class="glass card card-navegable distribucion-activos-card" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
+    `;
+    },
+    "distribucion-activos": (config = {}) => {
+        const clasesSpan = clasesCard("distribucion-activos")
+        return `
+        <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
             <div class="card-header">
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
             <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="distribucion-lista scroll-fade" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
-    `,
-    "patrimonio-divisa": () => `
-        <div class="glass card card-navegable patrimonio-divisa-card" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
+    `;
+    },
+    "patrimonio-divisa": (config = {}) => {
+        const clasesSpan = clasesCard("patrimonio-divisa")
+        return `
+        <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
             <div class="card-header">
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
             <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="divisa-lista scroll-fade" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
-    `,
-    "estrategias": () => `
-        <div class="glass card estrategias-card" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
+    `;
+    },
+    "estrategias": (config = {}) => {
+        const clasesSpan = clasesCard("estrategias")
+        return `
+        <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
             <div class="card-header">
                 <span class="card-title">Estrategias</span>
                 <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
             <div class="estrategias-lista scroll-fade" id="estrategias-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list skeleton-dashboard-list-estrategias" })}</div>
         </div>
-    `,
+    `;
+    },
     "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
-    "gastos-periodo": () => `
-        <div class="glass card card-navegable metric-card gastos-periodo-card" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
+    "gastos-periodo": (config = {}) => {
+        const clasesSpan = clasesCard("gastos-periodo")
+        return `
+        <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
                 <span class="card-title">Gastado</span>
             </div>
             <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
         </div>
-    `,
-    "ingresos-periodo": () => `
-        <div class="glass card card-navegable metric-card" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
+    `;
+    },
+    "ingresos-periodo": (config = {}) => {
+        const clasesSpan = clasesCard("ingresos-periodo")
+        return `
+        <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
             <div class="card-header">
                 <span class="card-title">Ingresado</span>
             </div>
             <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
         </div>
-    `,
+    `;
+    },
     "balance-periodo": () => generarCardMetrica("balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
     "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
-    "programados": () => `
-        <div class="glass card programados-card" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
+    "programados": (config = {}) => {
+        const clasesSpan = clasesCard("programados")
+        return `
+        <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
             <div class="card-header">
                 <span class="card-title">Programados</span>
                 <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
             <div class="programados-lista scroll-fade" id="programados-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
-    `,
-    "alertas": () => `
-        <div class="glass card alertas-card" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
+    `;
+    },
+    "alertas": (config = {}) => {
+        const clasesSpan = clasesCard("alertas")
+        return `
+        <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
             <div class="card-header">
                 <span class="card-title">Alertas</span>
                 <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
             <div class="alertas-lista scroll-fade" id="alertas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
-    `
+    `;
+    },
 };
 
 export function render() {
@@ -1586,7 +1441,8 @@ export function render() {
             ${generarCardPatrimonio(nivelResalte)}
             ${ordenRender.map(id => {
                 const generador = GENERADORES_CARD[id]
-                return generador ? generador() : ""
+                const config = DASHBOARD_CARDS.find(c => c.id === id) || {}
+                return generador ? generador(config) : ""
             }).join('')}
         </div>
     `

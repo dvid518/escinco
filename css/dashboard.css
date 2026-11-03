@@ -26,9 +26,46 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-    height: auto;
+    height: 100%;
     position: relative;
     overflow: visible;
+}
+
+/* Cards que ocupan 2 columnas de ancho */
+.card-span-2 {
+    grid-column: span 2;
+}
+
+/* Cards que ocupan 2 filas de alto */
+.card-span-row-2 {
+    grid-row: span 2;
+}
+
+/* Card que ocupa 2x2 celdas */
+.card-span-2x2 {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+/* Cards con scroll interno (contenido largo) */
+.card-con-scroll {
+    overflow-y: auto;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Responsive: en pantallas estrechas, todas las cards ocupan 1 columna */
+@media (max-width: 599px) {
+    .dashboard {
+        grid-template-columns: 1fr;
+    }
+    .card-span-2,
+    .card-span-row-2,
+    .card-span-2x2 {
+        grid-column: span 1;
+        grid-row: span 1;
+    }
 }
 
 /* Tarjetas con gráficos: altura fija para contener el canvas de Chart.js.
@@ -1867,5 +1904,6 @@ body.dashboard-card-dragging * {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 
 
