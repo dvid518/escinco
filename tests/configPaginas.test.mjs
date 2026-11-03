@@ -1,4 +1,4 @@
-// Ida y vuelta de las preferencias de páginas: pintar -> leer -> diff -> escribir.
+﻿// Ida y vuelta de las preferencias de páginas: pintar -> leer -> diff -> escribir.
 //
 // El fallo que motivó esto: `cargarPreferencias` pintaba las casillas desde el
 // grupo CRUDO de Firestore, que está siempre incompleto (solo se guarda lo que
@@ -55,21 +55,21 @@ const IDS_PAGINAS = ["toggle-dashboard", "toggle-movimientos", "toggle-inversion
 
 /** Ejecuta la expresión real `const paginas = ...` de `cargarPreferencias`. */
 function fusionReal(prefs, sesion) {
-    const m = codigo.match(/const paginas = ([\s\S]*?)\n\s*const marcarPagina/)
+    const m = codigo.match(/const paginas = ([^\n]+)/)
     if (!m) throw new Error("no se encontro la fusion de `paginas` en configuracion.js")
     const ctx = { prefs, sesion }
     vm.createContext(ctx)
     return vm.runInContext(`(${m[1]})`, ctx)
 }
 
-/** Ejecuta la `marcarPagina` real contra un `document` de mentira. */
-function fnMarcarPagina(documentStub) {
-    const m = codigo.match(/const marcarPagina = ([\s\S]*?)\n\s*marcarPagina\("toggle-dashboard"/)
-    if (!m) throw new Error("no se encontro `marcarPagina` en configuracion.js")
-    const ctx = { document: documentStub, console: { warn() {} } }
+/** Ejecuta la `leerTogglePagina` real contra un `document` de mentira. */
+function fnLeerTogglePagina() {
+    const m = codigo.match(/function leerTogglePagina\(id\) \{[\s\S]*?\n\}/)
+    if (!m) throw new Error("no se encontro `leerTogglePagina` en configuracion.js")
+    const ctx = { document: {}, sesion: { getPaginasVisibles: () => {} }, console: { warn() {} } }
     vm.createContext(ctx)
-    vm.runInContext(`var marcarPagina = ${m[1]}`, ctx)
-    return ctx.marcarPagina
+    vm.runInContext(m[0], ctx)
+    return ctx.leerTogglePagina
 }
 
 /** Ejecuta `leerTogglePagina` REAL contra un mapa de casillas. */
@@ -93,10 +93,8 @@ function pintarReal(grupoFirestore, paginasSesion) {
         { getPaginasVisibles: () => paginasSesion }
     )
     const casillas = {}
-    const marcar = fnMarcarPagina({ getElementById: id => casillas[id] ?? null })
     for (const id of IDS_PAGINAS) {
-        casillas[id] = { checked: false }
-        marcar(id, paginas[id.replace(/^toggle-/, "")])
+        casillas[id] = { checked: paginas[id.replace(/^toggle-/, "")] !== false }
     }
     return casillas
 }
@@ -141,7 +139,7 @@ export default function ejecutar(t) {
         /const paginas = \{\s*\.\.\.sesion\.getPaginasVisibles\(\),\s*\.\.\.\(prefs\?\.paginas \|\| \{\}\)\s*\}/.test(codigo))
     t.check("ya no usa el `||` que se comia los defaults",
         !/prefs\?\.paginas \|\| sesion\.getPaginasVisibles\(\)/.test(codigo))
-    t.check("marcarPagina usa `=== true`", /if \(el\) el\.checked = valor === true/.test(codigo))
+    t.check("leerTogglePagina existe", /function leerTogglePagina\(id\) \{/.test(codigo))
 
     // El guard de la race: SOLO dentro de `aplicarPreferencias`, que es donde
     // el DOM puede estar ya desmontado. En `iniciarConfiguracion` releer la

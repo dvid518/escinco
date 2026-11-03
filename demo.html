@@ -1972,6 +1972,7 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 
                 <div class="config-group">
                     <span class="config-label">Tema</span>
+                    <span class="config-hint">Elige el tono de la aplicación. Oscuro es el predeterminado.</span>
                     <div class="toggle-group" id="toggle-tema">
                         <span class="toggle-option" data-tema="dark">Oscuro</span>
                         <span class="toggle-option" data-tema="light">Claro</span>
@@ -1991,35 +1992,12 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 
                 <div class="config-group">
                     <span class="config-label visible-pages">Páginas visibles</span>
-                    <div class="pages-toggle-group">
-                        <div class="toggle-row">
-                            <span>Dashboard</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-dashboard" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Movimientos</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-movimientos" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Inversiones</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-inversiones" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Trading</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-trading" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
+                    <span class="config-hint">Elige qué páginas quieres que aparezcan en el sidebar y en el lastbar. Cuentas y Configuración siempre están activas.</span>
+                    <div class="toggle-group" id="paginas-visibles">
+                        <span class="toggle-option active" data-pagina="dashboard">Dashboard</span>
+                        <span class="toggle-option active" data-pagina="movimientos">Movimientos</span>
+                        <span class="toggle-option active" data-pagina="inversiones">Inversiones</span>
+                        <span class="toggle-option active" data-pagina="trading">Trading</span>
                     </div>
                 </div>
 
@@ -2034,73 +2012,34 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 
                 <div class="config-group">
                     <span class="config-label">Tipos de movimiento en el selector</span>
-                    <div class="pages-toggle-group">
-                        <div class="toggle-row">
-                            <span>Cambio de divisa</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-cambio-divisa" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Compra de activo</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-compra-activo">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Venta de activo</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-venta-activo">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Pago de tarjeta</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-pago-tarjeta">
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Compra P2P</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-p2p-compra" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Venta P2P</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-p2p-venta" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
-                        <div class="toggle-row">
-                            <span>Trade</span>
-                            <label class="switch">
-                                <input type="checkbox" id="toggle-tipo-trade" checked>
-                                <span class="slider"></span>
-                            </label>
-                        </div>
+                    <span class="config-hint">Qué tipos se ofrecen al crear un movimiento nuevo. Compra/venta de activo y pago de tarjeta solo se registran desde sus propias páginas salvo que los actives aquí.</span>
+                    <div class="toggle-group" id="tipos-movimiento">
+                        <span class="toggle-option active" data-tipo="cambioDivisa">Cambio de divisa</span>
+                        <span class="toggle-option active" data-tipo="compraActivo">Compra de activo</span>
+                        <span class="toggle-option active" data-tipo="ventaActivo">Venta de activo</span>
+                        <span class="toggle-option active" data-tipo="pagoTarjeta">Pago de tarjeta</span>
+                        <span class="toggle-option active" data-tipo="p2pCompra">Compra P2P</span>
+                        <span class="toggle-option active" data-tipo="p2pVenta">Venta P2P</span>
+                        <span class="toggle-option active" data-tipo="trade">Trade</span>
+                    </div>
+                </div>
+
+                <div class="config-group">
+                    <span class="config-label">Fondo</span>
+                    <div class="toggle-group" id="toggle-fondo">
+                        <span class="toggle-option active" data-fondo="animado">Animado</span>
+                        <span class="toggle-option" data-fondo="congelado">Congelado</span>
+                        <span class="toggle-option" data-fondo="apagado">Apagado</span>
                     </div>
                     <span class="config-hint">
-                        Qué tipos se ofrecen al crear un movimiento nuevo. Compra/venta de activo y pago de
-                        tarjeta solo se registran desde sus propias páginas salvo que los actives aquí.
+                        Animado: degradados en movimiento · Congelado: degradados estáticos ·
+                        Apagado: sin fondo decorativo.
                     </span>
                 </div>
 
                 </div>
 
-            <!-- ETIQUETAS -->
-            <div class="panel-section hidden-section" id="section-etiquetas">
-                <div class="config-group">
-                    <span class="config-label">Tus etiquetas</span>
-                    <div class="chips-etiquetas" id="config-chips-etiquetas"></div>
-                    <span class="config-hint">Toca una etiqueta para renombrarla, cambiar su color o eliminarla. El botón + crea una nueva.</span>
-                </div>
-            </div>
+
 
             <!-- MONEDA -->
             <div class="panel-section hidden-section" id="section-moneda">
@@ -2126,57 +2065,23 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                 <div class="config-group">
                     <span class="config-label">Periodo de evolución patrimonial</span>
                     <div class="toggle-group" id="periodo-evolucion">
-                        <span class="toggle-option" data-periodo="7d">7D</span>
+                                        <div class="config-group">
+                    <span class="config-label">Tipo de cambio PEN → USD</span>
+                    <input type="number" id="tc-pen-usd" class="form-input" placeholder="3.75" step="0.01" min="0" data-tpl="tc-pen-usd" data-tpl-attr="placeholder">
+                    <span class="config-hint">Tipo de cambio manual de soles a dólares.</span>
+                </div>
+                <div class="config-group">
+                    <span class="config-label">Tipo de cambio EUR → USD</span>
+                    <input type="number" id="tc-eur-usd" class="form-input" placeholder="1.05" step="0.01" min="0" data-tpl="tc-eur-usd" data-tpl-attr="placeholder">
+                    <span class="config-hint">Tipo de cambio manual de euros a dólares.</span>
+                </div><span class="toggle-option" data-periodo="7d">7D</span>
                         <span class="toggle-option" data-periodo="30d">30D</span>
                         <span class="toggle-option" data-periodo="90d">90D</span>
                         <span class="toggle-option" data-periodo="todo">Todo</span>
                     </div>
                 </div>
 
-                <div class="config-group">
-                    <span class="config-label">Tipo de cambio</span>
 
-                    <div class="toggle-group" id="tc-modo">
-                        <span class="toggle-option" data-modo="manual">Manual</span>
-                        <span class="toggle-option" data-modo="auto">Automático</span>
-                    </div>
-
-                    <div class="exchange-rate-inputs" id="tc-input-manual" hidden>
-                        <div class="exchange-input">
-                            <label>1 USD =</label>
-                            <input type="number" id="tc-pen-usd" class="form-input" step="0.01" min="0.01" data-tpl="tc-pen-usd" data-tpl-attr="placeholder">
-                            <span>PEN</span>
-                        </div>
-                        <div class="exchange-input">
-                            <label>1 USD =</label>
-                            <input type="number" id="tc-eur-usd" class="form-input" step="0.01" min="0.01" data-tpl="tc-eur-usd" data-tpl-attr="placeholder">
-                            <span>EUR</span>
-                        </div>
-                    </div>
-
-                    <div class="tc-auto-box" id="tc-input-auto" hidden>
-                        <div class="exchange-notes">
-                            <p class="exchange-note" id="tc-valor-auto"></p>
-                            <p class="exchange-note" id="tc-fecha-auto"></p>
-                        </div>
-                        <div class="tc-auto-actions">
-                            <button class="glass-btn" id="tc-actualizar-btn">
-                                <span class="tc-btn-text">Actualizar ahora</span>
-                            </button>
-                            <span class="tc-status" id="tc-status" hidden></span>
-                        </div>
-                    </div>
-                </div>
-                <div class="config-group">
-                    <span class="config-label">Precios de activos</span>
-                    <div class="toggle-row">
-                        <span>Actualizar automáticamente al entrar a Inversiones</span>
-                        <label class="switch">
-                            <input type="checkbox" id="toggle-precios-auto">
-                            <span class="slider"></span>
-                        </label>
-                    </div>
-                </div>
             </div>
 
             <!-- CUENTA -->
@@ -2410,6 +2315,7 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     </div>
     </div>
     </template>
+
 
     <!-- Trading · lista de trades/órdenes -->
 
@@ -3206,6 +3112,8 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 </body>
 
 </html>
+
+
 
 
 

@@ -1,4 +1,4 @@
-/* Roboto Mono */
+﻿/* Roboto Mono */
 @font-face {
     font-family: "Roboto Mono";
     src: url("../fonts/Roboto_Mono/RobotoMono-Italic.ttf") format("truetype");
@@ -167,6 +167,7 @@
     --etiqueta-menta: var(--tropicalMint);
     --etiqueta-frambuesa: var(--raspberryRed);
     --etiqueta-mostaza: var(--mustard);
+    --etiqueta-cielo: var(--paleSky);
 
     --distribucion-liquidez: var(--aqua);
     --distribucion-inversiones: var(--orange);
@@ -217,6 +218,7 @@
     --etiqueta-menta: var(--tropicalMint);
     --etiqueta-frambuesa: var(--raspberryRed);
     --etiqueta-mostaza: var(--mustard);
+    --etiqueta-cielo: var(--paleSky);
 
     --distribucion-liquidez: var(--aqua);
     --distribucion-inversiones: var(--orange);
@@ -1123,3 +1125,6 @@ option {
 .toggle-group .toggle-option:hover:not(.active) {
     background: var(--lightHover);
 }
+
+
+
