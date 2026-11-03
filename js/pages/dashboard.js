@@ -1044,24 +1044,37 @@ function abrirSelectorCardsDashboard() {
     // Renderiza la lista de cards activas en el modal
     function renderizarCardsActivas() {
         const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
-        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cardsEnOrden, card => {
-            const d = dimensionesModal[card.id]
-            const columnas = d?.columnas ?? DASHBOARD_CARDS.find(c => c.id === card.id)?.spanColumnas ?? 1
-            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === card.id)?.spanFilas ?? 1
-            const seleccionada = cardSeleccionada === card.id
-            const esCuenta = card.id.startsWith("cuenta:")
-            const esActivo = card.id.startsWith("activo:")
-            const ancho2Permitido = columnas === 2 || (esCuenta && cuentasVisiblesLista.some(c => c.id === card.id.split(":")[1])) || (esActivo && true)
+        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cardsEnOrden, cardId => {
+            const d = dimensionesModal[cardId]
+            const cat = DASHBOARD_CARDS.find(c => c.id === cardId)
+            const columnas = d?.columnas ?? cat?.spanColumnas ?? 1
+            const filas = d?.filas ?? cat?.spanFilas ?? 1
+            const seleccionada = cardSeleccionada === cardId
+            const esCuenta = cardId.startsWith("cuenta:")
+            const esActivo = cardId.startsWith("activo:")
+            const ancho2Permitido = columnas === 2 || (esCuenta && cuentasVisiblesLista.some(c => c.id === cardId.split(":")[1])) || (esActivo && true)
             const filas2Permitido = columnas === 1
             const filas3Permitido = columnas === 1
 
+            // Etiqueta: cuenta/activo dinámico o catálogo fijo
+            let etiqueta = cardId
+            if (esCuenta) {
+                const cuenta = cuentasVisiblesLista.find(c => c.id === cardId.split(":")[1])
+                etiqueta = cuenta?.nombre || cardId
+            } else if (esActivo) {
+                const activo = posicionesData.find(p => p.activoId === cardId.split(":")[1])
+                etiqueta = activo?.activo?.nombre || cardId
+            } else {
+                etiqueta = cat?.label || cardId
+            }
+
             return {
                 valores: {
-                    "card@data-card": card.id,
-                    "valor@value": card.id,
-                    "valor@checked": visiblesModal.has(card.id),
-                    "tamaño": tamañoTexto(card.id),
-                    etiqueta: card.label,
+                    "card@data-card": cardId,
+                    "valor@value": cardId,
+                    "valor@checked": visiblesModal.has(cardId),
+                    "tamaño": tamañoTexto(cardId),
+                    etiqueta: etiqueta,
                     "btn-ancho-1@class": `btn-ancho btn-dimensión ${columnas === 1 ? "activo" : ""} ${!ancho2Permitido && columnas !== 1 ? "disabled" : ""}`,
                     "btn-ancho-1@data-ancho": "1",
                     "btn-ancho-2@class": `btn-ancho btn-dimensión ${columnas === 2 ? "activo" : ""} ${!ancho2Permitido && columnas !== 2 ? "disabled" : ""}`,
@@ -1072,7 +1085,7 @@ function abrirSelectorCardsDashboard() {
                     "btn-alto-2@data-alto": "2",
                     "btn-alto-3@class": `btn-alto btn-dimensión ${filas === 3 ? "activo" : ""} ${!filas3Permitido ? "disabled" : ""}`,
                     "btn-alto-3@data-alto": "3",
-                    "acciones@data-id": card.id,
+                    "acciones@data-id": cardId,
                     "card@class": `modal-card-activa${seleccionada ? " seleccionada" : ""}`
                 }
             }
