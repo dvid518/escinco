@@ -1026,21 +1026,54 @@ function abrirSelectorCardsDashboard() {
     let ordenModal = [...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
     let visiblesModal = new Set(cardsVisiblesDashboard)
     let dimensionesModal = { ...cardsDimensionesDashboard }
+    let cardSeleccionada = null
 
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
+    const cuentasVisiblesLista = cuentasVisibles(cuentas)
+    const cuentasInDashboard = new Set(ordenModal.filter(id => id.startsWith("cuenta:")))
+    const activosInDashboard = new Set(ordenModal.filter(id => id.startsWith("activo:")))
 
-    // Renderiza la lista de filas del modal
-    function renderizarFilas() {
-        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cards, card => {
-            const filas = dimensionesModal[card.id]?.filas ?? card.spanFilas ?? 1
+    // Calcula tamaño texto ("1×1", "2×1", etc.)
+    function tamañoTexto(id) {
+        const d = dimensionesModal[id]
+        const columnas = d?.columnas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanColumnas ?? 1
+        const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
+        return `${columnas}×${filas}`
+    }
+
+    // Renderiza la lista de cards activas en el modal
+    function renderizarCardsActivas() {
+        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
+        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cardsEnOrden, card => {
+            const d = dimensionesModal[card.id]
+            const columnas = d?.columnas ?? DASHBOARD_CARDS.find(c => c.id === card.id)?.spanColumnas ?? 1
+            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === card.id)?.spanFilas ?? 1
+            const seleccionada = cardSeleccionada === card.id
+            const esCuenta = card.id.startsWith("cuenta:")
+            const esActivo = card.id.startsWith("activo:")
+            const ancho2Permitido = columnas === 2 || (esCuenta && cuentasVisiblesLista.some(c => c.id === card.id.split(":")[1])) || (esActivo && true)
+            const filas2Permitido = columnas === 1
+            const filas3Permitido = columnas === 1
+
             return {
                 valores: {
                     "card@data-card": card.id,
                     "valor@value": card.id,
                     "valor@checked": visiblesModal.has(card.id),
+                    "tamaño": tamañoTexto(card.id),
                     etiqueta: card.label,
-                    "filas@data-filas": filas,
-                    "acciones@data-id": card.id
+                    "btn-ancho-1@class": `btn-ancho btn-dimensión ${columnas === 1 ? "activo" : ""} ${!ancho2Permitido && columnas !== 1 ? "disabled" : ""}`,
+                    "btn-ancho-1@data-ancho": "1",
+                    "btn-ancho-2@class": `btn-ancho btn-dimensión ${columnas === 2 ? "activo" : ""} ${!ancho2Permitido && columnas !== 2 ? "disabled" : ""}`,
+                    "btn-ancho-2@data-ancho": "2",
+                    "btn-alto-1@class": `btn-alto btn-dimensión ${filas === 1 ? "activo" : ""} ${!filas2Permitido ? "disabled" : ""}`,
+                    "btn-alto-1@data-alto": "1",
+                    "btn-alto-2@class": `btn-alto btn-dimensión ${filas === 2 ? "activo" : ""} ${!filas2Permitido ? "disabled" : ""}`,
+                    "btn-alto-2@data-alto": "2",
+                    "btn-alto-3@class": `btn-alto btn-dimensión ${filas === 3 ? "activo" : ""} ${!filas3Permitido ? "disabled" : ""}`,
+                    "btn-alto-3@data-alto": "3",
+                    "acciones@data-id": card.id,
+                    "card@class": `modal-card-activa${seleccionada ? " seleccionada" : ""}`
                 }
             }
         })
@@ -1051,18 +1084,69 @@ function abrirSelectorCardsDashboard() {
         cardsGrid.appendChild(opciones)
     }
 
-    const cuentasBloque = bloqueInstanciasSelector(
-        "Tus cuentas en el dashboard",
-        "Puedes agregar una card por cada cuenta que tengas.",
-        opcionesInstanciasCuentas(visiblesModal),
-        "Todavía no tienes cuentas."
-    )
-    const activosBloque = bloqueInstanciasSelector(
-        "Tus activos en el dashboard",
-        "Puedes agregar una card por cada activo que tengas.",
-        opcionesInstanciasActivos(visiblesModal),
-        "No tienes posiciones abiertas todavía."
-    )
+    // Renderiza el preview gráfico (miniaturas en 2 columnas)
+    function renderizarPreview() {
+        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
+        const previewHTML = cardsEnOrden.map(id => {
+            const d = dimensionesModal[id]
+            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
+            return `
+                <div class="modal-preview-card" data-card-id="${id}" data-filas="${filas}">
+                    ${tamañoTexto(id)}
+                </div>
+            `
+        }).join('')
+
+        const previewGrid = modal.querySelector(".modal-preview-grid")
+        if (!previewGrid) return
+        previewGrid.innerHTML = previewHTML
+    }
+
+    // Renderiza el selector de cuentas y activos disponibles
+    function renderizarSelectorEntidades() {
+        const entidades = []
+
+        // Cuentas no en el dashboard
+        cuentasVisiblesLista.forEach(cuenta => {
+            const id = `cuenta:${cuenta.id}`
+            if (!cuentasInDashboard.has(id)) {
+                entidades.push({
+                    id,
+                    nombre: cuenta.nombre || "Cuenta",
+                    tipo: ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta",
+                    esCuenta: true
+                })
+            }
+        })
+
+        // Activos no en el dashboard
+        ;(posicionesData || []).forEach(posicion => {
+            const id = `activo:${posicion.activoId}`
+            if (!activosInDashboard.has(id)) {
+                entidades.push({
+                    id,
+                    nombre: posicion.activo?.nombre || posicion.activoId,
+                    tipo: ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo",
+                    esActivo: true
+                })
+            }
+        })
+
+        const entidadesHTML = entidades.map(e => `
+            <div class="modal-entidad-item" data-entidad-id="${e.id}">
+                <input type="checkbox" data-tpl="valor" data-tpl-attr="value" value="${e.id}">
+                <span class="entidad-nombre">${e.nombre}</span>
+                <span class="entidad-tipo">${e.tipo}</span>
+                <button type="button" class="btn-agregar" data-accion="agregar-entidad" data-entidad-id="${e.id}">
+                    ${icono("plus", 14)}
+                </button>
+            </div>
+        `).join('')
+
+        const contenedor = modal.querySelector(".modal-selector-entidades")
+        if (!contenedor) return
+        contenedor.innerHTML = entidadesHTML || '<p class="dashboard-editor-hint">Todas las cuentas y activos ya están en el dashboard.</p>'
+    }
 
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     const modal = abrirModal({
@@ -1075,12 +1159,10 @@ function abrirSelectorCardsDashboard() {
         contenido: contenidoDesdeTemplate("tpl-dashboard-editor", {
             valores: {
                 "titulo-modal": "Elegir cards del dashboard",
-                "subtitulo-modal": "Arrastra para reordenar, ajusta la altura y activa o desactiva las cards que quieres ver."
+                "subtitulo-modal": "Arrastra para reordenar, ajusta ancho y alto, activa o desactiva las cards que quieres ver."
             },
             html: {
-                cards: "",
-                cuentas: cuentasBloque,
-                activos: activosBloque
+                cards: ""
             }
         }),
         onConfirm: async () => {
@@ -1118,24 +1200,69 @@ function abrirSelectorCardsDashboard() {
         }
     })
 
-    // Renderizar filas tras montar el modal en el DOM
-    renderizarFilas()
+    // Renderizar tras montar el modal en el DOM
+    renderizarCardsActivas()
+    renderizarPreview()
+    renderizarSelectorEntidades()
 
-    // Delegación de eventos para botones de altura y acciones
+    // Inicializar SortableJS en la lista de cards activas para drag & drop
+    const cardsLista = modal.querySelector(".modal-dashboard-lista")
+    if (cardsLista) {
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        new Sortable(cardsLista, {
+            handle: ".btn-accion.handle",
+            draggable: ".modal-card-activa",
+            animation: reduceMotion ? 0 : 150,
+            onEnd: (evt) => {
+                const id = evt.item.dataset.card
+                const indexTo = evt.newIndex
+                ordenModal = ordenModal.filter(cardId => cardId !== id)
+                ordenModal.splice(indexTo, 0, id)
+                renderizarCardsActivas()
+                renderizarPreview()
+                cambiosPendientesDashboard = true
+            }
+        })
+    }
+
+    // Delegación de eventos para el modal
     modal.addEventListener("click", (evento) => {
-        // Botones de altura [1] [2] [3]
-        const botonAltura = evento.target.closest(".modal-altura-btn[data-altura]")
-        if (botonAltura) {
-            const filas = parseInt(botonAltura.dataset.altura, 10)
-            const filaCard = botonAltura.closest(".modal-dashboard-card-fila")
+        // Botones de ancho [1] [2]
+        const botonAncho = evento.target.closest(".btn-ancho.btn-dimensión")
+        if (botonAncho && !botonAncho.classList.contains("disabled")) {
+            const ancho = parseInt(botonAncho.dataset.ancho, 10)
+            const filaCard = botonAncho.closest(".modal-card-activa")
             const cardId = filaCard?.dataset.card
             if (!cardId) return
 
-            botonAltura.parentElement.querySelectorAll("button").forEach(b => {
-                b.classList.toggle("activo", b === botonAltura)
-            })
-            dimensionesModal[cardId] = { filas }
-            renderizarFilas()
+            filaCard.querySelectorAll(".btn-ancho").forEach(b => b.classList.remove("activo"))
+            botonAncho.classList.add("activo")
+
+            if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
+            dimensionesModal[cardId].columnas = ancho
+
+            renderizarCardsActivas()
+            renderizarPreview()
+            cambiosPendientesDashboard = true
+            return
+        }
+
+        // Botones de alto [1] [2] [3]
+        const botonAlto = evento.target.closest(".btn-alto.btn-dimensión")
+        if (botonAlto && !botonAlto.classList.contains("disabled")) {
+            const alto = parseInt(botonAlto.dataset.alto, 10)
+            const filaCard = botonAlto.closest(".modal-card-activa")
+            const cardId = filaCard?.dataset.card
+            if (!cardId) return
+
+            filaCard.querySelectorAll(".btn-alto").forEach(b => b.classList.remove("activo"))
+            botonAlto.classList.add("activo")
+
+            if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
+            dimensionesModal[cardId].filas = alto
+
+            renderizarCardsActivas()
+            renderizarPreview()
             cambiosPendientesDashboard = true
             return
         }
@@ -1145,20 +1272,20 @@ function abrirSelectorCardsDashboard() {
         if (!boton) return
 
         const accion = boton.dataset.accion
-        const accionesDiv = boton.closest(".card-acciones-modal")
-        const cardId = accionesDiv?.dataset.id
+        const accionesDiv = boton.closest(".modal-card-acciones")
+        const cardId = accionesDiv?.dataset.card
         if (!cardId) return
 
         if (accion === "arrastrar") {
-            // El handle se gestiona con SortableJS en las cards del dashboard
-            return
+            return // El handle se gestiona con SortableJS
         }
 
         if (accion === "subir") {
             const index = ordenModal.indexOf(cardId)
             if (index > 0) {
                 ;[ordenModal[index - 1], ordenModal[index]] = [ordenModal[index], ordenModal[index - 1]]
-                renderizarFilas()
+                renderizarCardsActivas()
+                renderizarPreview()
                 cambiosPendientesDashboard = true
             }
         }
@@ -1167,7 +1294,8 @@ function abrirSelectorCardsDashboard() {
             const index = ordenModal.indexOf(cardId)
             if (index < ordenModal.length - 1) {
                 ;[ordenModal[index], ordenModal[index + 1]] = [ordenModal[index + 1], ordenModal[index]]
-                renderizarFilas()
+                renderizarCardsActivas()
+                renderizarPreview()
                 cambiosPendientesDashboard = true
             }
         }
@@ -1176,7 +1304,23 @@ function abrirSelectorCardsDashboard() {
             visiblesModal.delete(cardId)
             ordenModal = ordenModal.filter(cid => cid !== cardId)
             delete dimensionesModal[cardId]
-            renderizarFilas()
+            renderizarCardsActivas()
+            renderizarPreview()
+            renderizarSelectorEntidades()
+            cambiosPendientesDashboard = true
+        }
+
+        // Botón agregar entidad (cuenta/activo)
+        if (accion === "agregar-entidad") {
+            const entidadId = boton.dataset.entidadId
+            if (!entidadId || visiblesModal.has(entidadId)) return
+
+            visiblesModal.add(entidadId)
+            ordenModal.push(entidadId)
+
+            renderizarCardsActivas()
+            renderizarPreview()
+            renderizarSelectorEntidades()
             cambiosPendientesDashboard = true
         }
     })
@@ -1193,8 +1337,23 @@ function abrirSelectorCardsDashboard() {
             ordenModal = ordenModal.filter(cid => cid !== id)
             delete dimensionesModal[id]
         }
-        renderizarFilas()
+        renderizarCardsActivas()
+        renderizarPreview()
+        renderizarSelectorEntidades()
         cambiosPendientesDashboard = true
+    })
+
+    // Clic en una card para seleccionarla/deseleccionarla
+    modal.addEventListener("click", (evento) => {
+        const filaCard = evento.target.closest(".modal-card-activa")
+        if (!filaCard) return
+        if (evento.target.closest("button")) return // No seleccionar si se hace clic en un botón
+
+        const cardId = filaCard.dataset.card
+        if (!cardId) return
+
+        cardSeleccionada = cardSeleccionada === cardId ? null : cardId
+        renderizarCardsActivas()
     })
 
     // Botón Restablecer
@@ -1203,10 +1362,10 @@ function abrirSelectorCardsDashboard() {
         ordenModal = [...DEFAULT_CARDS_ORDEN]
         visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
         dimensionesModal = {}
-        modal.querySelectorAll(".modal-dashboard-editor input").forEach(input => {
-            input.checked = DEFAULT_CARDS_VISIBLES.includes(input.value)
-        })
-        renderizarFilas()
+        cardSeleccionada = null
+        renderizarCardsActivas()
+        renderizarPreview()
+        renderizarSelectorEntidades()
     })
 }
 
