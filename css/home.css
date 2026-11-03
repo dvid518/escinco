@@ -146,8 +146,6 @@
     gap: 8px;
 }
 
-/* Botón de tema: mismo criterio de forma que .home-btn (círculo), pero del
-   tamaño de los botones de icono de la app. */
 .home-tema {
     display: inline-flex;
     align-items: center;
@@ -188,9 +186,6 @@
 /* --------------------------------------------
    BOTONES
    -------------------------------------------- */
-/* La jerarquía se consigue con dos modificadores de color sobre una misma forma
-   (cápsula de 50px), no con clases distintas: el mismo criterio que .modal-btn. */
-
 .home-btn {
     display: inline-flex;
     align-items: center;
@@ -241,8 +236,6 @@
     text-align: start;
 }
 
-/* Único titular fluido de la landing: sigue el criterio de que lo que escala con
-   el viewport son las cifras, aquí el titular hace ese papel. */
 .home-titular {
     margin: 0;
     text-align: center;
@@ -271,8 +264,6 @@
     margin-top: 8px;
 }
 
-/* Franja de condiciones bajo los CTA: responde las tres objeciones de entrada
-   (¿es gratis?, ¿pide tarjeta?, ¿me encierran?) antes de que se hagan. */
 .home-garantias {
     display: flex;
     flex-wrap: wrap;
@@ -291,8 +282,6 @@
     gap: 6px;
 }
 
-/* El punto delata que es una lista de checks sin icono, como los badges de la
-   lastbar, sin robarle peso al titular. */
 .home-garantia::before {
     content: "";
     width: 5px;
@@ -305,14 +294,6 @@
 /* --------------------------------------------
    MAQUETA DEL PANEL
    -------------------------------------------- */
-/* No hay imagen del panel en el repositorio, así que la maqueta se construye
-   con el markup y el color de tema reales: un .dashboard con las mismas cards,
-   dentro de un marco con la navbar. No hay peso de imagen y se ve igual de bien
-   en oscuro que en claro.
-
-   Las columnas las trae dashboard.css (.dashboard-column). Solo se ajusta el
-   gap, que en la app está pensado para una pantalla a pantalla completa y aquí
-   va dentro de un marco. */
 .home-captura {
     position: relative;
     isolation: isolate;
@@ -320,10 +301,6 @@
     margin: 28px 0 0;
 }
 
-/* HERO · La maqueta se levanta sobre un halo para que el marco se lea como una
-   pieza destacada y no como otro bloque de texto. El halo es un degradado
-   radial detrás del marco, con los mismos colores del tema para que también
-   cambie a claro sin reescribir nada. */
 .home-captura::before {
     content: "";
     position: absolute;
@@ -349,27 +326,15 @@
     box-shadow: 0 24px 60px -24px var(--shadow);
 }
 
-/* Navbar de la maqueta: es la de la app (css/navegacion.css), pero dentro de
-   un marco no puede ocupar el 90% del viewport ni alejarse 30px del borde. Se
-   corrigen esas dos cosas y se anula el hover que agranda los tabs, que en una
-   maqueta estática solo haría que la imagen "respirara" al pasar el ratón. */
 .home-maqueta-nav {
     width: 100%;
     margin: 0;
 }
 
 .home-maqueta-nav .nav-container {
-    /* Los tabs no cambian de ancho al pasar el ratón. En la app ese grow de 5px
-       al hacer hover es una pista de que son pulsables; en una maqueta estática
-       solo provocaría un salto de layout que hace temblar el marco entero. El
-       color del hover sí se conserva, porque es lo que marca "activo". */
     overflow: hidden;
 }
 
-/* Se anula solo el hover, no el estado activo: en la app el tab activo ya
-   viene con su propio padding y su escala, y esa diferencia es justo lo que
-   hace legible cuál está marcado. Lo que se quita es el crecimiento de 5px al
-   pasar el ratón, que en una maqueta estática solo haría temblar el marco. */
 .home-maqueta-nav .nav-container a,
 .home-maqueta-nav .nav-container a:hover {
     padding: 0 20px;
@@ -382,10 +347,6 @@
     transform: none;
 }
 
-/* El logo de la maqueta no lleva id="logo" (evitamos duplicarlo con la
-   cabecera), así que el <a> hereda el color por defecto del navegador y el
-   svg (fill="currentColor") se ve azul/púrpura como un enlace. Se le asigna
-   el mismo color que usa el logo en el resto de la app (var(--text)). */
 .home-maqueta-nav .logo-container a {
     color: var(--text);
 }
@@ -397,28 +358,17 @@
     }
 }
 
-/* Tres columnas, no las cuatro del dashboard. La maqueta muestra seis cards y
-   a cuatro columnas quedarían dos arriba y cuatro abajo, que es una rejilla
-   irregular y no lo que se quiere enseñar. Las tres columnas se reparten dos
-   cards por columna. */
 .home-maqueta {
     --gap-card: 14px;
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-/* En tablets y teléfonos la maqueta del panel no aporta información que no
-   se lea ya en las secciones de arriba, y ocupa vertical innecesario: se
-   oculta entera en vez de apilarse en columnas. */
 @media (max-width: 1024px) {
     .home-captura {
         display: none;
     }
 }
 
-/* La maqueta enseña, no se usa: sin cursor de puntero ni zoom al pasar por
-   encima, que es lo que haría pensar que esas cards se pueden pulsar.
-   iconos.css ya anula el glow de .movimiento-item y .meta-item; aquí se quita
-   el resto del feedback de hover de las cards. */
 .home-maqueta .dashboard .card {
     cursor: default;
     border: 1px solid var(--lightBorder);
@@ -805,7 +755,7 @@
     justify-content: space-between;
     gap: 12px;
     margin-top: 72px;
-    border-top: 1px solid var(--borderAlt);
+    border-top: 1px solid var(--border);
 }
 
 .home-footer-marca {
@@ -955,5 +905,32 @@
     margin-top: 12px;
 }
 
+/* --------------------------------------------
+   ENTRADA SUAVE DEL FONDO
+   -------------------------------------------- */
+/* Un overlay cubre todo el viewport al cargar la landing y se desvanece
+   suavemente 5 segundos después de que todo el contenido esté listo.
+   Así no se opaca el body ni sus hijos, y la transición es predecible.
+   Con movimiento reducido no hay espera ni desvanecido. */
 
+.fondo-entrada-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background-color: var(--background);
+    opacity: 1;
+    transition: opacity 1.2s ease;
+    pointer-events: none;
+}
+
+.fondo-entrada-overlay.oculto {
+    opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .fondo-entrada-overlay {
+        transition: none !important;
+        opacity: 0 !important;
+        pointer-events: none;
+    }
 }

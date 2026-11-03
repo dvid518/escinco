@@ -48,6 +48,7 @@
 
 .logo-container:hover #logo {
     stroke: var(--border);
+    transform: rotate(72deg);
 }
 
 .logo-container:hover {

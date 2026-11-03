@@ -16,9 +16,9 @@ export const IA_CONFIG = {
     rutaProxy: "/api/ia",
     rutaEstado: "/api/ia/estado",
 
-    // Modelo de Gemini. El alias "gemini-flash-latest" apunta hoy a modelos que
-    // tardan más de 45 s en responder; "gemini-3.5-flash" responde en ~2 s.
-    modelo: "gemini-3.5-flash",
+    // Modelo de Gemini. flash-lite es el modelo de bajo coste y alto volumen
+    // con thinkingLevel minimal para tareas simples.
+    modelo: "gemini-3.5-flash-lite",
 
     endpoint: "https://generativelanguage.googleapis.com/v1beta",
 

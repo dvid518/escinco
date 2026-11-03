@@ -279,6 +279,38 @@ async function initGraficosMaqueta() {
 }
 
 // ============================================
+// ENTRADA SUAVE DEL FONDO
+// ============================================
+// El cuerpo empieza con `fondo-entrada` (opacidad 0) y se revela suavemente
+// 5 segundos después de que cargue todo el contenido de la página.
+
+const TIEMPO_ENTRADA_FONDO_MS = 5000
+
+function initEntradaFondo() {
+    const revelarFondo = () => {
+        const overlay = document.getElementById("overlay-entrada")
+        if (overlay) {
+            overlay.classList.add("oculto")
+            overlay.addEventListener(
+                "transitionend",
+                () => {
+                    overlay.hidden = true
+                },
+                { once: true }
+            )
+        }
+        document.body.classList.remove("fondo-entrada")
+    }
+    if (document.readyState === "complete") {
+        setTimeout(revelarFondo, TIEMPO_ENTRADA_FONDO_MS)
+    } else {
+        window.addEventListener("load", () => {
+            setTimeout(revelarFondo, TIEMPO_ENTRADA_FONDO_MS)
+        })
+    }
+}
+
+// ============================================
 // ARRANQUE
 // ============================================
 // El tema se aplica SIEMPRE y antes de cualquier otra cosa: evita el
@@ -287,5 +319,6 @@ async function initGraficosMaqueta() {
 initTemaLocal()
 initPWA()
 initLanding()
+initEntradaFondo()
 pintarVersionPanel()
 

@@ -85,9 +85,6 @@
     --whiteSmoke: #F1F1F1;
     --lightWhiteSmoke: #F1F1F136;
     --frostedWhiteSmoke: #f1f1f1ae;
-
-    --icyBlue: #B9DDFF;
-    --balticBlue: #2E5880;
     
     --tropicalMint: #00a269;
     --raspberryRed: #DC0051;
@@ -156,7 +153,6 @@
     --blurBackground: var(--lightOnyx);
 
     --glass-frosted: var(--frostedGraphite);
-    --gradient: var(--icyBlue);
 
     --orange: var(--peachGlow);
     --violet: var(--mauve);
@@ -207,7 +203,6 @@
     --blurBackground: var(--lightPaleSky);
 
     --glass-frosted: var(--frostedWhiteSmoke);
-    --gradient: var(--balticBlue);
 
     --orange: var(--pupkinSpice);
     --violet: var(--indigoBloom);
@@ -315,10 +310,6 @@ a {
 #logo {
     color: var(--text);
     transition: transform 0.3s ease, color 0.3s ease;
-}
-
-#logo:hover {
-    color: var(--border);
 }
 
 #logo.spin {
@@ -1028,7 +1019,7 @@ option {
     filter: blur(60px);
     width: 40vw;
     height: 40vw;
-    background: radial-gradient(circle, var(--gradient) 0%, transparent 70%);
+    background: radial-gradient(circle, var(--border) 0%, transparent 70%);
     opacity: 0.25;
     animation: float 20s ease-in-out infinite alternate;
     animation-duration: 24s;
