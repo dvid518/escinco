@@ -556,6 +556,9 @@ function reordenarDashboard() {
     const grid = document.querySelector(".dashboard")
     if (!grid) return
 
+    const contenedorScroll = document.getElementById("app-content")
+    const scrollAntes = contenedorScroll?.scrollTop ?? 0
+
     // patrimonio siempre va primero y es fija
     const orden = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
 
@@ -575,6 +578,9 @@ function reordenarDashboard() {
     // Tarjetas no listadas en `orden` van al final, nunca se quedan delante
     cards.forEach(card => fragmento.appendChild(card))
     grid.appendChild(fragmento)
+
+    // Restaurar scroll para que no salte tras reordenar las cards
+    if (contenedorScroll) contenedorScroll.scrollTop = scrollAntes
 }
 
 // ============================================
@@ -741,12 +747,12 @@ function cardsVisiblesEnOrden() {
 }
 
 /**
- * Índice de inserción para la posición del puntero en un layout multi-column.
+ * Índice de inserción para la posición del puntero en un layout Grid.
  *
- * Agrupa las cards visibles por columna (misma coordenada `left`) y, dentro
- * de cada columna, las ordena por `top`. Detecta en qué columna está el
- * puntero por su `clientX` y, dentro de esa columna, si se inserta antes o
- * después de una card según su `clientY`.
+ * Calcula la distancia euclidiana entre el puntero y el centro de cada card
+ * visible para encontrar la más cercana. Determina si el puntero está por
+ * encima o por debajo de la línea media de esa card para decidir si se
+ * inserta antes o después de ella.
  *
  * @returns {number} de 0 (antes de la primera) a n (al final)
  */
@@ -757,78 +763,35 @@ function posicionDeInsercion(evento) {
     const x = evento.clientX
     const y = evento.clientY
 
-    // Agrupar por columna: todas las cards que comparten el mismo `left`
-    const columnas = new Map()
+    // Encontrar la card más cercana al puntero por distancia euclidiana al centro
+    let masCercana = null
+    let distanciaMinima = Infinity
     cards.forEach(card => {
         const caja = card.getBoundingClientRect()
-        const clave = Math.round(caja.left)
-        if (!columnas.has(clave)) columnas.set(clave, [])
-        columnas.get(clave).push({ card, caja })
+        const cx = caja.left + caja.width / 2
+        const cy = caja.top + caja.height / 2
+        const dx = x - cx
+        const dy = y - cy
+        const distancia = dx * dx + dy * dy
+        if (distancia < distanciaMinima) {
+            distanciaMinima = distancia
+            masCercana = { card, caja }
+        }
     })
 
-    // Ordenar columnas de izquierda a derecha
-    const clavesColumna = [...columnas.keys()].sort((a, b) => a - b)
+    if (!masCercana) return cards.length
 
-    // Encontrar la columna donde está el puntero
-    let columnaElegida = null
-    for (const clave of clavesColumna) {
-        const grupo = columnas.get(clave)
-        const primera = grupo[0].caja
-        // La columna abarca desde su left hasta left + width de su primera card
-        if (x >= primera.left && x < primera.left + primera.width) {
-            columnaElegida = clave
-            break
-        }
+    const { caja } = masCercana
+    const indiceCercana = cards.indexOf(masCercana.card)
+
+    // Si el puntero está por encima de la línea media de la card más cercana,
+    // se inserta antes de ella; si está por debajo, después de ella.
+    const mitadY = caja.top + caja.height / 2
+    if (y < mitadY) {
+        return indiceCercana
+    } else {
+        return indiceCercana + 1
     }
-
-    // Si no cayó en ninguna columna (p. ej. entre columnas), usar la más cercana por X
-    if (columnaElegida === null) {
-        let mejorDif = Infinity
-        for (const clave of clavesColumna) {
-            const caja = columnas.get(clave)[0].caja
-            const dif = Math.abs(x - (caja.left + caja.width / 2))
-            if (dif < mejorDif) {
-                mejorDif = dif
-                columnaElegida = clave
-            }
-        }
-    }
-
-    const grupo = columnas.get(columnaElegida)
-    // Ordenar cards de la columna por `top` (de arriba a abajo)
-    grupo.sort((a, b) => a.caja.top - b.caja.top)
-
-    // Dentro de la columna, buscar posición por Y
-    let indiceEnColumna = grupo.length
-    for (let i = 0; i < grupo.length; i++) {
-        const caja = grupo[i].caja
-        if (y < caja.top) {
-            indiceEnColumna = i
-            break
-        }
-        if (y >= caja.top && y <= caja.bottom) {
-            const mitadY = caja.top + caja.height / 2
-            if (y < mitadY) {
-                indiceEnColumna = i
-                break
-            }
-            // Mitad inferior: va después, seguir buscando
-        }
-    }
-
-    // Traducir índice de columna a índice en la lista plana de cards visibles
-    // (orden de lectura: columna por columna, de arriba a abajo)
-    let indicePlano = 0
-    for (const clave of clavesColumna) {
-        const g = columnas.get(clave)
-        if (clave === columnaElegida) {
-            indicePlano += indiceEnColumna
-            break
-        }
-        indicePlano += g.length
-    }
-
-    return indicePlano
 }
 
 /** Línea de inserción entre dos cards, para que se vea dónde va a caer. */
