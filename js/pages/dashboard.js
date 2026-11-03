@@ -1010,27 +1010,69 @@ function opcionesInstanciasActivos(activas) {
 
 function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
+
+    // Estado local del modal (no se persiste hasta pulsar "Guardar")
+    let ordenModal = [...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
+    let visiblesModal = new Set(cardsVisiblesDashboard)
+    let dimensionesModal = { ...cardsDimensionesDashboard }
+
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
-    const activas = new Set(cardsVisiblesDashboard)
-    const opciones = contenidoDesdeFilas("tpl-dashboard-card", cards, card => ({
-        valores: {
-            "card@data-card": card.id,
-            "valor@value": card.id,
-            "valor@checked": activas.has(card.id),
-            etiqueta: card.label
+
+    // Renderiza el preview gráfico (miniaturas en 2 columnas)
+    function renderizarPreview() {
+        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
+        const previewHTML = cardsEnOrden.map(id => {
+            const cardConfig = DASHBOARD_CARDS.find(c => c.id === id)
+            const filas = dimensionesModal[id]?.filas ?? cardConfig?.spanFilas ?? 1
+            return `
+                <div class="modal-preview-card" data-card-id="${id}" data-filas="${filas}">
+                    1×${filas}
+                </div>
+            `
+        }).join('')
+
+        const previewGrid = modal.querySelector(".modal-preview-grid")
+        if (!previewGrid) return
+        if (previewHTML) {
+            previewGrid.hidden = false
+            previewGrid.innerHTML = previewHTML
+        } else {
+            previewGrid.hidden = true
         }
-    }))
+    }
+
+    // Renderiza la lista de filas (checkbox + selector de altura + 4 acciones)
+    function renderizarFilas() {
+        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cards, card => {
+            const filas = dimensionesModal[card.id]?.filas ?? card.spanFilas ?? 1
+            return {
+                valores: {
+                    "card@data-card": card.id,
+                    "valor@value": card.id,
+                    "valor@checked": visiblesModal.has(card.id),
+                    etiqueta: card.label,
+                    "filas@data-filas": filas,
+                    "acciones@data-id": card.id
+                }
+            }
+        })
+
+        const cardsGrid = modal.querySelector(".dashboard-editor-grid")
+        if (!cardsGrid) return
+        cardsGrid.innerHTML = ""
+        cardsGrid.appendChild(opciones)
+    }
 
     const cuentasBloque = bloqueInstanciasSelector(
         "Tus cuentas en el dashboard",
         "Puedes agregar una card por cada cuenta que tengas.",
-        opcionesInstanciasCuentas(activas),
+        opcionesInstanciasCuentas(visiblesModal),
         "Todavía no tienes cuentas."
     )
     const activosBloque = bloqueInstanciasSelector(
         "Tus activos en el dashboard",
         "Puedes agregar una card por cada activo que tengas.",
-        opcionesInstanciasActivos(activas),
+        opcionesInstanciasActivos(visiblesModal),
         "No tienes posiciones abiertas todavía."
     )
 
@@ -1043,13 +1085,16 @@ function abrirSelectorCardsDashboard() {
         onCancel: () => { cambiosPendientesDashboard = cambiosPendientesAntesModal },
         footerExtra: '<button type="button" class="modal-btn modal-btn-secondary" data-dashboard-reset>Restablecer</button>',
         contenido: contenidoDesdeTemplate("tpl-dashboard-editor", {
-            html: { cards: opciones, cuentas: cuentasBloque, activos: activosBloque }
+            html: {
+                "preview-grid": "",
+                cards: "",
+                cuentas: cuentasBloque,
+                activos: activosBloque
+            }
         }),
         onConfirm: async () => {
             const seleccionadas = [...modal.querySelectorAll(".dashboard-editor input:checked")].map(input => input.value)
-            // El orden se conserva para las cards que siguen activas; las
-            // nuevas entran al final hasta que el usuario las mueva.
-            const ordenPrevio = cardsOrdenDashboard.filter(id => seleccionadas.includes(id))
+            const ordenPrevio = ordenModal.filter(id => seleccionadas.includes(id))
             const nuevas = seleccionadas.filter(id => !ordenPrevio.includes(id))
             const orden = normalizarCardsOrden([...ordenPrevio, ...nuevas])
             const visibles = normalizarCardsVisibles(seleccionadas)
@@ -1057,16 +1102,17 @@ function abrirSelectorCardsDashboard() {
             try {
                 await guardarPreferenciasDashboard({
                     cardsVisibles: visibles,
-                    orden
+                    orden,
+                    dimensiones: dimensionesModal
                 })
                 cardsVisiblesDashboard = visibles
                 cardsOrdenDashboard = orden
+                cardsDimensionesDashboard = dimensionesModal
                 cambiosPendientesDashboard = false
                 montarCardsInstanciadas()
                 if (modoEdicionDashboard) prepararEdicionCardsDashboard()
                 reordenarDashboard(true)
 
-                // Evento de analytics: cada card nueva agregada al dashboard.
                 for (const cardId of nuevas) {
                     rastrearEvento("dashboard_card_agregada", { card_id: cardId })
                 }
@@ -1081,14 +1127,120 @@ function abrirSelectorCardsDashboard() {
         }
     })
 
+    // Renderizar preview y filas tras montar el modal en el DOM
+    renderizarPreview()
+    renderizarFilas()
+
+    // Inicializar SortableJS en el preview para drag & drop
+    const previewGrid = modal.querySelector(".modal-preview-grid")
+    if (previewGrid) {
+        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        new Sortable(previewGrid, {
+            handle: ".modal-preview-card",
+            animation: reduceMotion ? 0 : 150,
+            onEnd: (evt) => {
+                const id = evt.item.dataset.cardId
+                const indexTo = evt.newIndex
+                ordenModal = ordenModal.filter(cardId => cardId !== id)
+                ordenModal.splice(indexTo, 0, id)
+                renderizarPreview()
+                renderizarFilas()
+                cambiosPendientesDashboard = true
+            }
+        })
+    }
+
+    // Delegación de eventos para botones de acción (↑ ↓ −) y selector de altura
+    modal.addEventListener("click", (evento) => {
+        // Botones de altura [1] [2] [3]
+        const botonAltura = evento.target.closest(".selector-altura button[data-altura]")
+        if (botonAltura) {
+            const filas = parseInt(botonAltura.dataset.altura, 10)
+            const cardOp = botonAltura.closest("[data-tpl='card']")
+            const cardId = cardOp?.dataset.card
+            if (!cardId) return
+
+            botonAltura.parentElement.querySelectorAll("button").forEach(b => {
+                b.classList.toggle("activo", b === botonAltura)
+            })
+            dimensionesModal[cardId] = { filas }
+            renderizarPreview()
+            cambiosPendientesDashboard = true
+            return
+        }
+
+        // Botones de acción (arrastrar, ↑, ↓, −)
+        const boton = evento.target.closest("button[data-accion]")
+        if (!boton) return
+
+        const accion = boton.dataset.accion
+        const accionesDiv = boton.closest(".modal-card-acciones")
+        const cardId = accionesDiv?.dataset.id
+        if (!cardId) return
+
+        if (accion === "arrastrar") {
+            // El handle se gestiona con SortableJS
+            return
+        }
+
+        if (accion === "subir") {
+            const index = ordenModal.indexOf(cardId)
+            if (index > 0) {
+                ;[ordenModal[index - 1], ordenModal[index]] = [ordenModal[index], ordenModal[index - 1]]
+                renderizarPreview()
+                renderizarFilas()
+                cambiosPendientesDashboard = true
+            }
+        }
+
+        if (accion === "bajar") {
+            const index = ordenModal.indexOf(cardId)
+            if (index < ordenModal.length - 1) {
+                ;[ordenModal[index], ordenModal[index + 1]] = [ordenModal[index + 1], ordenModal[index]]
+                renderizarPreview()
+                renderizarFilas()
+                cambiosPendientesDashboard = true
+            }
+        }
+
+        if (accion === "eliminar") {
+            visiblesModal.delete(cardId)
+            ordenModal = ordenModal.filter(cid => cid !== cardId)
+            delete dimensionesModal[cardId]
+            renderizarPreview()
+            renderizarFilas()
+            cambiosPendientesDashboard = true
+        }
+    })
+
+    // Cambios en checkboxes (activar/desactivar cards)
+    modal.addEventListener("change", (evento) => {
+        if (!evento.target.matches('input[type="checkbox"][data-tpl="valor"]')) return
+        const id = evento.target.value
+        if (evento.target.checked) {
+            visiblesModal.add(id)
+            if (!ordenModal.includes(id)) ordenModal.push(id)
+        } else {
+            visiblesModal.delete(id)
+            ordenModal = ordenModal.filter(cid => cid !== id)
+            delete dimensionesModal[id]
+        }
+        renderizarPreview()
+        renderizarFilas()
+        cambiosPendientesDashboard = true
+    })
+
+    // Botón Restablecer
     modal.querySelector("[data-dashboard-reset]")?.addEventListener("click", () => {
         cambiosPendientesDashboard = true
+        ordenModal = [...DEFAULT_CARDS_ORDEN]
+        visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
+        dimensionesModal = {}
         modal.querySelectorAll(".dashboard-editor input").forEach(input => {
             input.checked = DEFAULT_CARDS_VISIBLES.includes(input.value)
         })
-    })
-    modal.querySelectorAll(".dashboard-editor input").forEach(input => {
-        input.addEventListener("change", () => { cambiosPendientesDashboard = true })
+        renderizarPreview()
+        renderizarFilas()
     })
 }
 

@@ -1905,5 +1905,136 @@ body.dashboard-card-dragging * {
     white-space: nowrap;
 }
 
+/* ============================================
+   PREVIEW DEL MODAL DE EDICIÓN DE DASHBOARD
+   ============================================ */
+
+.modal-preview-seccion {
+    margin-bottom: 14px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-preview-titulo {
+    margin: 0 0 8px 0;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.modal-preview-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.modal-preview-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--textSecondary);
+    font-size: 9px;
+    min-height: 24px;
+}
+
+.modal-preview-card[data-filas="1"] {
+    min-height: 24px;
+}
+
+.modal-preview-card[data-filas="2"] {
+    min-height: 48px;
+}
+
+.modal-preview-card[data-filas="3"] {
+    min-height: 72px;
+}
+
+/* Selector de altura por card */
+.selector-altura {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.selector-altura button {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.selector-altura button:hover {
+    border-color: var(--text);
+    color: var(--text);
+}
+
+.selector-altura button.activo {
+    background: var(--text);
+    color: var(--background);
+    border-color: var(--text);
+}
+
+/* 4 botones de acción por card en el modal */
+.modal-card-acciones {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    margin-left: 8px;
+}
+
+.modal-card-acciones button {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    font-size: 10px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.modal-card-acciones button:hover {
+    border-color: var(--text);
+    color: var(--text);
+}
+
+.modal-card-acciones button.handle {
+    cursor: grab;
+    color: var(--textSecondary);
+}
+
+.modal-card-acciones button.handle:active {
+    cursor: grabbing;
+}
+
+.modal-card-acciones button.eliminar {
+    color: var(--negative);
+}
+
+.modal-card-acciones button.eliminar:hover {
+    background: var(--negative);
+    color: var(--background);
+    border-color: var(--negative);
+}
+
 
 
