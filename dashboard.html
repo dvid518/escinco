@@ -569,15 +569,23 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     </template>
 
     <template id="tpl-dashboard-editor">
-        <div class="dashboard-editor">
-            <div class="modal-preview-seccion">
-                <span class="modal-preview-titulo" data-tpl="preview-titulo">Vista previa</span>
-                <div class="modal-preview-grid" data-tpl="preview-grid" data-tpl-oculto></div>
-                <p class="dashboard-editor-hint" data-tpl="preview-vacio" data-tpl-oculto></p>
+        <div class="modal-dashboard-editor">
+            <div class="modal-dashboard-editor-header">
+                <h2 data-tpl="titulo-modal">Elegir cards del dashboard</h2>
+                <p data-tpl="subtitulo-modal">Arrastra para reordenar, ajusta la altura y activa o desactiva las cards que quieres ver.</p>
             </div>
-            <div class="dashboard-editor-grid" data-tpl="cards"></div>
-            <div data-tpl="cuentas"></div>
-            <div data-tpl="activos"></div>
+            <div class="modal-dashboard-editor-seccion">
+                <h3>Cards principales</h3>
+                <div class="modal-dashboard-lista" data-tpl="cards"></div>
+            </div>
+            <div class="modal-dashboard-editor-seccion">
+                <h3>Cuentas en el dashboard</h3>
+                <div data-tpl="cuentas"></div>
+            </div>
+            <div class="modal-dashboard-editor-seccion">
+                <h3>Activos en el dashboard</h3>
+                <div data-tpl="activos"></div>
+            </div>
         </div>
     </template>
 
@@ -591,30 +599,29 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     </template>
 
     <template id="tpl-dashboard-card">
-        <label class="dashboard-card-opcion" data-tpl="card" data-tpl-attr="data-card">
+        <div class="modal-dashboard-card-fila" data-tpl="card" data-tpl-attr="data-card">
             <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked">
-            <span data-tpl="etiqueta"></span>
-            <div class="selector-altura" data-tpl="filas" data-tpl-attr="data-filas">
-                <button type="button" data-altura="1">1</button>
-                <button type="button" data-altura="2">2</button>
-                <button type="button" data-altura="3">3</button>
+            <span data-tpl="etiqueta" class="card-nombre"></span>
+            <div class="modal-altura-selector" data-tpl="filas" data-tpl-attr="data-filas">
+                <button type="button" class="modal-altura-btn" data-altura="1">1</button>
+                <button type="button" class="modal-altura-btn" data-altura="2">2</button>
+                <button type="button" class="modal-altura-btn" data-altura="3">3</button>
             </div>
-            <div class="modal-card-acciones" data-tpl="acciones" data-tpl-attr="data-id">
-                <button type="button" class="handle" data-accion="arrastrar" title="Arrastrar">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="2" cy="2" r="1"/>
-                        <circle cx="2" cy="7" r="1"/>
-                        <circle cx="2" cy="12" r="1"/>
-                        <circle cx="7" cy="2" r="1"/>
-                        <circle cx="7" cy="7" r="1"/>
-                        <circle cx="7" cy="12" r="1"/>
-                    </svg>
+            <div class="card-acciones-modal" data-tpl="acciones" data-tpl-attr="data-id">
+                <button type="button" class="card-accion-btn handle" data-accion="arrastrar" title="Arrastrar">
+                    ${icono("grip", 14)}
                 </button>
-                <button type="button" class="mover-arriba" data-accion="subir" title="Subir">▲</button>
-                <button type="button" class="mover-abajo" data-accion="bajar" title="Bajar">▼</button>
-                <button type="button" class="eliminar" data-accion="eliminar" title="Eliminar">−</button>
+                <button type="button" class="card-accion-btn mover-arriba" data-accion="subir" title="Subir">
+                    ${icono("chevron-up", 14)}
+                </button>
+                <button type="button" class="card-accion-btn mover-abajo" data-accion="bajar" title="Bajar">
+                    ${icono("chevron-down", 14)}
+                </button>
+                <button type="button" class="card-accion-btn eliminar" data-accion="eliminar" title="Eliminar">
+                    ${icono("minus", 14)}
+                </button>
             </div>
-        </label>
+        </div>
     </template>
 
     <template id="tpl-dashboard-card-instancia">
@@ -2683,12 +2690,7 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
         </div>
     </template>
 
-    <template id="tpl-dashboard-card-edicion">
-        <span class="dashboard-card-handle" data-dashboard-drag-handle role="button" tabindex="0" aria-label="Arrastrar card" data-tpl="handle"></span>
-        <button type="button" class="dashboard-card-subir" data-tpl="subir" data-tpl-attr="data-id" aria-label="Subir card" title="Subir card"></button>
-        <button type="button" class="dashboard-card-bajar" data-tpl="bajar" data-tpl-attr="data-id" aria-label="Bajar card" title="Bajar card"></button>
-        <button type="button" class="dashboard-card-eliminar" data-dashboard-eliminar data-tpl="eliminar" data-tpl-attr="data-id" aria-label="Eliminar card del dashboard" title="Eliminar card"><span data-tpl="icono-eliminar"></span></button>
-    </template>
+
 
     <template id="tpl-grafico-cargando">
         <div class="skeleton skeleton-chart" role="status" aria-label="Cargando gráfico" aria-busy="true"><span class="skeleton skeleton-grafico-bloque" aria-hidden="true"></span></div>

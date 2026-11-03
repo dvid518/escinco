@@ -739,15 +739,26 @@ function prepararEdicionCardsDashboard() {
         card.draggable = true
         const controlesExistentes = card.querySelector(".dashboard-card-edicion")
         if (controlesExistentes) {
-            controlesExistentes.querySelector("[data-dashboard-drag-handle]")?.setAttribute("draggable", "true")
+            const handle = controlesExistentes.querySelector("[data-dashboard-drag-handle]")
+            if (handle) handle.setAttribute("draggable", "true")
             return
         }
         const controles = document.createElement("div")
         controles.className = "dashboard-card-edicion"
-        controles.append(contenidoDesdeTemplate("tpl-dashboard-card-edicion", {
-            valores: {},
-            html: { handle: icono("grip", 16), "icono-eliminar": icono("minus", 16) }
-        }))
+        controles.innerHTML = `
+            <button type="button" class="card-accion-btn handle" data-dashboard-drag-handle data-accion="arrastrar" title="Arrastrar card" aria-label="Arrastrar card">
+                ${icono("grip", 16)}
+            </button>
+            <button type="button" class="card-accion-btn mover-arriba" data-dashboard-mover data-accion="subir" data-id="${id}" title="Subir card" aria-label="Subir card">
+                ${icono("chevron-up", 16)}
+            </button>
+            <button type="button" class="card-accion-btn mover-abajo" data-dashboard-mover data-accion="bajar" data-id="${id}" title="Bajar card" aria-label="Bajar card">
+                ${icono("chevron-down", 16)}
+            </button>
+            <button type="button" class="card-accion-btn eliminar" data-dashboard-eliminar data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">
+                ${icono("minus", 16)}
+            </button>
+        `
         card.appendChild(controles)
     })
 }
@@ -800,7 +811,7 @@ function inicializarSortableDashboard() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     sortableDashboard = new Sortable(grid, {
-        handle: ".dashboard-card-handle",
+        handle: "[data-dashboard-drag-handle]",
         draggable: "[data-dashboard-card]",
         animation: reduceMotion ? 0 : 150,
         scroll: true,
@@ -1018,30 +1029,7 @@ function abrirSelectorCardsDashboard() {
 
     const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
 
-    // Renderiza el preview gráfico (miniaturas en 2 columnas)
-    function renderizarPreview() {
-        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
-        const previewHTML = cardsEnOrden.map(id => {
-            const cardConfig = DASHBOARD_CARDS.find(c => c.id === id)
-            const filas = dimensionesModal[id]?.filas ?? cardConfig?.spanFilas ?? 1
-            return `
-                <div class="modal-preview-card" data-card-id="${id}" data-filas="${filas}">
-                    1×${filas}
-                </div>
-            `
-        }).join('')
-
-        const previewGrid = modal.querySelector(".modal-preview-grid")
-        if (!previewGrid) return
-        if (previewHTML) {
-            previewGrid.hidden = false
-            previewGrid.innerHTML = previewHTML
-        } else {
-            previewGrid.hidden = true
-        }
-    }
-
-    // Renderiza la lista de filas (checkbox + selector de altura + 4 acciones)
+    // Renderiza la lista de filas del modal
     function renderizarFilas() {
         const opciones = contenidoDesdeFilas("tpl-dashboard-card", cards, card => {
             const filas = dimensionesModal[card.id]?.filas ?? card.spanFilas ?? 1
@@ -1057,7 +1045,7 @@ function abrirSelectorCardsDashboard() {
             }
         })
 
-        const cardsGrid = modal.querySelector(".dashboard-editor-grid")
+        const cardsGrid = modal.querySelector(".modal-dashboard-lista")
         if (!cardsGrid) return
         cardsGrid.innerHTML = ""
         cardsGrid.appendChild(opciones)
@@ -1079,21 +1067,24 @@ function abrirSelectorCardsDashboard() {
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     const modal = abrirModal({
         titulo: "Elegir cards del dashboard",
-        variante: "form",
+        variante: "wide",
         confirmText: "Guardar",
         cancelText: "Cancelar",
         onCancel: () => { cambiosPendientesDashboard = cambiosPendientesAntesModal },
         footerExtra: '<button type="button" class="modal-btn modal-btn-secondary" data-dashboard-reset>Restablecer</button>',
         contenido: contenidoDesdeTemplate("tpl-dashboard-editor", {
+            valores: {
+                "titulo-modal": "Elegir cards del dashboard",
+                "subtitulo-modal": "Arrastra para reordenar, ajusta la altura y activa o desactiva las cards que quieres ver."
+            },
             html: {
-                "preview-grid": "",
                 cards: "",
                 cuentas: cuentasBloque,
                 activos: activosBloque
             }
         }),
         onConfirm: async () => {
-            const seleccionadas = [...modal.querySelectorAll(".dashboard-editor input:checked")].map(input => input.value)
+            const seleccionadas = [...modal.querySelectorAll(".modal-dashboard-editor input:checked")].map(input => input.value)
             const ordenPrevio = ordenModal.filter(id => seleccionadas.includes(id))
             const nuevas = seleccionadas.filter(id => !ordenPrevio.includes(id))
             const orden = normalizarCardsOrden([...ordenPrevio, ...nuevas])
@@ -1127,59 +1118,39 @@ function abrirSelectorCardsDashboard() {
         }
     })
 
-    // Renderizar preview y filas tras montar el modal en el DOM
-    renderizarPreview()
+    // Renderizar filas tras montar el modal en el DOM
     renderizarFilas()
 
-    // Inicializar SortableJS en el preview para drag & drop
-    const previewGrid = modal.querySelector(".modal-preview-grid")
-    if (previewGrid) {
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        new Sortable(previewGrid, {
-            handle: ".modal-preview-card",
-            animation: reduceMotion ? 0 : 150,
-            onEnd: (evt) => {
-                const id = evt.item.dataset.cardId
-                const indexTo = evt.newIndex
-                ordenModal = ordenModal.filter(cardId => cardId !== id)
-                ordenModal.splice(indexTo, 0, id)
-                renderizarPreview()
-                renderizarFilas()
-                cambiosPendientesDashboard = true
-            }
-        })
-    }
-
-    // Delegación de eventos para botones de acción (↑ ↓ −) y selector de altura
+    // Delegación de eventos para botones de altura y acciones
     modal.addEventListener("click", (evento) => {
         // Botones de altura [1] [2] [3]
-        const botonAltura = evento.target.closest(".selector-altura button[data-altura]")
+        const botonAltura = evento.target.closest(".modal-altura-btn[data-altura]")
         if (botonAltura) {
             const filas = parseInt(botonAltura.dataset.altura, 10)
-            const cardOp = botonAltura.closest("[data-tpl='card']")
-            const cardId = cardOp?.dataset.card
+            const filaCard = botonAltura.closest(".modal-dashboard-card-fila")
+            const cardId = filaCard?.dataset.card
             if (!cardId) return
 
             botonAltura.parentElement.querySelectorAll("button").forEach(b => {
                 b.classList.toggle("activo", b === botonAltura)
             })
             dimensionesModal[cardId] = { filas }
-            renderizarPreview()
+            renderizarFilas()
             cambiosPendientesDashboard = true
             return
         }
 
-        // Botones de acción (arrastrar, ↑, ↓, −)
+        // Botones de acción (arrastrar, subir, bajar, eliminar)
         const boton = evento.target.closest("button[data-accion]")
         if (!boton) return
 
         const accion = boton.dataset.accion
-        const accionesDiv = boton.closest(".modal-card-acciones")
+        const accionesDiv = boton.closest(".card-acciones-modal")
         const cardId = accionesDiv?.dataset.id
         if (!cardId) return
 
         if (accion === "arrastrar") {
-            // El handle se gestiona con SortableJS
+            // El handle se gestiona con SortableJS en las cards del dashboard
             return
         }
 
@@ -1187,7 +1158,6 @@ function abrirSelectorCardsDashboard() {
             const index = ordenModal.indexOf(cardId)
             if (index > 0) {
                 ;[ordenModal[index - 1], ordenModal[index]] = [ordenModal[index], ordenModal[index - 1]]
-                renderizarPreview()
                 renderizarFilas()
                 cambiosPendientesDashboard = true
             }
@@ -1197,7 +1167,6 @@ function abrirSelectorCardsDashboard() {
             const index = ordenModal.indexOf(cardId)
             if (index < ordenModal.length - 1) {
                 ;[ordenModal[index], ordenModal[index + 1]] = [ordenModal[index + 1], ordenModal[index]]
-                renderizarPreview()
                 renderizarFilas()
                 cambiosPendientesDashboard = true
             }
@@ -1207,7 +1176,6 @@ function abrirSelectorCardsDashboard() {
             visiblesModal.delete(cardId)
             ordenModal = ordenModal.filter(cid => cid !== cardId)
             delete dimensionesModal[cardId]
-            renderizarPreview()
             renderizarFilas()
             cambiosPendientesDashboard = true
         }
@@ -1225,7 +1193,6 @@ function abrirSelectorCardsDashboard() {
             ordenModal = ordenModal.filter(cid => cid !== id)
             delete dimensionesModal[id]
         }
-        renderizarPreview()
         renderizarFilas()
         cambiosPendientesDashboard = true
     })
@@ -1236,10 +1203,9 @@ function abrirSelectorCardsDashboard() {
         ordenModal = [...DEFAULT_CARDS_ORDEN]
         visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
         dimensionesModal = {}
-        modal.querySelectorAll(".dashboard-editor input").forEach(input => {
+        modal.querySelectorAll(".modal-dashboard-editor input").forEach(input => {
             input.checked = DEFAULT_CARDS_VISIBLES.includes(input.value)
         })
-        renderizarPreview()
         renderizarFilas()
     })
 }
