@@ -1087,6 +1087,12 @@ function abrirSelectorCardsDashboard() {
                     "btn-alto-3@data-alto": "3",
                     "acciones@data-id": cardId,
                     "card@class": `modal-card-activa${seleccionada ? " seleccionada" : ""}`
+                },
+                html: {
+                    "html-arrastrar": icono("grip", 14),
+                    "html-subir": icono("chevron-up", 14),
+                    "html-bajar": icono("chevron-down", 14),
+                    "html-eliminar": icono("minus", 14)
                 }
             }
         })

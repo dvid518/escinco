@@ -617,18 +617,10 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                 <button type="button" class="btn-alto btn-dimensión" data-alto="3" data-cardid="" title="Alto 3 filas" data-tpl="btn-alto-3" data-tpl-attr="class,data-alto">3</button>
             </div>
             <div class="modal-card-acciones" data-tpl="acciones" data-tpl-attr="data-id">
-                <button type="button" class="card-accion-btn handle btn-accion" data-accion="arrastrar" title="Arrastrar card" aria-label="Arrastrar card">
-                    ${icono("grip", 14)}
-                </button>
-                <button type="button" class="card-accion-btn mover-arriba btn-accion" data-accion="subir" title="Subir card" aria-label="Subir card">
-                    ${icono("chevron-up", 14)}
-                </button>
-                <button type="button" class="card-accion-btn mover-abajo btn-accion" data-accion="bajar" title="Bajar card" aria-label="Bajar card">
-                    ${icono("chevron-down", 14)}
-                </button>
-                <button type="button" class="card-accion-btn eliminar btn-accion" data-accion="eliminar" title="Eliminar card del dashboard" aria-label="Eliminar card">
-                    ${icono("minus", 14)}
-                </button>
+                <button type="button" class="card-accion-btn handle btn-accion" data-accion="arrastrar" title="Arrastrar card" aria-label="Arrastrar card" data-tpl="html-arrastrar"></button>
+                <button type="button" class="card-accion-btn mover-arriba btn-accion" data-accion="subir" title="Subir card" aria-label="Subir card" data-tpl="html-subir"></button>
+                <button type="button" class="card-accion-btn mover-abajo btn-accion" data-accion="bajar" title="Bajar card" aria-label="Bajar card" data-tpl="html-bajar"></button>
+                <button type="button" class="card-accion-btn eliminar btn-accion" data-accion="eliminar" title="Eliminar card del dashboard" aria-label="Eliminar card" data-tpl="html-eliminar"></button>
             </div>
         </div>
     </template>
