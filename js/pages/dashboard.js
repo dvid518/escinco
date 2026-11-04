@@ -1886,7 +1886,6 @@ export async function init() {
 
     await cargarCardsVisiblesDashboard()
     mostrarEsqueletosDashboard()
-    reordenarDashboard()
     configurarDivisa()
     configurarPeriodos()
     configurarPeriodoFlujoDashboard()
