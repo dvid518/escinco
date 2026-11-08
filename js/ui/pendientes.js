@@ -11,6 +11,7 @@ import { expandirSeleccion } from "./seleccion.js"
 import { formatearMontoConDivisa } from "../services/DivisaServicio.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { icono } from "../core/iconos.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 
 // ============================================
 // MOSTRAR LISTA DE PENDIENTES
@@ -242,8 +243,7 @@ export async function mostrarPendientes() {
         const seleccionados = new Set()
         const ordenSeleccion = []
         let cardConAcciones = null
-        let supresorClick = false
-        let supresorClickTimer = null
+        const supresorClick = crearSupresorDobleClick()
 
         const modoUnClick = () => sesion.getPreferencias()?.accesibilidad?.unClickSeleccion === true
 
@@ -371,17 +371,8 @@ export async function mostrarPendientes() {
             actualizarBotonLote()
         }
 
-        const marcarSupresorClick = () => {
-            supresorClick = true
-            clearTimeout(supresorClickTimer)
-            supresorClickTimer = setTimeout(() => { supresorClick = false }, 400)
-        }
-        const consumirSupresorClick = () => {
-            if (!supresorClick) return false
-            supresorClick = false
-            clearTimeout(supresorClickTimer)
-            return true
-        }
+        const marcarSupresorClick = () => supresorClick.marcar()
+        const consumirSupresorClick = () => supresorClick.consumir()
 
         const ocultarAccionesCards = () => {
             if (!cardConAcciones) return

@@ -717,11 +717,11 @@ function hayCambioDeNombre() {
 function hayCambiosEnVivo() {
     if (hayCambioDeNombre()) return true
 
-    // El modo de la lastbar vive en localStorage, no en las preferencias, así
+    // El modo de la lastbar vive en las preferencias, no en localStorage, así
     // que no entra en la comparación profunda. Se compara con lo guardado en
     // vez de fiarse del flag: si el usuario lo cambia y vuelve al valor que
     // tenía, no hay nada que guardar.
-    const lastbarGuardado = localStorage.getItem("escinco_lastbar_mode") || "hide"
+    const lastbarGuardado = sesion.getPreferencias().lastbar || "show"
     if (lastbarModo !== lastbarGuardado) return true
 
     if (!lineaBase) return false
@@ -1027,6 +1027,7 @@ function construirPreferencias() {
     return {
         tema: temaActual,
         fondo,
+        lastbar: lastbarModo,
         periodoEvolucion: getPeriodoEvolucionUI(),
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
@@ -1092,9 +1093,8 @@ async function aplicarPreferencias(preferencias) {
         }
         startInactivityTimer()
 
-        // Persistir tema y modo de lastbar en localStorage
+        // Persistir tema en localStorage (el modo de lastbar va en preferencias)
         setTemaLocal(temaActual)
-        localStorage.setItem("escinco_lastbar_mode", lastbarModo)
 
         // Aplicar el estado del fondo al body inmediatamente
         aplicarEstadoFondo(preferencias.fondo)
@@ -1208,7 +1208,7 @@ function actualizarNavegacion(paginas) {
 // ============================================
 
 function configurarLastbar() {
-    lastbarModo = localStorage.getItem("escinco_lastbar_mode") || "hide"
+    lastbarModo = sesion.getPreferencias().lastbar || "show"
     const opciones = document.querySelectorAll("#toggle-lastbar .toggle-option")
 
     opciones.forEach(opt => {

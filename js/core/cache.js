@@ -21,6 +21,8 @@
 //   cacheCapa.guardarReporte()        // descarga JSON en el navegador
 // ============================================
 
+import { descargarArchivoSeguro } from "./descarga.js"
+
 const TTL_DEFAULT = 5 * 60 * 1000
 
 const entradas = new Map() // `${uid}::${clave}` -> { datos, expira }
@@ -79,8 +81,10 @@ function persistir(uid, clave, datos, expira) {
     try {
         if (typeof localStorage === "undefined") return
         localStorage.setItem(storageKey(uid, clave), JSON.stringify({ datos, expira }))
-    } catch {
-        // Cuota excedida o modo privado: se ignora, la caché en memoria sigue.
+    } catch (error) {
+        // Cuota excedida o modo privado: la caché en memoria sigue funcionando,
+        // pero se avisa en consola para depuración.
+        console.warn("[caché] No se pudo persistir en localStorage:", error.message)
     }
 }
 
@@ -317,14 +321,12 @@ export const cacheCapa = {
                 { type: "application/json" }
             )
             const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.href = url
-            a.download = `reporte-cache-${new Date().toISOString().slice(0, 10)}.json`
-            document.body.appendChild(a)
-            a.click()
-            a.remove()
-            // Revoke diferido: permite que la descarga arranque (bug #9)
-            setTimeout(() => URL.revokeObjectURL(url), 0)
+            descargarArchivoSeguro(
+                url,
+                `reporte-cache-${new Date().toISOString().slice(0, 10)}.json`
+            )
+            // Revocación diferida con margen (1000 ms): evita cancelar la
+            // descarga antes de que arranque (bug #9).
         }
 
         return reporte

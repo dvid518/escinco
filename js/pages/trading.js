@@ -17,6 +17,7 @@ import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } fro
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 
 asegurarEstilos("trading")
 
@@ -35,8 +36,7 @@ let ordenesCargadas = false
 // eliminación en lote.
 let seleccionadas = new Set()
 let ordenSeleccion = []
-let supresorClick = false
-let supresorClickTimer = null
+let supresorClick = crearSupresorDobleClick()
 let clickTimer = null
 let cardConAcciones = null
 let eventosSeleccionListos = false
@@ -434,16 +434,11 @@ function modoUnClickSeleccion() {
 }
 
 function marcarSupresorClick() {
-    supresorClick = true
-    clearTimeout(supresorClickTimer)
-    supresorClickTimer = setTimeout(() => { supresorClick = false }, 400)
+    supresorClick.marcar()
 }
 
 function consumirSupresorClick() {
-    if (!supresorClick) return false
-    supresorClick = false
-    clearTimeout(supresorClickTimer)
-    return true
+    return supresorClick.consumir()
 }
 
 function toggleSeleccion(id) {

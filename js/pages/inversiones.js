@@ -20,6 +20,7 @@ import {
     ejecutarEstrategia
 } from "../services/EstrategiaServicio.js"
 import { DIAS_SEMANA } from "../models/Estrategia.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import {
     actualizarPrecioManual,
     actualizarPrecioAutomatico,
@@ -55,8 +56,7 @@ let clickTimer = null
 // eliminación en lote.
 let seleccionadas = new Set()
 let ordenSeleccion = []
-let supresorClick = false
-let supresorClickTimer = null
+let supresorClick = crearSupresorDobleClick()
 let eventosSeleccionListos = false
 let cardConAcciones = null
 
@@ -408,16 +408,11 @@ function modoUnClickSeleccion() {
 }
 
 function marcarSupresorClick() {
-    supresorClick = true
-    clearTimeout(supresorClickTimer)
-    supresorClickTimer = setTimeout(() => { supresorClick = false }, 400)
+    supresorClick.marcar()
 }
 
 function consumirSupresorClick() {
-    if (!supresorClick) return false
-    supresorClick = false
-    clearTimeout(supresorClickTimer)
-    return true
+    return supresorClick.consumir()
 }
 
 function toggleSeleccion(id) {

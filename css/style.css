@@ -5,24 +5,28 @@
     font-weight: 400;
     font-style: italic;
 }
+
 @font-face {
     font-family: "Roboto Mono";
     src: url("../fonts/Roboto_Mono/RobotoMono-Regular.ttf") format("truetype");
     font-weight: 400;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Roboto Mono";
     src: url("../fonts/Roboto_Mono/RobotoMono-Medium.ttf") format("truetype");
     font-weight: 500;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Roboto Mono";
     src: url("../fonts/Roboto_Mono/RobotoMono-SemiBold.ttf") format("truetype");
     font-weight: 600;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Roboto Mono";
     src: url("../fonts/Roboto_Mono/RobotoMono-Bold.ttf") format("truetype");
@@ -37,24 +41,28 @@
     font-weight: 400;
     font-style: italic;
 }
+
 @font-face {
     font-family: "Inter";
     src: url("../fonts/Inter/Inter_18pt-Regular.ttf") format("truetype");
     font-weight: 400;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Inter";
     src: url("../fonts/Inter/Inter_18pt-Medium.ttf") format("truetype");
     font-weight: 500;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Inter";
     src: url("../fonts/Inter/Inter_18pt-SemiBold.ttf") format("truetype");
     font-weight: 600;
     font-style: normal;
 }
+
 @font-face {
     font-family: "Inter";
     src: url("../fonts/Inter/Inter_18pt-Bold.ttf") format("truetype");
@@ -71,7 +79,7 @@
     --lightOnyx: #141414AE;
     --graphite: #1F1F1F;
     --lightGraphite: #1F1F1F36;
-    --frostedGraphite: #1F1F1FC0;
+    --frostedGraphite: #1f1f1f8f;
 
     --slateGrey: #465B6D;
     --lightSlateGrey: #465B6D5f;
@@ -84,16 +92,11 @@
     --lightPaleSky: #D4E1ED5f;
     --whiteSmoke: #F1F1F1;
     --lightWhiteSmoke: #F1F1F136;
-    --frostedWhiteSmoke: #f1f1f1ae;
+    --frostedWhiteSmoke: #f1f1f180;
     
     --tropicalMint: #00a269;
     --raspberryRed: #DC0051;
     --mustard: #f5a623;
-
-    --font-primary: "Inter", Arial, sans-serif;
-    --font-secondary: "Roboto Mono", "Courier New", monospace;
-    --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
-    --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
 
     --pupkinSpice: #FF7817;
     --peachGlow: #FFBC8C;
@@ -105,6 +108,11 @@
     --icyAqua: #B0FFF7;
     --darkWine: #7C1818;
     --peachFuzz: #FFD0B9;
+
+    --font-primary: "Inter", Arial, sans-serif;
+    --font-secondary: "Roboto Mono", "Courier New", monospace;
+    --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
+    --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
 
     --barra-ancho: 0%;
     --filtro-height: 40px;

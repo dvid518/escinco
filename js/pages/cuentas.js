@@ -34,6 +34,7 @@ import { abrirModalEducativoCredito, estadoCicloDe, nivelUsoDe, notificarCruces,
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { expandirSeleccion } from "../ui/seleccion.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 
 asegurarEstilos("cuentas")
 
@@ -81,8 +82,7 @@ const seleccionadosCuenta = new Set()
 const ordenSeleccionCuenta = []
 let cardConAccionesCuenta = null
 let clickTimerCuenta = null
-let supresorClickCuenta = false
-let supresorClickTimerCuenta = null
+const supresorClickCuenta = crearSupresorDobleClick()
 let eventosCardsCuentaListos = false
 let eventosRefreshCuentaListos = false
 // Última vista para el modal temporal (duplica sin quitar del sidebar).
@@ -1351,16 +1351,11 @@ function configurarEventosCardsCuentaGlobales() {
 }
 
 function marcarSupresorClickCuenta() {
-    supresorClickCuenta = true
-    clearTimeout(supresorClickTimerCuenta)
-    supresorClickTimerCuenta = setTimeout(() => { supresorClickCuenta = false }, 400)
+    supresorClickCuenta.marcar()
 }
 
 function consumirSupresorClickCuenta() {
-    if (!supresorClickCuenta) return false
-    supresorClickCuenta = false
-    clearTimeout(supresorClickTimerCuenta)
-    return true
+    return supresorClickCuenta.consumir()
 }
 
 function modoUnClickSeleccion() {

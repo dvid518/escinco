@@ -374,10 +374,10 @@ function mostrarErrorPagina(page, error) {
 // LASTRAR · MODO PERSISTIDO (bug de recarga)
 // ============================================
 // Se aplica en cada render para que sobreviva a la recarga:
-// localStorage "escinco_lastbar_mode" → clase .lastbar-always-visible.
+// Preferencias "lastbar" (siempre visible / auto-hide) → clase .lastbar-always-visible.
 
 function aplicarModoLastbarPersistido() {
-    const modo = localStorage.getItem("escinco_lastbar_mode") || "show"
+    const modo = sesion.getPreferencias().lastbar || "show"
     const lastbar = document.querySelector(".lastbar")
     if (lastbar) {
         lastbar.classList.toggle("lastbar-always-visible", modo === "show")
@@ -395,6 +395,16 @@ async function renderPage(page) {
     if (!container) {
         console.error('[ERROR] Contenedor #app-content no encontrado')
         return
+    }
+
+    // Inyecta HTML parseándolo primero en un <template> temporal y
+    // importando sus nodos al DOM real, en vez de usar innerHTML directo.
+    // Así no se ejecutan scripts accidentales y se preservan los listeners
+    // del contenedor destino.
+    function insertarHTML(destino, htmlString) {
+        const tpl = document.createElement("template")
+        tpl.innerHTML = htmlString == null ? "" : String(htmlString)
+        destino.replaceChildren(document.importNode(tpl.content, true))
     }
 
     const renderContenido = () => {
@@ -418,7 +428,7 @@ async function renderPage(page) {
             console.error(`[ERROR] Error renderizando página "${page}":`, error)
             throw error
         }
-        container.innerHTML = html
+        insertarHTML(container, html)
 
         const footer = document.getElementById('app-footer')
         if (footer) {
@@ -427,9 +437,9 @@ async function renderPage(page) {
             const lastbarExistente = footer.querySelector('.lastbar')
             try {
                 if (lastbarExistente) {
-                    lastbarExistente.innerHTML = getLastbar(page)
+                    insertarHTML(lastbarExistente, getLastbar(page))
                 } else {
-                    footer.innerHTML = getLastbar(page)
+                    insertarHTML(footer, getLastbar(page))
                 }
             } catch (error) {
                 console.error(`[ERROR] Error renderizando lastbar de "${page}":`, error)

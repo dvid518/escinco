@@ -13,6 +13,7 @@ import { obtenerHistorial } from "../repositories/HistorialRepositorio.js"
 import { obtenerOrdenes } from "../repositories/OrdenRepositorio.js"
 import { obtenerEstrategias } from "../repositories/EstrategiaRepositorio.js"
 import { obtenerMetas } from "../repositories/MetaRepositorio.js"
+import { descargarArchivoSeguro } from "../core/descarga.js"
 
 // ============================================
 // EXPORTAR SERVICIO
@@ -166,10 +167,9 @@ export async function exportarDVID(uid) {
         const fecha = getFechaHoy()
         const nombreArchivo = `escinco_backup_${fecha}.dvid`
 
-        descargarArchivo(url, nombreArchivo)
-        // Revoke diferido: revocar aquí cancelaba la descarga en algunos
-        // navegadores antes de que arrancara (bug #9).
-        setTimeout(() => URL.revokeObjectURL(url), 0)
+        descargarArchivoSeguro(url, nombreArchivo)
+        // Revocación diferida con margen (1000 ms): evita cancelar la
+        // descarga antes de que arranque (bug #9).
 
         console.log("[INFO] .dvid exportado:", nombreArchivo)
         return { ok: true, archivo: nombreArchivo }
@@ -177,17 +177,4 @@ export async function exportarDVID(uid) {
         console.error("[ERROR] Error exportando .dvid:", error)
         throw error
     }
-}
-
-// ============================================
-// DESCARGAR ARCHIVO
-// ============================================
-
-function descargarArchivo(url, nombre) {
-    const link = document.createElement("a")
-    link.href = url
-    link.download = nombre
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
 }

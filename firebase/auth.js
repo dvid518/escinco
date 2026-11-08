@@ -551,9 +551,3 @@ export async function eliminarCuentaFirebase() {
     await deleteUser(user)
     return true
 }
-
-export class FacebookAuthProvider {
-    static credential() {
-        return { providerId: "facebook.com" }
-    }
-}

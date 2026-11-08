@@ -108,3 +108,17 @@ export function icono(nombre, tamano = 20, strokewidth = "2") {
         `${paths}</svg>`
     )
 }
+
+/**
+ * Como `icono()`, pero devuelve un <svg> Node en vez de una cadena HTML.
+ * Permite insertar iconos del catálogo sin pasar por innerHTML.
+ * @param {string} nombre
+ * @param {number} [tamano=20]
+ * @param {string} [strokewidth="2"]
+ * @returns {SVGElement|null}
+ */
+export function iconoNodo(nombre, tamano = 20, strokewidth = "2") {
+    const envoltorio = document.createElement("template")
+    envoltorio.innerHTML = icono(nombre, tamano, strokewidth)
+    return envoltorio.content.firstElementChild || null
+}

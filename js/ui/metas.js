@@ -8,6 +8,7 @@ import { getDivisaPrincipal, formatearMontoConDivisa } from "../services/DivisaS
 import { expandirSeleccion } from "./seleccion.js"
 import { parseFechaLocal, fechaLocalISO } from "../core/fechas.js"
 import { icono } from "../core/iconos.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import { mostrarNotificacion } from "./notificaciones.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 
@@ -136,8 +137,7 @@ export async function mostrarMetas() {
         // quita la última. Alimenta la eliminación en lote.
         const seleccionadas = new Set()
         const ordenSeleccion = []
-        let supresorClick = false
-        let supresorClickTimer = null
+        const supresorClick = crearSupresorDobleClick()
 
         const modoUnClick = () => sesion.getPreferencias()?.accesibilidad?.unClickSeleccion === true
 
@@ -254,17 +254,8 @@ export async function mostrarMetas() {
             actualizarBotones()
         }
 
-        const marcarSupresorClick = () => {
-            supresorClick = true
-            clearTimeout(supresorClickTimer)
-            supresorClickTimer = setTimeout(() => { supresorClick = false }, 400)
-        }
-        const consumirSupresorClick = () => {
-            if (!supresorClick) return false
-            supresorClick = false
-            clearTimeout(supresorClickTimer)
-            return true
-        }
+        const marcarSupresorClick = () => supresorClick.marcar()
+        const consumirSupresorClick = () => supresorClick.consumir()
 
         const ocultarAccionesCards = () => {
             lista?.querySelectorAll(".card-item.acciones-visibles")

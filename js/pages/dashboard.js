@@ -34,7 +34,7 @@ import { calcularProximaEjecucion } from "../services/EstrategiaServicio.js"
 import { abrirModal, contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 import { abrirModalPresupuestos, abrirModalEditarPresupuesto } from "../ui/presupuestos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
-import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
+import { icono, iconoNodo, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 import { rastrearEvento } from "../services/AnalyticsServicio.js"
 
@@ -745,20 +745,51 @@ function prepararEdicionCardsDashboard() {
         }
         const controles = document.createElement("div")
         controles.className = "dashboard-card-edicion"
-        controles.innerHTML = `
-            <button type="button" class="card-accion-btn handle" data-dashboard-drag-handle data-accion="arrastrar" title="Arrastrar card" aria-label="Arrastrar card">
-                ${icono("grip", 16)}
-            </button>
-            <button type="button" class="card-accion-btn mover-arriba" data-dashboard-mover data-accion="subir" data-id="${id}" title="Subir card" aria-label="Subir card">
-                ${icono("chevron-up", 16)}
-            </button>
-            <button type="button" class="card-accion-btn mover-abajo" data-dashboard-mover data-accion="bajar" data-id="${id}" title="Bajar card" aria-label="Bajar card">
-                ${icono("chevron-down", 16)}
-            </button>
-            <button type="button" class="card-accion-btn eliminar" data-dashboard-eliminar data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">
-                ${icono("minus", 16)}
-            </button>
-        `
+        const botones = [
+            {
+                clase: "handle",
+                accion: "arrastrar",
+                title: "Arrastrar card",
+                aria: "Arrastrar card",
+                icono: "grip",
+                attrs: { "data-dashboard-drag-handle": "", "data-accion": "arrastrar" }
+            },
+            {
+                clase: "mover-arriba",
+                accion: "subir",
+                title: "Subir card",
+                aria: "Subir card",
+                icono: "chevron-up",
+                attrs: { "data-dashboard-mover": "", "data-accion": "subir", "data-id": id }
+            },
+            {
+                clase: "mover-abajo",
+                accion: "bajar",
+                title: "Bajar card",
+                aria: "Bajar card",
+                icono: "chevron-down",
+                attrs: { "data-dashboard-mover": "", "data-accion": "bajar", "data-id": id }
+            },
+            {
+                clase: "eliminar",
+                accion: "eliminar",
+                title: "Eliminar card del dashboard",
+                aria: "Eliminar card",
+                icono: "minus",
+                attrs: { "data-dashboard-eliminar": "", "data-accion": "eliminar", "data-id": id }
+            }
+        ]
+        for (const b of botones) {
+            const btn = document.createElement("button")
+            btn.type = "button"
+            btn.className = "card-accion-btn " + b.clase
+            btn.title = b.title
+            btn.setAttribute("aria-label", b.aria)
+            for (const [k, v] of Object.entries(b.attrs)) btn.setAttribute(k, v)
+            const svg = iconoNodo(b.icono, 16)
+            if (svg) btn.appendChild(svg)
+            controles.appendChild(btn)
+        }
         card.appendChild(controles)
     })
 }
@@ -1106,19 +1137,19 @@ function abrirSelectorCardsDashboard() {
     // Renderiza el preview gráfico (miniaturas en 2 columnas)
     function renderizarPreview() {
         const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
-        const previewHTML = cardsEnOrden.map(id => {
-            const d = dimensionesModal[id]
-            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
-            return `
-                <div class="modal-preview-card" data-card-id="${id}" data-filas="${filas}">
-                    ${tamañoTexto(id)}
-                </div>
-            `
-        }).join('')
-
         const previewGrid = modal.querySelector(".modal-preview-grid")
         if (!previewGrid) return
-        previewGrid.innerHTML = previewHTML
+        previewGrid.replaceChildren()
+        for (const id of cardsEnOrden) {
+            const d = dimensionesModal[id]
+            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
+            const card = document.createElement("div")
+            card.className = "modal-preview-card"
+            card.setAttribute("data-card-id", id)
+            card.setAttribute("data-filas", String(filas))
+            card.textContent = tamañoTexto(id)
+            previewGrid.appendChild(card)
+        }
     }
 
     // Renderiza el selector de cuentas y activos disponibles
@@ -1747,10 +1778,6 @@ export function render() {
     contenedor.innerHTML = contenido
     return contenedor.innerHTML
 }
-
-// ============================================
-// INIT
-// ============================================
 
 // Qué listas del dashboard se vacían al mostrar esqueletos y al fallar la
 // carga, y con cuántas filas. Se declara una sola vez porque las dos rutas

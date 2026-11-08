@@ -25,6 +25,15 @@
 </head>
 
 <body class="loading">
+    <!-- Fondo animado degradados (controlado desde Configuración › Apariencia › Fondo) -->
+    <div class="bg-gradients" aria-hidden="true">
+        <div class="bg"></div>
+        <div class="bg"></div>
+        <div class="bg"></div>
+        <div class="bg"></div>
+        <div class="bg"></div>
+        <div class="bg-sweep"></div>
+    </div>
 <!-- Google Tag Manager (noscript) -->
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2"
 height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
@@ -234,6 +243,22 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
     </template>
 
     </main>
+    <template id="tpl-notificacion">
+        <div class="notificacion glass" data-tpl="notificacion">
+            <span class="notificacion-icono" data-tpl="icono"></span>
+            <div class="notificacion-contenido">
+                <span class="notificacion-mensaje" data-tpl="mensaje"></span>
+                <span class="notificacion-fecha" data-tpl="fecha"></span>
+            </div>
+            <div class="notificacion-acciones" data-tpl="acciones-contenedor"></div>
+            <button type="button" class="notificacion-cerrar" aria-label="Cerrar notificación">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-x preview-icon">
+                    <path d="M18 6 6 18"/>
+                    <path d="m6 6 12 12"/>
+                </svg>
+            </button>
+        </div>
+    </template>
 </body>
 <script type="module" src="js/pages/auth.js"></script>
 

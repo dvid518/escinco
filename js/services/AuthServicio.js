@@ -3,7 +3,7 @@ import {
     signInWithPopup,
     linkWithCredential,
     getAuth
-} from "../../firebase/auth.js"
+} from "../../firebase/firebaseClient.js"
 import { app } from "../../firebase/firebaseClient.js"
 
 const auth = getAuth(app)

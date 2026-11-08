@@ -34,5 +34,5 @@ body :is(button, a, [role="button"]):hover,
 body select:hover,
 #app-footer .item:hover,
 body :is(.card-item, .posicion-item, .estrategia-item, .movimiento-item, .meta-item, .favorito-item, .alerta-item, .totales-btn, .posicion-favorito):hover {
-    box-shadow: none;
+    /* box-shadow: none; */
 }

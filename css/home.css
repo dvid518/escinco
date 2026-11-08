@@ -1,18 +1,6 @@
 /* ============================================
    LANDING · ESCINCO EN "/"
    ============================================ */
-/* Página pública de presentación. Comparte el sistema de color y la escala
-   tipográfica de style.css: aquí solo se declara la composición (columnas,
-   rejillas, las secciones) y los dos formatos de botón.
-
-   La maqueta del panel NO se dibuja aquí: reutiliza css/dashboard.css, que ya
-   está cargado, y solo se declara aquí lo que la landing cambia de esa hoja
-   (tamaños de cifra y el lienzo de la dona). Así, cuando una card cambie en el
-   dashboard, la maqueta cambia con ella.
-
-   El cuerpo global es una columna de altura completa con overflow oculto
-   (style.css:173-189). La landing sí tiene que desplazar, así que .home-scroll
-   es el contenedor que scrollea y el resto se compone hacia dentro. */
 
 /* --------------------------------------------
    ESTRUCTURA
@@ -166,6 +154,7 @@
     background-color: var(--lightHover);
     border-color: var(--text);
     color: var(--text);
+    box-shadow: inset 0 0 20px var(--shadow);
 }
 
 .home-tema-icono {
@@ -221,6 +210,7 @@
     background-color: var(--lightHover);
     border-color: var(--text);
     color: var(--text);
+    box-shadow: inset 0 0 20px var(--shadow);
 }
 
 /* --------------------------------------------
@@ -903,34 +893,4 @@
 
 .home-maqueta .card-cuenta-credito .card-datos {
     margin-top: 12px;
-}
-
-/* --------------------------------------------
-   ENTRADA SUAVE DEL FONDO
-   -------------------------------------------- */
-/* Un overlay cubre todo el viewport al cargar la landing y se desvanece
-   suavemente 5 segundos después de que todo el contenido esté listo.
-   Así no se opaca el body ni sus hijos, y la transición es predecible.
-   Con movimiento reducido no hay espera ni desvanecido. */
-
-.fondo-entrada-overlay {
-    position: fixed;
-    inset: 0;
-    z-index: 10000;
-    background-color: var(--background);
-    opacity: 1;
-    transition: opacity 1.2s ease;
-    pointer-events: none;
-}
-
-.fondo-entrada-overlay.oculto {
-    opacity: 0;
-}
-
-@media (prefers-reduced-motion: reduce) {
-    .fondo-entrada-overlay {
-        transition: none !important;
-        opacity: 0 !important;
-        pointer-events: none;
-    }
 }

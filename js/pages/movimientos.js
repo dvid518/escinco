@@ -23,6 +23,8 @@ import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServ
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { escapeHtml } from "../core/escape.js"
+import { descargarArchivoSeguro } from "../core/descarga.js"
+import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import { normalizarEtiquetas } from "../core/etiquetas.js"
 import { obtenerEtiquetas } from "../repositories/EtiquetaRepositorio.js"
 import { obtenerFavorito, obtenerFavoritos, crearFavorito } from "../repositories/FavoritoRepositorio.js"
@@ -46,8 +48,7 @@ let favoritoClickTimer = null
 const ordenSeleccion = []
 const sel = { ids: seleccionados, orden: ordenSeleccion }
 let clickTimer = null
-let supresorClick = false
-let supresorClickTimer = null
+const supresorClick = crearSupresorDobleClick()
 let cardConAcciones = null
 let eventosGlobalesListos = false
 
@@ -729,16 +730,11 @@ function configurarEventosGlobales() {
 }
 
 function marcarSupresorClick() {
-    supresorClick = true
-    clearTimeout(supresorClickTimer)
-    supresorClickTimer = setTimeout(() => { supresorClick = false }, 400)
+    supresorClick.marcar()
 }
 
 function consumirSupresorClick() {
-    if (!supresorClick) return false
-    supresorClick = false
-    clearTimeout(supresorClickTimer)
-    return true
+    return supresorClick.consumir()
 }
 
 // Preferencia "un click para seleccionar" (Configuración → Accesibilidad).
@@ -2179,9 +2175,10 @@ export async function exportarExtractoCSV() {
 
         const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" })
         const url = URL.createObjectURL(blob)
-        descargarArchivo(url, `escinco_movimientos_${getFechaHoy()}.csv`)
-        // Revoke diferido: revocar aquí cancelaba la descarga antes de arrancar (bug #9)
-        setTimeout(() => URL.revokeObjectURL(url), 0)
+
+        descargarArchivoSeguro(url, `escinco_movimientos_${getFechaHoy()}.csv`)
+        // Revocación diferida con margen (1000 ms): evita cancelar la
+        // descarga antes de que arranque (bug #9).
 
         mostrarNotificacion("exito", `Extracto exportado (${movimientos.length} movimientos)`)
     } catch (error) {
@@ -2203,15 +2200,6 @@ function escaparCSV(valor) {
 function esMovimientoDeMeta(m) {
     if (!!m?.metaId) return true
     return /^aporte a meta:/i.test(String(m?.concepto || "").trim())
-}
-
-function descargarArchivo(url, nombre) {
-    const link = document.createElement("a")
-    link.href = url
-    link.download = nombre
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
 }
 
 // Mantiene sincronizados los favoritos mostrados cuando cualquier cambio
