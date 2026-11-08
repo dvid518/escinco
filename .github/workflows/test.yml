@@ -9,7 +9,10 @@ on:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
+    # ubuntu-latest migró a Ubuntu 26 (19/10/2026): pinamos a ubuntu-24.04,
+    # igual que ci.yml, para evitar sorpresas del runner (Node por defecto,
+    # Java para los emuladores, etc.). Node 22 no está deprecado.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
@@ -23,6 +26,6 @@ jobs:
 
       # Las reglas de Firestore se prueban contra los emuladores de
       # Firestore + Auth. Sin este paso el test se salta solo. Java, que el
-      # emulador necesita, viene preinstalado en ubuntu-latest.
+      # emulador necesita, viene preinstalado en ubuntu-24.04.
       - name: Reglas contra emuladores
         run: npx --yes firebase-tools@latest emulators:exec --only firestore,auth -- "node tests/run.mjs rules"
