@@ -2,7 +2,18 @@ import globals from "globals"
 
 export default [
   {
-    ignores: ["node_modules/", "dist/", "coverage/", "tests/fixtures/", "*.md"]
+    ignores: [
+      "node_modules/",
+      "dist/",
+      "coverage/",
+      "tests/fixtures/",
+      "*.md",
+      // Librerías vendorizadas y minificadas: no las mantenemos nosotros.
+      "js/lib/",
+      // Código de experimentos y de la demo: no forma parte de la app desplegada.
+      "experimentos/",
+      "firebase/demo/"
+    ]
   },
   {
     files: ["**/*.{js,mjs}"],
