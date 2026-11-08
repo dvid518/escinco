@@ -10,7 +10,7 @@
 
 let divisorServicio = null
 
-async function cargarDivisaServicio() {
+function cargarDivisaServicio() {
     if (!divisorServicio) {
         divisorServicio = import("../services/DivisaServicio.js")
     }
@@ -33,7 +33,7 @@ let observadorTema = null
 
 let promesaChartJS = null
 
-async function cargarChartJS() {
+function cargarChartJS() {
     if (window.Chart) return window.Chart
     if (promesaChartJS) return promesaChartJS
 
@@ -210,7 +210,7 @@ export async function crearGraficoLinea(canvasId, datos, opciones = {}) {
 // Línea simple, sin velas ni indicadores. Reutiliza la configuración
 // de crearGraficoLinea (misma instancia, colores del tema y redibujado).
 
-export async function crearGraficoEvolucionPrecio(canvasId, datos, opciones = {}) {
+export function crearGraficoEvolucionPrecio(canvasId, datos, opciones = {}) {
     return crearGraficoLinea(canvasId, datos, {
         label: opciones.label || "Precio",
         simbolo: opciones.simbolo || ""
@@ -446,7 +446,6 @@ export async function crearGraficoDistribucion(canvasId, datos, opciones = {}) {
 
         const colores = leerColores()
         const colorText = colores.text
-        const colorTextSecondary = colores.textSecondary
         const colorBorder = colores.border
 
         const etiquetas = datos.labels || []

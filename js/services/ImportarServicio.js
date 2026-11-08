@@ -55,7 +55,7 @@ function deserializarFechas(valor, camposFecha = []) {
  */
 export async function importarDVID(uid, archivo) {
     try {
-        console.log("[INFO] Importando .dvid...")
+        console.info("[INFO] Importando .dvid...")
 
         const texto = await leerArchivo(archivo)
         const datos = JSON.parse(texto)
@@ -66,7 +66,7 @@ export async function importarDVID(uid, archivo) {
 
         validarVersion(datos.version)
 
-        console.log("[INFO] Datos a importar:", {
+        console.info("[INFO] Datos a importar:", {
             formato: datos.formato,
             version: datos.version,
             cuentas: datos.cuentas?.length || 0,
@@ -159,7 +159,7 @@ export async function importarDVID(uid, archivo) {
 
         invalidarCaches(uid)
 
-        console.log("[INFO] Importación completada:", resultado)
+        console.info("[INFO] Importación completada:", resultado)
         return resultado
     } catch (error) {
         console.error("[ERROR] Error importando:", error)
@@ -202,7 +202,7 @@ async function importarActivos(uid, activos, resultado) {
             const existente = await buscarActivoPorSimbolo(uid, activo.simbolo)
 
             if (!existente) {
-                const { id, ...datosLimpios } = activo
+                const { id: _id, ...datosLimpios } = activo
                 await crearActivo(uid, deserializarFechas(datosLimpios, CAMPOS_FECHA))
                 resultado.activos++
             }
@@ -235,7 +235,7 @@ async function importarColeccion(uid, elementos, resultado, config) {
 
     for (const elemento of elementos) {
         try {
-            const { id, ...datosLimpios } = elemento
+            const { id: _id, ...datosLimpios } = elemento
             const datos = transformar
                 ? transformar(datosLimpios, elemento)
                 : deserializarFechas(datosLimpios, camposFecha)
@@ -306,7 +306,7 @@ async function importarPosiciones(uid, posiciones, resultado) {
                 continue
             }
 
-            const { id, activoSimbolo, ...datosPosicion } = posicion
+            const { id: _id, activoSimbolo: _activoSimbolo, ...datosPosicion } = posicion
             const datos = deserializarFechas(datosPosicion, ["ultimaActualizacion"])
 
             const referencia = collection(db, "usuarios", uid, "posiciones")
@@ -385,7 +385,7 @@ async function importarHistorial(uid, historial, resultado) {
                 const fecha = registro.fecha || registro.id
                 if (!fecha) continue
 
-                const { id, ...registroLimpio } = registro
+                const { id: _id, ...registroLimpio } = registro
                 const datos = deserializarFechas(registroLimpio, ["actualizacion"])
                 const referencia = doc(db, "usuarios", uid, "activos", activo.id, "historial", fecha)
                 await setDoc(referencia, {

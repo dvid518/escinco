@@ -120,12 +120,10 @@ export default async function ejecutar(t) {
     // ------------------------------------------------------------
     // esCategoriaSistema (reutilizada del módulo real)
     // ------------------------------------------------------------
-    {
-        t.check("esCategoriaSistema reconoce vivienda", esCategoriaSistema("vivienda") === true)
-        t.check("esCategoriaSistema reconoce ahorro", esCategoriaSistema("ahorro") === true)
-        t.check("esCategoriaSistema rechaza compras", esCategoriaSistema("compras") === false)
-        t.check("esCategoriaSistema ignora mayúsculas", esCategoriaSistema("Vivienda") === true)
-    }
+    t.check("esCategoriaSistema reconoce vivienda", esCategoriaSistema("vivienda") === true)
+    t.check("esCategoriaSistema reconoce ahorro", esCategoriaSistema("ahorro") === true)
+    t.check("esCategoriaSistema rechaza compras", esCategoriaSistema("compras") === false)
+    t.check("esCategoriaSistema ignora mayúsculas", esCategoriaSistema("Vivienda") === true)
 
     return t
 }

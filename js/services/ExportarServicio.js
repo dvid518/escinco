@@ -64,7 +64,7 @@ function serializarFechas(valor) {
  */
 export async function exportarDVID(uid) {
     try {
-        console.log("[INFO] Exportando datos como .dvid...")
+        console.info("[INFO] Exportando datos como .dvid...")
 
         const activos = await obtenerActivos(uid)
 
@@ -100,7 +100,7 @@ export async function exportarDVID(uid) {
         // Al reimportar los activos pueden crear nuevos IDs, así que las
         // posiciones se exportan con el SÍMBOLO en lugar del activoId.
         const posiciones = posicionesRaw.map(posicion => {
-            const { activo, activoId, ...resto } = posicion
+            const { activo: _activo, activoId: _activoId, ...resto } = posicion
             return {
                 ...resto,
                 activoSimbolo: simboloPorActivoId.get(posicion.activoId) || null
@@ -128,7 +128,7 @@ export async function exportarDVID(uid) {
                     activoSimbolo: activo.simbolo,
                     // `cerrado` siempre es false y su único escritor
                     // (`cerrarDia`) no tiene llamador. Fuera del .dvid.
-                    registros: registros.map(({ cerrado, ...registro }) => registro)
+                    registros: registros.map(({ cerrado: _cerrado, ...registro }) => registro)
                 }
             })
         )).filter(Boolean)
@@ -155,7 +155,7 @@ export async function exportarDVID(uid) {
             // `patrimonioUSDT` tampoco: es idéntico a `patrimonioUSD`. Los
             // snapshots ya existentes en Firestore lo conservan, así que sin
             // esto el .dvid seguiría exportándolo desde ellos.
-            snapshots: serializarFechas(snapshots.map(({ cerrado, patrimonioUSDT, ...s }) => s)),
+            snapshots: serializarFechas(snapshots.map(({ cerrado: _cerrado, patrimonioUSDT: _patrimonioUSDT, ...s }) => s)),
             preferencias: serializarFechas(preferencias)
         }
 
@@ -171,7 +171,7 @@ export async function exportarDVID(uid) {
         // Revocación diferida con margen (1000 ms): evita cancelar la
         // descarga antes de que arranque (bug #9).
 
-        console.log("[INFO] .dvid exportado:", nombreArchivo)
+        console.info("[INFO] .dvid exportado:", nombreArchivo)
         return { ok: true, archivo: nombreArchivo }
     } catch (error) {
         console.error("[ERROR] Error exportando .dvid:", error)

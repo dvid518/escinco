@@ -9,9 +9,9 @@ function activarDebugView() {
         const enLocalhost = location.hostname === "localhost" || location.hostname === "127.0.0.1"
         const parametroDebug = location.search.includes("debug_analytics")
         if (!enLocalhost && !parametroDebug) return
-        // eslint-disable-next-line no-undef
+         
         window.firebase.analytics().setAnalyticsCollectionEnabled(true)
-        console.log("[INFO] Analytics DebugView activado")
+        console.info("[INFO] Analytics DebugView activado")
     } catch {
         // Silencioso: si no está disponible, se ignora.
     }

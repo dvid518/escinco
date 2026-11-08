@@ -244,6 +244,8 @@ export async function mostrarPendientes() {
         const ordenSeleccion = []
         let cardConAcciones = null
         const supresorClick = crearSupresorDobleClick()
+        // Las funciones de abajo usan el modal antes de que se cree.
+        let modalEl = null
 
         const modoUnClick = () => sesion.getPreferencias()?.accesibilidad?.unClickSeleccion === true
 
@@ -282,7 +284,7 @@ export async function mostrarPendientes() {
             }
         })
 
-        const modalEl = abrirModal({
+        modalEl = abrirModal({
             titulo: 'Pendientes',
             contenido: html,
             confirmText: 'Cerrar',

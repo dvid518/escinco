@@ -250,7 +250,7 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
     notificacion.dataset.id = id
 
     const contenedorAcciones = notificacion.querySelector(".notificacion-acciones")
-    acciones.forEach((a, i) => {
+    acciones.forEach(a => {
         const btn = document.createElement("button")
         btn.type = "button"
         btn.className = `notificacion-accion${a.primaria ? " notificacion-accion-primaria" : ""}${a.clase ? ` ${a.clase}` : ""}`

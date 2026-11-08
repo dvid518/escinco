@@ -6,8 +6,6 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
-    query,
-    where,
     serverTimestamp
 } from "../../firebase/firestore.js"
 import { db } from "../../firebase/firestore.js"
@@ -37,16 +35,16 @@ export async function obtenerTrades(uid, filtros = {}) {
         const referencia = collection(db, "usuarios", uid, "trades")
         const resultado = await getDocs(referencia)
 
-        const trades = resultado.docs.map(doc => Trade.fromFirestore(doc.id, doc.data()))
+        const listaTrades = resultado.docs.map(documento => Trade.fromFirestore(documento.id, documento.data()))
 
         // Ordenar en JS por fecha descendente
-        trades.sort((a, b) => {
+        listaTrades.sort((a, b) => {
             const fechaA = a.fechaRegistro?.getTime?.() || 0
             const fechaB = b.fechaRegistro?.getTime?.() || 0
             return fechaB - fechaA
         })
 
-        return trades
+        return listaTrades
     })
 
     // Aplicar filtros en cada lectura (no se cachea la consulta filtrada)

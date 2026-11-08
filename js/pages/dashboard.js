@@ -1,4 +1,4 @@
-﻿import { asegurarEstilos } from "../core/estilos.js"
+import { asegurarEstilos } from "../core/estilos.js"
 import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
@@ -69,10 +69,11 @@ let pendientesData = []
 let ordenesData = []
 let estrategiasData = []
 let analiticaData = null
-let cargado = false
 let eventosRefreshDashboardListos = false
 let timerRefreshDashboard = null
 let secuenciaGraficoDashboard = 0
+let cardsDimensionesDashboard = {}
+let patrimonioStats = null
 
 const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
@@ -179,7 +180,6 @@ function entidadDeCardInstancia(id) {
 
 let cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
 let cardsOrdenDashboard = [...DEFAULT_CARDS_ORDEN]
-let cardsDimensionesDashboard = {}
 let modoEdicionDashboard = false
 let cambiosPendientesDashboard = false
 let eventosEdicionDashboardListos = false
@@ -688,20 +688,6 @@ function configurarScrollFadeApp() {
 
 let sortableDashboard = null
 
-/** Cards visibles, en el orden en que se leen (izquierda a derecha, de arriba abajo). */
-function cardsVisiblesEnOrden() {
-    const grid = document.querySelector(".dashboard")
-    if (!grid) return []
-
-    return cardsOrdenDashboard
-        .filter(id => {
-            const card = grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
-            return card && !card.hidden && card.isConnected
-        })
-        .map(id => grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`))
-        .filter(Boolean)
-}
-
 function moverCardDashboard(id, direccion) {
     const indice = cardsOrdenDashboard.indexOf(id)
     const destino = indice + direccion
@@ -896,12 +882,6 @@ function inicializarSortableDashboard() {
     })
 }
 
-function activarSortableDashboard() {
-    if (sortableDashboard) {
-        sortableDashboard.option("disabled", !modoEdicionDashboard)
-    }
-}
-
 async function manejarTeclaEdicionDashboard(evento) {
     if ((evento.key !== "Escape" && evento.key !== "Enter") || !modoEdicionDashboard) return
     if (document.querySelector(".modal-overlay")) return
@@ -1001,55 +981,6 @@ function manejarCambioPaginaDashboard(evento) {
     ])
 }
 
-// Bloque de cards instanciadas dentro del selector: una casilla por cuenta y
-// otra por activo con posición abierta.
-function bloqueInstanciasSelector(titulo, descripcion, opciones, vacio) {
-    // `opciones` es un fragmento (una copia del template de fila por casilla).
-    const hayOpciones = opciones.childNodes.length > 0
-    return contenidoDesdeTemplate("tpl-dashboard-editor-bloque", {
-        valores: { titulo, descripcion, vacio: hayOpciones ? "" : vacio },
-        html: { opciones: hayOpciones ? opciones : "" }
-    })
-}
-
-function opcionesInstanciasCuentas(activas) {
-    // Las hijas no se ofrecen: su dinero ya esta en la card del padre, que
-    // muestra el total de la familia. Ofrecirlas duplicaria el patrimonio.
-    const lista = cuentasVisibles(cuentas)
-
-    return contenidoDesdeFilas("tpl-dashboard-card-instancia", lista, cuenta => {
-        const id = idCardCuenta(cuenta.id)
-        const etiqueta = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
-        const activa = activas.has(id)
-        return {
-            valores: {
-                "instancia@class": `dashboard-card-opcion`,
-                "valor@value": id,
-                "valor@checked": activa,
-                nombre: cuenta.nombre || "Cuenta",
-                tipo: etiqueta
-            }
-        }
-    })
-}
-
-function opcionesInstanciasActivos(activas) {
-    return contenidoDesdeFilas("tpl-dashboard-card-instancia", posicionesData, posicion => {
-        const id = idCardActivo(posicion.activoId)
-        const activo = posicion.activo || {}
-        const activa = activas.has(id)
-        return {
-            valores: {
-                "instancia@class": `dashboard-card-opcion`,
-                "valor@value": id,
-                "valor@checked": activa,
-                nombre: activo.simbolo || activo.nombre || "Activo",
-                tipo: ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "Activo"
-            }
-        }
-    })
-}
-
 function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
 
@@ -1058,8 +989,10 @@ function abrirSelectorCardsDashboard() {
     let visiblesModal = new Set(cardsVisiblesDashboard)
     let dimensionesModal = { ...cardsDimensionesDashboard }
     let cardSeleccionada = null
+    // Las funciones de abajo usan el modal antes de que exista: se crea más
+    // adelante, cuando ya están definidos sus callbacks.
+    let modal = null
 
-    const cards = DASHBOARD_CARDS.filter(card => card.id !== "patrimonio")
     const cuentasVisiblesLista = cuentasVisibles(cuentas)
     const cuentasInDashboard = new Set(ordenModal.filter(id => id.startsWith("cuenta:")))
     const activosInDashboard = new Set(ordenModal.filter(id => id.startsWith("activo:")))
@@ -1199,7 +1132,7 @@ function abrirSelectorCardsDashboard() {
     }
 
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
-    const modal = abrirModal({
+    modal = abrirModal({
         titulo: "Elegir cards del dashboard",
         variante: "wide",
         confirmText: "Guardar",
@@ -1259,6 +1192,9 @@ function abrirSelectorCardsDashboard() {
     const cardsLista = modal.querySelector(".modal-dashboard-lista")
     if (cardsLista) {
         const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+        // Instancia propia del modal: se libera con el DOM al cerrarlo, así que
+        // no hace falta guardarla para destruirla.
+        // eslint-disable-next-line no-new
         new Sortable(cardsLista, {
             handle: ".btn-accion.handle",
             draggable: ".modal-card-activa",
@@ -1478,11 +1414,11 @@ function obtenerPeriodoFlujo(id) {
 // Se usan para renderizar el dashboard dinámicamente a partir de
 // cardsVisiblesDashboard y cardsOrdenDashboard.
 
-function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseExtra = "", config = {}) {
+function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseAdicional = "", _config = {}) {
     const id = `card-${cardId}`;
     const clasesSpan = clasesCard(cardId)
     return `
-        <div class="glass card card-navegable metric-card ${claseExtra} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
+        <div class="glass card card-navegable metric-card ${claseAdicional} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
             <div class="card-value" id="${valorId}">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="${detalleId}">${skeletonText()}</div>
@@ -1490,7 +1426,7 @@ function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, clase
     `;
 }
 
-function generarCardListaSimple(cardId, titulo, filas, detalleId = null, subtituloHtml = "", config = {}) {
+function generarCardListaSimple(cardId, titulo, filas, detalleId = null, _subtituloHtml = "", _config = {}) {
     const id = `card-${cardId}`;
     const detalle = detalleId ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>` : "";
     const clasesSpan = clasesCard(cardId)
@@ -1548,7 +1484,7 @@ function generarCardPatrimonio(nivelResalte) {
     `;
 }
 
-function generarCardGrafico(config = {}) {
+function generarCardGrafico(_config = {}) {
     const clasesSpan = clasesCard("grafico")
     return `
         <div class="glass card grafico-patrimonio-card ${clasesSpan}" data-dashboard-card="grafico" role="region" tabindex="0" aria-label="Evolución patrimonial">
@@ -1568,7 +1504,7 @@ function generarCardGrafico(config = {}) {
     `;
 }
 
-function generarCardDistribucionDona(config = {}) {
+function generarCardDistribucionDona(_config = {}) {
     const clasesSpan = clasesCard("distribucion")
     return `
         <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
@@ -1581,7 +1517,7 @@ function generarCardDistribucionDona(config = {}) {
     `;
 }
 
-function generarCardMetas(config = {}) {
+function generarCardMetas(_config = {}) {
     const clasesSpan = clasesCard("metas")
     return `
         <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
@@ -1598,7 +1534,7 @@ function generarCardMetas(config = {}) {
     `;
 }
 
-function generarCardPresupuestos(config = {}) {
+function generarCardPresupuestos(_config = {}) {
     const clasesSpan = clasesCard("presupuestos")
     return `
         <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
@@ -1621,7 +1557,7 @@ const GENERADORES_CARD = {
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
     "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
     "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2),
-    "favoritos": (config = {}) => {
+    "favoritos": (_config = {}) => {
         const clasesSpan = clasesCard("favoritos")
         return `
         <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
@@ -1635,7 +1571,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "pendientes": (config = {}) => {
+    "pendientes": (_config = {}) => {
         const clasesSpan = clasesCard("pendientes")
         return `
         <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
@@ -1647,7 +1583,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "ordenes": (config = {}) => {
+    "ordenes": (_config = {}) => {
         const clasesSpan = clasesCard("ordenes")
         return `
         <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
@@ -1660,7 +1596,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "distribucion-activos": (config = {}) => {
+    "distribucion-activos": (_config = {}) => {
         const clasesSpan = clasesCard("distribucion-activos")
         return `
         <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
@@ -1672,7 +1608,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "patrimonio-divisa": (config = {}) => {
+    "patrimonio-divisa": (_config = {}) => {
         const clasesSpan = clasesCard("patrimonio-divisa")
         return `
         <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
@@ -1684,7 +1620,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "estrategias": (config = {}) => {
+    "estrategias": (_config = {}) => {
         const clasesSpan = clasesCard("estrategias")
         return `
         <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
@@ -1697,7 +1633,7 @@ const GENERADORES_CARD = {
     `;
     },
     "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
-    "gastos-periodo": (config = {}) => {
+    "gastos-periodo": (_config = {}) => {
         const clasesSpan = clasesCard("gastos-periodo")
         return `
         <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
@@ -1709,7 +1645,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "ingresos-periodo": (config = {}) => {
+    "ingresos-periodo": (_config = {}) => {
         const clasesSpan = clasesCard("ingresos-periodo")
         return `
         <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
@@ -1723,7 +1659,7 @@ const GENERADORES_CARD = {
     },
     "balance-periodo": () => generarCardMetrica("balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
     "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
-    "programados": (config = {}) => {
+    "programados": (_config = {}) => {
         const clasesSpan = clasesCard("programados")
         return `
         <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
@@ -1735,7 +1671,7 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "alertas": (config = {}) => {
+    "alertas": (_config = {}) => {
         const clasesSpan = clasesCard("alertas")
         return `
         <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
@@ -1909,7 +1845,7 @@ export async function init() {
     divisaActual = getDivisaPrincipal()
     periodoGrafico = obtenerPeriodo(sesion.getPreferencias()?.periodoEvolucion || PERIODO_POR_DEFECTO).id
     periodoFlujo = obtenerPeriodoFlujo(sesion.getPreferencias()?.periodoFlujo || PERIODO_FLUJO_POR_DEFECTO).id
-    console.log("[INFO] Dashboard iniciado para UID:", uid)
+    console.info("[INFO] Dashboard iniciado para UID:", uid)
 
     await cargarCardsVisiblesDashboard()
     mostrarEsqueletosDashboard()
@@ -1927,13 +1863,12 @@ export async function init() {
         // Se repite tras cargar los datos reales para que el orden de las
         // tarjetas se ajuste con sus alturas definitivas y no con esqueletos.
         reordenarDashboard()
-        void actualizarGraficoPatrimonio()
+        actualizarGraficoPatrimonio()
     } finally {
         const dashboard = document.querySelector(".dashboard")
         dashboard?.classList.remove("dashboard-cargando")
         dashboard?.removeAttribute("aria-busy")
-        cargado = true
-        configurarScrollFade()
+            configurarScrollFade()
         configurarScrollFadeApp()
     }
 }
@@ -2491,8 +2426,6 @@ async function actualizarUI() {
 // calcularPatrimonio() ya devuelve los totales por divisa, y tres cards los
 // necesitan. Antes cada una llamaba por su cuenta y se leían las cuentas tres
 // veces por refresco; se resuelve una vez por ciclo y se invalida al recargar.
-let patrimonioStats = null
-
 async function obtenerPatrimonioStats() {
     if (!patrimonioStats) patrimonioStats = await calcularPatrimonio(uid)
     return patrimonioStats
@@ -3134,7 +3067,7 @@ function actualizarPatrimonioDivisa() {
         }
     }))
     actualizarScrollFade(lista)
-    aplicoAnchoBarras(items.map((item, i) => ({
+    aplicoAnchoBarras(items.map(item => ({
         ...item,
         porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
     })))
@@ -3559,7 +3492,7 @@ async function abrirModalEvolucionDashboard() {
         }
     }
 
-    const dibujarModal = async (datos, categoria = categoriaEvolucion) => {
+    const dibujarModal = (datos, categoria = categoriaEvolucion) => {
         datosModal = datos
         return crearGraficoPatrimonio(
             "grafico-patrimonio-modal",
@@ -3710,7 +3643,7 @@ function abrirModalAlertas() {
     })
 }
 
-async function abrirModalVencimientos() {
+function abrirModalVencimientos() {
     const items = vencimientosData?.items || []
 
     let contenido
@@ -3753,7 +3686,6 @@ async function abrirModalVencimientos() {
         if (!opcion) return
 
         if (opcion.tipo === "meta") {
-            const { abrirModalAporteMeta } = await import("../ui/metas.js")
             abrirModalAporteMeta(opcion.meta)
             return
         }
@@ -4189,7 +4121,7 @@ async function cargarGraficoPatrimonio() {
     }
 }
 
-async function dibujarGrafico(datos = datosGrafico, secuencia = secuenciaGraficoDashboard) {
+function dibujarGrafico(datos = datosGrafico, secuencia = secuenciaGraficoDashboard) {
     const card = document.querySelector('[data-dashboard-card="grafico"]')
     const canvas = document.getElementById("grafico-patrimonio")
     if (!card?.isConnected || !canvas?.isConnected || secuencia !== secuenciaGraficoDashboard) return null

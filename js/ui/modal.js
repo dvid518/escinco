@@ -523,6 +523,7 @@ export function cerrarModal({ silencioso = false, overlay = null } = {}) {
         modal.remove()
     } else {
         let cerrado = false
+        let fallback = null
         const terminar = () => {
             if (cerrado) return
             cerrado = true
@@ -533,7 +534,7 @@ export function cerrarModal({ silencioso = false, overlay = null } = {}) {
         modal.addEventListener("animationend", terminar, { once: true })
         modal.addEventListener("animationcancel", terminar, { once: true })
         // Red de seguridad por si el navegador no dispara animationend
-        const fallback = setTimeout(terminar, 400)
+        fallback = setTimeout(terminar, 400)
     }
 
     // Foco: si quedan ventanas, devolver el foco a la nueva primera plana;
@@ -597,7 +598,7 @@ vincularBotonesCalendario()
 // Devuelve una función para limpiar sus listeners.
 // --------------------------------------------
 
-function activarDrag(modalEl, overlay) {
+function activarDrag(modalEl, _overlay) {
     if (!modalEl) return null
 
     let startX = 0
@@ -605,6 +606,9 @@ function activarDrag(modalEl, overlay) {
     let startOffsetX = 0
     let startOffsetY = 0
     let arrastrando = false
+    // Se asignan más abajo, pero onDown los necesita como listeners.
+    let onMove = null
+    let onUp = null
 
     const onDown = (e) => {
         if (!e.target.closest(".modal-header")) return
@@ -625,7 +629,7 @@ function activarDrag(modalEl, overlay) {
         document.addEventListener("touchcancel", onUp)
     }
 
-    const onMove = (e) => {
+    onMove = (e) => {
         if (!arrastrando) return
         if (e.cancelable) e.preventDefault()
 
@@ -636,7 +640,7 @@ function activarDrag(modalEl, overlay) {
         aplicarOffset(modalEl, startOffsetX + dx, startOffsetY + dy)
     }
 
-    const onUp = () => {
+    onUp = () => {
         arrastrando = false
         modalEl.classList.remove("dragging")
         document.removeEventListener("mousemove", onMove)

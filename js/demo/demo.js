@@ -47,7 +47,7 @@ async function arrancar() {
     initAtajos()
     conectarBanner()
 
-    if (sembrado) console.log("[DEMO] Datos de ejemplo sembrados")
+    if (sembrado) console.info("[DEMO] Datos de ejemplo sembrados")
 }
 
 function conectarBanner() {

@@ -36,7 +36,7 @@ let ordenesCargadas = false
 // eliminación en lote.
 let seleccionadas = new Set()
 let ordenSeleccion = []
-let supresorClick = crearSupresorDobleClick()
+const supresorClick = crearSupresorDobleClick()
 let clickTimer = null
 let cardConAcciones = null
 let eventosSeleccionListos = false
@@ -85,7 +85,7 @@ export function render() {
 export async function init() {
     uid = sesion.uid
     vistaActual = "trades"
-    console.log("[INFO] Trading iniciado para UID:", uid)
+    console.info("[INFO] Trading iniciado para UID:", uid)
 
     configurarEventos()
     configurarToggleVista()
@@ -577,7 +577,7 @@ function manejarClickTarjeta(evento) {
     if (!id) return
 
     if (evento.shiftKey && expandirSeleccion(
-        [...document.querySelectorAll("#lista-trades .trade-item")].map(card => card.dataset.tradeId || card.dataset.ordenId).filter(Boolean),
+        [...document.querySelectorAll("#lista-trades .trade-item")].map(item => item.dataset.tradeId || item.dataset.ordenId).filter(Boolean),
         id,
         seleccionadas,
         ordenSeleccion
@@ -644,8 +644,14 @@ function ejecutarAccionTarjeta(accion, card) {
     const esOrden = !!card.dataset.ordenId
     if (accion === "cerrar") abrirModalCerrarTrade(id)
     else if (accion === "reabrir") abrirModalReabrirTrade(id)
-    else if (accion === "editar") esOrden ? abrirModalEditarOrden(id) : abrirModalEditarTrade(id)
-    else if (accion === "eliminar") esOrden ? confirmarEliminarOrden(id) : confirmarEliminarTrade(id)
+    else if (accion === "editar") {
+        if (esOrden) abrirModalEditarOrden(id)
+        else abrirModalEditarTrade(id)
+    }
+    else if (accion === "eliminar") {
+        if (esOrden) confirmarEliminarOrden(id)
+        else confirmarEliminarTrade(id)
+    }
 }
 
 function mostrarAccionesCard(card) {

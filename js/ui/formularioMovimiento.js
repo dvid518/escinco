@@ -163,7 +163,7 @@ async function cargarActivosDatalist(uid) {
 // ============================================
 // La normalización vive en core/etiquetas.js (también la usa el selector de
 // chips); se re-exporta para no romper a quien ya la importaba de aquí.
-import { normalizarEtiquetas, MAX_ETIQUETAS } from "../core/etiquetas.js"
+import { normalizarEtiquetas } from "../core/etiquetas.js"
 export { normalizarEtiquetas, MAX_ETIQUETAS, MAX_LARGO_ETIQUETA } from "../core/etiquetas.js"
 
 // ============================================

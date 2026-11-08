@@ -22,12 +22,14 @@ export default [
       sourceType: "module",
       globals: {
         ...globals.browser,
-        ...globals.node
+        ...globals.node,
+        // SortableJS se carga como UMD desde js/lib/sortable.min.js.
+        Sortable: "readonly"
       }
     },
     rules: {
       // Solo reglas de corrección (no estilo de formateo)
-      "no-console": ["error", { allow: ["warn", "error"] }],
+      "no-console": ["error", { allow: ["info", "warn", "error"] }],
       "no-eval": "error",
       "no-implied-eval": "error",
       "no-new-func": "error",
@@ -39,7 +41,7 @@ export default [
       "no-redeclare": "error",
       "no-shadow": "error",
       "no-undef-init": "error",
-      "no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
+      "no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
       "no-use-before-define": ["error", { functions: false, classes: false }],
       "prefer-const": "error",
       "no-var": "error",
@@ -92,6 +94,24 @@ export default [
       "valid-typeof": "error",
       "vars-on-top": "error",
       "yoda": "error"
+    }
+  },
+  {
+    // La suite y las herramientas de CLI imprimen su resultado por consola, y
+    // definen dobles `async` sin `await` porque imitan APIs asíncronas reales.
+    files: ["tests/**/*.{js,mjs}", "tools/**/*.{js,mjs}"],
+    rules: {
+      "no-console": "off",
+      "require-await": "off"
+    }
+  },
+  {
+    // Los tests evalúan fragmentos del código fuente con `new Function`/`eval`
+    // a propósito (cargan un módulo y extraen una función concreta).
+    files: ["tests/**/*.mjs"],
+    rules: {
+      "no-new-func": "off",
+      "no-eval": "off"
     }
   }
 ]

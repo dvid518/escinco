@@ -107,7 +107,7 @@ class Sesion {
         this.usuario = usuario
         try {
             sessionStorage.setItem('escinco_usuario', JSON.stringify(usuario))
-        } catch (e) {
+        } catch {
             // Ignorar errores de storage
         }
     }
@@ -119,7 +119,7 @@ class Sesion {
                 if (saved) {
                     this.usuario = JSON.parse(saved)
                 }
-            } catch (e) {
+            } catch {
                 // Ignorar errores de storage
             }
         }
@@ -198,7 +198,7 @@ class Sesion {
         }
         try {
             sessionStorage.setItem('escinco_preferencias', JSON.stringify(this.preferencias))
-        } catch (e) {}
+        } catch {}
     }
 
     getPreferencias() {
@@ -209,7 +209,7 @@ class Sesion {
                 // los cambios) y no debe pisar los defaults que faltan.
                 this.preferencias = fusionarProfundo(this.preferencias, JSON.parse(saved))
             }
-        } catch (e) {}
+        } catch {}
         return this.preferencias
     }
 
@@ -220,7 +220,7 @@ class Sesion {
                 this.preferencias = fusionarProfundo(this.preferencias, JSON.parse(saved))
                 return true
             }
-        } catch (e) {
+        } catch {
             // Ignorar errores de storage
         }
         return false
@@ -307,7 +307,7 @@ class Sesion {
         try {
             sessionStorage.removeItem('escinco_usuario')
             sessionStorage.removeItem('escinco_preferencias')
-        } catch (e) {
+        } catch {
             // Ignorar errores de storage
         }
     }

@@ -110,7 +110,7 @@ export async function registrarConGoogle() {
 // Mismo flujo que registrarConGoogle: al aceptar el popup, si la cuenta
 // no existe se crea. Se expone con nombre de login para la página index.
 
-export async function loginConGoogle() {
+export function loginConGoogle() {
     return registrarConGoogle()
 }
 
@@ -198,7 +198,7 @@ export async function aplicarCodigoDeAccion(oobCode) {
 export function marcarSesionGuardada() {
     try {
         localStorage.setItem("escinco_sesion_registrada", "1")
-    } catch (e) {
+    } catch {
         // Sin storage la landing se mostrará siempre: es un mal menor.
     }
 }
@@ -260,10 +260,10 @@ async function asegurarDocUsuario(user, esNuevo, nombrePersonalizado) {
             fechaRegistro: serverTimestamp(),
             preferencias: {}
         })
-        console.log("[INFO] Doc de usuario creado en Firestore")
+        console.info("[INFO] Doc de usuario creado en Firestore")
     } else if (esNuevo && nombrePersonalizado) {
         await updateDoc(referencia, { nombre: nombrePersonalizado })
-        console.log("[INFO] Doc ya existía, nombre actualizado (caso raro)")
+        console.info("[INFO] Doc ya existía, nombre actualizado (caso raro)")
     }
 }
 
@@ -381,7 +381,7 @@ export async function aplicarPersistenciaSesion(cerrarAlCerrarPestana = true) {
 export function marcarReautenticacion() {
     try {
         sessionStorage.setItem(CLAVE_REAUTH, String(Date.now()))
-    } catch (e) {
+    } catch {
         // Ignorar errores de storage
     }
 }
@@ -395,7 +395,7 @@ function ultimaAutenticacion() {
     let desdeReauth = 0
     try {
         desdeReauth = Number(sessionStorage.getItem(CLAVE_REAUTH)) || 0
-    } catch (e) {
+    } catch {
         // Ignorar errores de storage
     }
 

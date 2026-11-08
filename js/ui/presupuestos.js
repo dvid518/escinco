@@ -72,9 +72,8 @@ async function montarSelectorPresupuesto(form, etiquetasSeleccionadas = []) {
     if (!contenedor) return
 
     const uid = sesion.uid
-    let catalogo = []
     try {
-        catalogo = await obtenerEtiquetas(uid)
+        await obtenerEtiquetas(uid)
     } catch (error) {
         console.warn("[WARN] No se pudo cargar el catálogo de etiquetas:", error?.code || error)
     }

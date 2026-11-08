@@ -62,16 +62,6 @@ function fusionReal(prefs, sesion) {
     return vm.runInContext(`(${m[1]})`, ctx)
 }
 
-/** Ejecuta la `leerTogglePagina` real contra un `document` de mentira. */
-function fnLeerTogglePagina() {
-    const m = codigo.match(/function leerTogglePagina\(id\) \{[\s\S]*?\n\}/)
-    if (!m) throw new Error("no se encontro `leerTogglePagina` en configuracion.js")
-    const ctx = { document: {}, sesion: { getPaginasVisibles: () => {} }, console: { warn() {} } }
-    vm.createContext(ctx)
-    vm.runInContext(m[0], ctx)
-    return ctx.leerTogglePagina
-}
-
 /** Ejecuta `leerTogglePagina` REAL contra un mapa de casillas. */
 function fnLeerToggle(controles, paginasSesion) {
     const ctx = {
@@ -101,18 +91,18 @@ function pintarReal(grupoFirestore, paginasSesion) {
 
 /** Lo que `construirPreferencias` leería de esas casillas. */
 function leerPaginas(casillas, paginasSesion) {
-    const leer = fnLeerToggle(casillas, paginasSesion)
+    const leerToggle = fnLeerToggle(casillas, paginasSesion)
     return {
-        dashboard: leer("toggle-dashboard"),
+        dashboard: leerToggle("toggle-dashboard"),
         cuentas: true,
-        movimientos: leer("toggle-movimientos"),
-        inversiones: leer("toggle-inversiones"),
-        trading: leer("toggle-trading"),
+        movimientos: leerToggle("toggle-movimientos"),
+        inversiones: leerToggle("toggle-inversiones"),
+        trading: leerToggle("toggle-trading"),
         configuracion: true
     }
 }
 
-const diffDe = (paginas, sesionBase) =>
+const diffDe = (paginas, _sesionBase) =>
     diferenciasContraDefaults({ ...fusionarProfundo({}, DEFAULTS), paginas })
 
 export default function ejecutar(t) {
@@ -177,7 +167,7 @@ export default function ejecutar(t) {
 
     console.log("\nE) Ida y vuelta: vuelve a desmarcarlas y guarda")
     const apagadas = Object.fromEntries(
-        Object.entries(marcadas).map(([k, v]) => [k, { checked: false }])
+        Object.entries(marcadas).map(([k]) => [k, { checked: false }])
     )
     const diffOff = diffDe(leerPaginas(apagadas, sesionBase), sesionBase)
     t.check("unset incluye paginas.inversiones (se BORRA, no se escribe false)",

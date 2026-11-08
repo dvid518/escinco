@@ -33,13 +33,13 @@ export async function crearPosicion(uid, datos) {
     return resultado.id
 }
 
-export async function obtenerPosiciones(uid) {
+export function obtenerPosiciones(uid) {
     return cacheCapa.obtener(uid, "posiciones", async () => {
         const referencia = collection(db, "usuarios", uid, "posiciones")
         const resultado = await getDocs(referencia)
         
-        const posiciones = await Promise.all(resultado.docs.map(async doc => {
-            const pos = Posicion.fromFirestore(doc.id, doc.data())
+        const posiciones = await Promise.all(resultado.docs.map(async documento => {
+            const pos = Posicion.fromFirestore(documento.id, documento.data())
             try {
                 const activo = await obtenerActivo(uid, pos.activoId)
                 pos.activo = activo
@@ -66,7 +66,7 @@ export async function obtenerPosicion(uid, posicionId) {
     try {
         const activo = await obtenerActivo(uid, pos.activoId)
         pos.activo = activo
-    } catch (error) {
+    } catch {
         console.warn(`Activo no encontrado para posición ${pos.id}`)
     }
     
@@ -82,13 +82,13 @@ export async function obtenerPosicionPorActivo(uid, activoId) {
         return null
     }
     
-    const doc = resultado.docs[0]
-    const pos = Posicion.fromFirestore(doc.id, doc.data())
+    const documento = resultado.docs[0]
+    const pos = Posicion.fromFirestore(documento.id, documento.data())
     
     try {
         const activo = await obtenerActivo(uid, pos.activoId)
         pos.activo = activo
-    } catch (error) {
+    } catch {
         console.warn(`Activo no encontrado para posición ${pos.id}`)
     }
     
@@ -123,7 +123,7 @@ export async function crearOActualizarPosicion(uid, activoId, cantidad, precio, 
         const cantidadActual = posicionExistente.cantidad
         const precioPromedioActual = posicionExistente.precioPromedio
         
-        let nuevaCantidad = cantidadActual + cantidad
+        const nuevaCantidad = cantidadActual + cantidad
         let nuevoPrecioPromedio = precioPromedioActual
         
         if (cantidad > 0) {

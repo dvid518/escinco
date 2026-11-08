@@ -309,11 +309,11 @@ export const cacheCapa = {
             cacheCapa: this.estadisticas()
         }
 
-        console.log("[caché] Resumen de estadísticas:")
-        console.log(`  solicitadas: ${reporte.cacheCapa.solicitadas}`)
-        console.log(`  red:         ${reporte.cacheCapa.red}`)
-        console.log(`  ahorro:      ${reporte.cacheCapa.ahorroPorcentual}%`)
-        console.table(reporte.cacheCapa.porClave)
+        console.info("[caché] Resumen de estadísticas:")
+        console.info(`  solicitadas: ${reporte.cacheCapa.solicitadas}`)
+        console.info(`  red:         ${reporte.cacheCapa.red}`)
+        console.info(`  ahorro:      ${reporte.cacheCapa.ahorroPorcentual}%`)
+        console.info(reporte.cacheCapa.porClave)
 
         if (typeof document !== "undefined" && document.createElement) {
             const blob = new Blob(

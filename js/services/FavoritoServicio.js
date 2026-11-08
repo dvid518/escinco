@@ -5,7 +5,7 @@ import { registrarMovimiento, notificarMovimientosActualizados } from "./Movimie
 // (SyntaxError) y con ella la página de movimientos.
 import { db, obtenerMovimientos, actualizarMovimientoDoc, doc, writeBatch, deleteField } from "../../firebase/firestore.js"
 import { cacheCapa } from "../core/cache.js"
-import { obtenerFavorito, eliminarFavorito, crearFavorito, actualizarFavorito } from "../repositories/FavoritoRepositorio.js"
+import { obtenerFavorito, crearFavorito, actualizarFavorito } from "../repositories/FavoritoRepositorio.js"
 import { getFechaHoy } from "../core/fechas.js"
 
 // Tipos de movimiento que admiten ser guardados como favorito: una sola cuenta
@@ -111,7 +111,7 @@ export async function ejecutarFavorito(uid, favorito, deps = {}) {
  * Parámetros opcionales (para tests):
  *   deps.registrarMovimiento
  */
-export async function guardarInstanciaVinculada(uid, favoritoId, datos, deps = {}) {
+export function guardarInstanciaVinculada(uid, favoritoId, datos, deps = {}) {
     if (!esTipoFavoritable(datos.tipo)) {
         throw new Error(`El tipo "${datos.tipo}" no puede guardarse como favorito`)
     }
@@ -200,7 +200,7 @@ export async function eliminarFavoritoConDesvinculacion(uid, favoritoId, deps = 
     cacheCapaFn.parchear(uid, "movimientos", lista =>
         lista.map(m => {
             if (m.favoritoId !== favoritoId) return m
-            const { favoritoId: _, ...resto } = m
+            const { favoritoId: _id, ...resto } = m
             return resto
         })
     )

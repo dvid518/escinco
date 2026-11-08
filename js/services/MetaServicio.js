@@ -2,6 +2,7 @@ import { actualizarMeta } from "../repositories/MetaRepositorio.js"
 import { registrarMovimiento } from "./MovimientoServicio.js"
 import { obtenerCuenta } from "../../firebase/firestore.js"
 import { presentarDivisa } from "../services/DivisaServicio.js"
+import { TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 
 // ============================================
 // META SERVICIO

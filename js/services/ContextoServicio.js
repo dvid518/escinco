@@ -38,7 +38,7 @@ let enCurso = null
  * @param {string} uid
  * @returns {Promise<string>}
  */
-export async function obtenerContextoAsistente(uid) {
+export function obtenerContextoAsistente(uid) {
     if (!uid) return ""
 
     const ahora = Date.now()

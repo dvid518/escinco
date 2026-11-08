@@ -21,7 +21,7 @@ export async function obtenerOCrearActivo(uid, datos) {
     if (!datos?.simbolo) throw new Error("símbolo requerido")
 
     // 1. Buscar por símbolo
-    let activo = await buscarActivoPorSimbolo(uid, datos.simbolo)
+    const activo = await buscarActivoPorSimbolo(uid, datos.simbolo)
 
     if (activo) {
         // 2. Si existe y el precio cambió, actualizarlo

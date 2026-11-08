@@ -8,7 +8,6 @@ import {
 import { buscarActivoPorSimbolo } from "../repositories/ActivoRepositorio.js"
 import { obtenerPrecioHistorialDeHoy } from "./HistorialServicio.js"
 import { registrarTrade } from "./TradingServicio.js"
-import { ESTADOS_ORDEN } from "../models/Orden.js"
 
 // ============================================
 // ORDEN SERVICIO

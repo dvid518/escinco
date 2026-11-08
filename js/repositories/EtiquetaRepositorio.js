@@ -18,7 +18,7 @@ import { cacheCapa } from "../core/cache.js"
 // NOMBRE (no por id), así que este catálogo solo aporta orden, color y el
 // set principal sembrado al crear la cuenta del usuario.
 
-export async function obtenerEtiquetas(uid) {
+export function obtenerEtiquetas(uid) {
     return cacheCapa.obtener(uid, "etiquetas:todos", async () => {
         const referencia = collection(db, "usuarios", uid, "etiquetas")
         const resultado = await getDocs(referencia)

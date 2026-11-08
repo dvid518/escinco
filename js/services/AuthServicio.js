@@ -52,13 +52,9 @@ export async function vincularCredencialFacebook(usuario) {
     if (!credencialJson) return false
 
     const credencial = JSON.parse(credencialJson)
-    try {
-        await linkWithCredential(usuario, credencial)
-        sessionStorage.removeItem(CLAVE_CREDENCIAL_PENDIENTE)
-        return true
-    } catch (error) {
-        throw error
-    }
+    await linkWithCredential(usuario, credencial)
+    sessionStorage.removeItem(CLAVE_CREDENCIAL_PENDIENTE)
+    return true
 }
 
 /**

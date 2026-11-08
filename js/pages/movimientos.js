@@ -18,7 +18,7 @@ import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable,
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { crearSeleccion, alternarSeleccion, seleccionarRango, seleccionarTodos, limpiarSeleccion as limpiarSeleccionHelper, expandirSeleccion } from "../ui/seleccion.js"
+import { alternarSeleccion, seleccionarRango, seleccionarTodos, limpiarSeleccion as limpiarSeleccionHelper } from "../ui/seleccion.js"
 import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
@@ -27,7 +27,7 @@ import { descargarArchivoSeguro } from "../core/descarga.js"
 import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import { normalizarEtiquetas } from "../core/etiquetas.js"
 import { obtenerEtiquetas } from "../repositories/EtiquetaRepositorio.js"
-import { obtenerFavorito, obtenerFavoritos, crearFavorito } from "../repositories/FavoritoRepositorio.js"
+import { obtenerFavoritos, crearFavorito } from "../repositories/FavoritoRepositorio.js"
 import { montarSelectorEtiquetas } from "../ui/etiquetas.js"
 
 asegurarEstilos("movimientos")
@@ -37,7 +37,7 @@ let cuentas = []
 let uid = null
 let filtroActual = "todos"
 const seleccionados = new Set()
-let seleccionadosFavoritos = new Set()
+const seleccionadosFavoritos = new Set()
 // Caché de favoritos para resolver un id sin volver a Firestore, y los dos
 // temporizadores de los gestos (click sostenido y doble click) sobre el
 // contenedor de favoritos. Sin declarar, asignarles en un módulo (modo
@@ -252,7 +252,7 @@ async function editarPlantillaFavoritoDesdeItem(favoritoId) {
     inputConcepto.value = favorito.concepto || ""
     inputEtiquetas.value = (favorito.etiquetas || []).join(", ")
 
-    const modalEl = abrirModal({
+    abrirModal({
         titulo: `Editar favorito: ${favorito.nombre}`,
         contenido,
         variante: "form",
@@ -311,39 +311,11 @@ async function ejecutarFavoritoDesdeItem(favoritoId) {
     await ejecutarFavorito(uid, favorito)
 }
 
-/**
- * Ejecuta (repite) un movimiento: si tiene favoritoId, ejecuta ese favorito;
- * si no, crea una nueva instancia con los mismos datos y fecha de hoy.
- */
-async function ejecutarFavoritoDesdeMovimiento(m) {
-    if (m.favoritoId) {
-        const favorito = favoritosCache.find(f => f.id === m.favoritoId)
-        if (favorito) {
-            await ejecutarFavorito(uid, favorito)
-            return
-        }
-    }
-    // No es favorito: crear una nueva instancia con los mismos datos
-    if (!esTipoFavoritable(m.tipo)) {
-        mostrarNotificacion("error", `El tipo "${m.tipo}" no se puede ejecutar`)
-        return
-    }
-    await registrarMovimiento(uid, m.tipo, {
-        tipo: m.tipo,
-        cuenta: m.cuenta || '',
-        monto: m.monto,
-        divisa: m.divisa || 'pen',
-        concepto: m.concepto || '',
-        etiquetas: m.etiquetas || [],
-        fechaRealizacion: getFechaHoy()
-    })
-}
-
-async function renderFavoritos(uid) {
+async function renderFavoritos(uidUsuario) {
     const contenedor = document.getElementById("favoritos-movimientos")
     if (!contenedor) return
 
-    const favoritos = await obtenerFavoritos(uid)
+    const favoritos = await obtenerFavoritos(uidUsuario)
     favoritosCache = favoritos
 
     // Si ya no queda ningún favorito, la selección tampoco puede seguir viva:
@@ -448,7 +420,7 @@ async function renderFavoritos(uid) {
 
 export async function init() {
     uid = sesion.uid
-    console.log("[INFO] Movimientos iniciado para UID:", uid)
+    console.info("[INFO] Movimientos iniciado para UID:", uid)
 
     await new Promise(resolve => setTimeout(resolve, 50))
     await cargarCuentas()
@@ -735,27 +707,6 @@ function marcarSupresorClick() {
 
 function consumirSupresorClick() {
     return supresorClick.consumir()
-}
-
-// Preferencia "un click para seleccionar" (Configuración → Accesibilidad).
-function modoUnClickSeleccion() {
-    return sesion.getPreferencias()?.accesibilidad?.unClickSeleccion === true
-}
-
-// Modo "un click para seleccionar": un click (sin modificador) reemplaza la
-// selección con ese movimiento; Shift + click añade o quita de la selección.
-function seleccionarPorUnClick(id, conShift) {
-    if (conShift) {
-        alternarSeleccion(sel, id)
-        actualizarSeleccionEnDOM()
-        actualizarEstadoLastbar()
-        return
-    }
-    if (seleccionados.size === 1 && seleccionados.has(id)) return
-    limpiarSeleccionHelper(sel)
-    alternarSeleccion(sel, id)
-    actualizarSeleccionEnDOM()
-    actualizarEstadoLastbar()
 }
 
 async function alternarFavoritoMovimiento(m) {
@@ -1091,10 +1042,10 @@ function aplicarFiltro() {
 function renderizarTotales(filtrados, cuentaId = null) {
     const contenedor = document.getElementById("totales-movimientos")
     if (!contenedor) return
-    void pintarTotales(contenedor, filtrados, cuentaId)
+    pintarTotales(contenedor, filtrados, cuentaId)
 }
 
-async function pintarTotales(contenedor, filtrados, cuentaId = null) {
+function pintarTotales(contenedor, filtrados, cuentaId = null) {
 
     const porDivisa = {}
 
@@ -1344,6 +1295,9 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
 
     const config = CONFIG_MOVIMIENTOS[tipo]
 
+    // El modal se crea después de definir los callbacks que lo usan.
+    let modalEl = null
+
     // Just-in-time: asegurar que los selects de cuenta tengan opciones
     const asegurarCuentasEnFormulario = async () => {
         const selectsCuenta = [
@@ -1356,10 +1310,10 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
 
         const necesitaCargar = (select) => {
             if (!select) return false
-            const opciones = Array.from(select.options || [])
-            if (opciones.length === 0) return true
+            const opcionesSelect = Array.from(select.options || [])
+            if (opcionesSelect.length === 0) return true
             // Si solo tiene una opción vacía/sin valor o placeholder
-            const reales = opciones.filter(o => o.value && o.value !== "")
+            const reales = opcionesSelect.filter(o => o.value && o.value !== "")
             return reales.length === 0
         }
 
@@ -1395,8 +1349,8 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         }
 
         try {
-            const cuentas = await obtenerCuentas(uidForm)
-            let cuentasActivas = Array.isArray(cuentas) ? cuentas.slice() : []
+            const cuentasUsuario = await obtenerCuentas(uidForm)
+            let cuentasActivas = Array.isArray(cuentasUsuario) ? cuentasUsuario.slice() : []
             if (typeof cuentasOperables === 'function') {
                 cuentasActivas = cuentasOperables(cuentasActivas)
             }
@@ -1451,8 +1405,8 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
             })
             poblarSelect(selectTarjeta, "soloCredito")
 
-            const hayCuentasDisponibles = Array.from(document.querySelectorAll('#form-movimiento select')).some(sel => {
-                const opts = Array.from(sel.options || []).filter(o => o.value && o.value !== "")
+            const hayCuentasDisponibles = Array.from(document.querySelectorAll('#form-movimiento select')).some(select => {
+                const opts = Array.from(select.options || []).filter(o => o.value && o.value !== "")
                 return opts.length > 0
             })
 
@@ -1471,7 +1425,7 @@ export async function abrirFormularioMovimiento(tipo, movimiento = null, opcione
         }
     }
 
-    const modalEl = abrirModal({
+    modalEl = abrirModal({
         titulo: opciones.titulo || (esEdicion
             ? `Editar ${config?.nombre || tipo}`
             : `Nuevo ${config?.nombre || tipo}`),
@@ -2069,7 +2023,7 @@ export async function eliminarSeleccionadosFavoritos() {
 // `eliminarSeleccionados`; ejecutar y cancelar quedan en el contenedor lateral
 // (doble click y click fuera).
 
-async function abrirModalEliminarVariosFavoritos(lista) {
+function abrirModalEliminarVariosFavoritos(lista) {
     const hayVarios = lista.length > 1
     const modalEl = abrirModal({
         titulo: hayVarios ? "Eliminar favoritos" : "Eliminar favorito",
@@ -2193,13 +2147,6 @@ function escaparCSV(valor) {
         return `"${texto.replaceAll('"', '""')}"`
     }
     return texto
-}
-
-// Un movimiento es de aporte a meta si guarda el vínculo explícito (metaId)
-// o si su concepto coincide con el generado por los aportes automáticos.
-function esMovimientoDeMeta(m) {
-    if (!!m?.metaId) return true
-    return /^aporte a meta:/i.test(String(m?.concepto || "").trim())
 }
 
 // Mantiene sincronizados los favoritos mostrados cuando cualquier cambio

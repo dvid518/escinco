@@ -13,14 +13,6 @@ import { contenidoDesdeTemplate, contenidoDesdeFilas } from "../ui/modal.js"
 const ES_MAC = /Mac|iPod|iPhone|iPad/.test(navigator.platform)
 
 /**
- * Devuelve el nombre del modificador principal según la plataforma:
- * "⌘" en Mac, "Alt" en Windows/Linux.
- */
-function teclaModificador() {
-    return ES_MAC ? "⌘" : "Alt"
-}
-
-/**
  * Formatea una secuencia de teclas para mostrarla en la UI.
  * En Mac reemplaza "Alt+" por "⌘+".
  */
@@ -55,7 +47,12 @@ const ICONO_POR_TIPO = {
  * y activos; se navega con ↑↓ / Enter / clic.
  */
 export async function abrirBuscadorGlobal() {
-    const { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate } = await import("../ui/modal.js")
+    const { abrirModal, cerrarModal, estaAbierto } = await import("../ui/modal.js")
+
+    // Las funciones internas usan el modal y su contenedor antes de que se
+    // creen (se invocan después de abrirlo), así que viven en el ámbito.
+    let modalEl = null
+    let resultadosContainer = null
 
     // Toggle: si el buscador ya está abierto, cerrarlo.
     if (estaAbierto?.() && document.querySelector(".buscador-global")) {
@@ -183,7 +180,7 @@ export async function abrirBuscadorGlobal() {
         renderResultados()
     }
 
-    const modalEl = abrirModal({
+    modalEl = abrirModal({
         titulo: "Buscar",
         contenido: contenidoDesdeTemplate("tpl-buscador-global", {
             html: { icono: icono("eye", 20) }
@@ -194,7 +191,7 @@ export async function abrirBuscadorGlobal() {
     })
 
     const input = modalEl.querySelector("#buscador-input")
-    const resultadosContainer = modalEl.querySelector(".buscador-resultados")
+    resultadosContainer = modalEl.querySelector(".buscador-resultados")
 
     input.addEventListener("input", () => buscar(input.value.trim().toLowerCase()))
 
@@ -269,7 +266,7 @@ const ATAJOS_AYUDA = [
  * interruptor: si ya está abierto, lo cierra.
  */
 export async function abrirModalAtajos() {
-    const { abrirModal, cerrarModal, estaAbierto, contenidoDesdeTemplate, contenidoDesdeFilas } = await import("../ui/modal.js")
+    const { abrirModal, cerrarModal, estaAbierto } = await import("../ui/modal.js")
 
     if (estaAbierto?.() && document.querySelector(".atajos-modal")) {
         cerrarModal()

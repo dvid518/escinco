@@ -10,7 +10,7 @@ class ClassList {
     add(c) { this.set.add(c) }
     contains(c) { return this.set.has(c) }
     remove(c) { this.set.delete(c) }
-    toggle(c, force) { force ? this.set.add(c) : this.set.delete(c) }
+    toggle(c, force) { if (force) this.set.add(c); else this.set.delete(c) }
     values() { return [...this.set] }
 }
 
@@ -28,7 +28,7 @@ function opcion(divisa, activa = false) {
     }
 }
 
-function raizCon(opts, bloqueadas = []) {
+function raizCon(opts) {
     const saldos = {}
     const raiz = {
         opts,

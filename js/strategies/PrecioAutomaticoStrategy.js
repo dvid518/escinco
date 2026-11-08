@@ -161,7 +161,7 @@ export const PrecioAutomaticoStrategy = {
     /**
      * Precio actual del activo (scope intradía / último cierre).
      */
-    async obtenerPrecio(activo) {
+    obtenerPrecio(activo) {
         const simbolo = simboloResuelto(activo)
 
         if (esCripto(activo)) {
@@ -176,7 +176,7 @@ export const PrecioAutomaticoStrategy = {
      * antiguo al más reciente. Lanza error si la API falla; la capa de
      * servicio degrada al historial local y al modo manual.
      */
-    async obtenerPreciosDiarios(activo, dias = 7) {
+    obtenerPreciosDiarios(activo, dias = 7) {
         const simbolo = simboloResuelto(activo)
 
         if (esCripto(activo)) {

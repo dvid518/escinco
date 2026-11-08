@@ -392,7 +392,7 @@ async function servirArchivo(req, res, archivo, { estado = 200, reescribirEnlace
     res.end(req.method === "HEAD" ? undefined : contenido)
 }
 
-function crearServidor({ nombre, puerto, config, reescribirEnlaces }) {
+function crearServidor({ nombre, config, reescribirEnlaces }) {
     const csp = cspDe(config)
 
     return createServer(async (req, res) => {

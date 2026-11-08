@@ -142,7 +142,7 @@ export default async function ejecutar(t = nuevoReporter("bug029")) {
         let lanzo = false
         try {
             bloquearFormulario(true)
-        } catch (e) { lanzo = true }
+        } catch { lanzo = true }
 
         t.check("bloquearFormulario(true) no lanza ReferenceError", lanzo === false)
     }
@@ -161,7 +161,7 @@ export default async function ejecutar(t = nuevoReporter("bug029")) {
         let lanzo = false
         try {
             renderizarAccionesDetalle(modalStub, true)
-        } catch (e) { lanzo = true }
+        } catch { lanzo = true }
 
         t.check("renderizarAccionesDetalle(modalEl, true) no lanza ReferenceError", lanzo === false)
     }

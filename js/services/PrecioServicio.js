@@ -72,7 +72,7 @@ export async function actualizarPrecioAutomatico(uid, activo) {
  * Serie diaria [{fecha, precio}] de la API para un activo automático.
  * En activos manuales devuelve [].
  */
-export async function obtenerPreciosDiarios(activo, dias = 7) {
+export function obtenerPreciosDiarios(activo, dias = 7) {
     const estrategia = obtenerEstrategiaPrecio(activo)
 
     if (estrategia === ManualPrecioStrategy) {

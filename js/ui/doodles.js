@@ -48,7 +48,7 @@ function manejarTouches(evento) {
 
     if (dedosActivos.size >= 5) {
         cincoDedosListos = true
-        console.log("[DOODLE] 5 dedos detectados", { dedosActivos: dedosActivos.size })
+        console.info("[DOODLE] 5 dedos detectados", { dedosActivos: dedosActivos.size })
     }
 
     if (cincoDedosListos && dedosActivos.size === 0) {

@@ -162,8 +162,6 @@ function initFaq() {
 // No se reutiliza ciclarTema() porque su firma pide el uid para escribir en
 // Firestore, y aquí no hay ninguno.
 
-const MODOS_TEMA = ["dark", "light"]
-
 const NOMBRES_TEMA = {
     dark: "Modo oscuro",
     light: "Modo claro"
@@ -186,7 +184,7 @@ function initBotonTema() {
         const siguiente = actual === "light" ? "dark" : "light"
         try {
             localStorage.setItem("escinco_tema", siguiente)
-        } catch (e) {
+        } catch {
             // Sin storage el cambio dura lo que la página
         }
         cambiarTemaLocal(siguiente)

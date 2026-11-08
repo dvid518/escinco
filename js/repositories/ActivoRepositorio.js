@@ -5,7 +5,6 @@ import {
     getDocs,
     addDoc,
     updateDoc,
-    deleteDoc,
     query,
     where,
     orderBy,
@@ -47,7 +46,7 @@ export async function crearActivo(uid, datos) {
 // LEER
 // --------------------------------------------
 
-export async function obtenerActivos(uid) {
+export function obtenerActivos(uid) {
     return cacheCapa.obtener(uid, "activos", async () => {
         const referencia = refActivos(uid)
         const q = query(referencia, orderBy("nombre", "asc"))

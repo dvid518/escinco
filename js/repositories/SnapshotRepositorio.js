@@ -1,6 +1,6 @@
 import {
     collection,
-    doc,
+    doc as docRef,
     getDoc,
     getDocs,
     setDoc,
@@ -55,7 +55,7 @@ export async function guardarSnapshotDelDia(uid, datos) {
         "deudasPEN", "deudasUSD"
     ]
     const fecha = getFechaHoy()
-    const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
+    const referencia = docRef(db, "usuarios", uid, "snapshots", fecha)
     
     const existente = await getDoc(referencia)
     
@@ -86,7 +86,7 @@ export async function guardarSnapshotDelDia(uid, datos) {
 
 export async function cerrarSnapshotDelDia(uid) {
     const fecha = getFechaHoy()
-    const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
+    const referencia = docRef(db, "usuarios", uid, "snapshots", fecha)
     await setDoc(referencia, { cerrado: true }, { merge: true })
     cacheCapa.invalidarPrefijo(uid, "snapshots")
 }
@@ -95,7 +95,7 @@ export async function cerrarSnapshotDelDia(uid) {
 // OBTENER SNAPSHOTS (últimos N días)
 // ============================================
 
-export async function obtenerSnapshots(uid, dias = 30) {
+export function obtenerSnapshots(uid, dias = 30) {
     return cacheCapa.obtener(uid, `snapshots:periodo:${dias}`, async () => {
         const referencia = collection(db, "usuarios", uid, "snapshots")
         try {
@@ -125,10 +125,10 @@ export async function obtenerSnapshots(uid, dias = 30) {
 // OBTENER SNAPSHOT DE HOY
 // ============================================
 
-export async function obtenerSnapshotHoy(uid) {
+export function obtenerSnapshotHoy(uid) {
     return cacheCapa.obtener(uid, "snapshots:hoy", async () => {
         const fecha = getFechaHoy()
-        const referencia = doc(db, "usuarios", uid, "snapshots", fecha)
+        const referencia = docRef(db, "usuarios", uid, "snapshots", fecha)
         const resultado = await getDoc(referencia)
 
         if (!resultado.exists()) {

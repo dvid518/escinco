@@ -22,7 +22,7 @@ import {
 // LEER
 // --------------------------------------------
 
-export async function obtenerHistorialPrecios(uid, activoId, dias = 7) {
+export function obtenerHistorialPrecios(uid, activoId, dias = 7) {
     return obtenerHistorial(uid, activoId, dias)
 }
 

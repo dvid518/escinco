@@ -27,33 +27,11 @@ async function cargarMetas() {
     }
 }
 
-function diasHasta(fecha) {
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
-    const objetivo = new Date(fecha)
-    objetivo.setHours(0, 0, 0, 0)
-    const diff = objetivo - hoy
-    return Math.ceil(diff / (1000 * 60 * 60 * 24))
-}
-
-function textoDias(dias) {
-    if (dias < 0) return "vencido"
-    if (dias === 0) return "hoy"
-    if (dias === 1) return "mañana"
-    return `en ${dias} días`
-}
-
 function formatearFecha(fecha) {
     if (!fecha) return "—"
     const d = new Date(fecha)
     if (isNaN(d.getTime())) return "—"
     return d.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit", year: "numeric" })
-}
-
-function textoFechaLimite(fecha) {
-    if (!fecha) return "sin fecha límite"
-    const dias = diasHasta(fecha)
-    return `límite ${formatearFecha(fecha)} (${textoDias(dias)})`
 }
 
 // Avisa a la página (dashboard) para que refresque su sección de metas.
@@ -138,6 +116,8 @@ export async function mostrarMetas() {
         const seleccionadas = new Set()
         const ordenSeleccion = []
         const supresorClick = crearSupresorDobleClick()
+        // Las funciones de abajo usan el modal antes de que se cree.
+        let modalEl = null
 
         const modoUnClick = () => sesion.getPreferencias()?.accesibilidad?.unClickSeleccion === true
 
@@ -174,7 +154,7 @@ export async function mostrarMetas() {
             }
         })
 
-        const modalEl = abrirModal({
+        modalEl = abrirModal({
             titulo: 'Metas',
             contenido: html,
             confirmText: 'Cerrar',

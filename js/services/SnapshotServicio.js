@@ -1,7 +1,6 @@
 import {
     guardarSnapshotDelDia,
-    obtenerSnapshots,
-    obtenerSnapshotHoy
+    obtenerSnapshots
 } from "../repositories/SnapshotRepositorio.js"
 import { convertirMonto } from "./DivisaServicio.js"
 import { obtenerCuentas } from "../../firebase/firestore.js"
@@ -189,7 +188,7 @@ export async function registrarSnapshot(uid) {
             // `patrimonioUSD`.
         })
 
-        console.log("[INFO] Snapshot registrado:", patrimonio)
+        console.info("[INFO] Snapshot registrado:", patrimonio)
         return patrimonio
     } catch (error) {
         console.error("Error registrando snapshot:", error?.code, error?.message, error?.customData || "")

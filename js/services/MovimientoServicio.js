@@ -4,7 +4,6 @@ import {
     obtenerCuenta,
     obtenerCuentas,
     actualizarCuenta,
-    obtenerMovimientos,
     actualizarMovimientoDoc,
     eliminarMovimientoDoc,
     restaurarDocumento,
@@ -83,7 +82,7 @@ export async function registrarMovimiento(uid, tipo, datos) {
     if (esMovimientoDeActivo(tipoFinal)) {
         try {
             await aplicarPosicion(uid, tipoFinal, datos)
-            console.log(`[INFO] Posición actualizada para activo: ${datos.activo}`)
+            console.info(`[INFO] Posición actualizada para activo: ${datos.activo}`)
         } catch (error) {
             console.error("[ERROR] Error actualizando posición:", error)
             throw new Error(
@@ -740,7 +739,7 @@ async function actualizarSaldoCuenta(uid, cuentaId, monto, operacion) {
         }
 
         await actualizarCuenta(uid, cuentaId, { saldoInicial: nuevoSaldo })
-        console.log(`[INFO] Cuenta ${cuenta.nombre}: ${saldoActual} → ${nuevoSaldo}`)
+        console.info(`[INFO] Cuenta ${cuenta.nombre}: ${saldoActual} → ${nuevoSaldo}`)
     } catch (error) {
         console.error("Error actualizando saldo:", error)
         throw error
@@ -784,20 +783,11 @@ async function actualizarDeudaTarjeta(uid, tarjetaId, monto, operacion) {
         }
 
         await actualizarCuenta(uid, tarjetaId, { deuda: nuevaDeuda })
-        console.log(`[INFO] Tarjeta ${tarjeta.nombre}: deuda ${deudaActual} → ${nuevaDeuda}`)
+        console.info(`[INFO] Tarjeta ${tarjeta.nombre}: deuda ${deudaActual} → ${nuevaDeuda}`)
     } catch (error) {
         console.error("Error actualizando deuda:", error)
         throw error
     }
-}
-
-// ============================================
-// Normaliza un valor de fecha que puede ser Timestamp, Date o string ISO
-function normalizarFecha(valor) {
-    if (!valor) return new Date(0)
-    if (valor?.toDate) return valor.toDate()
-    if (valor instanceof Date) return valor
-    return new Date(valor)
 }
 
 // ============================================
@@ -825,13 +815,4 @@ export async function aplicarEtiquetasEnLote(uid, cambios) {
             return cambio ? { ...m, etiquetas: cambio.etiquetas } : m
         })
     )
-}
-
-// Parsea "YYYY-MM-DD" como fecha LOCAL (no UTC), para que los filtros
-// coincidan con el día mostrado en el formulario.
-function parseFechaLocal(valor) {
-    if (!valor) return null
-    const [anio, mes, dia] = String(valor).split("-").map(Number)
-    if (!anio || !mes || !dia) return new Date(valor)
-    return new Date(anio, mes - 1, dia)
 }

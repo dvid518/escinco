@@ -231,7 +231,7 @@ const SHELL_ASSETS = [
 // ============================================
 
 self.addEventListener("install", (event) => {
-    console.log("[SW] Install", BUILD_ID)
+    console.info("[SW] Install", BUILD_ID)
     event.waitUntil(precachear())
 })
 
@@ -270,7 +270,7 @@ async function precachear() {
 // ============================================
 
 self.addEventListener("activate", (event) => {
-    console.log("[SW] Activate", CACHE_SHELL)
+    console.info("[SW] Activate", CACHE_SHELL)
     event.waitUntil(limpiarYReclamar())
 })
 
@@ -280,7 +280,7 @@ async function limpiarYReclamar() {
     const sobrantes = propias.filter(clave => clave !== CACHE_SHELL && clave !== CACHE_RUNTIME)
 
     await Promise.all(sobrantes.map(clave => {
-        console.log("[SW] Eliminando caché antigua de escinco:", clave)
+        console.info("[SW] Eliminando caché antigua de escinco:", clave)
         return caches.delete(clave)
     }))
 

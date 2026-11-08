@@ -20,7 +20,7 @@ import { exportarDVID } from "./ExportarServicio.js"
  * Preserva la cuenta de efectivo-inicial ya que todo usuario debe tenerla.
  */
 export async function eliminarTodosLosDatos(uid) {
-    console.log("[INFO] Eliminando todos los datos del usuario:", uid)
+    console.info("[INFO] Eliminando todos los datos del usuario:", uid)
 
     const colecciones = [
         "cuentas",
@@ -45,20 +45,20 @@ export async function eliminarTodosLosDatos(uid) {
                 const snapshot = await getDocs(collection(db, "usuarios", uid, "cuentas"))
                 // Filtrar out la cuenta de efectivo-inicial
                 const docsToDelete = snapshot.docs.filter(
-                    doc => doc.id !== "efectivo-inicial"
+                    documento => documento.id !== "efectivo-inicial"
                 )
                 resultado[coleccionNombre] = await vaciarColeccionSeleccionada(uid, coleccionNombre, docsToDelete)
             } else {
                 resultado[coleccionNombre] = await vaciarColeccion(uid, coleccionNombre)
             }
-            console.log(`[INFO] ${coleccionNombre}: ${resultado[coleccionNombre]} eliminados`)
+            console.info(`[INFO] ${coleccionNombre}: ${resultado[coleccionNombre]} eliminados`)
         } catch (error) {
             console.error(`Error eliminando ${coleccionNombre}:`, error)
             resultado[coleccionNombre] = 0
         }
     }
 
-    console.log("[INFO] Datos eliminados:", resultado)
+    console.info("[INFO] Datos eliminados:", resultado)
 
     // Limpiar la caché en memoria del usuario
     cacheCapa.limpiar(uid)
@@ -127,7 +127,7 @@ async function vaciarSubcoleccion(uid, coleccionPadre, docId, subcoleccion) {
 // ============================================
 
 export async function eliminarDocUsuario(uid) {
-    console.log("[INFO] Eliminando documento raíz de usuario:", uid)
+    console.info("[INFO] Eliminando documento raíz de usuario:", uid)
     await deleteDoc(doc(db, "usuarios", uid))
     return true
 }
@@ -143,7 +143,7 @@ export async function eliminarDocUsuario(uid) {
 // ============================================
 
 export async function eliminarCuenta(uid) {
-    console.log("[INFO] Eliminando cuenta completa:", uid)
+    console.info("[INFO] Eliminando cuenta completa:", uid)
 
     // 1. Respaldo de seguridad
     await exportarDVID(uid)
@@ -161,13 +161,13 @@ export async function eliminarCuenta(uid) {
         localStorage.removeItem("escinco_tema")
         localStorage.removeItem("escinco_sidebar_collapsed")
         localStorage.removeItem("escinco_lastbar_mode")
-    } catch (error) {
+    } catch {
         // Ignorar errores de storage
     }
 
     // 5. Eliminar la cuenta de Firebase Auth
     await eliminarCuentaFirebase()
 
-    console.log("[INFO] Cuenta eliminada correctamente")
+    console.info("[INFO] Cuenta eliminada correctamente")
     return true
 }

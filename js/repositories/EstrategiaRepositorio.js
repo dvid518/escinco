@@ -48,7 +48,7 @@ export async function crearEstrategia(uid, datos) {
 // LEER
 // --------------------------------------------
 
-export async function obtenerEstrategias(uid) {
+export function obtenerEstrategias(uid) {
     return cacheCapa.obtener(uid, CLAVE_CACHE, async () => {
         const referencia = refEstrategias(uid)
         const q = query(referencia, orderBy("fechaCreacion", "desc"))
@@ -85,7 +85,7 @@ export async function actualizarEstrategia(uid, estrategiaId, datos) {
     return resultado
 }
 
-export async function cambiarEstadoEstrategia(uid, estrategiaId, activa) {
+export function cambiarEstadoEstrategia(uid, estrategiaId, activa) {
     return actualizarEstrategia(uid, estrategiaId, { activa })
 }
 

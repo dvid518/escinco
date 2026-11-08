@@ -11,14 +11,14 @@ export const ManualPrecioStrategy = {
     /**
      * Devuelve el último precio conocido del activo.
      */
-    async obtenerPrecio(activo) {
+    obtenerPrecio(activo) {
         return activo?.ultimoPrecio ?? null
     },
 
     /**
      * Un activo manual no tiene serie histórica externa.
      */
-    async obtenerPreciosDiarios(activo, dias = 7) {
+    obtenerPreciosDiarios(activo, _dias = 7) {
         return []
     }
 }

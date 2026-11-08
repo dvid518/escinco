@@ -1,7 +1,7 @@
 // Sintaxis ESM: cada archivo .js/.mjs del proyecto debe parsear como MODULO ES.
 // `node --check` sobre un .js no vale (lo trata como CommonJS y se traga
 // errores); se copia cada archivo a un .mjs temporal y se pasa por el parser.
-import { readFileSync, writeFileSync, rmSync, mkdirSync, readdirSync, statSync } from "node:fs"
+import { readFileSync, writeFileSync, rmSync, mkdirSync, readdirSync } from "node:fs"
 import { execFileSync } from "node:child_process"
 import { tmpdir } from "node:os"
 import { join, relative } from "node:path"

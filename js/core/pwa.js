@@ -21,12 +21,12 @@ let recargando = false
 
 export function initPWA() {
     if (!("serviceWorker" in navigator)) {
-        console.log("[PWA] Service Worker no soportado")
+        console.info("[PWA] Service Worker no soportado")
         return
     }
 
     if (esEntornoDeDesarrollo() && !swHabilitadoEnDesarrollo()) {
-        console.log("[PWA] SW no registrado en desarrollo (localhost / 127.0.0.1)")
+        console.info("[PWA] SW no registrado en desarrollo (localhost / 127.0.0.1)")
         limpiarSWEnDesarrollo()
         return
     }
@@ -61,7 +61,7 @@ async function limpiarSWEnDesarrollo() {
         if (!registracion) return
 
         await registracion.unregister()
-        console.log("[PWA] SW antiguo eliminado en desarrollo")
+        console.info("[PWA] SW antiguo eliminado en desarrollo")
 
         // Recargar una sola vez para soltar el control del SW viejo
         if (navigator.serviceWorker.controller) {
@@ -81,7 +81,7 @@ async function registrarSW() {
             // navegador se queda con la copia anterior, nunca ve el despliegue.
             updateViaCache: "none"
         })
-        console.log("[PWA] SW registrado:", registroSW.scope)
+        console.info("[PWA] SW registrado:", registroSW.scope)
 
         // El listener va ANTES de update(): si la comprobación termina muy
         // rápido, el `updatefound` no se pierde.
@@ -105,7 +105,7 @@ function escucharCambioDeControl() {
     escuchandoControl = true
 
     navigator.serviceWorker.addEventListener("controllerchange", () => {
-        console.log("[PWA] El SW nuevo controla la página")
+        console.info("[PWA] El SW nuevo controla la página")
         recargarUnaVez()
     })
 }
@@ -151,7 +151,7 @@ function manejarActualizacion() {
 
     nuevoSW.addEventListener("statechange", () => {
         if (nuevoSW.state === "installed" && navigator.serviceWorker.controller) {
-            console.log("[PWA] Nueva versión instalada")
+            console.info("[PWA] Nueva versión instalada")
             aplicarActualizacion()
         }
     })

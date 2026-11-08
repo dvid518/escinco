@@ -5,7 +5,7 @@
 // 2. El CSS de lastbar (navegacion.css) incluye `env(safe-area-inset-bottom`.
 // 3. El contenedor raíz (style.css, body) declara `100dvh`.
 
-import { existsSync, readFileSync } from "node:fs"
+import { existsSync } from "node:fs"
 import { resolve } from "node:path"
 import { leer, RAIZ, nuevoReporter } from "./helpers.mjs"
 

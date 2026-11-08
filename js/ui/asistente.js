@@ -49,7 +49,7 @@ const MENSAJES_DROV = {
 // Permiso actual del usuario: lectura | lectura_escritura | ninguno | null
 let permisoDrov = null
 
-let historial = []
+const historial = []
 
 /**
  * Abre (o cierra, si ya está abierto) la ventana del asistente.
@@ -341,7 +341,7 @@ async function guardarPermisoDrov(uid, permiso) {
     }
 }
 
-async function solicitarPermisoEnChat(registro) {
+function solicitarPermisoEnChat(registro) {
     const config = MENSAJES_DROV.permisoLecturaEscritura
 
     // Agregar mensaje de IA con el texto del permiso dentro del chat

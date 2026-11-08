@@ -66,7 +66,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                 esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
                 crearFavorito: async () => "f"
             })(UID, { tipo: "transferencia", cuenta: "c1", monto: 50 })
-        } catch (e) { lanzo = true }
+        } catch { lanzo = true }
         t.check("crearFavoritoDesdeMovimiento: rechaza tipos no favoritables", lanzo === true)
     }
 
@@ -115,7 +115,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                     registrarMovimiento: async () => "m",
                     rastrearEvento: () => {}
                 })(UID, { tipo: "transferencia", cuenta: "c1", monto: 50 })
-            } catch (e) { lanzo = true }
+            } catch { lanzo = true }
             t.check("ejecutarFavorito: rechaza tipos no favoritables", lanzo === true)
         }
     }
@@ -186,7 +186,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                 await cargarFuncion(src, "editarPlantillaFavorito", deps({
                     actualizarFavorito: async () => {}
                 }))(UID, FAV, { nombre: "Café", cuenta: "c1", monto: 0, divisa: "pen", etiquetas: [] })
-            } catch (e) { lanzo = true }
+            } catch { lanzo = true }
             t.check("editarPlantillaFavorito: rechaza monto cero o negativo", lanzo === true)
         }
         {
@@ -195,7 +195,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                 await cargarFuncion(src, "editarPlantillaFavorito", deps({
                     actualizarFavorito: async () => {}
                 }))(UID, { id: "f9", tipo: "transferencia", cuenta: "c1" }, { nombre: "x", monto: 5 })
-            } catch (e) { lanzo = true }
+            } catch { lanzo = true }
             t.check("editarPlantillaFavorito: rechaza tipos no favoritables", lanzo === true)
         }
     }
@@ -226,7 +226,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                     esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
                     registrarMovimiento: async () => "m"
                 })(UID, "f1", { tipo: "transferencia", cuenta: "c1", monto: 50 })
-            } catch (e) { lanzo = true }
+            } catch { lanzo = true }
             t.check("guardarInstanciaVinculada: rechaza tipos no favoritables", lanzo === true)
         }
     }
@@ -235,7 +235,8 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
     // eliminarFavoritoConDesvinculacion
     // ------------------------------------------------------------
     {
-        let borradoId = null, actualizados = [], loteCommit = false, parcheados = [], notificado = false
+        let borradoId = null, loteCommit = false, notificado = false
+        const actualizados = [], parcheados = []
         const lote = {
             delete: (ref) => { borradoId = ref },
             update: (ref, datos) => { actualizados.push({ id: ref, datos }) },
@@ -243,7 +244,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
         }
 
         const vinculados = await cargarFuncion(src, "eliminarFavoritoConDesvinculacion", {
-            obtenerFavorito: async (u, id) => ({ id: "fav-antiguo", nombre: "Antiguo", tipo: "gasto", cuenta: "c1", monto: 50 }),
+            obtenerFavorito: async (_u, _id) => ({ id: "fav-antiguo", nombre: "Antiguo", tipo: "gasto", cuenta: "c1", monto: 50 }),
             obtenerMovimientos: async () => [
                 { id: "m1", favoritoId: "fav-antiguo", concepto: "A" },
                 { id: "m2", favoritoId: "fav-antiguo", concepto: "B" },
@@ -279,7 +280,7 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                     cacheCapa: { parchear: (uid, clave, fn) => fn([]) },
                     notificarMovimientosActualizados: () => {}
                 })(UID, "fav-inexistente")
-            } catch (e) { lanzo = true }
+            } catch { lanzo = true }
             t.check("eliminarFavoritoConDesvinculacion: lanza si el favorito no existe", lanzo === true)
         }
     }

@@ -47,7 +47,7 @@ export async function crearMeta(uid, datos) {
 // LEER
 // --------------------------------------------
 
-export async function obtenerMetas(uid) {
+export function obtenerMetas(uid) {
     return cacheCapa.obtener(uid, CLAVE_CACHE, async () => {
         const q = query(refMetas(uid), orderBy("fechaCreacion", "desc"))
         const resultado = await getDocs(q)

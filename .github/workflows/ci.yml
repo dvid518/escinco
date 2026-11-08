@@ -26,10 +26,6 @@ jobs:
       - name: Run tests
         run: npm test
 
-      # DEUDA: el lint todavía arrastra errores reales (no-console,
-      # no-unused-vars, require-await...). Se ejecuta y se ve en el log, pero
-      # no bloquea el CI mientras se limpia; quitar continue-on-error al llegar
-      # a 0. Las librerías de js/lib/ están excluidas en eslint.config.js.
+      # Las librerías de js/lib/ están excluidas en eslint.config.js.
       - name: Run lint
-        continue-on-error: true
         run: npm run lint

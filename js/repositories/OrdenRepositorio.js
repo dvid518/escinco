@@ -47,7 +47,7 @@ export async function crearOrden(uid, datos) {
 // LEER
 // --------------------------------------------
 
-export async function obtenerOrdenes(uid) {
+export function obtenerOrdenes(uid) {
     return cacheCapa.obtener(uid, CLAVE_CACHE, async () => {
         const q = query(refOrdenes(uid), orderBy("fechaCreacion", "desc"))
         const resultado = await getDocs(q)

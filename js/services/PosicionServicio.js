@@ -20,7 +20,7 @@ import { convertirMonto, getDivisaPrincipal } from "./DivisaServicio.js"
 export async function actualizarPosicionPorMovimiento(uid, movimiento) {
     const { activo, cantidad, precio, comision = 0, divisa, tipo } = movimiento
 
-    console.log("[INFO] Actualizando posición por movimiento:", movimiento)
+    console.info("[INFO] Actualizando posición por movimiento:", movimiento)
 
     // Busca por símbolo; si no existe, lo crea. También actualiza el precio.
     const activoDoc = await obtenerOCrearActivo(uid, {

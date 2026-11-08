@@ -11,7 +11,7 @@
 // propios HTML con `<script type="module">` (auth.html, index.html,
 // privacidad.html, terminos.html, reset-password.html) y no pasan por aquí.
 import { readFileSync, existsSync } from "node:fs"
-import { dirname, join } from "node:path"
+import { join } from "node:path"
 import { RAIZ } from "./helpers.mjs"
 
 const router = readFileSync(join(RAIZ, "js/core/router.js"), "utf8")

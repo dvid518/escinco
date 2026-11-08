@@ -323,7 +323,7 @@ export function abrirModalEducativoCredito(tarjeta, opciones = {}) {
         confirmText: pagadoCompleto ? "Cerrar" : `${icono("credit-card", 16)} Pagar tarjeta`,
         // `soloCerrar` exige `onConfirm` presente (modal.js:88), y devolver
         // algo distinto de `false` cierra el modal (modal.js:204).
-        onConfirm: pagadoCompleto ? async () => true : async () => {
+        onConfirm: pagadoCompleto ? () => true : async () => {
             try {
                 const { abrirPagarTarjeta } = await import("../pages/cuentas.js")
                 await abrirPagarTarjeta(tarjeta)

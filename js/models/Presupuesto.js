@@ -6,7 +6,7 @@
 // (nivel 2). Los movimientos se leen por etiqueta: un gasto con varias tags
 // reparte su monto por partes iguales entre ellas.
 //
-import { CATEGORIAS_SISTEMA, esCategoriaSistema } from "../core/etiquetas.js"
+import { esCategoriaSistema } from "../core/etiquetas.js"
 
 export const PERIODOS_PRESUPUESTO = Object.freeze(["mensual", "anual"])
 

@@ -19,7 +19,7 @@ import { cacheCapa } from "../core/cache.js"
 // creados a partir de un favorito llevan el campo favoritoId; este
 // repositorio solo gestiona la plantilla.
 
-export async function obtenerFavoritos(uid) {
+export function obtenerFavoritos(uid) {
     return cacheCapa.obtener(uid, "favoritos:todos", async () => {
         const referencia = collection(db, "usuarios", uid, "favoritos")
         const resultado = await getDocs(referencia)

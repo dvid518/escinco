@@ -57,11 +57,11 @@ function abrirConfiguracionComoPanel() {
         .catch(error => console.error("[ERROR] No se pudo abrir la configuración:", error))
 }
 
-let pageModules = {}
+const pageModules = {}
 let currentPage = 'dashboard'
 let navId = 0
 let navReady = false
-let fallosPorPagina = {}
+const fallosPorPagina = {}
 let scrollPendiente = null
 let focoPendiente = null
 const modulosPrecargados = new Set()
@@ -213,11 +213,11 @@ export async function loadPage(page) {
     const id = ++navId  // Token capturado al inicio
     document.getElementById("app-content")?.setAttribute("aria-busy", "true")
     activarSpinLogo()
-    console.log("[INFO] Cargando página:", page)
+    console.info("[INFO] Cargando página:", page)
 
     const paginasVisibles = sesion.getPaginasVisibles()
-    console.log("[INFO] Páginas visibles:", paginasVisibles)
-    console.log(`[INFO] ¿"${page}" está visible?`, paginasVisibles[page] !== false)
+    console.info("[INFO] Páginas visibles:", paginasVisibles)
+    console.info(`[INFO] ¿"${page}" está visible?`, paginasVisibles[page] !== false)
 
     if (page !== 'dashboard' && paginasVisibles[page] === false) {
         console.warn(`[WARN] Página "${page}" desactivada por el usuario → redirigiendo a dashboard`)
@@ -231,7 +231,7 @@ export async function loadPage(page) {
             await renderPage(page)
             // Otra navegación pudo ganar durante el render
             if (id !== navId) {
-                console.log(`[INFO] Render ${id} abortado (ganó ${navId})`)
+                console.info(`[INFO] Render ${id} abortado (ganó ${navId})`)
                 finalizarCargaNavegacion(id)
                 return
             }
@@ -239,7 +239,7 @@ export async function loadPage(page) {
                 await pageModules[page].init()
                 // Abortar si otra navegación ganó
                 if (id !== navId) {
-                    console.log(`[INFO] Navegación ${id} abortada (ganó ${navId})`)
+                    console.info(`[INFO] Navegación ${id} abortada (ganó ${navId})`)
                     finalizarCargaNavegacion(id)
                     return
                 }
@@ -263,19 +263,19 @@ export async function loadPage(page) {
         const module = await importarPagina(page)
         // Abortar si otra navegación ganó mientras importábamos
         if (id !== navId) {
-            console.log(`[INFO] Import ${id} abortado (ganó ${navId})`)
+            console.info(`[INFO] Import ${id} abortado (ganó ${navId})`)
             finalizarCargaNavegacion(id)
             return
         }
 
-        console.log(`[INFO] Módulo "${page}" cargado correctamente`)
+        console.info(`[INFO] Módulo "${page}" cargado correctamente`)
         pageModules[page] = module
         delete fallosPorPagina[page]  // Éxito → reiniciar contador
         await renderPage(page)
 
         // Otra navegación pudo ganar durante el render
         if (id !== navId) {
-            console.log(`[INFO] Render ${id} abortado (ganó ${navId})`)
+            console.info(`[INFO] Render ${id} abortado (ganó ${navId})`)
             finalizarCargaNavegacion(id)
             return
         }
@@ -283,7 +283,7 @@ export async function loadPage(page) {
         if (module.init) {
             await module.init()
             if (id !== navId) {
-                console.log(`[INFO] Init ${id} abortado (ganó ${navId})`)
+                console.info(`[INFO] Init ${id} abortado (ganó ${navId})`)
                 finalizarCargaNavegacion(id)
                 return
             }
@@ -479,7 +479,7 @@ function avisarCambioDePagina(hacia) {
 }
 
 export function navigateTo(path) {
-    console.log('[INFO] Navegando a:', path)
+    console.info('[INFO] Navegando a:', path)
     const cleanPath = sinBase(path).replace(/\/+/g, '/')
     if (cleanPath === RUTA_CONFIGURACION && !configuracionComoPagina()) {
         // En modo panel, /configuracion es un atajo: se abre la ventana sobre
@@ -488,7 +488,7 @@ export function navigateTo(path) {
         return
     }
     const page = routes[cleanPath] || '404'
-    console.log('[INFO] Página:', page)
+    console.info('[INFO] Página:', page)
     if (avisarCambioDePagina(page)) return
     guardarEstadoNavegacion()
     loadPage(page)
@@ -538,7 +538,7 @@ function setupNavigation() {
         if (evento.defaultPrevented || evento.button !== 0 || evento.metaKey || evento.ctrlKey || evento.shiftKey || evento.altKey) return
         const page = link.dataset.page || 'dashboard'
         evento.preventDefault()
-        console.log("[INFO] Link clickeado:", page)
+        console.info("[INFO] Link clickeado:", page)
         navigateTo(`/${page}`)
     }
     document.addEventListener('click', linkHandler)
@@ -576,7 +576,7 @@ window.addEventListener('popstate', (event) => {
 })
 
 export function initRouter(initialPage = 'dashboard') {
-    console.log("[INFO] Iniciando router...")
+    console.info("[INFO] Iniciando router...")
     setupNavigation()
 
     const path = sinBase(window.location.pathname)
@@ -589,6 +589,6 @@ export function initRouter(initialPage = 'dashboard') {
         return
     }
     const page = routes[path] || (path === '' || path === '/' ? initialPage : '404')
-    console.log(`[INFO] Router inicializado con: "${path}" → "${page}"`)
+    console.info(`[INFO] Router inicializado con: "${path}" → "${page}"`)
     loadPage(page)
 }

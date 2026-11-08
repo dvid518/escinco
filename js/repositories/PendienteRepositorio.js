@@ -30,7 +30,7 @@ export async function crearPendiente(uid, datos) {
     return resultado.id
 }
 
-export async function obtenerPendientes(uid, soloPendientes = true) {
+export function obtenerPendientes(uid, soloPendientes = true) {
     return cacheCapa.obtener(
         uid,
         `pendientes:${soloPendientes}`,
@@ -46,8 +46,8 @@ export async function obtenerPendientes(uid, soloPendientes = true) {
             
             const resultado = await getDocs(q)
             
-            const pendientes = resultado.docs.map(doc => {
-                return Pendiente.fromFirestore(doc.id, doc.data())
+            const pendientes = resultado.docs.map(documento => {
+                return Pendiente.fromFirestore(documento.id, documento.data())
             })
             
             return pendientes

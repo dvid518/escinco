@@ -6,7 +6,6 @@ import {
 } from "../repositories/PresupuestoRepositorio.js"
 import { obtenerMovimientos } from "../../firebase/firestore.js"
 import { TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
-import { CATEGORIAS_SISTEMA } from "../core/etiquetas.js"
 
 // ============================================
 // PRESUPUESTO SERVICIO
@@ -59,7 +58,7 @@ export function calcularGastoReal(presupuesto, movimientos) {
 }
 
 /** Crea un presupuesto validado. */
-export async function crearPresupuestoServicio(uid, datos, deps = {}) {
+export function crearPresupuestoServicio(uid, datos, deps = {}) {
     const crearFn = deps.crearPresupuesto || crearPresupuesto
     return crearFn(uid, datos)
 }

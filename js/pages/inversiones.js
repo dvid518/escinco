@@ -5,7 +5,6 @@ import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import {
     buscarActivoPorSimbolo,
     crearActivo,
-    actualizarPrecioActivo,
     marcarFavoritoActivo
 } from "../repositories/ActivoRepositorio.js"
 import { eliminarPosicion } from "../repositories/PosicionRepositorio.js"
@@ -56,7 +55,7 @@ let clickTimer = null
 // eliminación en lote.
 let seleccionadas = new Set()
 let ordenSeleccion = []
-let supresorClick = crearSupresorDobleClick()
+const supresorClick = crearSupresorDobleClick()
 let eventosSeleccionListos = false
 let cardConAcciones = null
 
@@ -109,7 +108,7 @@ export function render() {
 export async function init() {
     uid = sesion.uid
     vistaActual = "posiciones"
-    console.log("[INFO] Inversiones iniciado para UID:", uid)
+    console.info("[INFO] Inversiones iniciado para UID:", uid)
 
     configurarEventos()
     configurarToggleVista()
@@ -1034,7 +1033,7 @@ function formatearFechaEstrategia(fecha) {
 // ============================================
 
 export async function mostrarGraficoActivo(activoId, activo, posicion) {
-    console.log("[INFO] Mostrando gráfico para:", activo?.simbolo || activoId)
+    console.info("[INFO] Mostrando gráfico para:", activo?.simbolo || activoId)
 
     let datos
     try {

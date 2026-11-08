@@ -17,7 +17,6 @@ import { rastrearEvento, identificarUsuario } from "../services/AnalyticsServici
 import { initTemaLocal } from "../core/tema.js"
 import { initPWA } from "../core/pwa.js"
 import { initDoodles } from "../ui/doodles.js"
-import { icono } from "../core/iconos.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { pintarVersionPanel } from "../ui/panelVersion.js"
 import { iniciarSesionConFacebook, vincularCredencialFacebook, hayCredencialFacebookPendiente } from "../services/AuthServicio.js"
@@ -437,7 +436,7 @@ function limpiarClaves() {
     }
 }
 
-async function manejarErrorLogin(error, email, password) {
+async function manejarErrorLogin(error, email, _password) {
     console.error(error)
 
     // Detectar cuenta que existe solo con Google

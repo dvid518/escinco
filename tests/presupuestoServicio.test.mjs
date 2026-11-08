@@ -1,4 +1,4 @@
-import { leer, extraerFuncion, nuevoReporter } from "./helpers.mjs"
+import { leer, extraerFuncion } from "./helpers.mjs"
 import vm from "node:vm"
 
 /** Extrae varias funciones y las evalúa en un contexto vm con los símbolos

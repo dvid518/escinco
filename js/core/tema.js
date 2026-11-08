@@ -79,7 +79,7 @@ export function getTemaLocal() {
         if (tema === "dark" || tema === "light" || tema === "system") {
             return tema
         }
-    } catch (e) {
+    } catch {
         // Ignorar errores de storage
     }
     return "system" // valor por defecto: seguir al sistema operativo
@@ -88,7 +88,7 @@ export function getTemaLocal() {
 export function setTemaLocal(tema) {
     try {
         localStorage.setItem(STORAGE_KEY, tema)
-    } catch (e) {
+    } catch {
         // Ignorar errores de storage
     }
 }
@@ -216,7 +216,7 @@ export async function ciclarTema(uid) {
         notificarCambioTema(siguiente)
     }
 
-    console.log("[INFO] Tema →", siguiente)
+    console.info("[INFO] Tema →", siguiente)
     return siguiente
 }
 

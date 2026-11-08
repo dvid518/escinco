@@ -281,7 +281,7 @@ export async function restaurarDocumento(uid, coleccion, id, datos) {
     if (!datos || typeof datos !== "object") {
         throw new Error("No hay datos para restaurar")
     }
-    const { id: _campoId, ...datosGuardados } = datos
+    const { id: _id, ...datosGuardados } = datos
     const referencia = doc(db, "usuarios", uid, coleccion, id)
     const resultado = await setDoc(referencia, datosGuardados)
     cacheCapa.invalidar(uid, coleccion)

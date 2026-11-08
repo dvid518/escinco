@@ -1,6 +1,5 @@
 import {
     guardarPrecioDelDia,
-    obtenerHistorial,
     obtenerPrecioHoy,
     limpiarHistorialAntiguo
 } from "../repositories/HistorialRepositorio.js"
@@ -16,7 +15,7 @@ import {
 export async function registrarPrecio(uid, activoId, precio) {
     try {
         await guardarPrecioDelDia(uid, activoId, precio)
-        console.log(`[INFO] Precio registrado · activo ${activoId}: ${precio}`)
+        console.info(`[INFO] Precio registrado · activo ${activoId}: ${precio}`)
     } catch (error) {
         console.error("Error registrando precio:", error)
     }

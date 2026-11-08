@@ -308,12 +308,12 @@ function conectarVencimiento(raiz, prefijo) {
     const inputAnio = raiz?.querySelector(`#${prefijo}-anio`)
     if (!inputMes || !inputAnio) return
 
-    const soloDigitos = evento => {
+    const limitarDigitos = evento => {
         evento.target.value = evento.target.value.replace(/\D/g, "").slice(0, 2)
     }
 
     inputMes.addEventListener("input", evento => {
-        soloDigitos(evento)
+        limitarDigitos(evento)
         // Al completar el mes el foco salta al año: no hace falta tabular ni
         // hacer clic para seguir escribiendo.
         if (inputMes.value.length === 2) inputAnio.focus()
@@ -430,7 +430,7 @@ export function render() {
 
 export async function init() {
     uid = sesion.uid
-    console.log("[INFO] Cuentas iniciado para UID:", uid)
+    console.info("[INFO] Cuentas iniciado para UID:", uid)
 
     // Siempre recargar al navegar: los saldos/deudas cambian al registrar
     // movimientos desde otros modales y no deben quedar desactualizados.
@@ -749,7 +749,6 @@ async function mostrarDetalleCuenta() {
     // que las pills no cambian "vista de subcuentas": cambian QUE CUENTA se
     // esta viendo, y el render de abajo es el de siempre.
     const familia = familiaDe(cuenta, cuentas)
-    const conSubcuentas = familia.length > 1
     let visto = familia.find(c => c.id === miembroFamiliaVisto) || familia[0]
     miembroFamiliaVisto = visto.id
 
@@ -1892,6 +1891,19 @@ function configurarEventos() {
 // MODAL CREAR CUENTA (interno)
 // ============================================
 
+// El ejemplo del nombre tiene que encajar con lo que se está creando: "Ej:
+// BBVA, BCP..." en una cuenta de efectivo no dice nada. Los de tipo tarjeta
+// tampoco, porque el nombre es lo que el usuario elige para distinguirla, no
+// el banco emisor.
+const PLACEHOLDER_NOMBRE_POR_TIPO = {
+    efectivo: "Ej: Efectivo",
+    broker: "Ej: Broker principal...",
+    exchange: "Ej: Exchange principal...",
+    plazo: "Ej: Depósito BCP...",
+    credito: "Ej: Tarjeta BCP...",
+    debito: "Ej: Débito BBVA..."
+}
+
 const esTipoTarjeta = tipo => tipo === "credito" || tipo === "debito"
 
 function campoFechaAnualidad(id, value = "") {
@@ -1927,19 +1939,6 @@ const TIPOS_CUENTA_CREACION = [
     { id: "credito", nombre: "Tarjeta de crédito", icono: "credit-card" },
     { id: "debito", nombre: "Tarjeta de débito", icono: "credit-card" }
 ]
-
-// El ejemplo del nombre tiene que encajar con lo que se está creando: "Ej:
-// BBVA, BCP..." en una cuenta de efectivo no dice nada. Los de tipo tarjeta
-// tampoco, porque el nombre es lo que el usuario elige para distinguirla, no
-// el banco emisor.
-const PLACEHOLDER_NOMBRE_POR_TIPO = {
-    efectivo: "Ej: Efectivo",
-    broker: "Ej: Broker principal...",
-    exchange: "Ej: Exchange principal...",
-    plazo: "Ej: Depósito BCP...",
-    credito: "Ej: Tarjeta BCP...",
-    debito: "Ej: Débito BBVA..."
-}
 
 /**
  * Deja el nombre en una columna y lo estira a dos solo si hace falta.
@@ -2078,10 +2077,10 @@ function _abrirModalCrearCuentaDosPasos() {
                 datos.limite = parseFloat(modalEl.querySelector("#campo-limite")?.value) || 0
                 datos.deuda = 0
                 datos.desgravamen = parseFloat(modalEl.querySelector("#campo-desgravamen")?.value) || 0.34
-                datos.diaCorte = parseInt(modalEl.querySelector("#campo-diaCorte")?.value) || 10
-                datos.diaPago = parseInt(modalEl.querySelector("#campo-diaPago")?.value) || 6
-                datos.umbralAviso = parseInt(modalEl.querySelector("#campo-umbralAviso")?.value) || 30
-                datos.umbralCritico = parseInt(modalEl.querySelector("#campo-umbralCritico")?.value) || 70
+                datos.diaCorte = parseInt(modalEl.querySelector("#campo-diaCorte")?.value, 10) || 10
+                datos.diaPago = parseInt(modalEl.querySelector("#campo-diaPago")?.value, 10) || 6
+                datos.umbralAviso = parseInt(modalEl.querySelector("#campo-umbralAviso")?.value, 10) || 30
+                datos.umbralCritico = parseInt(modalEl.querySelector("#campo-umbralCritico")?.value, 10) || 70
                 datos.anualidad = parseFloat(modalEl.querySelector("#campo-anualidad")?.value) || 0
                 const anualidadFecha = modalEl.querySelector("#campo-anualidad-fecha")?.value
                 if (datos.anualidad > 0 && anualidadFecha) {
@@ -2187,10 +2186,10 @@ function abrirFormularioCrearCuenta(tipo) {
                 datos.limite = parseFloat(modal.querySelector("#campo-limite")?.value) || 0
                 datos.deuda = 0
                 datos.desgravamen = parseFloat(modal.querySelector("#campo-desgravamen")?.value) || 0.34
-                datos.diaCorte = parseInt(modal.querySelector("#campo-diaCorte")?.value) || 10
-                datos.diaPago = parseInt(modal.querySelector("#campo-diaPago")?.value) || 6
-                datos.umbralAviso = parseInt(modal.querySelector("#campo-umbralAviso")?.value) || 30
-                datos.umbralCritico = parseInt(modal.querySelector("#campo-umbralCritico")?.value) || 70
+                datos.diaCorte = parseInt(modal.querySelector("#campo-diaCorte")?.value, 10) || 10
+                datos.diaPago = parseInt(modal.querySelector("#campo-diaPago")?.value, 10) || 6
+                datos.umbralAviso = parseInt(modal.querySelector("#campo-umbralAviso")?.value, 10) || 30
+                datos.umbralCritico = parseInt(modal.querySelector("#campo-umbralCritico")?.value, 10) || 70
                 datos.anualidad = parseFloat(modal.querySelector("#campo-anualidad")?.value) || 0
                 const anualidadFecha = modal.querySelector("#campo-anualidad-fecha")?.value
                 if (datos.anualidad > 0 && anualidadFecha) {
@@ -2254,7 +2253,7 @@ const CLAVE_AVISO_INVERSIONISTA = "escinco_aviso_inversionista"
 function avisarVersionInversionista() {
     try {
         if (localStorage.getItem(CLAVE_AVISO_INVERSIONISTA) === "1") return
-    } catch (e) {
+    } catch {
         return
     }
     const paginas = sesion.getPaginasVisibles()
@@ -2262,7 +2261,7 @@ function avisarVersionInversionista() {
     if (paginas.inversiones !== false || paginas.trading !== false) return
     try {
         localStorage.setItem(CLAVE_AVISO_INVERSIONISTA, "1")
-    } catch (e) {}
+    } catch {}
     mostrarNotificacion(
         "info",
         "¿Eres inversionista? Esto te interesa",
@@ -2491,10 +2490,10 @@ function _abrirModalEditarCuenta(cuenta) {
             if (esCredito) {
                 datos.limite = parseFloat(modalEditar.querySelector("#edit-limite")?.value) || 0
                 datos.desgravamen = parseFloat(modalEditar.querySelector("#edit-desgravamen")?.value) || 0.34
-                datos.diaCorte = parseInt(modalEditar.querySelector("#edit-diaCorte")?.value) || 10
-                datos.diaPago = parseInt(modalEditar.querySelector("#edit-diaPago")?.value) || 6
-                datos.umbralAviso = parseInt(modalEditar.querySelector("#edit-umbralAviso")?.value) || 30
-                datos.umbralCritico = parseInt(modalEditar.querySelector("#edit-umbralCritico")?.value) || 70
+                datos.diaCorte = parseInt(modalEditar.querySelector("#edit-diaCorte")?.value, 10) || 10
+                datos.diaPago = parseInt(modalEditar.querySelector("#edit-diaPago")?.value, 10) || 6
+                datos.umbralAviso = parseInt(modalEditar.querySelector("#edit-umbralAviso")?.value, 10) || 30
+                datos.umbralCritico = parseInt(modalEditar.querySelector("#edit-umbralCritico")?.value, 10) || 70
                 datos.anualidad = parseFloat(modalEditar.querySelector("#edit-anualidad")?.value) || 0
                 const anualidadFecha = modalEditar.querySelector("#edit-anualidad-fecha")?.value
                 if (datos.anualidad > 0 && anualidadFecha) {

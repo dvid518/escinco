@@ -92,7 +92,7 @@ export async function guardarPrecioHistorico(uid, activoId, fecha, precio) {
 // OBTENER HISTORIAL DE UN ACTIVO (últimos N días)
 // --------------------------------------------
 
-export async function obtenerHistorial(uid, activoId, dias = 7) {
+export function obtenerHistorial(uid, activoId, dias = 7) {
     return cacheCapa.obtener(
         uid,
         `historial:${activoId}:${dias}`,
@@ -116,7 +116,7 @@ export async function obtenerHistorial(uid, activoId, dias = 7) {
 // OBTENER PRECIO DE HOY
 // --------------------------------------------
 
-export async function obtenerPrecioHoy(uid, activoId) {
+export function obtenerPrecioHoy(uid, activoId) {
     return cacheCapa.obtener(
         uid,
         `historial:${activoId}:hoy`,

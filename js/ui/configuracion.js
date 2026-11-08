@@ -1,4 +1,4 @@
-﻿import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
+import { logout, tienePassword, configurarPassword, cambiarPasswordVerificada, actualizarNombre, reautenticarConPassword, reautenticarConGoogle, esSesionReciente, aplicarPersistenciaSesion, startInactivityTimer } from "../../firebase/auth.js"
 import { sesion, PREFERENCIAS_POR_DEFECTO, fusionarProfundo, esObjetoPlano } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { obtenerCuentas, obtenerPreferencias, aplicarPreferenciasDiff, actualizarCuenta } from "../../firebase/firestore.js"
@@ -7,11 +7,11 @@ import { mostrarNotificacion } from "./notificaciones.js"
 import { VERSION } from "../../constants/version.js"
 import { BUILD_ID } from "../../constants/build.js"
 import { TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
-import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, formatearMontoConDivisa, actualizarTipoCambioAuto, guardarDivisaPrincipal, guardarTipoCambio } from "../services/DivisaServicio.js"
+import { getDivisaPrincipal, getTipoCambio, getFormatoDivisa, formatearMontoConDivisa, guardarDivisaPrincipal } from "../services/DivisaServicio.js"
 import { aplicarTema, setTemaLocal } from "../core/tema.js"
 import { icono, LOGO_ESCINCO_CARGA } from "../core/iconos.js"
 import { accionExportar } from "./exportar.js"
-import { esqueletoContenedor, esqueletoTexto } from "./skeletons.js"
+import { esqueletoContenedor } from "./skeletons.js"
 import { envolverSidebar } from "./colapsoSidebar.js"
 
 
@@ -20,6 +20,7 @@ let hayCambios = false
 let temaActual = "dark"
 let lastbarModo = "show"
 let nombrePendiente = null
+let avisoDescartado = false
 // El tema y el modo de la lastbar ya NO usan banderas "pendiente": el estado
 // del Guardar se calcula comparando la pantalla con lo guardado. Con banderas,
 // cambiar un valor y volver al original dejaba la bandera puesta y el Guardar
@@ -134,7 +135,7 @@ export function abrirConfiguracion() {
     nombrePendiente = null
     lineaBase = null
     modoActual = "modal"
-    console.log("[INFO] Configuración abierta como modal para UID:", uid)
+    console.info("[INFO] Configuración abierta como modal para UID:", uid)
 
     modalConfiguracion = abrirModal({
         titulo: "Configuración",
@@ -298,26 +299,8 @@ function configurarSidebar() {
             const section = btn.dataset.section
             const target = document.getElementById(`section-${section}`)
             if (target) target.classList.remove("hidden-section")
-
-            // El catálogo de etiquetas se monta (o refresca) al entrar: los
-            // cambios se guardan directo en Firestore, no con el Guardar.
-            if (section === "etiquetas") montarGestionEtiquetas()
         })
     })
-}
-
-// ============================================
-// ETIQUETAS
-// ============================================
-// Gestión del catálogo (renombrar, color, borrar, crear). Se comparte con el
-// formulario de movimiento: los movimientos guardan etiquetas por NOMBRE,
-// así que renombrar aquí no reescribe movimientos (trade-off aceptado). El
-// componente se remonta sobre el mismo contenedor: refresca en vez de
-// duplicar listeners.
-function montarGestionEtiquetas() {
-    const contenedor = document.getElementById("config-chips-etiquetas")
-    if (!contenedor) return
-    montarSelectorEtiquetas(contenedor, { gestion: true })
 }
 
 // ============================================
@@ -683,7 +666,6 @@ async function cargarPreferencias() {
 
     // Tipo de cambio
     const tc = getTipoCambio()
-    refrescarModoTipoCambio(tc.modo === "auto" ? "auto" : "manual")
     const tcUSD = document.getElementById("tc-pen-usd")
     if (tcUSD) {
         tcUSD.value = tc.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
@@ -902,7 +884,6 @@ function getFormatoDivisaUI() {
 // La navegación nunca se bloquea. Si el usuario descarta el aviso, no se
 // vuelve a mostrar hasta que vuelva a tocar algún control o guarde.
 
-let avisoDescartado = false
 let avisoCambiosActivo = false
 
 // El usuario volvió a tocar un control → el aviso descartado se rehabilita.
@@ -967,6 +948,9 @@ function actualizarEstadoGuardar() {
  * hubiera tocado. Ahora manda el control si está; si no, se conserva lo que la
  * sesión ya tiene, que es la fusión con los defaults ya resuelta.
  */
+// La extraen los tests de regresión de páginas (tests/configPaginas.test.mjs):
+// se mantiene como referencia del idioma seguro para leer una casilla.
+// eslint-disable-next-line no-unused-vars
 function leerTogglePagina(id) {
     const el = document.getElementById(id)
     if (!el) return sesion.getPaginasVisibles()[id.replace(/^toggle-/, "")]
@@ -975,27 +959,6 @@ function leerTogglePagina(id) {
 
 function construirPreferencias() {
     const divisaPrincipal = document.getElementById("divisa-principal")?.value || "pen"
-    const modoTCUI = getModoTipoCambioUI()
-    const tcActual = getTipoCambio()
-
-    const penUSD = modoTCUI === "auto"
-        ? tcActual.pen_usd || TIPO_CAMBIO_DEFAULT.pen_usd
-        : parseFloat(document.getElementById("tc-pen-usd")?.value) || TIPO_CAMBIO_DEFAULT.pen_usd
-
-    const eurUSD = modoTCUI === "auto"
-        ? tcActual.eur_usd || TIPO_CAMBIO_DEFAULT.eur_usd
-        : parseFloat(document.getElementById("tc-eur-usd")?.value) || TIPO_CAMBIO_DEFAULT.eur_usd
-
-    const tipoCambio = {
-        pen_usd: penUSD,
-        eur_usd: eurUSD,
-        usdt_usd: tcActual.usdt_usd || TIPO_CAMBIO_DEFAULT.usdt_usd,
-        modo: modoTCUI,
-        actualizacion: modoTCUI === "auto"
-            ? tcActual.actualizacion || new Date().toISOString()
-            : new Date().toISOString()
-    }
-
     const segInactividadUI = parseInt(document.getElementById("seg-inactividad")?.value, 10)
     const seg = {
         inactividadMinutos: Number.isFinite(segInactividadUI) ? segInactividadUI : 15,
@@ -1415,7 +1378,7 @@ async function abrirRestaurarCuentasArchivadas() {
 // IMPORTAR
 // ============================================
 
-async function importarDVID() {
+function importarDVID() {
     const input = document.createElement("input")
     input.type = "file"
     input.accept = ".dvid,application/x-escinco-backup"
@@ -1599,8 +1562,8 @@ function confirmarEliminacionFinal() {
             try {
                 const status = modalCargando.querySelector(".modal-loading-text")
 
-                const { exportarDVID } = await import("../services/ExportarServicio.js")
-                await exportarDVID(uid)
+                const { exportarDVID: exportarDVIDServicio } = await import("../services/ExportarServicio.js")
+                await exportarDVIDServicio(uid)
 
                 if (status) status.textContent = "Eliminando datos..."
 

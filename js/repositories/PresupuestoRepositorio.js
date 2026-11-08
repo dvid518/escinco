@@ -47,7 +47,7 @@ export async function crearPresupuesto(uid, datos) {
 // LEER
 // --------------------------------------------
 
-export async function obtenerPresupuestos(uid) {
+export function obtenerPresupuestos(uid) {
     return cacheCapa.obtener(uid, CLAVE_CACHE, async () => {
         const q = query(refPresupuestos(uid), orderBy("fechaCreacion", "desc"))
         const resultado = await getDocs(q)

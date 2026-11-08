@@ -11,8 +11,6 @@ const srcMov = leer("js/pages/movimientos.js")
 const srcServicio = leer("js/services/FavoritoServicio.js")
 const srcModal = leer("js/ui/modal.js")
 
-const codigo = s => s.replace(/\/\/[^\n]*/g, "")
-
 // ── Doble de la lastbar ────────────────────────────────────────────────────
 function crearLastbarFalsa(seleccionados = new Set(), favs = []) {
     const items = {}
@@ -92,14 +90,12 @@ export default async function ejecutar(t) {
         t.check("1 movimiento: editar y eliminar activos, etiquetar activo",
             !desact("editar-movimiento") && !desact("eliminar-movimiento") && !desact("etiquetar-movimiento"))
     }
-    {
-        // El botón Etiquetar va siempre activo, con selección o sin ella.
-        for (const [nombre, sel] of [["sin selección", new Set()], ["con movimientos", new Set(["m1"])]]) {
-            const { ctx, desact } = crearLastbarFalsa(sel, FAVS)
-            if (nombre === "con movimientos") ctx.seleccionados = new Set(["m1"])
-            ctx.actualizarEstadoLastbar()
-            t.check(`etiquetar siempre activo (${nombre})`, desact("etiquetar-movimiento") === false)
-        }
+    // El botón Etiquetar va siempre activo, con selección o sin ella.
+    for (const [nombre, sel] of [["sin selección", new Set()], ["con movimientos", new Set(["m1"])]]) {
+        const { ctx, desact } = crearLastbarFalsa(sel, FAVS)
+        if (nombre === "con movimientos") ctx.seleccionados = new Set(["m1"])
+        ctx.actualizarEstadoLastbar()
+        t.check(`etiquetar siempre activo (${nombre})`, desact("etiquetar-movimiento") === false)
     }
     {
         const { ctx, desact } = crearLastbarFalsa(new Set(), FAVS)

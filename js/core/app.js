@@ -32,7 +32,7 @@ export async function initApp() {
     // se quita el .loading igualmente (evita pantalla negra).
     const timeoutBoot = setTimeout(mostrarAvisoTimeout, 10000)
 
-    observeAuth(async (user) => {
+    await observeAuth(async (user) => {
         if (bootFinalizado) return
 
         // Sin sesión, o con sesión pero sin el correo verificado, el dashboard
@@ -56,7 +56,7 @@ export async function initApp() {
                 email: user.email,
                 nombre: user.displayName || "Usuario"
             })
-            console.log("[INFO] Usuario autenticado:", user.uid)
+            console.info("[INFO] Usuario autenticado:", user.uid)
 
             // Las tres llamadas son independientes: se lanzan en paralelo para
             // no sumar sus latencias en serie. Si una falla, las otras ya están
@@ -72,12 +72,12 @@ export async function initApp() {
             ])
             if (prefs) {
                 sesion.setPreferencias(prefs)
-                console.log("[INFO] Preferencias cargadas:", prefs)
+                console.info("[INFO] Preferencias cargadas:", prefs)
 
                 // Sincronizar tema local ↔ Firestore
                 await sincronizarTemaFirestore(user.uid, prefs.tema)
             } else {
-                console.log("[INFO] Sin preferencias guardadas, usando valores por defecto")
+                console.info("[INFO] Sin preferencias guardadas, usando valores por defecto")
                 // Sincronizar el tema local hacia Firestore
                 await sincronizarTemaFirestore(user.uid, null)
             }

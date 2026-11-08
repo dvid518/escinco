@@ -16,7 +16,7 @@ const CHEVRON_IZQ = `
 export function estadoColapso() {
     try {
         return localStorage.getItem(STORAGE_KEY) === "1"
-    } catch (e) {
+    } catch {
         return false
     }
 }
@@ -24,7 +24,7 @@ export function estadoColapso() {
 function setEstadoColapso(colapsado) {
     try {
         localStorage.setItem(STORAGE_KEY, colapsado ? "1" : "0")
-    } catch (e) {
+    } catch {
         // Ignorar errores de storage
     }
 }
