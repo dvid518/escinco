@@ -387,6 +387,8 @@ export const cacheCapa = {
     }
 }
 
+export { storageDisponible }
+
 // Comprueba si localStorage es usable (no lanza excepción al escribir/leer).
 // Detecta modo privado, cuota agotada o bloqueo del usuario.
 function storageDisponible() {
