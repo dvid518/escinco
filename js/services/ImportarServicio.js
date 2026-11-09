@@ -3,7 +3,8 @@ import {
     collection,
     doc,
     setDoc,
-    serverTimestamp
+    serverTimestamp,
+    updateDoc
 } from "../../firebase/firestore.js"
 import {
     db,
@@ -97,20 +98,23 @@ export async function importarDVID(uid, archivo) {
             errores: []
         }
 
+        const cuentaIdMap = new Map() // id de cuenta del .dvid -> id nuevo en Firestore
+        const activoIdMap = new Map() // id de activo del .dvid -> id nuevo en Firestore
+
         // --------------------------------------
         // 1. ACTIVOS (las posiciones/historial los referencian)
         // --------------------------------------
-        await importarActivos(uid, datos.activos, resultado)
+        await importarActivos(uid, datos.activos, resultado, activoIdMap)
 
         // --------------------------------------
         // 2. CUENTAS
         // --------------------------------------
-        await importarCuentas(uid, datos.cuentas, resultado)
+        await importarCuentas(uid, datos.cuentas, resultado, cuentaIdMap)
 
         // --------------------------------------
-        // 3. MOVIMIENTOS
+        // 3. MOVIMIENTOS (referencian cuentas/activos ya importados)
         // --------------------------------------
-        await importarMovimientos(uid, datos.movimientos, resultado)
+        await importarMovimientos(uid, datos.movimientos, resultado, cuentaIdMap)
 
         // --------------------------------------
         // 4. PENDIENTES
@@ -192,7 +196,7 @@ function validarVersion(version) {
 // IMPORTADORES POR COLECCIÓN
 // ============================================
 
-async function importarActivos(uid, activos, resultado) {
+async function importarActivos(uid, activos, resultado, activoIdMap) {
     if (!activos || activos.length === 0) return
 
     const CAMPOS_FECHA = ["fechaCreacion", "ultimaActualizacion"]
@@ -203,8 +207,13 @@ async function importarActivos(uid, activos, resultado) {
 
             if (!existente) {
                 const { id: _id, ...datosLimpios } = activo
-                await crearActivo(uid, deserializarFechas(datosLimpios, CAMPOS_FECHA))
+                const nuevoId = await crearActivo(uid, deserializarFechas(datosLimpios, CAMPOS_FECHA))
+                activoIdMap.set(activo.id, nuevoId)
                 resultado.activos++
+            } else {
+                // Ya existe un activo con ese símbolo: se reusa su id para que
+                // las posiciones e historial puedan remapearse contra él.
+                activoIdMap.set(activo.id, existente.id)
             }
         } catch (error) {
             resultado.errores.push(`Activo ${activo.simbolo}: ${error.message}`)
@@ -253,29 +262,94 @@ async function importarColeccion(uid, elementos, resultado, config) {
     }
 }
 
-async function importarCuentas(uid, cuentas, resultado) {
-    await importarColeccion(uid, cuentas, resultado, {
-        coleccion: "cuentas",
-        camposFecha: ["fechaCreacion"],
-        contador: "cuentas",
-        etiqueta: "Cuenta",
-        transformar: datos => ({
-            ...deserializarFechas(datos, ["fechaCreacion"]),
-            saldoInicial: Number(datos.saldoInicial) || 0,
-            estado: datos.estado || "activa",
-            esPatrimonio: datos.esPatrimonio !== false,
-            orden: Number.isFinite(Number(datos.orden)) ? Number(datos.orden) : resultado.cuentas
-        })
-    })
+async function importarCuentas(uid, cuentas, resultado, cuentaIdMap) {
+    if (!cuentas || cuentas.length === 0) return
+
+    const CAMPOS_FECHA = ["fechaCreacion"]
+
+    // Primera pasada: cada cuenta recibe un id nuevo y se anota en el mapa
+    // oldId -> newId para que los movimientos (y las subcuentas) puedan
+    // reescribir sus referencias.
+    const importadas = []
+    for (const cuenta of cuentas) {
+        try {
+            const { id: _id, ...datosLimpios } = cuenta
+            const datos = {
+                ...deserializarFechas(datosLimpios, ["fechaCreacion"]),
+                saldoInicial: Number(datosLimpios.saldoInicial) || 0,
+                estado: datosLimpios.estado || "activa",
+                esPatrimonio: datosLimpios.esPatrimonio !== false,
+                orden: Number.isFinite(Number(datosLimpios.orden))
+                    ? Number(datosLimpios.orden)
+                    : resultado.cuentas
+            }
+            const referencia = collection(db, "usuarios", uid, "cuentas")
+            const resultadoDoc = await addDoc(referencia, {
+                ...datos,
+                fechaCreacion: datos.fechaCreacion || serverTimestamp()
+            })
+            const nuevoId = resultadoDoc.id
+            cuentaIdMap.set(cuenta.id, nuevoId)
+            importadas.push({ newId, padreId: cuenta.padreId })
+            resultado.cuentas++
+        } catch (error) {
+            const detalle = cuenta.nombre ? ` ${cuenta.nombre}` : ""
+            resultado.errores.push(`Cuenta${detalle}: ${error.message}`)
+        }
+    }
+
+    // Segunda pasada: reescribir padreId de las subcuentas al nuevo id del
+    // padre (si el padre se importó en este mismo batch).
+    for (const { newId, padreId } of importadas) {
+        if (!padreId || !cuentaIdMap.has(padreId)) continue
+        try {
+            await updateDoc(doc(db, "usuarios", uid, "cuentas", newId), {
+                padreId: cuentaIdMap.get(padreId)
+            })
+        } catch (error) {
+            resultado.errores.push(`Cuenta padre de ${newId}: ${error.message}`)
+        }
+    }
 }
 
-async function importarMovimientos(uid, movimientos, resultado) {
-    await importarColeccion(uid, movimientos, resultado, {
-        coleccion: "movimientos",
-        camposFecha: ["fechaRegistro"],
-        contador: "movimientos",
-        etiqueta: "Movimiento"
-    })
+async function importarMovimientos(uid, movimientos, resultado, cuentaIdMap) {
+    if (!movimientos || movimientos.length === 0) return
+
+    const CAMPOS_FECHA = ["fechaRegistro"]
+
+    for (const movimiento of movimientos) {
+        try {
+            const { id: _id, ...datosLimpios } = movimiento
+            const datos = deserializarFechas(datosLimpios, ["fechaRegistro"])
+            // Reescribir referencias a ids de cuenta viejos -> ids nuevos, para
+            // que el movimiento quede vinculado a la cuenta correcta.
+            reescribirRefCuenta(datos, "cuenta", cuentaIdMap)
+            reescribirRefCuenta(datos, "cuentaOrigen", cuentaIdMap)
+            reescribirRefCuenta(datos, "cuentaDestino", cuentaIdMap)
+            reescribirRefCuenta(datos, "tarjeta", cuentaIdMap)
+
+            const referencia = collection(db, "usuarios", uid, "movimientos")
+            await addDoc(referencia, {
+                ...datos,
+                fechaRegistro: datos.fechaRegistro || serverTimestamp()
+            })
+            resultado.movimientos++
+        } catch (error) {
+            const detalle = movimiento.concepto ? ` ${movimiento.concepto}` : ""
+            resultado.errores.push(`Movimiento${detalle}: ${error.message}`)
+        }
+    }
+}
+
+/**
+ * Si `datos[campo]` es un id de cuenta del .dvid que ya se importó, lo
+ * reemplaza por el id nuevo asignado en Firestore.
+ */
+function reescribirRefCuenta(datos, campo, cuentaIdMap) {
+    const idViejo = datos[campo]
+    if (idViejo && cuentaIdMap.has(idViejo)) {
+        datos[campo] = cuentaIdMap.get(idViejo)
+    }
 }
 
 async function importarPendientes(uid, pendientes, resultado) {
