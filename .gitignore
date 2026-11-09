@@ -95,3 +95,6 @@ videos.txt
 
 # Entorno de pruebas de fondo (no desplegar a producción)
 fondo.html
+
+# Graphify (grafo de conocimiento generado)
+graphify-out/
