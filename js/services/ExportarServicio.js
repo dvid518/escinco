@@ -39,6 +39,11 @@ function serializarFechas(valor) {
     if (valor === null || valor === undefined) return valor
     if (typeof valor !== "object") return valor
 
+    // Timestamp de Firestore serializado como mapa plano ({seconds,
+    // nanoseconds}), p.ej. tras leer de la caché de localStorage.
+    if (typeof valor.seconds === "number" && typeof valor.nanoseconds === "number") {
+        return new Date(valor.seconds * 1000 + Math.round(valor.nanoseconds / 1e6)).toISOString()
+    }
     if (typeof valor.toDate === "function") {
         return valor.toDate().toISOString()
     }

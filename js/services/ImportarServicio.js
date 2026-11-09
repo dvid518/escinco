@@ -37,8 +37,18 @@ function deserializarFechas(valor, camposFecha = []) {
 
     const resultado = {}
     for (const [clave, item] of Object.entries(valor)) {
-        if (camposFecha.includes(clave) && typeof item === "string" && !isNaN(Date.parse(item))) {
-            resultado[clave] = new Date(item)
+        if (camposFecha.includes(clave)) {
+            if (typeof item === "string" && !isNaN(Date.parse(item))) {
+                resultado[clave] = new Date(item)
+            } else if (
+                item && typeof item === "object" &&
+                typeof item.seconds === "number" && typeof item.nanoseconds === "number"
+            ) {
+                // Timestamp de Firestore como mapa plano ({seconds, nanoseconds}).
+                resultado[clave] = new Date(item.seconds * 1000 + Math.round(item.nanoseconds / 1e6))
+            } else {
+                resultado[clave] = item
+            }
         } else {
             resultado[clave] = item
         }

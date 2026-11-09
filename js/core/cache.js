@@ -71,6 +71,10 @@ function leerPersistido(uid, clave) {
             borrarPersistido(uid, clave)
             return null
         }
+        // Los Timestamps de Firestore ({seconds, nanoseconds}) sobreviven al
+        // JSON de localStorage pero pierden su tipo. Se reviven a Date para
+        // que el resto de la app (y el exportador) los vea como fechas reales.
+        entrada.datos = revivirTimestamps(entrada.datos)
         return entrada.datos
     } catch {
         return null
@@ -105,6 +109,28 @@ function borrarPrefijoPersistido(prefijo) {
             }
         }
     } catch {}
+}
+
+/**
+ * Convierte los Timestamps de Firestore serializados como mapas
+ * `{seconds, nanoseconds}` (lo que queda tras un JSON.parse de localStorage)
+ * de vuelta a objetos Date. Recorre arrays y objetos anidados.
+ */
+export function revivirTimestamps(valor) {
+    if (Array.isArray(valor)) {
+        return valor.map(revivirTimestamps)
+    }
+    if (valor !== null && typeof valor === "object") {
+        if (typeof valor.seconds === "number" && typeof valor.nanoseconds === "number") {
+            return new Date(valor.seconds * 1000 + Math.round(valor.nanoseconds / 1e6))
+        }
+        const resultado = {}
+        for (const [clave, item] of Object.entries(valor)) {
+            resultado[clave] = revivirTimestamps(item)
+        }
+        return resultado
+    }
+    return valor
 }
 
 function registrarIngresoClave(clave, campo) {
