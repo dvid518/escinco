@@ -79,6 +79,10 @@ let patrimonioStats = null
 // mostrar estado visual silencioso en la card afectada, sin bloquear el resto
 // del dashboard (ver cargarTodo y actualizarUI).
 let erroresCargaOpcionales = {}
+// Versión de la petición de carga en curso. Se incrementa al iniciar cada
+// cargarTodo(); antes de escribir el estado global se comprueba que la versión
+// sigue siendo la vigente, descartando respuestas de cargas obsoletas.
+let versionCarga = 0
 
 const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
@@ -1974,6 +1978,7 @@ export async function recargarDatos() {
 
 async function cargarTodo() {
     erroresCargaOpcionales = {}
+    const miVersion = ++versionCarga
 
     try {
         // Críticas: si cuentas o movimientos fallan, no hay dashboard.
@@ -1981,6 +1986,10 @@ async function cargarTodo() {
             obtenerCuentas(uid),
             cargarMovimientos()
         ])
+
+        // Si mientras tanto arrancó una carga más reciente, esta respuesta está
+        // obsoleta: no se escribe el estado global ni se repinta.
+        if (versionCarga !== miVersion) return
 
         // Opcionales: cada una se carga de forma independiente. Si una falla,
         // se registra el error y se usa un valor por defecto, sin bloquear el
@@ -2039,8 +2048,14 @@ async function cargarTodo() {
         // de la carga anterior.
         patrimonioStats = null
 
+        // Comprobación final antes de pintar: si una carga más reciente ya
+        // empezó, esta respuesta está obsoleta.
+        if (versionCarga !== miVersion) return
+
         await actualizarUI(erroresCargaOpcionales)
     } catch (error) {
+        // Solo mostramos error global si esta carga sigue siendo la vigente.
+        if (versionCarga !== miVersion) return
         console.error("Error cargando dashboard:", error)
         mostrarErrorCarga()
         limpiarEsqueletosDashboard()
