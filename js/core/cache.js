@@ -54,6 +54,10 @@ function claveCompuesta(uid, clave) {
 // Se usa de forma defensiva: si no hay localStorage (Node/privado) o se
 // agota la cuota, se ignora y la caché en memoria sigue funcionando igual.
 const STORAGE_PREFIX = "escinco_cache:"
+const CLAVE_INVALIDACION = "escinco_cache_invalidado"
+// Bandera para evitar bucles: al recibir un evento remoto y aplicar la
+// invalidación local, no se vuelve a notificar a las otras pestañas.
+let procesandoRemoto = false
 
 function storageKey(uid, clave) {
     return `${STORAGE_PREFIX}${claveCompuesta(uid, clave)}`
@@ -131,6 +135,22 @@ export function revivirTimestamps(valor) {
         return resultado
     }
     return valor
+}
+
+/**
+ * Escribe una clave sentinel en localStorage para notificar a las otras
+ * pestañas que deben invalidar su copia de la caché. El evento `storage`
+ * solo se dispara en las demas pestañas, nunca en la que lo origina.
+ */
+function notificarOtrasPestanas(uid, tipo, clave) {
+    if (procesandoRemoto) return
+    try {
+        if (typeof localStorage === "undefined") return
+        localStorage.setItem(CLAVE_INVALIDACION, JSON.stringify({ uid, tipo, clave, ts: Date.now() }))
+    } catch {
+        // Si no se puede escribir, las otras pestañas se enteraran en su
+        // siguiente lectura o recarga.
+    }
 }
 
 function registrarIngresoClave(clave, campo) {
@@ -230,6 +250,7 @@ export const cacheCapa = {
             stats.invalidaciones++
         }
         borrarPersistido(uid, clave)
+        notificarOtrasPestanas(uid, "invalidar", clave)
     },
 
     /**
@@ -270,6 +291,7 @@ export const cacheCapa = {
         // y cambios de pestaña. Si falla (cuota o modo privado), la copia en
         // memoria sigue siendo válida y el siguiente obtener() la usa.
         persistir(uid, clave, siguiente, entrada.expira)
+        notificarOtrasPestanas(uid, "invalidar", clave)
     },
 
     invalidarPrefijo(uid, prefijo) {
@@ -282,6 +304,7 @@ export const cacheCapa = {
             }
         }
         borrarPrefijoPersistido(`${STORAGE_PREFIX}${p}`)
+        notificarOtrasPestanas(uid, "invalidarPrefijo", prefijo)
     },
 
     limpiar(uid) {
@@ -294,6 +317,7 @@ export const cacheCapa = {
             }
         }
         borrarPrefijoPersistido(`${STORAGE_PREFIX}${p}`)
+        notificarOtrasPestanas(uid, "limpiar", null)
     },
 
     // --------------------------------------------
@@ -361,4 +385,32 @@ export const cacheCapa = {
 
         return reporte
     }
+}
+
+// ============================================
+// SINCRONIZACIÓN ENTRE PESTAÑAS
+// ============================================
+// Cuando una pestaña invalida o limpia su caché, escribe una sentinel en
+// localStorage. Las demás pestañas reciben el evento `storage` y aplican la
+// misma invalidación localmente, sin necesidad de recargar.
+if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("storage", (evento) => {
+        if (evento.key !== CLAVE_INVALIDACION) return
+        try {
+            const datos = JSON.parse(evento.nuevoValor || "{}")
+            if (!datos || !datos.uid) return
+            procesandoRemoto = true
+            if (datos.tipo === "limpiar") {
+                limpiar(datos.uid)
+            } else if (datos.tipo === "invalidar" && datos.clave) {
+                invalidar(datos.uid, datos.clave)
+            } else if (datos.tipo === "invalidarPrefijo" && datos.clave) {
+                invalidarPrefijo(datos.uid, datos.clave)
+            }
+        } catch {
+            // Ignorar eventos malformados.
+        } finally {
+            procesandoRemoto = false
+        }
+    })
 }
