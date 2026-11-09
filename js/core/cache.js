@@ -266,6 +266,10 @@ export const cacheCapa = {
 
         entrada.datos = siguiente
         stats.parches++
+        // Persistir el parche en localStorage para que sobreviva a recargas
+        // y cambios de pestaña. Si falla (cuota o modo privado), la copia en
+        // memoria sigue siendo válida y el siguiente obtener() la usa.
+        persistir(uid, clave, siguiente, entrada.expira)
     },
 
     invalidarPrefijo(uid, prefijo) {
