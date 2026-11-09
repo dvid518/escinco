@@ -1908,7 +1908,7 @@ export async function init() {
         // Se repite tras cargar los datos reales para que el orden de las
         // tarjetas se ajuste con sus alturas definitivas y no con esqueletos.
         reordenarDashboard()
-        actualizarGraficoPatrimonio()
+        await actualizarGraficoPatrimonio()
     } finally {
         const dashboard = document.querySelector(".dashboard")
         dashboard?.classList.remove("dashboard-cargando")
@@ -1968,10 +1968,8 @@ export async function recargarDatos() {
         // se puede deducir de ninguna invalidación granular porque aquí no
         // hubo ninguna escritura.
         cacheCapa.limpiar(uid)
-        await Promise.all([
-            cargarTodo(),
-            actualizarGraficoPatrimonio()
-        ])
+        await cargarTodo()
+        await actualizarGraficoPatrimonio()
     } catch (error) {
         console.error("Error recargando dashboard:", error)
     } finally {
