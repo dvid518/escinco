@@ -257,7 +257,7 @@ export async function obtenerMovimientos(uid) {
         })
     } catch (error) {
         console.error("[WARN] Error obteniendo movimientos:", error)
-        return []
+        throw error
     }
 }
 
