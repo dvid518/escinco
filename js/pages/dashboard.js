@@ -74,6 +74,11 @@ let timerRefreshDashboard = null
 let secuenciaGraficoDashboard = 0
 let cardsDimensionesDashboard = {}
 let patrimonioStats = null
+// Secciones opcionales que fallaron al cargar en el ciclo actual. Las claves
+// son nombres de secciones y los valores son el error capturado. Se usa para
+// mostrar estado visual silencioso en la card afectada, sin bloquear el resto
+// del dashboard (ver cargarTodo y actualizarUI).
+let erroresCargaOpcionales = {}
 
 const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
@@ -1968,19 +1973,48 @@ export async function recargarDatos() {
 // ============================================
 
 async function cargarTodo() {
+    erroresCargaOpcionales = {}
+
     try {
+        // Críticas: si cuentas o movimientos fallan, no hay dashboard.
         const [cuentasResp, movimientosResp] = await Promise.all([
             obtenerCuentas(uid),
             cargarMovimientos()
         ])
-        const [inversionesResp, vencimientosResp, metasResp, pendientesResp, ordenesResp, estrategiasResp] = await Promise.all([
-            cargarInversiones(),
-            cargarVencimientos(cuentasResp, movimientosResp),
-            cargarMetas(),
-            cargarPendientes(),
-            cargarOrdenes(),
-            cargarEstrategias()
-        ])
+
+        // Opcionales: cada una se carga de forma independiente. Si una falla,
+        // se registra el error y se usa un valor por defecto, sin bloquear el
+        // resto del dashboard.
+        let inversionesResp
+        try { inversionesResp = await cargarInversiones() } catch (error) {
+            erroresCargaOpcionales.inversiones = error
+            inversionesResp = { valorTotal: 0, gananciaTotal: 0, cantidad: 0, posiciones: [], divisa: "pen", favoritos: [] }
+        }
+        let vencimientosResp
+        try { vencimientosResp = await cargarVencimientos(cuentasResp, movimientosResp) } catch (error) {
+            erroresCargaOpcionales.vencimientos = error
+            vencimientosResp = { items: [], total: 0, vencidos: 0 }
+        }
+        let metasResp
+        try { metasResp = await cargarMetas() } catch (error) {
+            erroresCargaOpcionales.metas = error
+            metasResp = []
+        }
+        let pendientesResp
+        try { pendientesResp = await cargarPendientes() } catch (error) {
+            erroresCargaOpcionales.pendientes = error
+            pendientesResp = []
+        }
+        let ordenesResp
+        try { ordenesResp = await cargarOrdenes() } catch (error) {
+            erroresCargaOpcionales.ordenes = error
+            ordenesResp = []
+        }
+        let estrategiasResp
+        try { estrategiasResp = await cargarEstrategias() } catch (error) {
+            erroresCargaOpcionales.estrategias = error
+            estrategiasResp = []
+        }
 
         // Las cuentas archivadas no se muestran en el dashboard: ni en las
         // cards, ni en el selector para añadirlas, ni en los cálculos. Sus
@@ -2005,7 +2039,7 @@ async function cargarTodo() {
         // de la carga anterior.
         patrimonioStats = null
 
-        await actualizarUI()
+        await actualizarUI(erroresCargaOpcionales)
     } catch (error) {
         console.error("Error cargando dashboard:", error)
         mostrarErrorCarga()
@@ -2428,7 +2462,7 @@ function diasHastaDiaDelMes(diaMes) {
 // ACTUALIZAR UI
 // ============================================
 
-async function actualizarUI() {
+async function actualizarUI(erroresCargaOpcionales = {}) {
     // Las cards de cuenta/ activo se crean y pintan aquí: dependen de datos
     // que acaban de cargar, así que no pueden vivir en el render().
     montarCardsInstanciadas()
@@ -2439,14 +2473,14 @@ async function actualizarUI() {
     await actualizarCuentas()
     await actualizarPatrimonio()
     actualizarPatrimonioDivisa()
-    actualizarInversiones()
+    actualizarInversiones(erroresCargaOpcionales.inversiones)
     actualizarDistribucionActivos()
-    actualizarVencimientos()
+    actualizarVencimientos(erroresCargaOpcionales.vencimientos)
     actualizarFavoritos()
-    actualizarMetas()
-    actualizarPendientes()
-    actualizarOrdenes()
-    actualizarEstrategias()
+    actualizarMetas(erroresCargaOpcionales.metas)
+    actualizarPendientes(erroresCargaOpcionales.pendientes)
+    actualizarOrdenes(erroresCargaOpcionales.ordenes)
+    actualizarEstrategias(erroresCargaOpcionales.estrategias)
     actualizarFlujoCaja()
     actualizarFlujoPeriodo()
     actualizarDeudas()
@@ -2501,12 +2535,20 @@ async function actualizarPatrimonio() {
     else if (valor < 0) valorEl.classList.add("negative")
 }
 
-function actualizarInversiones() {
+function actualizarInversiones(error) {
     const valorEl = document.getElementById("inversiones-valor")
     const detalleEl = document.getElementById("inversiones-detalle")
     const cardEl = document.getElementById("card-inversiones")
 
     if (!valorEl || !inversionesData) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        if (detalleEl) detalleEl.textContent = "Error al cargar esta sección"
+        valorEl.textContent = "—"
+        cardEl?.classList.remove("positive", "negative")
+        return
+    }
 
     if (inversionesData.cantidad === 0) {
         valorEl.textContent = formatearMonto(0, divisaActual)
@@ -2537,12 +2579,20 @@ function actualizarInversiones() {
     else if (inversionesData.gananciaTotal < 0) cardEl?.classList.add("negative")
 }
 
-function actualizarVencimientos() {
+function actualizarVencimientos(error) {
     const cantidadEl = document.getElementById("vencimientos-cantidad")
     const detalleEl = document.getElementById("vencimientos-detalle")
     const cardEl = document.getElementById("card-vencimientos")
 
     if (!cantidadEl || !vencimientosData) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        cantidadEl.textContent = "—"
+        if (detalleEl) detalleEl.textContent = "Error al cargar esta sección"
+        cardEl?.classList.remove("positive", "negative")
+        return
+    }
 
     cantidadEl.textContent = vencimientosData.total
 
@@ -2587,10 +2637,18 @@ function mostrarErrorCarga() {
     })
 }
 
-function actualizarPendientes() {
+function actualizarPendientes(error) {
     const lista = document.getElementById("pendientes-lista")
     const cantidadEl = document.getElementById("pendientes-cantidad")
     if (!lista) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        if (cantidadEl) cantidadEl.textContent = "—"
+        lista.replaceChildren(tarjetaVacia("Error al cargar esta sección"))
+        actualizarScrollFade(lista)
+        return
+    }
 
     if (cantidadEl) cantidadEl.textContent = pendientesData.length
     if (pendientesData.length === 0) {
@@ -2651,11 +2709,21 @@ function distanciaAlDisparo(orden, precioActual) {
     return ((precioActual - orden.precioDisparo) / orden.precioDisparo) * 100
 }
 
-function actualizarOrdenes() {
+function actualizarOrdenes(error) {
     const lista = document.getElementById("ordenes-lista")
     const cantidadEl = document.getElementById("ordenes-cantidad")
     const detalleEl = document.getElementById("ordenes-detalle")
     if (!lista) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        if (cantidadEl) cantidadEl.textContent = "—"
+        if (cantidadEl) cantidadEl.hidden = false
+        if (detalleEl) detalleEl.textContent = "Error al cargar esta sección"
+        lista.replaceChildren(tarjetaVacia("Error al cargar esta sección"))
+        actualizarScrollFade(lista)
+        return
+    }
 
     const pendientes = ordenesData.filter(orden => orden.estaPendiente)
     const ejecutadas = ordenesData.filter(orden => orden.fueEjecutada).length
@@ -2708,10 +2776,18 @@ function actualizarOrdenes() {
     actualizarScrollFade(lista)
 }
 
-function actualizarEstrategias() {
+function actualizarEstrategias(error) {
     const lista = document.getElementById("estrategias-lista")
     const cantidadEl = document.getElementById("estrategias-cantidad")
     if (!lista) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        if (cantidadEl) cantidadEl.textContent = "—"
+        lista.replaceChildren(tarjetaVacia("Error al cargar esta sección"))
+        actualizarScrollFade(lista)
+        return
+    }
 
     if (cantidadEl) cantidadEl.textContent = estrategiasData.length
     if (estrategiasData.length === 0) {
@@ -3942,9 +4018,16 @@ function enlazarListaPresupuestos(lista) {
 }
 
 
-function actualizarMetas() {
+function actualizarMetas(error) {
     const lista = document.getElementById("metas-lista")
     if (!lista) return
+
+    // Estado visual silencioso cuando la sección falló al cargar.
+    if (error) {
+        lista.replaceChildren(tarjetaVacia("Error al cargar esta sección"))
+        actualizarScrollFade(lista)
+        return
+    }
 
     if (metasData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Crea tu primera meta de ahorro."))
