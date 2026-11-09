@@ -1115,20 +1115,53 @@ function abrirSelectorCardsDashboard() {
             }
         })
 
-        const entidadesHTML = entidades.map(e => `
-            <div class="modal-entidad-item" data-entidad-id="${e.id}">
-                <input type="checkbox" data-tpl="valor" data-tpl-attr="value" value="${e.id}">
-                <span class="entidad-nombre">${e.nombre}</span>
-                <span class="entidad-tipo">${e.tipo}</span>
-                <button type="button" class="btn-agregar" data-accion="agregar-entidad" data-entidad-id="${e.id}">
-                    ${icono("plus", 14)}
-                </button>
-            </div>
-        `).join('')
-
+        // Construir el listado nodo a nodo (sin innerHTML) para que los
+        // nombres de cuentas y activos (datos de usuario) nunca se interpreten
+        // como HTML: evita XSS si un nombre lleva etiquetas o atributos. Los
+        // ids viajan en atributos data-* / dataset, no interpolados en HTML.
         const contenedor = modal.querySelector(".modal-selector-entidades")
         if (!contenedor) return
-        contenedor.innerHTML = entidadesHTML || '<p class="dashboard-editor-hint">Todas las cuentas y activos ya están en el dashboard.</p>'
+        contenedor.replaceChildren(
+            ...entidades.map(e => {
+                const item = document.createElement("div")
+                item.className = "modal-entidad-item"
+                item.dataset.entidadId = e.id
+
+                const input = document.createElement("input")
+                input.type = "checkbox"
+                input.dataset.tpl = "valor"
+                input.value = e.id
+
+                const spanNombre = document.createElement("span")
+                spanNombre.className = "entidad-nombre"
+                spanNombre.textContent = e.nombre
+
+                const spanTipo = document.createElement("span")
+                spanTipo.className = "entidad-tipo"
+                spanTipo.textContent = e.tipo
+
+                const btn = document.createElement("button")
+                btn.type = "button"
+                btn.className = "btn-agregar"
+                btn.dataset.accion = "agregar-entidad"
+                btn.dataset.entidadId = e.id
+                const iconoPlus = iconoNodo("plus", 14)
+                if (iconoPlus) btn.appendChild(iconoPlus)
+
+                item.appendChild(input)
+                item.appendChild(spanNombre)
+                item.appendChild(spanTipo)
+                item.appendChild(btn)
+                return item
+            })
+        )
+
+        if (contenedor.children.length === 0) {
+            const hint = document.createElement("p")
+            hint.className = "dashboard-editor-hint"
+            hint.textContent = "Todas las cuentas y activos ya están en el dashboard."
+            contenedor.appendChild(hint)
+        }
     }
 
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
