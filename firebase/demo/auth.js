@@ -44,6 +44,15 @@ export class GoogleAuthProvider {
     }
 }
 
+export class FacebookAuthProvider {
+    static credential() {
+        return { providerId: "facebook.com" }
+    }
+    addScope() {
+        return this
+    }
+}
+
 export class EmailAuthProvider {
     static credential() {
         return { providerId: "password" }
