@@ -83,6 +83,9 @@ let erroresCargaOpcionales = {}
 // cargarTodo(); antes de escribir el estado global se comprueba que la versión
 // sigue siendo la vigente, descartando respuestas de cargas obsoletas.
 let versionCarga = 0
+// Promesa de la carga de dashboard en curso. Mientras exista, nuevas peticiones
+// a cargarTodo() esperan a que termine en lugar de iniciar una carga duplicada.
+let cargaEnVuelo = null
 
 const DIAS_VENCIMIENTO = 7
 // Las cards nuevas se añaden por tandas, cada una con su propia marca de
@@ -1953,6 +1956,12 @@ export async function recargarDatos() {
     activarSpinLogo()
     mostrarEsqueletosDashboard()
     try {
+        // Si ya hay una carga en curso, esperar a que termine antes de
+        // limpiar y volver a cargar. Así el usuario no pierde la petición
+        // de recarga aunque haya una carga previa en vuelo.
+        if (cargaEnVuelo) {
+            await cargaEnVuelo
+        }
         // Aquí el limpiar SÍ es correcto, y es la excepción deliberada al
         // camino de `movimientos-actualizados`: el usuario pidió recargar a
         // propósito, para traerse cambios hechos en otro dispositivo. Eso no
@@ -1977,89 +1986,106 @@ export async function recargarDatos() {
 // ============================================
 
 async function cargarTodo() {
+    // Si ya hay una carga en curso, esperar a que termine y no iniciar una
+    // duplicada. La carga en vuelo ya tiene su propia versión y escribirá el
+    // estado cuando termine.
+    if (cargaEnVuelo) {
+        await cargaEnVuelo
+        return
+    }
+
     erroresCargaOpcionales = {}
     const miVersion = ++versionCarga
 
-    try {
-        // Críticas: si cuentas o movimientos fallan, no hay dashboard.
-        const [cuentasResp, movimientosResp] = await Promise.all([
-            obtenerCuentas(uid),
-            cargarMovimientos()
-        ])
+    const ejecutar = async () => {
+        try {
+            // Críticas: si cuentas o movimientos fallan, no hay dashboard.
+            const [cuentasResp, movimientosResp] = await Promise.all([
+                obtenerCuentas(uid),
+                cargarMovimientos()
+            ])
 
-        // Si mientras tanto arrancó una carga más reciente, esta respuesta está
-        // obsoleta: no se escribe el estado global ni se repinta.
-        if (versionCarga !== miVersion) return
+            // Si mientras tanto arrancó una carga más reciente, esta respuesta está
+            // obsoleta: no se escribe el estado global ni se repinta.
+            if (versionCarga !== miVersion) return
 
-        // Opcionales: cada una se carga de forma independiente. Si una falla,
-        // se registra el error y se usa un valor por defecto, sin bloquear el
-        // resto del dashboard.
-        let inversionesResp
-        try { inversionesResp = await cargarInversiones() } catch (error) {
-            erroresCargaOpcionales.inversiones = error
-            inversionesResp = { valorTotal: 0, gananciaTotal: 0, cantidad: 0, posiciones: [], divisa: "pen", favoritos: [] }
-        }
-        let vencimientosResp
-        try { vencimientosResp = await cargarVencimientos(cuentasResp, movimientosResp) } catch (error) {
-            erroresCargaOpcionales.vencimientos = error
-            vencimientosResp = { items: [], total: 0, vencidos: 0 }
-        }
-        let metasResp
-        try { metasResp = await cargarMetas() } catch (error) {
-            erroresCargaOpcionales.metas = error
-            metasResp = []
-        }
-        let pendientesResp
-        try { pendientesResp = await cargarPendientes() } catch (error) {
-            erroresCargaOpcionales.pendientes = error
-            pendientesResp = []
-        }
-        let ordenesResp
-        try { ordenesResp = await cargarOrdenes() } catch (error) {
-            erroresCargaOpcionales.ordenes = error
-            ordenesResp = []
-        }
-        let estrategiasResp
-        try { estrategiasResp = await cargarEstrategias() } catch (error) {
-            erroresCargaOpcionales.estrategias = error
-            estrategiasResp = []
-        }
+            // Opcionales: cada una se carga de forma independiente. Si una falla,
+            // se registra el error y se usa un valor por defecto, sin bloquear el
+            // resto del dashboard.
+            let inversionesResp
+            try { inversionesResp = await cargarInversiones() } catch (error) {
+                erroresCargaOpcionales.inversiones = error
+                inversionesResp = { valorTotal: 0, gananciaTotal: 0, cantidad: 0, posiciones: [], divisa: "pen", favoritos: [] }
+            }
+            let vencimientosResp
+            try { vencimientosResp = await cargarVencimientos(cuentasResp, movimientosResp) } catch (error) {
+                erroresCargaOpcionales.vencimientos = error
+                vencimientosResp = { items: [], total: 0, vencidos: 0 }
+            }
+            let metasResp
+            try { metasResp = await cargarMetas() } catch (error) {
+                erroresCargaOpcionales.metas = error
+                metasResp = []
+            }
+            let pendientesResp
+            try { pendientesResp = await cargarPendientes() } catch (error) {
+                erroresCargaOpcionales.pendientes = error
+                pendientesResp = []
+            }
+            let ordenesResp
+            try { ordenesResp = await cargarOrdenes() } catch (error) {
+                erroresCargaOpcionales.ordenes = error
+                ordenesResp = []
+            }
+            let estrategiasResp
+            try { estrategiasResp = await cargarEstrategias() } catch (error) {
+                erroresCargaOpcionales.estrategias = error
+                estrategiasResp = []
+            }
 
-        // Las cuentas archivadas no se muestran en el dashboard: ni en las
-        // cards, ni en el selector para añadirlas, ni en los cálculos. Sus
-        // movimientos se conservan y vuelven a aparecer al restaurarlas.
-        cuentas = cuentasResp.filter(cuenta => cuenta.estado !== "archivada")
-        inversionesData = inversionesResp
-        posicionesData = inversionesResp.posiciones || []
-        vencimientosData = vencimientosResp
-        favoritosData = inversionesResp.favoritos || []
-        metasData = metasResp
-        movimientosCompletosData = movimientosResp
-        movimientosData = movimientosResp.slice(0, cantidadMovimientosRecientes())
-        pendientesData = pendientesResp
-        ordenesData = ordenesResp
-        estrategiasData = estrategiasResp
-        analiticaData = construirAnaliticaDashboard(movimientosResp)
-        // Ya hay datos: a partir de aquí se puede saber qué cards de
-        // cuenta/activo siguen apuntando a algo real.
-        instanciasResueltas = true
-        // El patrimonio se invalida aquí para que el próximo ciclo lo vuelva a
-        // calcular: si no, tras un movimiento seguiría mostrando las cifras
-        // de la carga anterior.
-        patrimonioStats = null
+            // Las cuentas archivadas no se muestran en el dashboard: ni en las
+            // cards, ni en el selector para añadirlas, ni en los cálculos. Sus
+            // movimientos se conservan y vuelven a aparecer al restaurarlas.
+            cuentas = cuentasResp.filter(cuenta => cuenta.estado !== "archivada")
+            inversionesData = inversionesResp
+            posicionesData = inversionesResp.posiciones || []
+            vencimientosData = vencimientosResp
+            favoritosData = inversionesResp.favoritos || []
+            metasData = metasResp
+            movimientosCompletosData = movimientosResp
+            movimientosData = movimientosResp.slice(0, cantidadMovimientosRecientes())
+            pendientesData = pendientesResp
+            ordenesData = ordenesResp
+            estrategiasData = estrategiasResp
+            analiticaData = construirAnaliticaDashboard(movimientosResp)
+            // Ya hay datos: a partir de aquí se puede saber qué cards de
+            // cuenta/activo siguen apuntando a algo real.
+            instanciasResueltas = true
+            // El patrimonio se invalida aquí para que el próximo ciclo lo vuelva a
+            // calcular: si no, tras un movimiento seguiría mostrando las cifras
+            // de la carga anterior.
+            patrimonioStats = null
 
-        // Comprobación final antes de pintar: si una carga más reciente ya
-        // empezó, esta respuesta está obsoleta.
-        if (versionCarga !== miVersion) return
+            // Comprobación final antes de pintar: si una carga más reciente ya
+            // empezó, esta respuesta está obsoleta.
+            if (versionCarga !== miVersion) return
 
-        await actualizarUI(erroresCargaOpcionales)
-    } catch (error) {
-        // Solo mostramos error global si esta carga sigue siendo la vigente.
-        if (versionCarga !== miVersion) return
-        console.error("Error cargando dashboard:", error)
-        mostrarErrorCarga()
-        limpiarEsqueletosDashboard()
+            await actualizarUI(erroresCargaOpcionales)
+        } catch (error) {
+            // Solo mostramos error global si esta carga sigue siendo la vigente.
+            if (versionCarga !== miVersion) return
+            console.error("Error cargando dashboard:", error)
+            mostrarErrorCarga()
+            limpiarEsqueletosDashboard()
+        } finally {
+            // Liberar la carga en vuelo solo si es la nuestra.
+            if (cargaEnVuelo === ejecucionPromise) cargaEnVuelo = null
+        }
     }
+
+    const ejecucionPromise = ejecutar()
+    cargaEnVuelo = ejecucionPromise
+    return ejecucionPromise
 }
 
 async function cargarInversiones() {
