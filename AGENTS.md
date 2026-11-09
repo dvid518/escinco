@@ -77,3 +77,10 @@ El asistente se escribe siempre en minúsculas: **drov** (nunca "Drov" ni "DROV"
 - Comentarios de código.
 - Nombres de variables y funciones (ej. `permisoDrov`, `obtenerPermisoDrov`).
 - Nombres de clases CSS (`.drov-permisos-*`).
+
+## Graphify (grafo de conocimiento)
+
+- `graphify-out/` está en `.gitignore` (artefacto generado, 5.5 MB).
+- Para regenerarlo: `graphify extract . --code-only`
+- El reporte legible (`GRAPH_REPORT.md`) puede versionarse si es útil para el equipo.
+- Los hooks de git (`graphify hook install`) se instalarán cuando el proyecto esté estable.
