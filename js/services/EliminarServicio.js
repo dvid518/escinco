@@ -38,24 +38,21 @@ export async function eliminarTodosLosDatos(uid) {
     const resultado = {}
 
     for (const coleccionNombre of colecciones) {
-        try {
-            // Para la colección de cuentas, preservamos la cuenta de efectivo-inicial
-            // ya que todo usuario debe tener al menos una cuenta de efectivo.
-            if (coleccionNombre === "cuentas") {
-                const snapshot = await getDocs(collection(db, "usuarios", uid, "cuentas"))
-                // Filtrar out la cuenta de efectivo-inicial
-                const docsToDelete = snapshot.docs.filter(
-                    documento => documento.id !== "efectivo-inicial"
-                )
-                resultado[coleccionNombre] = await vaciarColeccionSeleccionada(uid, coleccionNombre, docsToDelete)
-            } else {
-                resultado[coleccionNombre] = await vaciarColeccion(uid, coleccionNombre)
-            }
-            console.info(`[INFO] ${coleccionNombre}: ${resultado[coleccionNombre]} eliminados`)
-        } catch (error) {
-            console.error(`Error eliminando ${coleccionNombre}:`, error)
-            resultado[coleccionNombre] = 0
+        // Para la colección de cuentas, preservamos la cuenta de efectivo-inicial
+        // ya que todo usuario debe tener al menos una cuenta de efectivo.
+        let cantidad
+        if (coleccionNombre === "cuentas") {
+            const snapshot = await getDocs(collection(db, "usuarios", uid, "cuentas"))
+            // Filtrar out la cuenta de efectivo-inicial
+            const docsToDelete = snapshot.docs.filter(
+                documento => documento.id !== "efectivo-inicial"
+            )
+            cantidad = await vaciarColeccionSeleccionada(uid, coleccionNombre, docsToDelete)
+        } else {
+            cantidad = await vaciarColeccion(uid, coleccionNombre)
         }
+        resultado[coleccionNombre] = cantidad
+        console.info(`[INFO] ${coleccionNombre}: ${cantidad} eliminados`)
     }
 
     console.info("[INFO] Datos eliminados:", resultado)
