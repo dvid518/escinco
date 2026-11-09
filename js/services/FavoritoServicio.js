@@ -6,6 +6,7 @@ import { registrarMovimiento, notificarMovimientosActualizados } from "./Movimie
 import { db, obtenerMovimientos, actualizarMovimientoDoc, doc, writeBatch, deleteField } from "../../firebase/firestore.js"
 import { cacheCapa } from "../core/cache.js"
 import { obtenerFavorito, crearFavorito, actualizarFavorito } from "../repositories/FavoritoRepositorio.js"
+import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { getFechaHoy } from "../core/fechas.js"
 
 // Tipos de movimiento que admiten ser guardados como favorito: una sola cuenta
@@ -186,7 +187,14 @@ export async function eliminarFavoritoConDesvinculacion(uid, favoritoId, deps = 
         throw new Error("El favorito ya no existe")
     }
 
-    const movimientos = await obtenerMovimientosFn(uid)
+    let movimientos
+    try {
+        movimientos = await obtenerMovimientosFn(uid)
+    } catch (error) {
+        console.error("Error cargando movimientos para eliminar favorito:", error)
+        mostrarNotificacion("error", "No se pudo cargar el listado de movimientos. El favorito no se eliminó.")
+        throw error
+    }
     const vinculados = movimientos.filter(m => m.favoritoId === favoritoId)
 
     const lote = writeBatchFn(db)

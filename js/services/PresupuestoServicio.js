@@ -70,7 +70,13 @@ export async function obtenerPresupuestosConProgreso(uid, deps = {}) {
     const obtenerMovimientosFn = deps.obtenerMovimientos || obtenerMovimientos
 
     const presupuestos = await obtenerPresupuestosFn(uid)
-    const movimientos = await obtenerMovimientosFn(uid)
+    let movimientos
+    try {
+        movimientos = await obtenerMovimientosFn(uid)
+    } catch (error) {
+        console.error("Error cargando movimientos para presupuestos:", error)
+        movimientos = []
+    }
 
     const gastosPorPeriodo = presupuestos.map(p => {
         const periodoInicio = new Date(p.fechaInicio)
