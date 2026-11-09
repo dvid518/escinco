@@ -1939,6 +1939,15 @@ function configurarRefreshDashboard() {
             // red para `movimientos` y `cuentas`, y vaciar las 24 cards para
             // enseñar un esqueleto un instante era lo que se notaba, no la
             // lectura.
+            //
+            // Si ya hay una carga en vuelo (p.ej. init() o recargarDatos()),
+            // esperar a que termine y no iniciar una carga duplicada.
+            if (cargaEnVuelo) {
+                await cargaEnVuelo
+                document.querySelector(".dashboard")?.removeAttribute("aria-busy")
+                return
+            }
+
             document.querySelector(".dashboard")?.setAttribute("aria-busy", "true")
             try {
                 await cargarTodo()
