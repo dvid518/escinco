@@ -225,7 +225,14 @@ export async function notificarCruces(cuentas, uid, movimientos = null) {
     let movs = movimientos
 
     const pagadoDe = async (c) => {
-        if (movs === null && uid) movs = await obtenerMovimientos(uid)
+        if (movs === null && uid) {
+            try {
+                movs = await obtenerMovimientos(uid)
+            } catch (error) {
+                console.error("Error cargando movimientos para evaluar créditos:", error)
+                movs = []
+            }
+        }
         return estadoCicloDe(c, movs || []).pagadoCompleto
     }
 

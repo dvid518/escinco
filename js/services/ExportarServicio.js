@@ -91,7 +91,7 @@ export async function exportarDVID(uid) {
             metas
         ] = await Promise.all([
             obtenerCuentas(uid),
-            obtenerMovimientos(uid),
+            obtenerMovimientos(uid).catch(() => []),
             obtenerPendientes(uid, false),   // false = incluir consolidados
             obtenerPosiciones(uid),
             obtenerTrades(uid),
