@@ -9,7 +9,8 @@ import {
     restaurarDocumento,
     db,
     doc,
-    writeBatch
+    writeBatch,
+    runTransaction
 } from "../../firebase/firestore.js"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../../constants/tiposMovimiento.js"
 import { getFechaHoy } from "../core/fechas.js"
@@ -26,6 +27,259 @@ function normalizarFechaFutura(datos) {
         datos.fechaRealizacion = getFechaHoy()
     }
     return datos
+}
+
+// ============================================
+// TRANSACCIONES ATÓMICAS (movimiento + saldos)
+// ============================================
+// Todas las escrituras de un movimiento (documento + saldos/deudas de las
+// cuentas afectadas) van dentro de una sola `runTransaction`. Así, si falla
+// cualquiera de ellas, Firestore revierte todo y no queda un movimiento
+// huérfano ni saldos desajustados.
+
+async function txLeerCuenta(tx, uid, cuentaId) {
+    const snap = await tx.get(doc(db, "usuarios", uid, "cuentas", cuentaId))
+    return snap.exists() ? snap.data() : null
+}
+
+async function txEscribirCuenta(tx, uid, cuentaId, datos) {
+    tx.update(doc(db, "usuarios", uid, "cuentas", cuentaId), datos)
+}
+
+/**
+ * Devuelve cuánto mueve la transferencia de cada lado. Reutiliza la lógica de
+ * `montosDeTransferencia` pero sin modificar `datos`.
+ */
+function montosDeTransferenciaTx(datos) {
+    const origen = Number(datos?.montoOrigen)
+    const destino = Number(datos?.montoDestino)
+    if (Number.isFinite(origen) && origen > 0 && Number.isFinite(destino) && destino > 0) {
+        return { origen, destino }
+    }
+    const monto = Number(datos?.monto) || 0
+    return { origen: monto, destino: monto }
+}
+
+async function txActualizarSaldos(tx, uid, tipo, datos) {
+    switch (tipo) {
+        case TIPOS_MOVIMIENTO.INGRESO:
+            await txEscribirCuenta(tx, uid, datos.cuenta, { saldoInicial: (Number((await txLeerCuenta(tx, uid, datos.cuenta))?.saldoInicial) || 0) + Number(datos.monto) })
+            break
+
+        case TIPOS_MOVIMIENTO.GASTO: {
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (cuenta?.tipo === "credito") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    deuda: Math.max(0, Number(cuenta?.deuda || 0) + Number(datos.monto))
+                })
+            } else {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) - Number(datos.monto))
+                })
+            }
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.TRANSFERENCIA: {
+            const { origen, destino } = montosDeTransferenciaTx(datos)
+            const cOrigen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            const cDestino = await txLeerCuenta(tx, uid, datos.cuentaDestino)
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(cOrigen?.saldoInicial || 0) - origen)
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaDestino, {
+                saldoInicial: (Number(cDestino?.saldoInicial || 0) + destino)
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.CAMBIO_DIVISA: {
+            const cOrigen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            const cDestino = await txLeerCuenta(tx, uid, datos.cuentaDestino)
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(cOrigen?.saldoInicial || 0) - Number(datos.montoOrigen))
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaDestino, {
+                saldoInicial: (Number(cDestino?.saldoInicial || 0) + Number(datos.montoDestino))
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.COMPRA_ACTIVO:
+        case TIPOS_MOVIMIENTO.P2P_COMPRA: {
+            if (!datos.cuenta) break
+            const total = (Number(datos.cantidad) * Number(datos.precio)) + (Number(datos.comision) || 0)
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (cuenta?.tipo === "credito") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    deuda: Math.max(0, Number(cuenta?.deuda || 0) + total)
+                })
+            } else {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) - total)
+                })
+            }
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.VENTA_ACTIVO:
+        case TIPOS_MOVIMIENTO.P2P_VENTA: {
+            if (!datos.cuenta) break
+            const total = (Number(datos.cantidad) * Number(datos.precio)) - (Number(datos.comision) || 0)
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            await txEscribirCuenta(tx, uid, datos.cuenta, {
+                saldoInicial: (Number(cuenta?.saldoInicial || 0) + total)
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.COMPRA_TARJETA:
+            await txEscribirCuenta(tx, uid, datos.cuenta, {
+                deuda: Math.max(0, Number((await txLeerCuenta(tx, uid, datos.cuenta))?.deuda || 0) + Number(datos.monto))
+            })
+            break
+
+        case TIPOS_MOVIMIENTO.PAGO_TARJETA: {
+            const tarjeta = await txLeerCuenta(tx, uid, datos.tarjeta)
+            const origen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            await txEscribirCuenta(tx, uid, datos.tarjeta, {
+                deuda: Math.max(0, Number(tarjeta?.deuda || 0) - Number(datos.monto))
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(origen?.saldoInicial || 0) - Number(datos.monto))
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.ERROR: {
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (datos.operacion === "sumar") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) + Number(datos.monto))
+                })
+            } else if (datos.operacion === "restar") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) - Number(datos.monto))
+                })
+            }
+            break
+        }
+
+        default:
+            console.warn(`Tipo de movimiento sin actualización de saldo: ${tipo}`)
+    }
+}
+
+async function txRevertirSaldos(tx, uid, tipo, datos) {
+    switch (tipo) {
+        case TIPOS_MOVIMIENTO.INGRESO:
+            await txEscribirCuenta(tx, uid, datos.cuenta, {
+                saldoInicial: (Number((await txLeerCuenta(tx, uid, datos.cuenta))?.saldoInicial || 0) - Number(datos.monto))
+            })
+            break
+
+        case TIPOS_MOVIMIENTO.GASTO: {
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (cuenta?.tipo === "credito") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    deuda: Math.max(0, Number(cuenta?.deuda || 0) - Number(datos.monto))
+                })
+            } else {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) + Number(datos.monto))
+                })
+            }
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.TRANSFERENCIA: {
+            const { origen, destino } = montosDeTransferenciaTx(datos)
+            const cOrigen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            const cDestino = await txLeerCuenta(tx, uid, datos.cuentaDestino)
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(cOrigen?.saldoInicial || 0) + origen)
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaDestino, {
+                saldoInicial: (Number(cDestino?.saldoInicial || 0) - destino)
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.CAMBIO_DIVISA: {
+            const cOrigen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            const cDestino = await txLeerCuenta(tx, uid, datos.cuentaDestino)
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(cOrigen?.saldoInicial || 0) + Number(datos.montoOrigen))
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaDestino, {
+                saldoInicial: (Number(cDestino?.saldoInicial || 0) - Number(datos.montoDestino))
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.COMPRA_ACTIVO:
+        case TIPOS_MOVIMIENTO.P2P_COMPRA: {
+            if (tipo === TIPOS_MOVIMIENTO.COMPRA_ACTIVO && !datos.cuenta) break
+            const total = (Number(datos.cantidad) * Number(datos.precio)) + (Number(datos.comision) || 0)
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (cuenta?.tipo === "credito") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    deuda: Math.max(0, Number(cuenta?.deuda || 0) - total)
+                })
+            } else {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) + total)
+                })
+            }
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.VENTA_ACTIVO:
+        case TIPOS_MOVIMIENTO.P2P_VENTA: {
+            if (tipo === TIPOS_MOVIMIENTO.VENTA_ACTIVO && !datos.cuenta) break
+            const total = (Number(datos.cantidad) * Number(datos.precio)) - (Number(datos.comision) || 0)
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            await txEscribirCuenta(tx, uid, datos.cuenta, {
+                saldoInicial: (Number(cuenta?.saldoInicial || 0) - total)
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.COMPRA_TARJETA:
+            await txEscribirCuenta(tx, uid, datos.cuenta, {
+                deuda: Math.max(0, Number((await txLeerCuenta(tx, uid, datos.cuenta))?.deuda || 0) - Number(datos.monto))
+            })
+            break
+
+        case TIPOS_MOVIMIENTO.PAGO_TARJETA: {
+            const tarjeta = await txLeerCuenta(tx, uid, datos.tarjeta)
+            const origen = await txLeerCuenta(tx, uid, datos.cuentaOrigen)
+            await txEscribirCuenta(tx, uid, datos.tarjeta, {
+                deuda: Math.max(0, Number(tarjeta?.deuda || 0) + Number(datos.monto))
+            })
+            await txEscribirCuenta(tx, uid, datos.cuentaOrigen, {
+                saldoInicial: (Number(origen?.saldoInicial || 0) + Number(datos.monto))
+            })
+            break
+        }
+
+        case TIPOS_MOVIMIENTO.ERROR: {
+            const cuenta = await txLeerCuenta(tx, uid, datos.cuenta)
+            if (datos.operacion === "sumar") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) - Number(datos.monto))
+                })
+            } else if (datos.operacion === "restar") {
+                await txEscribirCuenta(tx, uid, datos.cuenta, {
+                    saldoInicial: (Number(cuenta?.saldoInicial || 0) + Number(datos.monto))
+                })
+            }
+            break
+        }
+
+        default:
+            break
+    }
 }
 
 // ============================================
@@ -64,21 +318,30 @@ export async function registrarMovimiento(uid, tipo, datos) {
     await ajustarPagoDeTarjeta(uid, tipoFinal, datos)
     await validarTransferencia(uid, tipoFinal, datos)
 
-    // 1. Crear el movimiento
-    const movimiento = await crearMovimiento(uid, {
-        tipo: tipoFinal,
-        ...datos
+    // Todo el movimiento (documento + saldos/deudas afectados) se escribe en una
+    // sola transacción de Firestore: si cualquiera de las escrituras falla, la
+    // transacción se revierte y no queda un movimiento huérfano ni saldos
+    // desajustados. La posición de activo se aplica justo después (fuera de la
+    // transacción) y, si falla, se informa sin deshacer el movimiento ya
+    // confirmado; el inventario se puede resincronizar desde la pantalla de
+    // inversiones sin dejar datos inconsistentes de dinero.
+    const movimientoId = await runTransaction(db, async tx => {
+        const refMovimiento = doc(collection(db, "usuarios", uid, "movimientos"))
+        tx.set(refMovimiento, {
+            tipo: tipoFinal,
+            ...datos,
+            fechaRegistro: serverTimestamp()
+        })
+        await txActualizarSaldos(tx, uid, tipoFinal, datos)
+        return refMovimiento.id
     })
 
-    // 2. Actualizar saldos
-    await actualizarSaldos(uid, tipoFinal, datos)
+    const movimiento = { id: movimientoId, tipo: tipoFinal, ...datos }
 
     // 2b. Si un movimiento cambió la deuda de una tarjeta, avisar al cruzar un umbral.
     await evaluarCreditosYNotificar(uid)
 
     // 3. Actualizar posición si es compra/venta de activo.
-    //    El error NO se traga: si la posición no pudo actualizarse, el
-    //    usuario debe saberlo para no dejar el inventario inconsistente.
     if (esMovimientoDeActivo(tipoFinal)) {
         try {
             await aplicarPosicion(uid, tipoFinal, datos)
@@ -240,15 +503,23 @@ export async function actualizarMovimiento(uid, movimientoId, movimientoOriginal
 
     const metaVinculada = await resolverMetaDeMovimiento(uid, movimientoOriginal)
 
-    // 1. Deshacer el efecto del movimiento original
-    await revertirSaldos(uid, movimientoOriginal.tipo, movimientoOriginal)
-    await revertirPosicion(uid, movimientoOriginal)
-    if (metaVinculada) {
-        await revertirAporteMetaDeMeta(uid, metaVinculada, Math.abs(movimientoOriginal.monto || 0))
-    }
+    // Deshacer el efecto del movimiento original y aplicar el del nuevo, junto
+    // con la actualización del documento, en una sola transacción. Si algo falla
+    // a mitad, no queda medio movimiento aplicado.
+    await runTransaction(db, async tx => {
+        await txRevertirSaldos(tx, uid, movimientoOriginal.tipo, movimientoOriginal)
+        await txActualizarSaldos(tx, uid, tipoFinal, datos)
+        tx.update(
+            doc(db, "usuarios", uid, "movimientos", movimientoId),
+            {
+                tipo: tipoFinal,
+                ...datos,
+                ...(metaVinculada ? { metaId: metaVinculada.id } : {})
+            }
+        )
+    })
 
-    // 2. Aplicar el nuevo efecto
-    await actualizarSaldos(uid, tipoFinal, datos)
+    // Fuera de la transacción: posición y metas (no tocan dinero de cuentas).
     if (esMovimientoDeActivo(tipoFinal)) {
         await aplicarPosicion(uid, tipoFinal, datos)
     }
@@ -259,12 +530,9 @@ export async function actualizarMovimiento(uid, movimientoId, movimientoOriginal
     // 2b. El resultado final puede haber cruzado (o dejado de cruzar) un umbral.
     await evaluarCreditosYNotificar(uid)
 
-    // 3. Actualizar el documento (conserva el vínculo con la meta)
-    const datosGuardado = { tipo: tipoFinal, ...datos }
-    if (metaVinculada) {
-        datosGuardado.metaId = metaVinculada.id
-    }
-    await actualizarMovimientoDoc(uid, movimientoId, datosGuardado)
+    cacheCapa.parchear(uid, "movimientos", lista =>
+        lista.map(m => (m.id === movimientoId ? { ...m, tipo: tipoFinal, ...datos } : m))
+    )
 
     notificarActualizacionMetas()
     notificarMovimientosActualizados()
@@ -278,10 +546,15 @@ export async function actualizarMovimiento(uid, movimientoId, movimientoOriginal
 // Revierte el efecto del movimiento (saldos + posición) y borra el doc.
 
 export async function eliminarMovimiento(uid, m) {
-    await revertirSaldos(uid, m.tipo, m)
+    // Revertir saldos y borrar el documento en una sola transacción: si algo
+    // falla, no queda medio borrado ni saldos desajustados.
+    await runTransaction(db, async tx => {
+        await txRevertirSaldos(tx, uid, m.tipo, m)
+        tx.delete(doc(db, "usuarios", uid, "movimientos", m.id))
+    })
+
     await revertirPosicion(uid, m)
     await revertirAporteMeta(uid, m)
-    await eliminarMovimientoDoc(uid, m.id)
     await evaluarCreditosYNotificar(uid)
     notificarActualizacionMetas()
     notificarMovimientosActualizados()
