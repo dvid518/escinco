@@ -387,13 +387,28 @@ export const cacheCapa = {
     }
 }
 
+// Comprueba si localStorage es usable (no lanza excepción al escribir/leer).
+// Detecta modo privado, cuota agotada o bloqueo del usuario.
+function storageDisponible() {
+    try {
+        const test = "__storage_test__"
+        localStorage.setItem(test, test)
+        localStorage.removeItem(test)
+        return true
+    } catch {
+        return false
+    }
+}
+
 // ============================================
 // SINCRONIZACIÓN ENTRE PESTAÑAS
 // ============================================
 // Cuando una pestaña invalida o limpia su caché, escribe una sentinel en
 // localStorage. Las demás pestañas reciben el evento `storage` y aplican la
 // misma invalidación localmente, sin necesidad de recargar.
-if (typeof window !== "undefined" && window.addEventListener) {
+// Si localStorage no está disponible, se salta el listener: la caché en
+// memoria sigue funcionando, solo no se sincroniza entre pestañas.
+if (typeof window !== "undefined" && window.addEventListener && storageDisponible()) {
     window.addEventListener("storage", (evento) => {
         if (evento.key !== CLAVE_INVALIDACION) return
         try {
