@@ -12,7 +12,6 @@
         }
 
         :root {
-            /* Tema oscuro por defecto */
             --background: #141414;
             --border: #D4E1ED;
             --text: #F1F1F1;
@@ -33,130 +32,21 @@
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* Contenedor de degradados animados */
-        .bg-gradients {
+        /* Canvas de neat (fondo animado) */
+        #gradient {
             position: fixed;
             inset: 0;
+            width: 100%;
+            height: 100%;
             z-index: 0;
             pointer-events: none;
-            overflow: hidden;
-        }
-
-        /* Degradados base: todos usan --border con distintas opacidades y tamaños */
-        .bg-layer {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(60px);
-            animation: float 20s ease-in-out infinite alternate;
-        }
-
-        .bg-purple {
-            top: 10%;
-            left: 10%;
-            width: 40vw;
-            height: 40vw;
-            background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-            opacity: 0.25;
-            animation-duration: 24s;
-            animation-delay: 0s;
-        }
-
-        .bg-blue {
-            top: 60%;
-            right: 10%;
-            width: 35vw;
-            height: 35vw;
-            background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-            opacity: 0.2;
-            animation-duration: 28s;
-            animation-delay: 4s;
-        }
-
-        .bg-mint {
-            bottom: 10%;
-            left: 30%;
-            width: 45vw;
-            height: 45vw;
-            background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-            opacity: 0.15;
-            animation-duration: 22s;
-            animation-delay: 8s;
-        }
-
-        .bg-pink {
-            top: 40%;
-            left: 60%;
-            width: 30vw;
-            height: 30vw;
-            background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-            opacity: 0.18;
-            animation-duration: 26s;
-            animation-delay: 12s;
-        }
-
-        .bg-teal {
-            bottom: 40%;
-            right: 20%;
-            width: 50vw;
-            height: 50vw;
-            background: radial-gradient(circle, var(--border) 0%, transparent 70%);
-            opacity: 0.12;
-            animation-duration: 30s;
-            animation-delay: 16s;
-        }
-
-        /* Movimiento orgánico */
-        @keyframes float {
-            0% {
-                transform: translate(0, 0) scale(1);
-            }
-            33% {
-                transform: translate(15vw, -10vh) scale(1.1);
-            }
-            66% {
-                transform: translate(-10vw, 15vh) scale(0.95);
-            }
-            100% {
-                transform: translate(5vw, -5vh) scale(1);
-            }
-        }
-
-        /* Brillo sutil que recorre el fondo */
-        .bg-sweep {
-            position: absolute;
-            top: 0;
-            left: -50%;
-            width: 200%;
-            height: 100%;
-            background: linear-gradient(
-                90deg,
-                transparent 0%,
-                var(--border) 50%,
-                transparent 100%
-            );
-            opacity: 0.06;
-            animation: sweep 8s linear infinite;
-            pointer-events: none;
-            z-index: 1;
-        }
-
-        @keyframes sweep {
-            0% {
-                transform: translateX(-100%);
-            }
-            100% {
-                transform: translateX(100%);
-            }
+            background-color: var(--background);
+            display: block;
         }
 
         /* Estados de fondo */
-        .fondo-apagado .bg-gradients {
+        .fondo-apagado #gradient {
             display: none !important;
-        }
-
-        .fondo-congelado .bg-layer,
-        .fondo-congelado .bg-sweep {
-            animation-play-state: paused !important;
         }
 
         /* Panel de configuración */
@@ -319,9 +209,8 @@
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .bg-layer,
-            .bg-sweep {
-                animation: none !important;
+            #fondo-css {
+                display: none !important;
             }
         }
 
@@ -337,12 +226,62 @@
             white-space: nowrap;
             border: 0;
         }
+
+        /* Fondo animado CSS puro (estilo neat, sin librería) */
+        #fondo-css {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            pointer-events: none;
+            background-color: var(--background);
+            overflow: hidden;
+            display: block;
+            transition: opacity 0.7s ease;
+            opacity: 1;
+        }
+        #fondo-css.saliente {
+            opacity: 0;
+        }
+        .fondo-apagado #fondo-css {
+            opacity: 0 !important;
+            display: none !important;
+        }
+        .blob {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.25;
+            animation: float 20s ease-in-out infinite alternate;
+        }
+        .blob:nth-child(1) { top: 10%; left: 10%; width: 40vw; height: 40vw; background: radial-gradient(circle, var(--border) 0%, transparent 70%); animation-duration: 24s; animation-delay: 0s; }
+        .blob:nth-child(2) { top: 60%; right: 10%; width: 35vw; height: 35vw; background: radial-gradient(circle, var(--border) 0%, transparent 70%); animation-duration: 28s; animation-delay: 4s; }
+        .blob:nth-child(3) { bottom: 10%; left: 30%; width: 45vw; height: 45vw; background: radial-gradient(circle, var(--border) 0%, transparent 70%); animation-duration: 22s; animation-delay: 8s; }
+        .blob:nth-child(4) { top: 40%; left: 60%; width: 30vw; height: 30vw; background: radial-gradient(circle, var(--border) 0%, transparent 70%); animation-duration: 26s; animation-delay: 12s; }
+        .blob:nth-child(5) { bottom: 40%; right: 20%; width: 50vw; height: 50vw; background: radial-gradient(circle, var(--border) 0%, transparent 70%); animation-duration: 30s; animation-delay: 16s; }
+        .sweep {
+            position: absolute;
+            top: 0; left: -50%; width: 200%; height: 100%;
+            background: linear-gradient(90deg, transparent 0%, var(--border) 50%, transparent 100%);
+            opacity: 0.06;
+            animation: sweep 8s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(15vw, -10vh) scale(1.1); }
+            66% { transform: translate(-10vw, 15vh) scale(0.95); }
+            100% { transform: translate(5vw, -5vh) scale(1); }
+        }
+        @keyframes sweep {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
     </style>
 </head>
 <body class="fondo-animado">
 
     <div class="sr-only">
-        Configuración del fondo animado. Selecciona entre apagado, congelado o animado.
+        Configuración del fondo animado. Selecciona entre animado o apagado.
     </div>
 
     <!-- Panel de configuración del fondo -->
@@ -351,14 +290,12 @@
             Fondo animado
             <select id="selectFondo" aria-label="Estado del fondo animado">
                 <option value="animado">Animado</option>
-                <option value="congelado">Congelado</option>
                 <option value="apagado">Apagado</option>
             </select>
         </label>
         <p class="config-descripcion">
-            Elige cómo se comporta el fondo de degradados animados. "Animado" mueve los
-            degradados suavemente; "congelado" los detiene en su posición actual;
-            "apagado" los oculta por completo.
+            Elige cómo se comporta el fondo de degradados animados. "Animado" muestra el fondo de neat;
+            "apagado" lo oculta por completo.
         </p>
     </div>
 
@@ -368,13 +305,13 @@
         <span id="themeTexto">Modo claro</span>
     </button>
 
-    <div class="bg-gradients">
-        <div class="bg-layer bg-purple" aria-hidden="true"></div>
-        <div class="bg-layer bg-blue" aria-hidden="true"></div>
-        <div class="bg-layer bg-mint" aria-hidden="true"></div>
-        <div class="bg-layer bg-pink" aria-hidden="true"></div>
-        <div class="bg-layer bg-teal" aria-hidden="true"></div>
-        <div class="bg-sweep" aria-hidden="true"></div>
+    <div id="fondo-css" aria-hidden="true">
+        <div class="blob"></div>
+        <div class="blob"></div>
+        <div class="blob"></div>
+        <div class="blob"></div>
+        <div class="blob"></div>
+        <div class="sweep"></div>
     </div>
 
     <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
@@ -382,71 +319,14 @@
     <div class="demo-content">
         <div class="demo-badge">esc · fondo animado</div>
         <div class="demo-card">
-            <h1>Fondo degradado animado</h1>
+            <h1>Fondo animado con CSS puro</h1>
             <p>
-                Este fondo usa degradados radiales con <code>var(--border)</code> sobre
-                <code>var(--background)</code>. Está pensado para que los elementos
-                con <code>.glass</code> (backdrop-filter) del dashboard se vean con
-                profundidad y sin competir con el contenido.
+                Blobs y sweep animados con @keyframes, sin librería externa. Cambia de tema claro/oscuro
+                y los colores se resuelven desde --background y --border.
             </p>
         </div>
     </div>
 
-    <script>
-        const html = document.documentElement;
-        const selectFondo = document.getElementById('selectFondo');
-
-        function aplicarEstadoFondo(estado) {
-            html.classList.remove('fondo-animado', 'fondo-congelado', 'fondo-apagado');
-            html.classList.add('fondo-' + estado);
-        }
-
-        // Cargar estado guardado o usar por defecto
-        const estadoGuardado = localStorage.getItem('esc-fondo-estado') || 'animado';
-        selectFondo.value = estadoGuardado;
-        aplicarEstadoFondo(estadoGuardado);
-
-        selectFondo.addEventListener('change', (e) => {
-            const estado = e.target.value;
-            aplicarEstadoFondo(estado);
-            localStorage.setItem('esc-fondo-estado', estado);
-        });
-
-        // Toggle de tema claro/oscuro
-        const themeToggle = document.getElementById('themeToggle');
-        const themeTexto = document.getElementById('themeTexto');
-
-        function setTheme(tema) {
-            if (tema === 'light') {
-                html.setAttribute('data-theme', 'light');
-                themeTexto.textContent = 'Modo oscuro';
-            } else {
-                html.removeAttribute('data-theme');
-                themeTexto.textContent = 'Modo claro';
-            }
-        }
-
-        themeToggle.addEventListener('click', () => {
-            const actual = html.getAttribute('data-theme');
-            setTheme(actual === 'light' ? 'dark' : 'light');
-        });
-
-        // Seguimiento opcional del cursor con un brillo suave en color --text
-        const cursorGlow = document.getElementById('cursorGlow');
-        document.addEventListener('mousemove', (e) => {
-            cursorGlow.style.left = e.clientX + 'px';
-            cursorGlow.style.top = e.clientY + 'px';
-        });
-
-        // Pausar animaciones si la pestaña no está visible (ahorro de batería)
-        document.addEventListener('visibilitychange', () => {
-            const layers = document.querySelectorAll('.bg-layer, .bg-sweep');
-            if (document.hidden) {
-                layers.forEach(l => l.style.animationPlayState = 'paused');
-            } else {
-                layers.forEach(l => l.style.animationPlayState = 'running');
-            }
-        });
-    </script>
+    <script type="module" src="/fondo-css.mjs"></script>
 </body>
 </html>

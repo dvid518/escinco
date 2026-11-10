@@ -1,0 +1,12 @@
+import { chromium } from 'file:///C:/Users/david/lemo-opuscar/node_modules/playwright-core/index.mjs';
+const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const errores = [];
+page.on('pageerror', e => errores.push('PAGEERROR ' + e.message.slice(0, 300)));
+page.on('console', m => { if (m.type() === 'error') errores.push('CONSOLE ' + m.text().slice(0, 300)); });
+await page.goto('http://localhost:5080/demo/dashboard', { waitUntil: 'networkidle', timeout: 60000 });
+await page.waitForTimeout(3000);
+console.log('TITLE', await page.title());
+console.log('H1', (await page.locator('h1').first().textContent().catch(() => 'sin h1'))?.trim());
+console.log('ERRORES', errores.length ? errores.join('\n') : 'ninguno');
+await browser.close();

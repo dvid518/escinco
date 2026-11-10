@@ -92,15 +92,8 @@
 </head>
 
 <body class="home">
-    <!-- Fondo animado degradados (controlado desde Configuración › Apariencia › Fondo) -->
-    <div class="bg-gradients" aria-hidden="true">
-        <div class="bg"></div>
-        <div class="bg"></div>
-        <div class="bg"></div>
-        <div class="bg"></div>
-        <div class="bg"></div>
-        <div class="bg-sweep"></div>
-    </div>
+    <!-- Fondo animado neat (reemplaza degradados CSS) -->
+    <canvas id="gradient" aria-hidden="true"></canvas>
     <!-- Google Tag Manager (noscript) -->
     <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NRZB3QB2" height="0" width="0"
             class="iframe-ga-noscript"></iframe></noscript>
@@ -684,6 +677,7 @@
     </template>
 
     <script type="module" src="js/pages/index.js"></script>
+    <script type="module" src="js/pages/fondo-landing.mjs"></script>
 </body>
 
 </html>

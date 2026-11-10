@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>escinco · Todo cuadra — storyboard</title>
+<style>
+  @font-face { font-family: "Inter"; src: url("fonts/Inter_18pt-Regular.ttf") format("truetype"); font-weight: 400; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter_18pt-Medium.ttf") format("truetype"); font-weight: 500; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter_18pt-SemiBold.ttf") format("truetype"); font-weight: 600; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter_18pt-Bold.ttf") format("truetype"); font-weight: 700; }
+  @font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Regular.ttf") format("truetype"); font-weight: 400; }
+  @font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-Medium.ttf") format("truetype"); font-weight: 500; }
+  @font-face { font-family: "Roboto Mono"; src: url("fonts/RobotoMono-SemiBold.ttf") format("truetype"); font-weight: 600; }
+  html, body { margin: 0; padding: 0; background: #08090b; }
+  canvas { display: block; width: 1920px; height: 2600px; }
+</style>
+</head>
+<body>
+<canvas id="hoja" width="1920" height="2600"></canvas>
+<script>
+const cv = document.getElementById('hoja');
+const ctx = cv.getContext('2d');
+
+const C = {
+  bg: '#08090b', stage: '#0b0c0f', stage2: '#141414',
+  surface: '#1a1b1f', surface2: '#22242a', surface3: '#2b2e35',
+  text: '#f1f1f1', secondary: '#d4e1ed', muted: '#8fa3b5', faint: '#465b6d',
+  green: '#96ffa1', greenDeep: '#00a269', red: '#fe8f8f', redDeep: '#dc0051',
+  mustard: '#feca6f', orange: '#ff7817', violet: '#741fa2', piggie: '#ff5a91', aqua: '#1eaa9c',
+  border: 'rgba(212,225,237,0.18)', borderStrong: 'rgba(212,225,237,0.38)',
+  glass: 'rgba(20,22,27,0.72)', glass2: 'rgba(30,33,40,0.82)'
+};
+
+const LOGO_PATH = "M 0,14.355469 2.2460938,7.421875 C 7.4218645,9.2448552 11.181626,10.82363 13.525391,12.158203 12.906885,6.2663426 12.581365,2.2136123 12.548828,0 l 7.080078,0 c -0.09768,3.2227258 -0.472027,7.2591801 -1.123047,12.109375 3.35284,-1.692646 7.193982,-3.2551444 11.523438,-4.6875 l 2.246094,6.933594 c -4.134146,1.367244 -8.186877,2.278702 -12.158204,2.734375 1.985652,1.725314 4.785129,4.801483 8.398438,9.228515 L 22.65625,30.46875 C 20.768205,27.89718 18.53839,24.397835 15.966797,19.970703 13.557926,24.560595 11.442043,28.059941 9.6191406,30.46875 L 3.8574219,26.318359 C 7.6334528,21.663463 10.335273,18.587294 11.962891,17.089844 7.763661,16.276098 3.7760348,15.364641 0,14.355469";
+const logoPath = new Path2D(LOGO_PATH);
+
+function mulberry(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function rr(x, y, w, h, r) {
+  const k = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + k, y);
+  ctx.arcTo(x + w, y, x + w, y + h, k);
+  ctx.arcTo(x + w, y + h, x, y + h, k);
+  ctx.arcTo(x, y + h, x, y, k);
+  ctx.arcTo(x, y, x + w, y, k);
+  ctx.closePath();
+}
+
+function font(weight, size, mono) {
+  return `${weight} ${size}px "${mono ? 'Roboto Mono' : 'Inter'}", ${mono ? 'monospace' : 'sans-serif'}`;
+}
+
+function text(str, x, y, opt = {}) {
+  const { size = 14, weight = 500, mono = false, color = C.text, align = 'left', baseline = 'middle', spacing = 0, alpha = 1 } = opt;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.font = font(weight, size, mono);
+  ctx.fillStyle = color;
+  ctx.textAlign = align;
+  ctx.textBaseline = baseline;
+  if (spacing) ctx.letterSpacing = spacing + 'px';
+  ctx.fillText(str, x, y);
+  ctx.restore();
+}
+
+function stage(opt = {}) {
+  const { grid = true, gridAlpha = 1, glow = true, vignette = true, w = 1600, h = 900 } = opt;
+  ctx.fillStyle = C.stage;
+  ctx.fillRect(0, 0, w, h);
+
+  let g = ctx.createRadialGradient(w * 0.5, h * 0.04, 0, w * 0.5, h * 0.45, w * 0.78);
+  g.addColorStop(0, 'rgba(38,44,56,0.50)');
+  g.addColorStop(0.5, 'rgba(18,20,26,0.30)');
+  g.addColorStop(1, 'rgba(6,7,9,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  if (glow) {
+    g = ctx.createRadialGradient(w * 0.82, h * 0.18, 0, w * 0.82, h * 0.18, w * 0.55);
+    g.addColorStop(0, 'rgba(30,42,60,0.24)');
+    g.addColorStop(1, 'rgba(30,42,60,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  }
+
+  if (grid) {
+    ctx.save();
+    ctx.globalAlpha = gridAlpha;
+    const step = 48;
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= w; x += step) {
+      const strong = (x / step) % 4 === 0;
+      ctx.strokeStyle = strong ? 'rgba(212,225,237,0.060)' : 'rgba(212,225,237,0.032)';
+      ctx.beginPath(); ctx.moveTo(x + 0.5, 0); ctx.lineTo(x + 0.5, h); ctx.stroke();
+    }
+    for (let y = 0; y <= h; y += step) {
+      const strong = (y / step) % 4 === 0;
+      ctx.strokeStyle = strong ? 'rgba(212,225,237,0.060)' : 'rgba(212,225,237,0.032)';
+      ctx.beginPath(); ctx.moveTo(0, y + 0.5); ctx.lineTo(w, y + 0.5); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (vignette) {
+    g = ctx.createRadialGradient(w * 0.5, h * 0.45, h * 0.20, w * 0.5, h * 0.5, w * 0.78);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(0.72, 'rgba(0,0,0,0.16)');
+    g.addColorStop(1, 'rgba(0,0,0,0.62)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  }
+}
+
+function card(x, y, w, h, opt = {}) {
+  const { fill = C.surface, border = C.border, r = 20, shadow = true, glow = 0, alpha = 1, accent = null } = opt;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (shadow) {
+    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowBlur = 26;
+    ctx.shadowOffsetY = 10;
+  }
+  rr(x, y, w, h, r);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+  if (glow) {
+    ctx.shadowColor = `rgba(150,255,161,${glow})`;
+    ctx.shadowBlur = 34;
+    ctx.strokeStyle = `rgba(150,255,161,${Math.min(0.55, glow + 0.18)})`;
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.shadowColor = 'transparent';
+  }
+  ctx.strokeStyle = accent || border;
+  ctx.lineWidth = 1;
+  rr(x + 0.5, y + 0.5, w - 1, h - 1, r);
+  ctx.stroke();
+  // inner top highlight
+  ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+  ctx.beginPath();
+  ctx.moveTo(x + r, y + 1.5);
+  ctx.lineTo(x + w - r, y + 1.5);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function pill(x, y, w, h, label, opt = {}) {
+  const { fill = 'rgba(212,225,237,0.08)', border = C.border, color = C.secondary, size = 12, mono = true, weight = 500, align = 'center' } = opt;
+  ctx.save();
+  rr(x, y, w, h, h / 2);
+  ctx.fillStyle = fill; ctx.fill();
+  ctx.strokeStyle = border; ctx.lineWidth = 1; ctx.stroke();
+  ctx.restore();
+  text(label, align === 'center' ? x + w / 2 : x + 14, y + h / 2 + 0.5, { size, mono, weight, color, align });
+}
+
+function logo(x, y, size, color = C.green, glow = 0) {
+  ctx.save();
+  if (glow) {
+    ctx.shadowColor = `rgba(150,255,161,${glow})`;
+    ctx.shadowBlur = size * 0.75;
+  }
+  ctx.translate(x, y);
+  ctx.scale(size / 32, size / 32);
+  ctx.fillStyle = color;
+  ctx.fill(logoPath);
+  ctx.restore();
+}
+
+function cursor(x, y, h, color = C.green, glow = 0.55) {
+  ctx.save();
+  ctx.shadowColor = `rgba(150,255,161,${glow})`;
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y - h / 2, 4, h);
+  ctx.restore();
+}
+
+function chart(x, y, w, h, pts, color = C.green, opt = {}) {
+  const { fill = true, dots = true, grid = true, lineWidth = 2.5, alpha = 1 } = opt;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  if (grid) {
+    ctx.strokeStyle = 'rgba(212,225,237,0.09)';
+    ctx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const yy = y + (h * i) / 4;
+      ctx.beginPath(); ctx.moveTo(x, yy + 0.5); ctx.lineTo(x + w, yy + 0.5); ctx.stroke();
+    }
+  }
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const px = (i) => x + (w * i) / (pts.length - 1);
+  const py = (v) => y + h - ((v - min) / (max - min || 1)) * h * 0.86 - h * 0.06;
+  if (fill) {
+    const g = ctx.createLinearGradient(0, y, 0, y + h);
+    g.addColorStop(0, 'rgba(150,255,161,0.22)');
+    g.addColorStop(1, 'rgba(150,255,161,0.01)');
+    ctx.beginPath();
+    ctx.moveTo(px(0), py(pts[0]));
+    for (let i = 1; i < pts.length; i++) ctx.lineTo(px(i), py(pts[i]));
+    ctx.lineTo(x + w, y + h); ctx.lineTo(x, y + h); ctx.closePath();
+    ctx.fillStyle = g; ctx.fill();
+  }
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.shadowColor = 'rgba(150,255,161,0.55)';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.moveTo(px(0), py(pts[0]));
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(px(i), py(pts[i]));
+  ctx.stroke();
+  ctx.shadowColor = 'transparent';
+  if (dots) {
+    for (let i = 0; i < pts.length; i++) {
+      ctx.beginPath();
+      ctx.arc(px(i), py(pts[i]), 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = color; ctx.fill();
+      ctx.strokeStyle = 'rgba(11,12,15,0.9)'; ctx.lineWidth = 1.5; ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function gridCells(x, y, cols, rows, cw, ch, opt = {}) {
+  const { alpha = 1, numbers = true } = opt;
+  const rnd = mulberry(41);
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < rows; j++) {
+      const xx = x + i * cw, yy = y + j * ch;
+      ctx.fillStyle = (i + j) % 2 ? 'rgba(31,31,31,0.55)' : 'rgba(20,20,20,0.75)';
+      ctx.fillRect(xx, yy, cw - 1, ch - 1);
+      ctx.strokeStyle = 'rgba(212,225,237,0.10)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(xx + 0.5, yy + 0.5, cw - 1, ch - 1);
+      if (numbers && rnd() > 0.35) {
+        const val = rnd() > 0.5 ? (rnd() * 9000 + 100).toFixed(2) : '-' + (rnd() * 900 + 40).toFixed(2);
+        text(val, xx + 8, yy + ch / 2, { size: 10, mono: true, color: val.startsWith('-') ? C.red : C.secondary, alpha: 0.55 });
+      }
+    }
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------
+// 01 · LA CÉLULA VACÍA
+// ------------------------------------------------------------
+function shot1() {
+  stage();
+  text('HOJA DE CÁLCULO · 2026', 80, 78, { size: 12, mono: true, color: C.faint, spacing: 2 });
+  text('PATRIMONIO', 80, 104, { size: 11, mono: true, color: C.muted, spacing: 3 });
+
+  // faint neighbouring cells
+  ctx.save();
+  ctx.globalAlpha = 0.35;
+  for (let i = 0; i < 5; i++) {
+    const xx = 150 + i * 260, yy = 150 + (i % 2) * 30;
+    ctx.strokeStyle = 'rgba(212,225,237,0.10)';
+    ctx.strokeRect(xx, yy, 220, 70);
+    text((1200 + i * 431).toFixed(2), xx + 12, yy + 35, { size: 11, mono: true, color: C.faint });
+  }
+  ctx.restore();
+
+  const x = 300, y = 300, w = 1000, h = 300;
+  card(x, y, w, h, { fill: 'rgba(16,17,21,0.94)', border: 'rgba(212,225,237,0.30)', r: 24, glow: 0.05 });
+  text('B7', x + 26, y + 28, { size: 12, mono: true, color: C.faint, spacing: 1 });
+  text('= SUMA DE 5 APP', x + 26, y + 52, { size: 11, mono: true, color: 'rgba(143,163,181,0.55)', spacing: 1 });
+
+  const num = 'S/ 11,368.60';
+  const size = 104;
+  ctx.save();
+  ctx.font = font(600, size, true);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  const glitch = new Set([4, 6, 9]);
+  let xx = x + 58;
+  const yy = y + 178;
+  for (let i = 0; i < num.length; i++) {
+    const ch = num[i];
+    const cw = ctx.measureText(ch).width;
+    const bad = glitch.has(i);
+    ctx.save();
+    if (bad) {
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = i === 9 ? C.red : C.secondary;
+      ctx.fillText(i === 4 ? '#' : i === 6 ? '8' : '0', xx + (i % 2 ? 4 : -5), yy + (i % 2 ? -6 : 5));
+      ctx.globalAlpha = 0.22;
+      ctx.fillStyle = C.red;
+      ctx.fillText(ch, xx + 8, yy + 3);
+    } else {
+      ctx.fillStyle = C.text;
+      ctx.fillText(ch, xx, yy);
+    }
+    ctx.restore();
+    xx += cw;
+  }
+  // green cursor
+  cursor(xx + 16, yy, 118, C.green, 0.7);
+  ctx.restore();
+
+  text('S/ 3,200.00  +  $ 4,573.50  +  ₮ 120.00  −  S/ 1,250.00', x + 58, y + 252, { size: 13, mono: true, color: 'rgba(143,163,181,0.62)', spacing: 1 });
+  text('NO CUADRA', x + w - 140, y + 36, { size: 11, mono: true, color: C.red, spacing: 2, align: 'right' });
+
+  // floating digits
+  const rnd = mulberry(7);
+  for (let i = 0; i < 14; i++) {
+    text(String(Math.floor(rnd() * 9)), 120 + rnd() * 1360, 120 + rnd() * 660, {
+      size: 12 + rnd() * 22, mono: true, color: rnd() > 0.7 ? C.red : C.faint, alpha: 0.18 + rnd() * 0.18
+    });
+  }
+}
+
+// ------------------------------------------------------------
+// 02 · LA DISPERSIÓN
+// ------------------------------------------------------------
+function shot2() {
+  stage();
+  // central void
+  const g = ctx.createRadialGradient(800, 450, 40, 800, 450, 430);
+  g.addColorStop(0, 'rgba(8,9,11,0.85)');
+  g.addColorStop(1, 'rgba(8,9,11,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 1600, 900);
+
+  text('?', 800, 470, { size: 300, weight: 700, color: 'rgba(212,225,237,0.09)', align: 'center' });
+
+  const rnd = mulberry(22);
+  const items = [
+    { x: 100, y: 112, w: 380, h: 138, rot: -0.09, label: 'BANCO', value: 'S/ 3,200.00', color: C.text, blur: 0 },
+    { x: 1110, y: 92, w: 390, h: 138, rot: 0.07, label: 'BROKER', value: '$ 4,573.50', color: C.text, blur: 0 },
+    { x: 120, y: 640, w: 370, h: 138, rot: 0.06, label: 'TARJETA', value: '−S/ 1,250.00', color: C.red, blur: 1.1 },
+    { x: 1100, y: 660, w: 390, h: 138, rot: -0.06, label: 'EXCHANGE', value: '₮ 120.00', color: C.text, blur: 0 },
+    { x: 410, y: 84, w: 320, h: 118, rot: 0.04, label: 'EFECTIVO', value: 'S/ 500.00', color: C.text, blur: 1.4 },
+    { x: 870, y: 720, w: 330, h: 118, rot: -0.04, label: 'OTRA APP', value: '$ 820.00', color: C.text, blur: 1.4 },
+    { x: 1110, y: 380, w: 300, h: 110, rot: 0.10, label: 'OTRA CUENTA', value: '€ 1,200.00', color: C.text, blur: 1.8 },
+    { x: 180, y: 380, w: 300, h: 110, rot: -0.11, label: 'OTRO BROKER', value: '$ 2,100.00', color: C.text, blur: 1.8 }
+  ];
+
+  // trails
+  ctx.save();
+  ctx.setLineDash([4, 8]);
+  ctx.strokeStyle = 'rgba(150,255,161,0.18)';
+  ctx.lineWidth = 1.2;
+  for (const it of items) {
+    const cx = it.x + it.w / 2, cy = it.y + it.h / 2;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.bezierCurveTo(cx + (800 - cx) * 0.4, cy + (450 - cy) * 0.2, 800 + (cx - 800) * 0.2, 450 + (cy - 450) * 0.4, 800, 450);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  for (const it of items) {
+    ctx.save();
+    ctx.translate(it.x + it.w / 2, it.y + it.h / 2);
+    ctx.rotate(it.rot);
+    ctx.translate(-it.w / 2, -it.h / 2);
+    if (it.blur) ctx.filter = `blur(${it.blur}px)`;
+    card(0, 0, it.w, it.h, { fill: 'rgba(26,27,31,0.92)', border: 'rgba(212,225,237,0.20)', r: 18 });
+    text(it.label, 22, 30, { size: 10, mono: true, color: C.muted, spacing: 2 });
+    text(it.value, 22, 82, { size: 30, mono: true, color: it.color, weight: 600 });
+    ctx.restore();
+  }
+
+  // currency coins
+  const coins = [
+    { x: 340, y: 300, s: 'S/' }, { x: 1260, y: 300, s: '$' },
+    { x: 700, y: 250, s: '€' }, { x: 540, y: 690, s: '₮' }
+  ];
+  for (const c of coins) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(c.x, c.y, 30, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(20,22,27,0.9)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(212,225,237,0.22)';
+    ctx.stroke();
+    text(c.s, c.x, c.y + 1, { size: 22, mono: true, color: C.secondary, align: 'center', weight: 600 });
+    ctx.restore();
+  }
+
+  pill(710, 420, 180, 44, 'NO CUADRA', { fill: 'rgba(254,143,143,0.10)', border: 'rgba(254,143,143,0.45)', color: C.red, size: 11, weight: 600 });
+
+  // cursor at the edge
+  cursor(820, 540, 54, C.green, 0.4);
+  const rnd2 = mulberry(9);
+  for (let i = 0; i < 10; i++) {
+    text(String(Math.floor(rnd2() * 9)), 80 + rnd2() * 1440, 80 + rnd2() * 740, {
+      size: 10 + rnd2() * 14, mono: true, color: C.faint, alpha: 0.12 + rnd2() * 0.12
+    });
+  }
+}
+
+// ------------------------------------------------------------
+// 03 · EL NÚMERO QUE NO CUADRA
+// ------------------------------------------------------------
+function shot3() {
+  stage();
+  text('CÁLCULO MANUAL', 80, 78, { size: 12, mono: true, color: C.faint, spacing: 2 });
+  pill(1310, 56, 210, 42, 'ERROR DE SUMA', { fill: 'rgba(254,143,143,0.10)', border: 'rgba(254,143,143,0.45)', color: C.red, size: 11, weight: 600 });
+
+  text('?', 800, 400, { size: 420, weight: 700, color: 'rgba(254,143,143,0.055)', align: 'center' });
+
+  const num = 'S/ 11,368.60';
+  const size = 154;
+  ctx.save();
+  ctx.font = font(600, size, true);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'left';
+  const total = ctx.measureText(num).width;
+  let xx = 800 - total / 2;
+  const yy = 340;
+  const rnd = mulberry(31);
+  const bad = new Set([4, 5, 7, 9]);
+  for (let i = 0; i < num.length; i++) {
+    const ch = num[i];
+    const cw = ctx.measureText(ch).width;
+    if (bad.has(i)) {
+      ctx.save();
+      ctx.globalAlpha = 0.9;
+      ctx.fillStyle = i % 2 ? C.red : C.secondary;
+      ctx.fillText(i === 4 ? '#' : i === 5 ? '8' : i === 7 ? '%' : 'Ø', xx + (rnd() * 12 - 6), yy + (rnd() * 12 - 6));
+      ctx.globalAlpha = 0.18;
+      ctx.fillStyle = C.red;
+      ctx.fillText(ch, xx + 14, yy + 4);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = C.text;
+      ctx.fillText(ch, xx, yy);
+    }
+    xx += cw;
+  }
+  ctx.restore();
+
+  // broken rule
+  ctx.save();
+  ctx.strokeStyle = C.red;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([26, 14, 8, 18]);
+  ctx.beginPath();
+  ctx.moveTo(330, 440);
+  ctx.lineTo(1270, 440);
+  ctx.stroke();
+  ctx.restore();
+
+  text('¿CUÁNTO TENGO REALMENTE?', 800, 560, { size: 50, weight: 700, color: C.secondary, align: 'center', spacing: 1 });
+  text('S/ 3,200.00  +  $ 4,573.50  +  ₮ 120.00  −  S/ 1,250.00  +  € 1,200.00  …', 800, 625, { size: 14, mono: true, color: 'rgba(143,163,181,0.55)', align: 'center', spacing: 1 });
+
+  // glitch bars
+  const rnd2 = mulberry(17);
+  for (let i = 0; i < 9; i++) {
+    const y = 250 + rnd2() * 230;
+    const x = 260 + rnd2() * 900;
+    ctx.fillStyle = i % 3 === 0 ? 'rgba(254,143,143,0.20)' : 'rgba(212,225,237,0.10)';
+    ctx.fillRect(x, y, 40 + rnd2() * 160, 2 + rnd2() * 3);
+  }
+
+  // cursor hesitating
+  cursor(1210, 340, 120, C.green, 0.45);
+}
+
+// ------------------------------------------------------------
+// 04 · EL PUNTO DE CLARIDAD
+// ------------------------------------------------------------
+function shot4() {
+  stage({ gridAlpha: 0.35, glow: false });
+  // dark halo behind mark
+  const g = ctx.createRadialGradient(800, 430, 20, 800, 430, 360);
+  g.addColorStop(0, 'rgba(8,9,11,0.96)');
+  g.addColorStop(0.55, 'rgba(8,9,11,0.72)');
+  g.addColorStop(1, 'rgba(8,9,11,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 1600, 900);
+
+  // ring
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,255,161,0.24)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(800, 430, 214, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,255,161,0.10)';
+  ctx.beginPath();
+  ctx.arc(800, 430, 268, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // mark
+  logo(800, 430, 152, C.green, 0.75);
+  // wordmark
+  text('ESCINCO', 800, 660, { size: 17, mono: true, color: 'rgba(212,225,237,0.55)', align: 'center', spacing: 12, weight: 500 });
+
+  // cursor touches from the right
+  cursor(1000, 430, 86, C.green, 0.9);
+  // tiny tick marks
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,255,161,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const a = -0.55 + i * 0.10;
+    ctx.beginPath();
+    ctx.moveTo(800 + Math.cos(a) * 214, 430 + Math.sin(a) * 214);
+    ctx.lineTo(800 + Math.cos(a) * 230, 430 + Math.sin(a) * 230);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------
+// 05 · EL SNAP
+// ------------------------------------------------------------
+function shot5() {
+  stage();
+
+  // left: spreadsheet cells
+  text('EXCEL', 80, 86, { size: 11, mono: true, color: C.faint, spacing: 3 });
+  gridCells(80, 150, 5, 5, 86, 74, { alpha: 0.85 });
+
+  // right: dashboard slots
+  text('ESCINCO', 1050, 86, { size: 11, mono: true, color: C.green, spacing: 3 });
+  const slots = [
+    { x: 1040, y: 150, w: 240, h: 104, label: 'CUENTAS', value: '5' },
+    { x: 1300, y: 150, w: 240, h: 104, label: 'INVERSIONES', value: 'S/ 4,573.50' },
+    { x: 1040, y: 270, w: 240, h: 104, label: 'TRADING', value: '+$ 100.00' },
+    { x: 1300, y: 270, w: 240, h: 104, label: 'METAS', value: '2' }
+  ];
+  for (const s of slots) {
+    ctx.save();
+    ctx.setLineDash([5, 6]);
+    ctx.strokeStyle = 'rgba(150,255,161,0.32)';
+    ctx.lineWidth = 1.2;
+    rr(s.x, s.y, s.w, s.h, 18);
+    ctx.stroke();
+    ctx.restore();
+    text(s.label, s.x + 18, s.y + 28, { size: 9, mono: true, color: C.faint, spacing: 2 });
+    text(s.value, s.x + 18, s.y + 68, { size: 24, mono: true, color: C.secondary, weight: 600 });
+  }
+
+  // central resolved card
+  card(500, 300, 600, 260, { fill: 'rgba(26,27,31,0.97)', border: 'rgba(150,255,161,0.55)', r: 26, glow: 0.30 });
+  text('PATRIMONIO TOTAL', 540, 350, { size: 12, mono: true, color: C.muted, spacing: 3 });
+  text('S/ 18,432.55', 540, 430, { size: 64, mono: true, color: C.green, weight: 600 });
+  text('+S/ 4,180.20 este mes', 540, 500, { size: 15, mono: true, color: C.green, alpha: 0.8 });
+  pill(940, 330, 120, 36, 'PEN', { fill: 'rgba(150,255,161,0.10)', border: 'rgba(150,255,161,0.45)', color: C.green, size: 10 });
+
+  // trails from cells to slots
+  ctx.save();
+  ctx.lineWidth = 1.4;
+  ctx.setLineDash([3, 7]);
+  for (let i = 0; i < 8; i++) {
+    const sx = 100 + (i % 5) * 86 + 40;
+    const sy = 170 + Math.floor(i / 5) * 74 + 35;
+    const tx = 1040 + (i % 2) * 260 + 30;
+    const ty = 180 + Math.floor(i / 2) * 120;
+    const g = ctx.createLinearGradient(sx, sy, tx, ty);
+    g.addColorStop(0, 'rgba(212,225,237,0.05)');
+    g.addColorStop(1, 'rgba(150,255,161,0.45)');
+    ctx.strokeStyle = g;
+    ctx.beginPath();
+    ctx.moveTo(sx, sy);
+    ctx.bezierCurveTo(sx + 260, sy - 90, tx - 240, ty + 90, tx, ty);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // expanding snap ring
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,255,161,0.20)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(800, 430, 360, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(150,255,161,0.08)';
+  ctx.beginPath();
+  ctx.arc(800, 430, 450, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  // speed lines
+  const rnd = mulberry(13);
+  for (let i = 0; i < 12; i++) {
+    const a = rnd() * Math.PI * 2;
+    const r0 = 330 + rnd() * 60;
+    const r1 = r0 + 40 + rnd() * 90;
+    ctx.strokeStyle = 'rgba(150,255,161,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(800 + Math.cos(a) * r0, 430 + Math.sin(a) * r0);
+    ctx.lineTo(800 + Math.cos(a) * r1, 430 + Math.sin(a) * r1);
+    ctx.stroke();
+  }
+}
+
+// ------------------------------------------------------------
+// 06 · EL PANEL RESPIRA
+// ------------------------------------------------------------
+function shot6() {
+  stage();
+
+  // nav
+  logo(80, 64, 34, C.text, 0);
+  const nav = ['Dashboard', 'Cuentas', 'Movimientos', 'Inversiones', 'Trading'];
+  let nx = 470;
+  for (let i = 0; i < nav.length; i++) {
+    const w = i === 0 ? 132 : 120;
+    pill(nx, 52, w, 44, nav[i], {
+      fill: i === 0 ? 'rgba(212,225,237,0.14)' : 'rgba(20,22,27,0.65)',
+      border: i === 0 ? 'rgba(212,225,237,0.42)' : C.border,
+      color: i === 0 ? C.text : C.secondary, size: 12, mono: false, weight: i === 0 ? 600 : 500
+    });
+    nx += w + 14;
+  }
+  // config
+  ctx.save();
+  ctx.beginPath(); ctx.arc(1516, 74, 22, 0, Math.PI * 2);
+  ctx.fillStyle = 'rgba(20,22,27,0.8)'; ctx.fill();
+  ctx.strokeStyle = C.border; ctx.stroke();
+  ctx.strokeStyle = C.secondary; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.arc(1516, 74, 7, 0, Math.PI * 2); ctx.stroke();
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    ctx.beginPath();
+    ctx.moveTo(1516 + Math.cos(a) * 10, 74 + Math.sin(a) * 10);
+    ctx.lineTo(1516 + Math.cos(a) * 14, 74 + Math.sin(a) * 14);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // left column
+  card(80, 150, 380, 210, { fill: 'rgba(26,27,31,0.94)', border: 'rgba(150,255,161,0.35)', r: 22, glow: 0.12 });
+  text('PATRIMONIO TOTAL', 106, 188, { size: 11, mono: true, color: C.muted, spacing: 2 });
+  text('S/ 18,432.55', 106, 258, { size: 44, mono: true, color: C.green, weight: 600 });
+  text('+S/ 4,180.20 este mes', 106, 308, { size: 14, mono: true, color: C.green, alpha: 0.8 });
+  pill(390, 172, 46, 30, 'S/', { fill: 'rgba(212,225,237,0.08)', border: C.border, color: C.secondary, size: 11 });
+
+  card(80, 380, 380, 130, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('CUENTAS', 106, 414, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  text('5', 106, 462, { size: 34, mono: true, color: C.text, weight: 600 });
+  text('Bancos · brokers · exchange · efectivo', 160, 462, { size: 11, mono: false, color: C.muted });
+
+  card(80, 530, 380, 250, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('DISTRIBUCIÓN', 106, 566, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  const dist = [
+    ['Liquidez', 0.45, C.green],
+    ['Inversiones', 0.25, C.orange],
+    ['Inmovilizado', 0.20, C.violet],
+    ['Deudas', 0.10, C.red]
+  ];
+  let dy = 604;
+  for (const [label, pct, col] of dist) {
+    text(label, 106, dy, { size: 11, mono: false, color: C.secondary });
+    text(Math.round(pct * 100) + '%', 434, dy, { size: 11, mono: true, color: C.secondary, align: 'right' });
+    ctx.fillStyle = 'rgba(212,225,237,0.10)';
+    rr(106, dy + 14, 328, 7, 4); ctx.fill();
+    ctx.fillStyle = col;
+    rr(106, dy + 14, 328 * pct, 7, 4); ctx.fill();
+    dy += 42;
+  }
+
+  // middle column
+  card(480, 150, 520, 370, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('EVOLUCIÓN PATRIMONIAL', 506, 186, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  const periods = ['7D', '30D', '90D', 'Todo'];
+  let px = 690;
+  for (let i = 0; i < periods.length; i++) {
+    pill(px, 168, 62, 28, periods[i], {
+      fill: i === 1 ? 'rgba(212,225,237,0.14)' : 'transparent',
+      border: i === 1 ? 'rgba(212,225,237,0.35)' : 'transparent',
+      color: i === 1 ? C.text : C.muted, size: 10
+    });
+    px += 66;
+  }
+  chart(516, 232, 450, 230, [42, 46, 45, 52, 55, 54, 62, 68, 72, 78, 76, 84], C.green);
+
+  card(480, 540, 520, 240, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('PATRIMONIO POR DIVISA', 506, 576, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  const divs = [
+    ['PEN', 'S/ 9,200.00', 0.50, C.green],
+    ['USD', '$ 6,800.00', 0.30, C.secondary],
+    ['EUR', '€ 1,200.00', 0.12, C.piggie],
+    ['USDT', '₮ 800.00', 0.08, C.aqua]
+  ];
+  let dvy = 614;
+  for (const [code, val, pct, col] of divs) {
+    text(code, 506, dvy, { size: 10, mono: true, color: C.muted, spacing: 1 });
+    text(val, 560, dvy, { size: 13, mono: true, color: C.text });
+    ctx.fillStyle = 'rgba(212,225,237,0.08)';
+    rr(730, dvy - 4, 244, 8, 4); ctx.fill();
+    ctx.fillStyle = col;
+    rr(730, dvy - 4, 244 * pct, 8, 4); ctx.fill();
+    dvy += 38;
+  }
+
+  // right column
+  card(1020, 150, 520, 250, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('ÚLTIMOS MOVIMIENTOS', 1046, 186, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  const movs = [
+    ['Sueldo', '08/11', '+ S/ 3,200.00', C.green],
+    ['Mercado', '07/11', '− S/ 320.50', C.red],
+    ['Ahorro', '05/11', '− S/ 500.00', C.red]
+  ];
+  let my = 224;
+  for (const [name, date, val, col] of movs) {
+    text(name, 1046, my, { size: 14, mono: false, color: C.text, weight: 500 });
+    text(date, 1046, my + 18, { size: 10, mono: true, color: C.faint });
+    text(val, 1514, my + 8, { size: 15, mono: true, color: col, align: 'right', weight: 600 });
+    ctx.strokeStyle = 'rgba(212,225,237,0.08)';
+    ctx.beginPath(); ctx.moveTo(1046, my + 34); ctx.lineTo(1514, my + 34); ctx.stroke();
+    my += 58;
+  }
+
+  card(1020, 420, 250, 160, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('INVERSIONES', 1046, 454, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  text('S/ 4,573.50', 1046, 502, { size: 26, mono: true, color: C.text, weight: 600 });
+  text('2 posiciones · +S/ 373.50', 1046, 536, { size: 11, mono: true, color: C.green });
+
+  card(1290, 420, 250, 160, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('TRADING', 1316, 454, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  text('+$ 100.00', 1316, 502, { size: 26, mono: true, color: C.green, weight: 600 });
+  text('1 abierto · 1 cerrado', 1316, 536, { size: 11, mono: true, color: C.muted });
+
+  card(1020, 600, 520, 180, { fill: 'rgba(26,27,31,0.92)', r: 22 });
+  text('METAS DE AHORRO', 1046, 636, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  const metas = [['Viaje', 0.64, 'S/ 3,200 / 5,000'], ['Fondo de emergencia', 0.78, 'S/ 7,800 / 10,000']];
+  let gy = 674;
+  for (const [name, pct, val] of metas) {
+    text(name, 1046, gy, { size: 13, mono: false, color: C.text });
+    text(val, 1514, gy, { size: 11, mono: true, color: C.muted, align: 'right' });
+    ctx.fillStyle = 'rgba(212,225,237,0.10)';
+    rr(1046, gy + 14, 468, 7, 4); ctx.fill();
+    ctx.fillStyle = C.green;
+    rr(1046, gy + 14, 468 * pct, 7, 4); ctx.fill();
+    gy += 52;
+  }
+
+  // lastbar
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,22,27,0.85)';
+  rr(660, 812, 280, 52, 26); ctx.fill();
+  ctx.strokeStyle = C.border; ctx.stroke();
+  for (let i = 0; i < 5; i++) {
+    ctx.beginPath(); ctx.arc(700 + i * 50, 838, 10, 0, Math.PI * 2);
+    ctx.strokeStyle = i === 0 ? C.green : 'rgba(212,225,237,0.35)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  ctx.restore();
+}
+
+// ------------------------------------------------------------
+// 07 · EN TODAS PARTES
+// ------------------------------------------------------------
+function shot7() {
+  stage();
+
+  // desktop window
+  const dx = 80, dy = 170, dw = 940, dh = 560;
+  card(dx, dy, dw, dh, { fill: 'rgba(20,22,27,0.94)', border: C.border, r: 26 });
+  logo(dx + 28, dy + 26, 30, C.text, 0);
+  text('escinco', dx + 68, dy + 42, { size: 20, weight: 700, color: C.text, spacing: -0.5 });
+  let nx = dx + 220;
+  for (let i = 0; i < 4; i++) {
+    const labels = ['Dashboard', 'Cuentas', 'Inversiones', 'Trading'];
+    pill(nx, dy + 22, 108, 38, labels[i], {
+      fill: i === 0 ? 'rgba(212,225,237,0.13)' : 'transparent',
+      border: i === 0 ? 'rgba(212,225,237,0.38)' : C.border,
+      color: i === 0 ? C.text : C.secondary, size: 10, mono: false
+    });
+    nx += 116;
+  }
+
+  card(dx + 28, dy + 90, 360, 190, { fill: 'rgba(26,27,31,0.96)', border: 'rgba(150,255,161,0.40)', r: 20, glow: 0.14 });
+  text('PATRIMONIO TOTAL', dx + 52, dy + 124, { size: 10, mono: true, color: C.muted, spacing: 2 });
+  text('S/ 18,432.55', dx + 52, dy + 188, { size: 38, mono: true, color: C.green, weight: 600 });
+  text('+S/ 4,180.20 este mes', dx + 52, dy + 228, { size: 12, mono: true, color: C.green, alpha: 0.8 });
+
+  card(dx + 410, dy + 90, 500, 300, { fill: 'rgba(26,27,31,0.92)', r: 20 });
+  text('EVOLUCIÓN PATRIMONIAL', dx + 434, dy + 122, { size: 9, mono: true, color: C.muted, spacing: 2 });
+  chart(dx + 434, dy + 150, 452, 210, [40, 44, 43, 50, 54, 53, 61, 66, 71, 76, 74, 84], C.green);
+
+  card(dx + 28, dy + 304, 360, 220, { fill: 'rgba(26,27,31,0.92)', r: 20 });
+  text('CUENTAS', dx + 52, dy + 338, { size: 9, mono: true, color: C.muted, spacing: 2 });
+  const accs = [['Banco', 'S/ 3,200.00', C.text], ['Broker', '$ 4,573.50', C.text], ['Exchange', '₮ 120.00', C.text], ['Tarjeta', '−S/ 1,250.00', C.red]];
+  let ay = dy + 374;
+  for (const [n, v, col] of accs) {
+    text(n, dx + 52, ay, { size: 12, mono: false, color: C.secondary });
+    text(v, dx + 360, ay, { size: 12, mono: true, color: col, align: 'right' });
+    ay += 34;
+  }
+
+  card(dx + 410, dy + 412, 500, 112, { fill: 'rgba(26,27,31,0.92)', r: 20 });
+  text('INVERSIONES + TRADING', dx + 434, dy + 446, { size: 9, mono: true, color: C.muted, spacing: 2 });
+  text('S/ 4,573.50', dx + 434, dy + 492, { size: 24, mono: true, color: C.text, weight: 600 });
+  text('+$ 100.00', dx + 800, dy + 492, { size: 24, mono: true, color: C.green, weight: 600, align: 'right' });
+
+  // phone
+  const px = 1180, py = 120, pw = 320, ph = 660;
+  card(px, py, pw, ph, { fill: 'rgba(20,22,27,0.98)', border: 'rgba(212,225,237,0.28)', r: 48, shadow: true });
+  // screen
+  ctx.save();
+  rr(px + 10, py + 10, pw - 20, ph - 20, 40);
+  ctx.fillStyle = 'rgba(11,12,15,0.98)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(212,225,237,0.10)';
+  ctx.stroke();
+  ctx.restore();
+  // notch
+  ctx.save();
+  rr(px + pw / 2 - 52, py + 18, 104, 24, 12);
+  ctx.fillStyle = '#050608'; ctx.fill();
+  ctx.restore();
+
+  logo(px + 28, py + 62, 24, C.text, 0);
+  text('escinco', px + 60, py + 74, { size: 16, weight: 700, color: C.text });
+  text('PATRIMONIO TOTAL', px + 28, py + 126, { size: 9, mono: true, color: C.muted, spacing: 2 });
+  text('S/ 18,432.55', px + 28, py + 176, { size: 30, mono: true, color: C.green, weight: 600 });
+  text('+S/ 4,180.20', px + 28, py + 208, { size: 11, mono: true, color: C.green, alpha: 0.8 });
+
+  card(px + 28, py + 238, pw - 56, 170, { fill: 'rgba(26,27,31,0.92)', r: 18 });
+  text('EVOLUCIÓN', px + 44, py + 264, { size: 8, mono: true, color: C.muted, spacing: 2 });
+  chart(px + 44, py + 280, pw - 88, 112, [38, 42, 41, 48, 52, 51, 59, 64, 69, 74, 72, 82], C.green);
+
+  const rows = [['Cuentas', '5'], ['Inversiones', 'S/ 4,573.50'], ['Trading', '+$ 100.00'], ['Metas', '2']];
+  let ry = py + 440;
+  for (const [n, v] of rows) {
+    text(n, px + 28, ry, { size: 12, mono: false, color: C.secondary });
+    text(v, px + pw - 28, ry, { size: 12, mono: true, color: n === 'Trading' ? C.green : C.text, align: 'right' });
+    ry += 38;
+  }
+
+  // bottom nav
+  ctx.save();
+  ctx.fillStyle = 'rgba(20,22,27,0.9)';
+  rr(px + 28, py + ph - 66, pw - 56, 44, 22); ctx.fill();
+  ctx.strokeStyle = C.border; ctx.stroke();
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath(); ctx.arc(px + 68 + i * 62, py + ph - 44, 7, 0, Math.PI * 2);
+    ctx.strokeStyle = i === 0 ? C.green : 'rgba(212,225,237,0.35)';
+    ctx.lineWidth = 1.5; ctx.stroke();
+  }
+  ctx.restore();
+
+  // connection
+  ctx.save();
+  ctx.setLineDash([5, 8]);
+  ctx.strokeStyle = 'rgba(150,255,161,0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(dx + 380, dy + 188);
+  ctx.bezierCurveTo(700, 90, 1020, 90, px + 28, py + 176);
+  ctx.stroke();
+  ctx.restore();
+
+  pill(dx + 28, dy + dh - 54, 118, 32, 'ONLINE', { fill: 'rgba(150,255,161,0.08)', border: 'rgba(150,255,161,0.40)', color: C.green, size: 9, weight: 600 });
+  pill(px + 28, py + ph - 108, 150, 32, 'OFFLINE · PWA', { fill: 'rgba(212,225,237,0.07)', border: C.border, color: C.secondary, size: 9, weight: 600 });
+
+  text('EL MISMO NÚMERO.', 800, 790, { size: 22, weight: 700, color: 'rgba(212,225,237,0.45)', align: 'center', spacing: 6 });
+}
+
+// ------------------------------------------------------------
+// 08 · TODO CUADRA
+// ------------------------------------------------------------
+function shot8() {
+  stage({ gridAlpha: 0.25, glow: false });
+
+  // giant ghost number
+  text('S/ 18,432.55', 800, 300, { size: 120, mono: true, color: 'rgba(150,255,161,0.045)', align: 'center', weight: 600 });
+
+  // radial green floor glow
+  const g = ctx.createRadialGradient(800, 640, 20, 800, 640, 520);
+  g.addColorStop(0, 'rgba(150,255,161,0.10)');
+  g.addColorStop(1, 'rgba(150,255,161,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 1600, 900);
+
+  logo(800, 330, 108, C.green, 0.55);
+  text('escinco', 800, 512, { size: 126, weight: 700, color: C.text, align: 'center', spacing: -4 });
+  // mustard rule
+  ctx.save();
+  ctx.fillStyle = C.mustard;
+  ctx.fillRect(800 - 132, 590, 264, 6);
+  ctx.restore();
+
+  text('Tus finanzas, claras en segundos.', 800, 660, { size: 34, weight: 400, color: C.secondary, align: 'center' });
+  text('GRATIS · SIN TARJETA · HECHO PARA INVERSIONISTAS EN PERÚ', 800, 722, { size: 13, mono: true, color: C.muted, align: 'center', spacing: 3 });
+  pill(660, 770, 280, 52, 'app.escinco.com', { fill: 'rgba(150,255,161,0.10)', border: 'rgba(150,255,161,0.50)', color: C.green, size: 13, weight: 600 });
+}
+
+// ------------------------------------------------------------
+// SHEET
+// ------------------------------------------------------------
+const shots = [
+  { fn: shot1, n: '01', title: 'LA CÉLULA VACÍA', meta: '0:00–0:06 · DETALLE EXTREMO · PUSH-IN 1.04', desc: 'Un cursor parpadea sobre un patrimonio que no cuadra.', vo: 'VO: «Tu dinero está en todas partes.»' },
+  { fn: shot2, n: '02', title: 'LA DISPERSIÓN', meta: '0:06–0:13.2 · GENERAL · PULL-BACK · DUTCH 1.5°', desc: 'Banco, broker, exchange, tarjeta, efectivo. Cuatro divisas.', vo: 'VO: «Un banco. Un broker. Un exchange. Cuatro divisas.»' },
+  { fn: shot3, n: '03', title: 'EL NÚMERO QUE NO CUADRA', meta: '0:13.2–0:19.8 · PRIMERÍSIMO PRIMER PLANO · PUSH-IN', desc: 'La cifra se corrompe en ruido de dígitos.', vo: 'VO: «…¿cuánto tengo realmente?»' },
+  { fn: shot4, n: '04', title: 'EL PUNTO DE CLARIDAD', meta: '0:19.8–0:24 · MACRO BLOQUEADO · SILENCIO', desc: 'El molinillo aparece. El cursor lo toca. Todo se detiene.', vo: 'Sin VO. Cero digital.' },
+  { fn: shot5, n: '05', title: 'EL SNAP', meta: '0:24–0:31.2 · PLANO FIRMA · WHIP PULL-OUT', desc: 'La retícula del Excel se invierte en la del dashboard. La cifra se fija.', vo: 'VO: «escinco lo junta todo. Tu patrimonio real, en una sola vista.»' },
+  { fn: shot6, n: '06', title: 'EL PANEL RESPIRA', meta: '0:31.2–0:40.8 · GENERAL · TRACK LATERAL', desc: 'Cuentas, evolución, inversiones, trading, metas y divisas.', vo: 'VO: «Cuentas, inversiones, trading, deudas y metas…»' },
+  { fn: shot7, n: '07', title: 'EN TODAS PARTES', meta: '0:40.8–0:49.2 · GENERAL · PULL-BACK', desc: 'El mismo número en escritorio y móvil. Sello PWA/offline.', vo: 'VO: «En tu compu. En tu bolsillo. Incluso sin internet.»' },
+  { fn: shot8, n: '08', title: 'TODO CUADRA', meta: '0:49.2–1:00 · END CARD · PUSH-IN LENTO', desc: 'La cifra se disuelve en el molinillo. Wordmark, eslogan y CTA.', vo: 'VO: «escinco. Tus finanzas, claras en segundos.»' }
+];
+
+function drawSheet() {
+  // sheet background
+  ctx.fillStyle = '#08090b';
+  ctx.fillRect(0, 0, 1920, 2600);
+
+  // header
+  text('escinco · TODO CUADRA', 40, 40, { size: 24, weight: 700, color: C.text });
+  text('STORYBOARD · 60 s · 1920×1080 · 24 fps · DARK TECH KEYNOTE', 1880, 40, { size: 11, mono: true, color: C.green, align: 'right', spacing: 2 });
+  ctx.strokeStyle = 'rgba(212,225,237,0.14)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(40, 68); ctx.lineTo(1880, 68); ctx.stroke();
+
+  const colW = 900, colH = 506, gapX = 40, gapY = 104, top = 100, left = 40;
+  for (let i = 0; i < shots.length; i++) {
+    const col = i % 2, row = Math.floor(i / 2);
+    const x = left + col * (colW + gapX);
+    const y = top + row * (colH + gapY);
+    const s = shots[i];
+
+    // frame
+    ctx.save();
+    rr(x, y, colW, colH, 18);
+    ctx.clip();
+    ctx.translate(x, y);
+    ctx.scale(colW / 1600, colH / 900);
+    s.fn();
+    ctx.restore();
+
+    // frame border
+    ctx.save();
+    rr(x, y, colW, colH, 18);
+    ctx.strokeStyle = 'rgba(212,225,237,0.22)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    ctx.restore();
+
+    // caption
+    const cy = y + colH + 22;
+    text(s.n, x + 2, cy + 2, { size: 13, mono: true, color: C.green, weight: 600, spacing: 1 });
+    text(s.title, x + 34, cy + 2, { size: 15, weight: 700, color: C.text, spacing: 0.5 });
+    text(s.meta, x + 2, cy + 26, { size: 10, mono: true, color: C.muted, spacing: 1 });
+    text(s.desc, x + 2, cy + 48, { size: 13, weight: 400, color: C.secondary });
+    text(s.vo, x + 2, cy + 68, { size: 12, weight: 400, color: 'rgba(150,255,161,0.78)', spacing: 0.2 });
+  }
+}
+
+async function init() {
+  await document.fonts.load('400 16px Inter');
+  await document.fonts.load('500 16px Inter');
+  await document.fonts.load('600 16px Inter');
+  await document.fonts.load('700 16px Inter');
+  await document.fonts.load('400 16px "Roboto Mono"');
+  await document.fonts.load('500 16px "Roboto Mono"');
+  await document.fonts.load('600 16px "Roboto Mono"');
+  await document.fonts.ready;
+  drawSheet();
+  window.READY = true;
+}
+init();
+</script>
+</body>
+</html>
