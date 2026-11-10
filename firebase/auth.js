@@ -7,6 +7,7 @@ import {
     signOut,
     onAuthStateChanged,
     GoogleAuthProvider,
+    FacebookAuthProvider,
     EmailAuthProvider,
     linkWithCredential,
     updatePassword,
@@ -33,6 +34,7 @@ export {
     signOut,
     onAuthStateChanged,
     GoogleAuthProvider,
+    FacebookAuthProvider,
     EmailAuthProvider,
     linkWithCredential,
     updatePassword,
@@ -49,6 +51,8 @@ export {
     browserSessionPersistence,
     browserLocalPersistence
 } from "./firebaseClient.js"
+
+
 
 import { app } from "./firebaseClient.js"
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from "./firebaseClient.js"
@@ -112,6 +116,29 @@ export async function registrarConGoogle() {
 
 export function loginConGoogle() {
     return registrarConGoogle()
+}
+
+// ============================================
+// REGISTRO / LOGIN CON FACEBOOK
+// ============================================
+// El flujo es el mismo que Google: al aceptar el popup se crea el usuario
+// si no existía, se garantiza su doc en Firestore y su cuenta de efectivo.
+
+export async function registrarConFacebook() {
+    const provider = new FacebookAuthProvider()
+    provider.addScope("email")
+
+    const resultado = await signInWithPopup(auth, provider)
+    const esNuevo = getAdditionalUserInfo(resultado)?.isNewUser || false
+
+    await asegurarDocUsuario(resultado.user, esNuevo)
+    await asegurarCuentaEfectivoInicial(resultado.user.uid, resultado.user)
+
+    return resultado
+}
+
+export function loginConFacebook() {
+    return registrarConFacebook()
 }
 
 // ============================================
