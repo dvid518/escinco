@@ -2085,8 +2085,8 @@ async function cargarTodo() {
             mostrarErrorCarga()
             limpiarEsqueletosDashboard()
         } finally {
-            // Liberar la carga en vuelo solo si es la nuestra.
-            if (cargaEnVuelo === ejecucionPromise) cargaEnVuelo = null
+            // Liberar la carga en vuelo solo si sigue siendo la vigente.
+            if (versionCarga === miVersion) cargaEnVuelo = null
         }
     }
 

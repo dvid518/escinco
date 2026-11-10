@@ -1,15 +1,14 @@
 import {
-    crearMovimiento,
     crearCuenta,
     obtenerCuenta,
     obtenerCuentas,
     actualizarCuenta,
-    actualizarMovimientoDoc,
     restaurarDocumento,
     db,
     doc,
     collection,
-    writeBatch
+    writeBatch,
+    serverTimestamp
 } from "../../firebase/firestore.js"
 import { TIPOS_MOVIMIENTO, CONFIG_MOVIMIENTOS } from "../../constants/tiposMovimiento.js"
 import { getFechaHoy } from "../core/fechas.js"
@@ -877,78 +876,6 @@ async function actualizarSaldos(uid, tipo, datos) {
 
         default:
             console.warn(`Tipo de movimiento sin actualización de saldo: ${tipo}`)
-    }
-}
-
-// ============================================
-// REVERTIR SALDOS (inverso de actualizarSaldos)
-// ============================================
-
-async function revertirSaldos(uid, tipo, datos) {
-    switch (tipo) {
-        case TIPOS_MOVIMIENTO.INGRESO:
-            await actualizarSaldoCuenta(uid, datos.cuenta, datos.monto, "restar")
-            break
-
-        case TIPOS_MOVIMIENTO.GASTO: {
-            const cuenta = await obtenerCuenta(uid, datos.cuenta)
-            if (cuenta?.tipo === "credito") {
-                await actualizarDeudaTarjeta(uid, datos.cuenta, datos.monto, "reducir")
-            } else {
-                await actualizarSaldoCuenta(uid, datos.cuenta, datos.monto, "sumar")
-            }
-            break
-        }
-
-        case TIPOS_MOVIMIENTO.TRANSFERENCIA: {
-            const { origen, destino } = montosDeTransferencia(datos)
-            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, origen, "sumar")
-            await actualizarSaldoCuenta(uid, datos.cuentaDestino, destino, "restar")
-            break
-        }
-
-        case TIPOS_MOVIMIENTO.CAMBIO_DIVISA:
-            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.montoOrigen, "sumar")
-            await actualizarSaldoCuenta(uid, datos.cuentaDestino, datos.montoDestino, "restar")
-            break
-
-        case TIPOS_MOVIMIENTO.COMPRA_ACTIVO:
-        case TIPOS_MOVIMIENTO.P2P_COMPRA: {
-            if (tipo === TIPOS_MOVIMIENTO.COMPRA_ACTIVO && !datos.cuenta) break
-            const total = (datos.cantidad * datos.precio) + (datos.comision || 0)
-            const cuenta = await obtenerCuenta(uid, datos.cuenta)
-            if (cuenta?.tipo === "credito") await actualizarDeudaTarjeta(uid, datos.cuenta, total, "reducir")
-            else await actualizarSaldoCuenta(uid, datos.cuenta, total, "sumar")
-            break
-        }
-
-        case TIPOS_MOVIMIENTO.VENTA_ACTIVO:
-        case TIPOS_MOVIMIENTO.P2P_VENTA: {
-            if (tipo === TIPOS_MOVIMIENTO.VENTA_ACTIVO && !datos.cuenta) break
-            const total = (datos.cantidad * datos.precio) - (datos.comision || 0)
-            await actualizarSaldoCuenta(uid, datos.cuenta, total, "restar")
-            break
-        }
-
-        case TIPOS_MOVIMIENTO.COMPRA_TARJETA:
-            await actualizarDeudaTarjeta(uid, datos.cuenta, datos.monto, "reducir")
-            break
-
-        case TIPOS_MOVIMIENTO.PAGO_TARJETA:
-            await actualizarDeudaTarjeta(uid, datos.tarjeta, datos.monto, "aumentar")
-            await actualizarSaldoCuenta(uid, datos.cuentaOrigen, datos.monto, "sumar")
-            break
-
-        case TIPOS_MOVIMIENTO.ERROR:
-            if (datos.operacion === "sumar") {
-                await actualizarSaldoCuenta(uid, datos.cuenta, datos.monto, "restar")
-            } else if (datos.operacion === "restar") {
-                await actualizarSaldoCuenta(uid, datos.cuenta, datos.monto, "sumar")
-            }
-            break
-
-        default:
-            break
     }
 }
 

@@ -57,7 +57,7 @@ export default async function ejecutar(t = nuevoReporter("facebook")) {
         const mockFacebookAuthProvider = {
             credential: (accessToken, idToken) => ({ accessToken, idToken, providerId: "facebook.com" })
         }
-        const mockLinkWithCredential = async (usuario, credencial) => {
+        const mockLinkWithCredential = async (usuario, _credencial) => {
             linkCalled = true
             usuarioRecibido = usuario
         }
@@ -114,19 +114,17 @@ export default async function ejecutar(t = nuevoReporter("facebook")) {
     // 5. AuthServicio.js: iniciarSesionConFacebook usa loginConFacebook
     //    y guarda credencial por campos (no JSON.stringify del credential)
     // -----------------------------------------------------------
-    {
-        t.check("iniciarSesionConFacebook existe en AuthServicio.js",
-            srcAuthServicio.includes("export async function iniciarSesionConFacebook"))
-        t.check("usa loginConFacebook", srcAuthServicio.includes("return await loginConFacebook()"))
-        t.check("no usa JSON.stringify del credential", !srcAuthServicio.includes("JSON.stringify(error.credential)"))
-        t.check("guarda accessToken por separado",
-            srcAuthServicio.includes(`sessionStorage.setItem(CLAVE_ACCESS_TOKEN, accessToken`))
-        t.check("guarda idToken por separado",
-            srcAuthServicio.includes(`sessionStorage.setItem(CLAVE_ID_TOKEN, idToken`))
-        t.check("vincularCredencialFacebook usa FacebookAuthProvider.credential",
-            srcAuthServicio.includes("FacebookAuthProvider.credential(accessToken, idToken)"))
-        t.check("hayCredencialFacebookPendiente verifica ambas claves",
-            srcAuthServicio.includes(`sessionStorage.getItem(CLAVE_ACCESS_TOKEN) !== null`) &&
-            srcAuthServicio.includes(`sessionStorage.getItem(CLAVE_ID_TOKEN) !== null`))
-    }
+    t.check("iniciarSesionConFacebook existe en AuthServicio.js",
+        srcAuthServicio.includes("export async function iniciarSesionConFacebook"))
+    t.check("usa loginConFacebook", srcAuthServicio.includes("return await loginConFacebook()"))
+    t.check("no usa JSON.stringify del credential", !srcAuthServicio.includes("JSON.stringify(error.credential)"))
+    t.check("guarda accessToken por separado",
+        srcAuthServicio.includes(`sessionStorage.setItem(CLAVE_ACCESS_TOKEN, accessToken`))
+    t.check("guarda idToken por separado",
+        srcAuthServicio.includes(`sessionStorage.setItem(CLAVE_ID_TOKEN, idToken`))
+    t.check("vincularCredencialFacebook usa FacebookAuthProvider.credential",
+        srcAuthServicio.includes("FacebookAuthProvider.credential(accessToken, idToken)"))
+    t.check("hayCredencialFacebookPendiente verifica ambas claves",
+        srcAuthServicio.includes(`sessionStorage.getItem(CLAVE_ACCESS_TOKEN) !== null`) &&
+        srcAuthServicio.includes(`sessionStorage.getItem(CLAVE_ID_TOKEN) !== null`))
 }
