@@ -1,12 +1,12 @@
 ﻿import { chromium } from 'file:///C:/Users/david/lemo-opuscar/node_modules/playwright-core/index.mjs';
 const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', args: ['--allow-file-access-from-files'] });
 const page = await browser.newPage({ viewport: { width: 1920, height: 2600 }, deviceScaleFactor: 2 });
-page.on('pageerror', e => console.log('PAGEERROR', e.message.slice(0,500)));
-page.on('console', m => console.log('CONSOLE', m.type(), m.text().slice(0,200)));
+page.on('pageerror', e => console.info('PAGEERROR', e.message.slice(0,500)));
+page.on('console', m => console.info('CONSOLE', m.type(), m.text().slice(0,200)));
 await page.goto('file:///C:/Users/david/Downloads/David/prog/escinco/escinco-promo/storyboard/index.html', { waitUntil: 'load', timeout: 60000 });
 await page.waitForTimeout(4000);
-console.log('READY', await page.evaluate(() => window.READY));
-console.log('canvas', await page.locator('#hoja').count());
+console.info('READY', await page.evaluate(() => window.READY));
+console.info('canvas', await page.locator('#hoja').count());
 await page.locator('#hoja').screenshot({ path: 'C:/Users/david/Downloads/David/prog/escinco/escinco-promo/storyboard/storyboard.png' });
-console.log('ok');
+console.info('ok');
 await browser.close();

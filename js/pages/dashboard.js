@@ -2004,8 +2004,6 @@ async function cargarTodo() {
     erroresCargaOpcionales = {}
     const miVersion = ++versionCarga
 
-    let ejecucionPromise
-
     const ejecutar = async () => {
         try {
             // Críticas: si cuentas o movimientos fallan, no hay dashboard.
@@ -2092,7 +2090,7 @@ async function cargarTodo() {
         }
     }
 
-    ejecucionPromise = ejecutar()
+    const ejecucionPromise = ejecutar()
     cargaEnVuelo = ejecucionPromise
     return ejecucionPromise
 }

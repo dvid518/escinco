@@ -169,7 +169,7 @@ function aplicarEstadoFondo(estado) {
 }
 
 // Reaccionar al cambio de tema de la aplicación (disparado por js/core/tema.js)
-window.addEventListener("tema-cambiado", (evento) => {
+window.addEventListener("tema-cambiado", (_evento) => {
     if (transicionando) return;
     transicionando = true;
     canvas.classList.add("saliente");
