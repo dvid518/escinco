@@ -418,11 +418,11 @@ if (typeof window !== "undefined" && window.addEventListener && storageDisponibl
             if (!datos || !datos.uid) return
             procesandoRemoto = true
             if (datos.tipo === "limpiar") {
-                limpiar(datos.uid)
+                cacheCapa.limpiar(datos.uid)
             } else if (datos.tipo === "invalidar" && datos.clave) {
-                invalidar(datos.uid, datos.clave)
+                cacheCapa.invalidar(datos.uid, datos.clave)
             } else if (datos.tipo === "invalidarPrefijo" && datos.clave) {
-                invalidarPrefijo(datos.uid, datos.clave)
+                cacheCapa.invalidarPrefijo(datos.uid, datos.clave)
             }
         } catch {
             // Ignorar eventos malformados.

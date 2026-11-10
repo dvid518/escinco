@@ -2004,6 +2004,8 @@ async function cargarTodo() {
     erroresCargaOpcionales = {}
     const miVersion = ++versionCarga
 
+    let ejecucionPromise
+
     const ejecutar = async () => {
         try {
             // Críticas: si cuentas o movimientos fallan, no hay dashboard.
@@ -2077,7 +2079,7 @@ async function cargarTodo() {
             // empezó, esta respuesta está obsoleta.
             if (versionCarga !== miVersion) return
 
-            await actualizarUI(erroresCargaOpcionales)
+            await actualizarUI()
         } catch (error) {
             // Solo mostramos error global si esta carga sigue siendo la vigente.
             if (versionCarga !== miVersion) return
@@ -2090,7 +2092,7 @@ async function cargarTodo() {
         }
     }
 
-    const ejecucionPromise = ejecutar()
+    ejecucionPromise = ejecutar()
     cargaEnVuelo = ejecucionPromise
     return ejecucionPromise
 }
@@ -2510,7 +2512,7 @@ function diasHastaDiaDelMes(diaMes) {
 // ACTUALIZAR UI
 // ============================================
 
-async function actualizarUI(erroresCargaOpcionales = {}) {
+async function actualizarUI() {
     // Las cards de cuenta/ activo se crean y pintan aquí: dependen de datos
     // que acaban de cargar, así que no pueden vivir en el render().
     montarCardsInstanciadas()

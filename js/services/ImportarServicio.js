@@ -285,7 +285,7 @@ async function importarCuentas(uid, cuentas, resultado, cuentaIdMap) {
         try {
             const { id: _id, ...datosLimpios } = cuenta
             const datos = {
-                ...deserializarFechas(datosLimpios, ["fechaCreacion"]),
+                ...deserializarFechas(datosLimpios, CAMPOS_FECHA),
                 saldoInicial: Number(datosLimpios.saldoInicial) || 0,
                 estado: datosLimpios.estado || "activa",
                 esPatrimonio: datosLimpios.esPatrimonio !== false,
@@ -300,7 +300,7 @@ async function importarCuentas(uid, cuentas, resultado, cuentaIdMap) {
             })
             const nuevoId = resultadoDoc.id
             cuentaIdMap.set(cuenta.id, nuevoId)
-            importadas.push({ newId, padreId: cuenta.padreId })
+            importadas.push({ nuevoId, padreId: cuenta.padreId })
             resultado.cuentas++
         } catch (error) {
             const detalle = cuenta.nombre ? ` ${cuenta.nombre}` : ""
@@ -330,7 +330,7 @@ async function importarMovimientos(uid, movimientos, resultado, cuentaIdMap) {
     for (const movimiento of movimientos) {
         try {
             const { id: _id, ...datosLimpios } = movimiento
-            const datos = deserializarFechas(datosLimpios, ["fechaRegistro"])
+            const datos = deserializarFechas(datosLimpios, CAMPOS_FECHA)
             // Reescribir referencias a ids de cuenta viejos -> ids nuevos, para
             // que el movimiento quede vinculado a la cuenta correcta.
             reescribirRefCuenta(datos, "cuenta", cuentaIdMap)

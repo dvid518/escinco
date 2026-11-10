@@ -1,16 +1,8 @@
 import {
-    linkWithCredential,
-    getAuth
+    linkWithCredential
 } from "../../firebase/firebaseClient.js"
 import { FacebookAuthProvider } from "../../firebase/firebaseClient.js"
-import { app } from "../../firebase/firebaseClient.js"
 import { loginConFacebook } from "../../firebase/auth.js"
-
-const auth = getAuth(app)
-
-// Clave bajo la que se guarda la credencial de Facebook pendiente de vincular
-// cuando el correo ya existe con otro proveedor (auth/account-exists-with-different-credential).
-const CLAVE_CREDENCIAL_PENDIENTE = "credencial_facebook_pendiente"
 
 // Claves para guardar los datos de la credencial de Facebook de forma segura
 // (sin serializar el objeto OAuthCredential completo, que no sobrevive
