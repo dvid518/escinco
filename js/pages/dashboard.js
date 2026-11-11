@@ -199,7 +199,10 @@ let eventosEdicionDashboardListos = false
 function normalizarCardsVisibles(valor) {
     if (!Array.isArray(valor)) return [...DEFAULT_CARDS_VISIBLES]
     const idsConocidos = new Set(DASHBOARD_CARDS.map(card => card.id))
-    return [...new Set(valor.filter(id => id !== "patrimonio" && (idsConocidos.has(id) || esCardInstancia(id))))]
+    const filtrado = [...new Set(valor.filter(id => id !== "patrimonio" && (idsConocidos.has(id) || esCardInstancia(id))))]
+    // Si el array filtrado queda vacío (p. ej. preferencias sin cards guardadas),
+    // se usa el catálogo por defecto para que el dashboard no quede vacío.
+    return filtrado.length > 0 ? filtrado : [...DEFAULT_CARDS_VISIBLES]
 }
 
 function normalizarCardsOrden(valor) {
@@ -1736,7 +1739,12 @@ export function render() {
 
     // Orden de renderizado: patrimonio siempre primero (fija), luego el resto
     // según cardsOrdenDashboard filtrado por las visibles.
-    const ordenRender = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && cardsVisiblesDashboard.includes(id))]
+    // Si cardsVisiblesDashboard está vacío (preferencias sin cards guardadas),
+    // se usa el catálogo por defecto para que el dashboard no quede vacío.
+    const visibles = cardsVisiblesDashboard.length > 0
+        ? cardsVisiblesDashboard
+        : [...DEFAULT_CARDS_VISIBLES.filter(id => id !== "patrimonio")]
+    const ordenRender = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && visibles.includes(id))]
 
     const contenido = `
         <div class="dashboard-edicion-bar" id="dashboard-edicion-bar" hidden>
@@ -1750,7 +1758,18 @@ export function render() {
             ${ordenRender.map(id => {
                 const generador = GENERADORES_CARD[id]
                 const config = DASHBOARD_CARDS.find(c => c.id === id) || {}
-                return generador ? generador(config) : ""
+                if (!generador) return ""
+                try {
+                    return generador(config)
+                } catch (error) {
+                    console.error(`[ERROR] Generador de card "${id}" falló:`, error)
+                    return `<div class="glass card card-error" data-dashboard-card="${CSS.escape(id)}" role="button" tabindex="0" title="${CSS.escape(id)}">
+                        <div class="card-header">
+                            <span class="card-title">${CSS.escape(DASHBOARD_CARDS.find(c => c.id === id)?.label || id)}</span>
+                        </div>
+                        <div class="card-value negative">Error al cargar esta card</div>
+                    </div>`
+                }
             }).join('')}
         </div>
     `
