@@ -84,3 +84,5 @@ El asistente se escribe siempre en minúsculas: **drov** (nunca "Drov" ni "DROV"
 - Para regenerarlo: `graphify extract . --code-only`
 - El reporte legible (`GRAPH_REPORT.md`) puede versionarse si es útil para el equipo.
 - Los hooks de git (`graphify hook install`) se instalarán cuando el proyecto esté estable.
+
+Las reglas de arquitectura, datos, seguridad y testing están en AGENTS-AGENTES.md. Aplican simultáneamente con este documento.
