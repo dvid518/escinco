@@ -98,3 +98,6 @@ fondo.html
 
 # Graphify (grafo de conocimiento generado)
 graphify-out/
+
+# OpenCode / Codex (sesiones y estado local del agente)
+.codex/
