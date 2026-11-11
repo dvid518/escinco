@@ -1734,9 +1734,14 @@ export function render() {
     configurarCardsDashboardDesdeSesion()
     const nivelResalte = normalizarNivelResalte(sesion.getPreferencias()?.resaltarPatrimonio)
 
-    // Orden de renderizado: patrimonio siempre primero (fija), luego el resto
-    // según cardsOrdenDashboard filtrado por las visibles.
-    const ordenRender = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && cardsVisiblesDashboard.includes(id))]
+    // Antes de construir ordenRender, asegurar que haya cards visibles.
+    // Si cardsVisiblesDashboard está vacío (preferencias sin cards guardadas),
+    // se usa el catálogo por defecto para que el dashboard no quede vacío.
+    const visibles = cardsVisiblesDashboard.length > 0
+        ? cardsVisiblesDashboard
+        : [...DEFAULT_CARDS_VISIBLES.filter(id => id !== "patrimonio")];
+
+    const ordenRender = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && visibles.includes(id))];
 
     const contenido = `
         <div class="dashboard-edicion-bar" id="dashboard-edicion-bar" hidden>

@@ -188,7 +188,6 @@ const SHELL_ASSETS = [
     "/js/services/IaServicio.js",
     "/js/services/ContextoServicio.js",
     "/js/services/VozServicio.js",
-    "/js/services/DrovServicio.js",
 
     // JS firebase
     "/firebase/firebaseClient.js",
