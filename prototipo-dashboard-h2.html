@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Prototipo H2 — Editor del Dashboard</title>
+<style>
+/* ============================================
+   TOKENS (extraídos de css/style.css de escinco)
+   ============================================ */
+:root {
+    --onyx: #141414;
+    --graphite: #1F1F1F;
+    --lightGraphite: #1F1F1F36;
+    --slateGrey: #465B6D;
+    --lightSlateGrey: #465B6D5f;
+    --lightGreen: #96FFA1;
+    --cottonCandy: #FE8F8F;
+    --banana: #FECA6F;
+    --paleSky: #D4E1ED;
+    --lightPaleSky: #D4E1ED5f;
+    --whiteSmoke: #F1F1F1;
+    --lightWhiteSmoke: #F1F1F136;
+    --frostedWhiteSmoke: #f1f1f180;
+    --tropicalMint: #00a269;
+    --raspberryRed: #DC0051;
+    --mustard: #f5a623;
+    --pupkinSpice: #FF7817;
+    --indigoBloom: #741FA2;
+    --mauve: #DFA3FF;
+    --wildStrawberry: #FF5A91;
+    --softBlossom: #FFC3D7;
+    --verdigris: #1EAA9C;
+    --icyAqua: #B0FFF7;
+    --darkWine: #7C1818;
+    --peachFuzz: #FFD0B9;
+    --font-primary: "Inter", Arial, sans-serif;
+    --font-secondary: "Roboto Mono", "Courier New", monospace;
+    --skeleton-base: color-mix(in srgb, var(--surface) 78%, var(--border));
+    --skeleton-highlight: color-mix(in srgb, var(--text) 14%, transparent);
+    --gap-card: 16px;
+    --altura-celda: 120px;
+    --radio-card: 20px;
+    --radio-boton: 50px;
+    --radio-pequeno: 8px;
+}
+
+[data-theme="dark"] {
+    --background: var(--onyx);
+    --backgroundAlt: var(--paleSky);
+    --surface: var(--graphite);
+    --text: var(--whiteSmoke);
+    --textSecondary: var(--paleSky);
+    --textAlt: var(--graphite);
+    --border: var(--paleSky);
+    --borderAlt: var(--slateGrey);
+    --positive: var(--lightGreen);
+    --positiveAlt: var(--tropicalMint);
+    --negative: var(--cottonCandy);
+    --negativeAlt: var(--raspberryRed);
+    --ambar: var(--banana);
+    --ambarAlt: var(--mustard);
+    --lightHover: var(--lightSlateGrey);
+    --lightBorder: var(--lightWhiteSmoke);
+    --shadow: var(--lightPaleSky);
+    --glass-frosted: var(--frostedGraphite);
+    --blurBackground: var(--lightOnyx);
+}
+
+[data-theme="light"] {
+    --background: var(--whiteSmoke);
+    --backgroundAlt: var(--graphite);
+    --surface: var(--paleSky);
+    --text: var(--onyx);
+    --textSecondary: var(--slateGrey);
+    --textAlt: var(--whiteSmoke);
+    --border: var(--slateGrey);
+    --borderAlt: var(--graphite);
+    --positive: var(--tropicalMint);
+    --positiveAlt: var(--lightGreen);
+    --negative: var(--raspberryRed);
+    --negativeAlt: var(--cottonCandy);
+    --ambar: var(--mustard);
+    --ambarAlt: var(--banana);
+    --lightHover: var(--lightPaleSky);
+    --lightBorder: var(--lightGraphite);
+    --shadow: var(--lightSlateGrey);
+    --glass-frosted: var(--frostedWhiteSmoke);
+    --blurBackground: var(--lightPaleSky);
+}
+
+/* ============================================
+   BASE
+   ============================================ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: var(--font-primary);
+    background: var(--background);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 24px;
+}
+h1, h2, h3 { font-weight: 600; color: var(--text); }
+p { color: var(--textSecondary); margin-bottom: 12px; font-size: 14px; }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
+
+/* ============================================
+   LAYOUT DEL PROTOTIPO
+   ============================================ */
+.proto-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* Cabecera */
+.proto-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 16px;
+}
+.proto-header h1 { font-size: 24px; }
+.proto-subtitulo { font-size: 14px; color: var(--textSecondary); }
+
+/* Controles de simulación de viewport */
+.proto-controles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radio-card);
+}
+.proto-controles h3 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--textSecondary); }
+.proto-btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+.proto-btn-group--der { margin-left: auto; }
+.proto-btn {
+    padding: 6px 14px;
+    border-radius: var(--radio-boton);
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.proto-btn:hover { background: var(--lightHover); border-color: var(--textSecondary); }
+.proto-btn.activo {
+    background: var(--positive);
+    color: var(--background);
+    border-color: var(--positive);
+}
+
+/* Vista del dashboard */
+.proto-dashboard-view {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Barra de edición (fija inferior) */
+.dashboard-edicion-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 78px;
+    transform: translateX(-50%);
+    z-index: 250;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radio-boton);
+    box-shadow: 0 8px 24px var(--shadow);
+    pointer-events: auto;
+}
+.dashboard-edicion-bar[hidden] { display: none; }
+.dashboard-edicion-bar .glass-btn {
+    padding: 8px 16px;
+    border-radius: var(--radio-boton);
+    border: 1px solid var(--border);
+    background: var(--background);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+.dashboard-edicion-bar .glass-btn:hover { background: var(--lightHover); }
+
+/* Grid del dashboard */
+.dashboard {
+    --altura-celda: 120px;
+    --gap-card: 16px;
+    --columnas-simuladas: 5;
+    display: grid;
+    /* Única fuente de verdad: la variable la escribe el simulador (JS). */
+    grid-template-columns: repeat(var(--columnas-simuladas), minmax(0, 1fr));
+    grid-auto-rows: var(--altura-celda);
+    gap: var(--gap-card);
+    width: 100%;
+    min-height: 0;
+    align-items: start;
+    align-content: start;
+    overflow: visible;
+    position: relative;
+}
+
+/* Cada celda del grid */
+.dashboard > * {
+    display: flex;
+    flex-direction: column;
+    min-height: var(--altura-celda);
+    height: auto;
+    position: relative;
+    overflow: visible;
+    border-radius: var(--radio-card);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px;
+    gap: 10px;
+    transition: transform 0.22s ease, opacity 0.22s ease, box-shadow 0.2s ease;
+}
+
+/* Clases de span (variantes de dimensión) */
+.card-span-2   { grid-column: span 2; }
+.card-span-row-2 { grid-row: span 2; }
+.card-span-row-3 { grid-row: span 3; }
+.card-span-2x2 {
+    grid-column: span 2;
+    grid-row: span 2;
+}
+
+/* Modo edición activo */
+.dashboard.dashboard-edicion-activo > * {
+    opacity: 0.92;
+    transition: opacity 0.25s ease, transform 0.22s ease;
+}
+/* Patrimonio: no se mueve ni se oculta, se marca en edición */
+.dashboard.dashboard-edicion-activo .card-fija {
+    border-style: dashed;
+    opacity: 1;
+}
+
+/* Controles de edición por card */
+.dashboard-card-edicion {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 3;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radio-boton);
+    padding: 4px;
+    box-shadow: 0 4px 12px var(--shadow);
+}
+.dashboard.dashboard-edicion-activo .dashboard-card-edicion { display: flex; }
+.card-accion-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    padding: 0;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    background: var(--background);
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+}
+.card-accion-btn:hover { border-color: var(--textSecondary); color: var(--text); background: var(--lightHover); }
+.card-accion-btn.handle { cursor: grab; }
+.card-accion-btn.handle:active { cursor: grabbing; }
+.card-accion-btn.eliminar { color: var(--negative); border-color: var(--negative); }
+.card-accion-btn.eliminar:hover { background: var(--negative); color: var(--background); }
+
+/* Estado arrastrando */
+.dashboard-card-arrastrando {
+    opacity: 0.6;
+    transform: scale(1.02);
+    box-shadow: 0 8px 24px var(--shadow);
+    cursor: grabbing;
+    z-index: 100;
+}
+body.dashboard-card-dragging, body.dashboard-card-dragging * {
+    cursor: grabbing !important;
+    user-select: none !important;
+}
+
+/* Línea de inserción */
+.dashboard-card-insercion {
+    display: block;
+    height: 3px;
+    margin: 0;
+    border-radius: 999px;
+    background: var(--positive);
+    box-shadow: 0 0 10px var(--positive);
+    pointer-events: none;
+    opacity: 0;
+    transform: scaleY(0.4);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    position: absolute;
+    left: 0; right: 0; z-index: 4;
+}
+.dashboard-card-insercion.visible { opacity: 1; transform: scaleY(1); }
+
+/* ============================================
+   CONTENIDO DE LAS CARDS (prototipo baja fidelidad)
+   ============================================ */
+.card-titulo {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--textSecondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+.card-valor {
+    font-family: var(--font-secondary);
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text);
+}
+.card-detalle {
+    font-size: 12px;
+    color: var(--textSecondary);
+}
+
+/* Esqueletos de baja fidelidad */
+.skeleton-base {
+    background: var(--skeleton-base);
+    border-radius: 4px;
+    height: 10px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+}
+.skeleton-base::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--skeleton-highlight), transparent);
+    animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+    100% { transform: translateX(100%); }
+}
+.skeleton-text { height: 12px; width: 60%; border-radius: 4px; margin-top: 6px; }
+.skeleton-title { height: 14px; width: 100%; border-radius: 4px; margin-bottom: 8px; }
+.skeleton-value { height: 32px; width: 70%; border-radius: 4px; margin-top: 4px; }
+
+/* ============================================
+   MODAL DE EDICIÓN (prototipo)
+   ============================================ */
+.modal-overlay {
+    position: fixed; inset: 0;
+    background: var(--blurBackground);
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+}
+.modal-overlay.visible { display: flex; }
+.modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 700px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: var(--text);
+    animation: slideUp 0.3s ease;
+}
+.modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 24px 16px 24px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+.modal-title { font-size: 18px; font-weight: 600; margin: 0; }
+/* Mismo botón de cierre que css/modal.css del proyecto */
+.modal-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--text);
+    font-size: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+}
+.modal-close:hover { background: var(--lightHover); }
+.modal-subtitulo { font-size: 13px; color: var(--textSecondary); margin: 0 0 16px 0; }
+.modal-body { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.modal-footer {
+    display: flex; justify-content: center; gap: 12px;
+    padding: 16px 24px 20px 24px;
+    border-top: 1px solid var(--border);
+    background: transparent;
+    flex-shrink: 0;
+}
+.modal-btn {
+    padding: 10px 24px; border-radius: var(--radio-boton);
+    border: none; background: var(--border); color: var(--textAlt);
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    transition: all 0.3s ease;
+}
+.modal-btn:hover { transform: scale(1.02); box-shadow: inset 0 0 20px var(--shadow); }
+.modal-btn-sec {
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border);
+}
+.modal-btn-sec:hover { background: var(--lightHover); }
+
+/* Editor: lista de cards */
+.editor-seccion { margin-bottom: 20px; }
+.editor-titulo {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.4px; color: var(--text); margin-bottom: 10px;
+}
+.editor-lista { display: flex; flex-direction: column; gap: 8px; }
+.editor-fila {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--background);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+.editor-fila input[type="checkbox"] {
+    appearance: none; width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-radius: 6px; background: var(--surface);
+    cursor: pointer;
+}
+.editor-fila input[type="checkbox"]:checked {
+    background: var(--positive); border-color: var(--positive);
+}
+.editor-nombre { flex: 1; min-width: 0; font-size: 13px; font-weight: 500; color: var(--text); }
+.editor-dimensiones {
+    display: flex; gap: 6px; align-items: center;
+}
+.btn-dimensione {
+    width: 32px; height: 32px; min-width: 32px;
+    padding: 0; border: 2px solid var(--border);
+    border-radius: 8px; background: var(--background);
+    color: var(--textSecondary); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s ease;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+.btn-dimensione.activo {
+    border-color: var(--positive); background: var(--positive); color: var(--background);
+}
+.btn-dimensione.disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+/* ============================================
+   CONTROLES DE PRUEBA (visuales)
+   ============================================ */
+.pruebas-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radio-card);
+    padding: 16px;
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+.pruebas-panel h3 {
+    grid-column: 1 / -1;
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--textSecondary); margin-bottom: 8px;
+}
+.prueba-btn {
+    width: 100%; padding: 10px 14px;
+    border: 1px solid var(--border);
+    background: var(--background); color: var(--text);
+    border-radius: var(--radio-boton);
+    text-align: left; font-size: 13px; cursor: pointer;
+    transition: all 0.2s ease;
+}
+.prueba-btn:hover { background: var(--lightHover); border-color: var(--textSecondary); }
+
+/* Responsive del prototipo.
+   No se tocan las columnas del grid: la simulación JS es la única fuente de verdad
+   y debe funcionar con independencia del ancho físico de la ventana. */
+@media (max-width: 599px) {
+    body { padding: 16px; }
+    .proto-controles { padding: 12px; flex-direction: column; align-items: stretch; }
+}
+</style>
+</head>
+<body>
+<div class="proto-container">
+
+    <!-- Cabecera -->
+    <header class="proto-header">
+        <h1>Editor del Dashboard — H2</h1>
+        <p class="proto-subtitulo">Prototipo de baja fidelidad: grid de celdas uniformes, variantes de altura y menú de edición.</p>
+    </header>
+
+    <!-- Controles de simulación de viewport -->
+    <section class="proto-controles">
+        <h3>Ancho del dashboard (columnas simuladas)</h3>
+        <div class="proto-btn-group" id="grupo-columnas">
+            <button type="button" class="proto-btn activo" data-cols="5">5 columnas</button>
+            <button type="button" class="proto-btn" data-cols="4">4 columnas</button>
+            <button type="button" class="proto-btn" data-cols="3">3 columnas</button>
+            <button type="button" class="proto-btn" data-cols="2">2 columnas</button>
+            <button type="button" class="proto-btn" data-cols="1">1 columna</button>
+        </div>
+        <div class="proto-btn-group proto-btn-group--der">
+            <button type="button" class="proto-btn" id="btn-modo-edicion">Activar edición</button>
+            <button type="button" class="proto-btn" id="btn-reset">Resetear</button>
+        </div>
+    </section>
+
+    <!-- Vista del dashboard -->
+    <section class="proto-dashboard-view">
+        <div class="dashboard-edicion-bar" id="dashboard-edicion-bar" hidden>
+            <button type="button" class="glass-btn" id="btn-abrir-cards">Añadir/quitar cards</button>
+            <button type="button" class="glass-btn" id="btn-listo">Listo</button>
+        </div>
+        <div class="dashboard" id="dashboard-grid"></div>
+    </section>
+
+    <!-- Panel de pruebas visuales -->
+    <section class="pruebas-panel">
+        <h3>Pruebas visuales</h3>
+        <button type="button" class="prueba-btn" data-prueba="dos-col-final">1. Card de 2 columnas al final de fila</button>
+        <button type="button" class="prueba-btn" data-prueba="relleno-espacio">2. Buscar tarjeta posterior que rellene espacio</button>
+        <button type="button" class="prueba-btn" data-prueba="dos-col-consecutivas">3. Varias cards de 2 columnas consecutivas</button>
+        <button type="button" class="prueba-btn" data-prueba="alturas-distintas">4. Cards de distintas alturas</button>
+        <button type="button" class="prueba-btn" data-prueba="cambiar-ancho">5. Cambiar de 5 a 1 columna</button>
+        <button type="button" class="prueba-btn" data-prueba="ocultar-mostrar">6. Ocultar y mostrar cards</button>
+        <button type="button" class="prueba-btn" data-prueba="reordenar">7. Reordenar manualmente y cambiar viewport</button>
+    </section>
+
+    <!-- Modal de edición (oculto por defecto) -->
+    <div class="modal-overlay" id="modal-editor">
+        <div class="modal">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">Elegir cards del dashboard</div>
+                    <div class="modal-subtitulo">Arrastra para reordenar, ajusta ancho y alto, activa o desactiva.</div>
+                </div>
+                <button type="button" class="modal-close" id="btn-cerrar-modal">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="editor-seccion">
+                    <div class="editor-titulo">Cards del dashboard</div>
+                    <div class="editor-lista" id="editor-lista"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="modal-btn modal-btn-sec" id="btn-reset-modal">Restablecer</button>
+                <button type="button" class="modal-btn modal-btn-sec" id="btn-cancelar-modal">Cancelar</button>
+                <button type="button" class="modal-btn" id="btn-guardar-modal">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script src="prototipo-dashboard-h2.js"></script>
+</body>
+</html>

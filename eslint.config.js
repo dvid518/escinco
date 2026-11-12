@@ -8,6 +8,12 @@ export default [
       "coverage/",
       "tests/fixtures/",
       "*.md",
+      // Directorios de herramientas y habilidades de OpenCode (no son código
+      // fuente del proyecto escinco ni se despliegan a producción).
+      ".opencode/**",
+      ".codex/**",
+      ".cursor/**",
+      ".agents/**",
       // Librerías vendorizadas y minificadas: no las mantenemos nosotros.
       "js/lib/",
       // Código de experimentos y de la demo: no forma parte de la app desplegada.

@@ -103,6 +103,10 @@ function ipDe(req) {
 
 const entornoLocal = await leerEntornoLocal()
 const CLAVE_IA = (process.env.GEMINI_API_KEY || entornoLocal.GEMINI_API_KEY || "").trim()
+const CLAVE_NVIDIA = (process.env.NVIDIA_API_KEY || entornoLocal.NVIDIA_API_KEY || "").trim()
+const CLAVE_OPENROUTER = (process.env.OPENROUTER_API_KEY || entornoLocal.OPENROUTER_API_KEY || "").trim()
+// Modelo obligado para OpenRouter (el cliente puede enviar otro, el proxy lo impone).
+const MODELO_OPENROUTER = "nvidia/nemotron-3-super-120b:free"
 
 async function leerEntornoLocal() {
     try {
@@ -147,12 +151,26 @@ function origenPermitido(req) {
     }
 }
 
-function responderJson(res, estado, datos) {
+/**
+ * Cabeceras CORS para el proxy de IA. El cliente envía la cabecera
+ * `Authorization: Bearer` (cabecera personalizada), por lo que el navegador
+ * hace un preflight OPTIONS que debe permitirla.
+ */
+function cabecerasCors(origen) {
+    return {
+        "Access-Control-Allow-Origin": origen || "*",
+        "Access-Control-Allow-Headers": "Authorization, Content-Type",
+        "Access-Control-Allow-Methods": "POST, GET, OPTIONS"
+    }
+}
+
+function responderJson(res, estado, datos, cabecerasExtra = {}) {
     const cuerpo = JSON.stringify(datos)
     res.writeHead(estado, {
         "Content-Type": "application/json; charset=utf-8",
         "Content-Length": Buffer.byteLength(cuerpo),
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store",
+        ...cabecerasExtra
     })
     res.end(cuerpo)
 }
@@ -182,29 +200,40 @@ async function manejarIa(req, res, ruta) {
         return
     }
 
-    if (ruta === RUTA_ESTADO) {
-        if (req.method !== "GET" && req.method !== "HEAD") {
-            res.writeHead(405, { Allow: "GET, HEAD" })
-            res.end()
-            return
-        }
-        responderJson(res, 200, {
-            disponible: Boolean(CLAVE_IA),
-            modelo: IA_CONFIG.modelo
-        })
-        return
-    }
+    const origen = req.headers.origin || ""
+    const cors = cabecerasCors(origen)
 
-    if (req.method !== "POST") {
-        res.writeHead(405, { Allow: "POST" })
+    // Preflight CORS: responder al OPTIONS sin llamar a Gemini, permitiendo
+    // la cabecera Authorization que envía el cliente.
+    if (req.method === "OPTIONS") {
+        res.writeHead(204, { ...cors, "Content-Length": 0 })
         res.end()
         return
     }
 
-    if (!CLAVE_IA) {
+    if (ruta === RUTA_ESTADO) {
+        if (req.method !== "GET" && req.method !== "HEAD") {
+            res.writeHead(405, { Allow: "GET, HEAD", ...cors })
+            res.end()
+            return
+        }
+        responderJson(res, 200, {
+            disponible: Boolean(CLAVE_OPENROUTER),
+            modelo: MODELO_OPENROUTER
+        }, cors)
+        return
+    }
+
+    if (req.method !== "POST") {
+        res.writeHead(405, { Allow: "POST", ...cors })
+        res.end()
+        return
+    }
+
+    if (!CLAVE_NVIDIA) {
         responderJson(res, 503, {
-            error: { message: "Falta GEMINI_API_KEY en .env.local o en el entorno." }
-        })
+            error: { message: "Falta OPENROUTER_API_KEY en .env.local o en el entorno." }
+        }, cors)
         return
     }
 
@@ -213,7 +242,7 @@ async function manejarIa(req, res, ruta) {
     if (!rateLimitOK(ip)) {
         responderJson(res, 429, {
             error: { message: "Demasiadas peticiones al asistente. Espera un momento." }
-        })
+        }, cors)
         return
     }
 
@@ -222,10 +251,10 @@ async function manejarIa(req, res, ruta) {
         cuerpo = await leerCuerpo(req, MAX_CUERPO_IA)
     } catch (error) {
         if (error?.message === "CUERPO_DEMASIADO_GRANDE") {
-            responderJson(res, 413, { error: { message: "La petición es demasiado grande." } })
+            responderJson(res, 413, { error: { message: "La petición es demasiado grande." } }, cors)
             return
         }
-        responderJson(res, 400, { error: { message: "No se pudo leer la petición." } })
+        responderJson(res, 400, { error: { message: "No se pudo leer la petición." } }, cors)
         return
     }
 
@@ -238,7 +267,8 @@ async function manejarIa(req, res, ruta) {
             "Content-Type": "application/json; charset=utf-8",
             "Content-Length": Buffer.byteLength(cacheado.texto),
             "Cache-Control": "no-store",
-            "X-Proxy-Cache": "hit"
+            "X-Proxy-Cache": "hit",
+            ...cors
         })
         res.end(cacheado.texto)
         return
@@ -248,18 +278,26 @@ async function manejarIa(req, res, ruta) {
     const temporizador = setTimeout(() => controlador.abort(), IA_CONFIG.tiempoMaximoMs + 5000)
 
     try {
-        const respuesta = await fetch(
-            `${IA_CONFIG.endpoint}/models/${IA_CONFIG.modelo}:generateContent`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-goog-api-key": CLAVE_IA
-                },
-                body: cuerpo,
-                signal: controlador.signal
-            }
-        )
+        // Reenvía al formato OpenAI de OpenRouter, imponiendo el modelo y
+        // desactivando el razonamiento extendido (necesario para tool calling).
+        let payload
+        try {
+            payload = JSON.parse(cuerpo)
+        } catch {
+            payload = {}
+        }
+        payload.model = MODELO_OPENROUTER
+
+        const respuesta = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${CLAVE_OPENROUTER}`,
+                "HTTP-Referer": "http://localhost:5085"
+            },
+            body: JSON.stringify(payload),
+            signal: controlador.signal
+        })
 
         const texto = await respuesta.text()
 
@@ -272,7 +310,8 @@ async function manejarIa(req, res, ruta) {
         const cabeceras = {
             "Content-Type": respuesta.headers.get("content-type") || "application/json; charset=utf-8",
             "Content-Length": Buffer.byteLength(texto),
-            "Cache-Control": "no-store"
+            "Cache-Control": "no-store",
+            ...cors
         }
         if (respuesta.headers.has("retry-after")) {
             cabeceras["Retry-After"] = respuesta.headers.get("retry-after")
@@ -282,14 +321,14 @@ async function manejarIa(req, res, ruta) {
         res.end(texto)
     } catch (error) {
         const abortado = error?.name === "AbortError"
-        console.error("[local:ia]", abortado ? "Gemini no respondió a tiempo" : error?.message || error)
+        console.error("[local:ia]", abortado ? "OpenRouter no respondió a tiempo" : error?.message || error)
         responderJson(res, 502, {
             error: {
                 message: abortado
-                    ? "Gemini tardó demasiado en responder."
-                    : "No se pudo contactar con Gemini."
+                    ? "OpenRouter tardó demasiado en responder."
+                    : "No se pudo contactar con OpenRouter."
             }
-        })
+        }, cors)
     } finally {
         clearTimeout(temporizador)
     }
