@@ -114,6 +114,36 @@ const DASHBOARD_CARDS = [
     { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 1 }
 ]
 
+// Dimensiones permitidas por card (matriz H2).
+// ancho/alto: mínimos y máximos que el usuario puede elegir en el editor.
+// default: valor usado cuando no hay preferencia guardada.
+const DASHBOARD_DIMENSIONES = {
+    // Eje Y máx 3 (alto 1-3, ancho siempre 1)
+    patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+    metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    // Eje Y máx 2 (alto 1-2, ancho siempre 1)
+    cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    "ingresos-periodo":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    "gastos-periodo":  { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    "balance-periodo": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    ordenes:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    estrategias:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    // Eje X e Y (ambos) - gráfico permite 1x1, 2x1, 1x2, 2x2
+    grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 1, altoMax: 2, anchoDefault: 2, altoDefault: 1 },
+};
+
 // Cards visibles de partida para una cuenta nueva o sin elección guardada.
 // "patrimonio" queda fuera: se pinta siempre y no es personalizable.
 const DEFAULT_CARDS_VISIBLES = ["cuentas", "movimientos", "inversiones", "metas", "grafico"]
@@ -130,9 +160,9 @@ const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
 // Considera primero las dimensiones personalizadas del usuario, luego las del catálogo.
 function clasesCard(id) {
     const personalizada = cardsDimensionesDashboard[id]
-    const catalogo = DASHBOARD_CARDS.find(c => c.id === id)
-    const spanCol = personalizada?.columnas ?? catalogo?.spanColumnas ?? 1
-    const spanFil = personalizada?.filas ?? catalogo?.spanFilas ?? 1
+    const catalogo = DASHBOARD_DIMENSIONES[id] ?? DASHBOARD_CARDS.find(c => c.id === id)
+    const spanCol = personalizada?.columnas ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1
+    const spanFil = personalizada?.filas ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
     const scroll = personalizada?.scroll ?? catalogo?.scroll ?? false
     const clases = []
     if (spanCol === 2) clases.push("card-span-2")
@@ -140,6 +170,48 @@ function clasesCard(id) {
     if (spanCol === 2 && spanFil === 2) clases.push("card-span-2x2")
     if (scroll) clases.push("card-con-scroll")
     return clases.join(" ")
+}
+
+/**
+ * Genera el HTML de toggle-group(s) para las dimensiones de una card.
+ * - Y3 (ancho fijo 1, alto 1-3): un toggle-group de alto [1][2][3]
+ * - Y2 (ancho fijo 1, alto 1-2): un toggle-group de alto [1][2]
+ * - X2Y2 (gráfico): dos toggle-groups, ancho [1][2] y alto [1][2]
+ * - 1x1 fijo: no se muestra toggle (dimensión inmutable)
+ *
+ * @param {string} cardId
+ * @param {number} anchoActual
+ * @param {number} altoActual
+ * @param {Object} catalogo entrada de DASHBOARD_DIMENSIONES
+ * @returns {string} HTML con uno o dos <div class="toggle-group">
+ */
+function generarToggleGroupDimensiones(cardId, anchoActual, altoActual, catalogo) {
+    const rangoAncho = catalogo && catalogo.anchoMin !== catalogo.anchoMax
+        ? Array.from({ length: catalogo.anchoMax - catalogo.anchoMin + 1 }, (_, i) => catalogo.anchoMin + i)
+        : null
+    const rangoAlto = catalogo && catalogo.altoMin !== catalogo.altoMax
+        ? Array.from({ length: catalogo.altoMax - catalogo.altoMin + 1 }, (_, i) => catalogo.altoMin + i)
+        : null
+
+    let html = ""
+
+    if (rangoAncho) {
+        html += `<div class="toggle-group" data-dimensione="ancho" data-card="${cardId}" role="group" aria-label="Ancho de ${cardId}">`
+        for (const v of rangoAncho) {
+            html += `<span class="toggle-option${v === anchoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
+        }
+        html += "</div>"
+    }
+
+    if (rangoAlto) {
+        html += `<div class="toggle-group" data-dimensione="alto" data-card="${cardId}" role="group" aria-label="Alto de ${cardId}">`
+        for (const v of rangoAlto) {
+            html += `<span class="toggle-option${v === altoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
+        }
+        html += "</div>"
+    }
+
+    return html
 }
 
 // ============================================
@@ -738,9 +810,11 @@ function prepararEdicionCardsDashboard() {
             return
         }
         card.draggable = true
-        const controlesExistentes = card.querySelector(".dashboard-card-edicion")
+        // Si render() ya inyectó los botones de acción, no los duplicamos:
+        // solo aseguramos que el handle de arrastre sea draggable.
+        const controlesExistentes = card.querySelector(".card-acciones-edicion")
         if (controlesExistentes) {
-            const handle = controlesExistentes.querySelector("[data-dashboard-drag-handle]")
+            const handle = controlesExistentes.querySelector(".btn-mover-card")
             if (handle) handle.setAttribute("draggable", "true")
             return
         }
@@ -818,14 +892,15 @@ function configurarEventosReordenamientoDashboard() {
     }
 
     grid.addEventListener("click", (evento) => {
-        const botonMover = evento.target.closest("[data-dashboard-mover]")
+        const botonMover = evento.target.closest("[data-accion='subir'], [data-accion='bajar']")
         if (!modoEdicionDashboard || !botonMover) return
         evento.stopPropagation()
-        moverCardDashboard(botonMover.dataset.id, Number(botonMover.dataset.direccion))
+        const direccion = botonMover.dataset.accion === "subir" ? -1 : 1
+        moverCardDashboard(botonMover.dataset.id, direccion)
     })
 
     grid.addEventListener("click", (evento) => {
-        const boton = evento.target.closest("[data-dashboard-eliminar]")
+        const boton = evento.target.closest("[data-accion='eliminar']")
         if (!modoEdicionDashboard || !boton) return
         evento.stopPropagation()
         evento.preventDefault()
@@ -843,7 +918,7 @@ function inicializarSortableDashboard() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     sortableDashboard = new Sortable(grid, {
-        handle: "[data-dashboard-drag-handle]",
+        handle: '.btn-mover-card',
         draggable: "[data-dashboard-card]",
         animation: reduceMotion ? 0 : 150,
         scroll: true,
@@ -1003,180 +1078,131 @@ function abrirSelectorCardsDashboard() {
     let ordenModal = [...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
     let visiblesModal = new Set(cardsVisiblesDashboard)
     let dimensionesModal = { ...cardsDimensionesDashboard }
-    let cardSeleccionada = null
-    // Las funciones de abajo usan el modal antes de que exista: se crea más
-    // adelante, cuando ya están definidos sus callbacks.
     let modal = null
 
     const cuentasVisiblesLista = cuentasVisibles(cuentas)
     const cuentasInDashboard = new Set(ordenModal.filter(id => id.startsWith("cuenta:")))
     const activosInDashboard = new Set(ordenModal.filter(id => id.startsWith("activo:")))
 
-    // Calcula tamaño texto ("1×1", "2×1", etc.)
-    function tamañoTexto(id) {
-        const d = dimensionesModal[id]
-        const columnas = d?.columnas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanColumnas ?? 1
-        const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
-        return `${columnas}×${filas}`
-    }
+    // Renderiza la sección 1: grid de cards regulares con esqueleto + toggle-group de dimensiones.
+    // Se itera sobre TODAS las cards de ordenModal (catálogo + instancias) para que el usuario
+    // pueda activar/desactivar cualquiera.
+    function renderizarGridEsqueleto() {
+        const contenedor = modal.querySelector(".editor-grid-esqueleto")
+        if (!contenedor) return
+        contenedor.replaceChildren()
 
-    // Renderiza la lista de cards activas en el modal
-    function renderizarCardsActivas() {
-        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
-        const opciones = contenidoDesdeFilas("tpl-dashboard-card", cardsEnOrden, cardId => {
+        const fragmento = document.createDocumentFragment()
+        for (const cardId of ordenModal) {
             const d = dimensionesModal[cardId]
-            const cat = DASHBOARD_CARDS.find(c => c.id === cardId)
-            const columnas = d?.columnas ?? cat?.spanColumnas ?? 1
-            const filas = d?.filas ?? cat?.spanFilas ?? 1
-            const seleccionada = cardSeleccionada === cardId
-            const esCuenta = cardId.startsWith("cuenta:")
-            const esActivo = cardId.startsWith("activo:")
-            const ancho2Permitido = columnas === 2 || (esCuenta && cuentasVisiblesLista.some(c => c.id === cardId.split(":")[1])) || (esActivo && true)
-            const filas2Permitido = columnas === 1
-            const filas3Permitido = columnas === 1
+            const cat = DASHBOARD_DIMENSIONES[cardId] ?? DASHBOARD_CARDS.find(c => c.id === cardId)
+            const columnas = d?.columnas ?? cat?.anchoDefault ?? cat?.spanColumnas ?? 1
+            const filas = d?.filas ?? cat?.altoDefault ?? cat?.spanFilas ?? 1
+            const visible = visiblesModal.has(cardId)
 
             // Etiqueta: cuenta/activo dinámico o catálogo fijo
             let etiqueta = cardId
-            if (esCuenta) {
+            if (cardId.startsWith("cuenta:")) {
                 const cuenta = cuentasVisiblesLista.find(c => c.id === cardId.split(":")[1])
                 etiqueta = cuenta?.nombre || cardId
-            } else if (esActivo) {
+            } else if (cardId.startsWith("activo:")) {
                 const activo = posicionesData.find(p => p.activoId === cardId.split(":")[1])
                 etiqueta = activo?.activo?.nombre || cardId
             } else {
                 etiqueta = cat?.label || cardId
             }
 
-            return {
-                valores: {
-                    "card@data-card": cardId,
-                    "valor@value": cardId,
-                    "valor@checked": visiblesModal.has(cardId),
-                    "tamaño": tamañoTexto(cardId),
-                    etiqueta: etiqueta,
-                    "btn-ancho-1@class": `btn-ancho btn-dimensión ${columnas === 1 ? "activo" : ""} ${!ancho2Permitido && columnas !== 1 ? "disabled" : ""}`,
-                    "btn-ancho-1@data-ancho": "1",
-                    "btn-ancho-2@class": `btn-ancho btn-dimensión ${columnas === 2 ? "activo" : ""} ${!ancho2Permitido && columnas !== 2 ? "disabled" : ""}`,
-                    "btn-ancho-2@data-ancho": "2",
-                    "btn-alto-1@class": `btn-alto btn-dimensión ${filas === 1 ? "activo" : ""} ${!filas2Permitido ? "disabled" : ""}`,
-                    "btn-alto-1@data-alto": "1",
-                    "btn-alto-2@class": `btn-alto btn-dimensión ${filas === 2 ? "activo" : ""} ${!filas2Permitido ? "disabled" : ""}`,
-                    "btn-alto-2@data-alto": "2",
-                    "btn-alto-3@class": `btn-alto btn-dimensión ${filas === 3 ? "activo" : ""} ${!filas3Permitido ? "disabled" : ""}`,
-                    "btn-alto-3@data-alto": "3",
-                    "acciones@data-id": cardId,
-                    "card@class": `modal-card-activa${seleccionada ? " seleccionada" : ""}`
-                },
-                html: {
-                    "html-arrastrar": icono("grip", 14),
-                    "html-subir": icono("chevron-up", 14),
-                    "html-bajar": icono("chevron-down", 14),
-                    "html-eliminar": icono("minus", 14)
-                }
-            }
-        })
-
-        const cardsGrid = modal.querySelector(".modal-dashboard-lista")
-        if (!cardsGrid) return
-        cardsGrid.innerHTML = ""
-        cardsGrid.appendChild(opciones)
-    }
-
-    // Renderiza el preview gráfico (miniaturas en 2 columnas)
-    function renderizarPreview() {
-        const cardsEnOrden = ordenModal.filter(id => visiblesModal.has(id))
-        const previewGrid = modal.querySelector(".modal-preview-grid")
-        if (!previewGrid) return
-        previewGrid.replaceChildren()
-        for (const id of cardsEnOrden) {
-            const d = dimensionesModal[id]
-            const filas = d?.filas ?? DASHBOARD_CARDS.find(c => c.id === id)?.spanFilas ?? 1
             const card = document.createElement("div")
-            card.className = "modal-preview-card"
-            card.setAttribute("data-card-id", id)
-            card.setAttribute("data-filas", String(filas))
-            card.textContent = tamañoTexto(id)
-            previewGrid.appendChild(card)
+            card.className = `editor-card ${visible ? "" : "card-oculta"}`
+            card.dataset.card = cardId
+            card.role = "button"
+            card.tabIndex = 0
+
+            // Título
+            const titulo = document.createElement("h4")
+            titulo.className = "editor-card-titulo"
+            titulo.textContent = etiqueta
+
+            // Placeholder gris (esqueleto) que simula el contenido de la card
+            const placeholder = document.createElement("div")
+            placeholder.className = "editor-card-esqueleto"
+
+            // Toggle-group de dimensiones permitidas por la card
+            const dimensionesHtml = generarToggleGroupDimensiones(cardId, columnas, filas, cat)
+            const dims = document.createElement("div")
+            dims.className = "editor-card-dimensiones"
+            dims.innerHTML = dimensionesHtml
+
+            card.appendChild(titulo)
+            card.appendChild(placeholder)
+            card.appendChild(dims)
+            fragmento.appendChild(card)
         }
+        contenedor.appendChild(fragmento)
     }
 
-    // Renderiza el selector de cuentas y activos disponibles
-    function renderizarSelectorEntidades() {
-        const entidades = []
+    // Renderiza la sección 2: pills de cuentas y activos disponibles.
+    // Cada pill tiene un punto de estado: verde si está visible como card, gris si no.
+    function renderizarPills() {
+        const contenedor = modal.querySelector(".editor-pills-cuentas")
+        if (!contenedor) return
+        contenedor.replaceChildren()
+
+        const pills = document.createDocumentFragment()
 
         // Cuentas no en el dashboard
-        cuentasVisiblesLista.forEach(cuenta => {
+        for (const cuenta of cuentasVisiblesLista) {
             const id = `cuenta:${cuenta.id}`
-            if (!cuentasInDashboard.has(id)) {
-                entidades.push({
-                    id,
-                    nombre: cuenta.nombre || "Cuenta",
-                    tipo: ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta",
-                    esCuenta: true
-                })
-            }
-        })
+            if (cuentasInDashboard.has(id)) continue
+            const nombre = cuenta.nombre || "Cuenta"
+            const tipo = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+            const visible = visiblesModal.has(id)
+            const pill = document.createElement("button")
+            pill.type = "button"
+            pill.className = `editor-pill ${visible ? "pill-visible" : "pill-oculta"}`
+            pill.dataset.card = id
+            pill.title = tipo
+
+            const punto = document.createElement("span")
+            punto.className = "editor-pill-punto"
+            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
+
+            const span = document.createElement("span")
+            span.className = "editor-pill-nombre"
+            span.textContent = nombre
+
+            pill.appendChild(punto)
+            pill.appendChild(span)
+            pills.appendChild(pill)
+        }
 
         // Activos no en el dashboard
-        ;(posicionesData || []).forEach(posicion => {
+        for (const posicion of (posicionesData || [])) {
             const id = `activo:${posicion.activoId}`
-            if (!activosInDashboard.has(id)) {
-                entidades.push({
-                    id,
-                    nombre: posicion.activo?.nombre || posicion.activoId,
-                    tipo: ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo",
-                    esActivo: true
-                })
-            }
-        })
+            if (activosInDashboard.has(id)) continue
+            const nombre = posicion.activo?.nombre || posicion.activoId
+            const tipo = ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo"
+            const visible = visiblesModal.has(id)
+            const pill = document.createElement("button")
+            pill.type = "button"
+            pill.className = `editor-pill ${visible ? "pill-visible" : "pill-oculta"}`
+            pill.dataset.card = id
+            pill.title = tipo
 
-        // Construir el listado nodo a nodo (sin innerHTML) para que los
-        // nombres de cuentas y activos (datos de usuario) nunca se interpreten
-        // como HTML: evita XSS si un nombre lleva etiquetas o atributos. Los
-        // ids viajan en atributos data-* / dataset, no interpolados en HTML.
-        const contenedor = modal.querySelector(".modal-selector-entidades")
-        if (!contenedor) return
-        contenedor.replaceChildren(
-            ...entidades.map(e => {
-                const item = document.createElement("div")
-                item.className = "modal-entidad-item"
-                item.dataset.entidadId = e.id
+            const punto = document.createElement("span")
+            punto.className = "editor-pill-punto"
+            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
 
-                const input = document.createElement("input")
-                input.type = "checkbox"
-                input.dataset.tpl = "valor"
-                input.value = e.id
+            const span = document.createElement("span")
+            span.className = "editor-pill-nombre"
+            span.textContent = nombre
 
-                const spanNombre = document.createElement("span")
-                spanNombre.className = "entidad-nombre"
-                spanNombre.textContent = e.nombre
-
-                const spanTipo = document.createElement("span")
-                spanTipo.className = "entidad-tipo"
-                spanTipo.textContent = e.tipo
-
-                const btn = document.createElement("button")
-                btn.type = "button"
-                btn.className = "btn-agregar"
-                btn.dataset.accion = "agregar-entidad"
-                btn.dataset.entidadId = e.id
-                const iconoPlus = iconoNodo("plus", 14)
-                if (iconoPlus) btn.appendChild(iconoPlus)
-
-                item.appendChild(input)
-                item.appendChild(spanNombre)
-                item.appendChild(spanTipo)
-                item.appendChild(btn)
-                return item
-            })
-        )
-
-        if (contenedor.children.length === 0) {
-            const hint = document.createElement("p")
-            hint.className = "dashboard-editor-hint"
-            hint.textContent = "Todas las cuentas y activos ya están en el dashboard."
-            contenedor.appendChild(hint)
+            pill.appendChild(punto)
+            pill.appendChild(span)
+            pills.appendChild(pill)
         }
+
+        contenedor.appendChild(pills)
     }
 
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
@@ -1190,18 +1216,12 @@ function abrirSelectorCardsDashboard() {
         contenido: contenidoDesdeTemplate("tpl-dashboard-editor", {
             valores: {
                 "titulo-modal": "Elegir cards del dashboard",
-                "subtitulo-modal": "Arrastra para reordenar, ajusta ancho y alto, activa o desactiva las cards que quieres ver."
-            },
-            html: {
-                cards: ""
+                "subtitulo-modal": "Activa o desactiva las cards, ajusta su tamaño y elige qué cuentas y activos ver."
             }
         }),
         onConfirm: async () => {
-            const seleccionadas = [...modal.querySelectorAll(".modal-dashboard-editor input:checked")].map(input => input.value)
-            const ordenPrevio = ordenModal.filter(id => seleccionadas.includes(id))
-            const nuevas = seleccionadas.filter(id => !ordenPrevio.includes(id))
-            const orden = normalizarCardsOrden([...ordenPrevio, ...nuevas])
-            const visibles = normalizarCardsVisibles(seleccionadas)
+            const visibles = [...visiblesModal]
+            const orden = normalizarCardsOrden([...visiblesModal])
 
             try {
                 await guardarPreferenciasDashboard({
@@ -1217,6 +1237,8 @@ function abrirSelectorCardsDashboard() {
                 if (modoEdicionDashboard) prepararEdicionCardsDashboard()
                 reordenarDashboard(true)
 
+                const previas = new Set(cardsVisiblesDashboard)
+                const nuevas = visibles.filter(id => !previas.has(id))
                 for (const cardId of nuevas) {
                     rastrearEvento("dashboard_card_agregada", { card_id: cardId })
                 }
@@ -1232,174 +1254,80 @@ function abrirSelectorCardsDashboard() {
     })
 
     // Renderizar tras montar el modal en el DOM
-    renderizarCardsActivas()
-    renderizarPreview()
-    renderizarSelectorEntidades()
+    renderizarGridEsqueleto()
+    renderizarPills()
 
     // Inicializar SortableJS en la lista de cards activas para drag & drop
-    const cardsLista = modal.querySelector(".modal-dashboard-lista")
-    if (cardsLista) {
-        const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
-        // Instancia propia del modal: se libera con el DOM al cerrarlo, así que
-        // no hace falta guardarla para destruirla.
-        // eslint-disable-next-line no-new
-        new Sortable(cardsLista, {
-            handle: ".btn-accion.handle",
-            draggable: ".modal-card-activa",
-            animation: reduceMotion ? 0 : 150,
-            onEnd: (evt) => {
-                const id = evt.item.dataset.card
-                const indexTo = evt.newIndex
-                ordenModal = ordenModal.filter(cardId => cardId !== id)
-                ordenModal.splice(indexTo, 0, id)
-                renderizarCardsActivas()
-                renderizarPreview()
-                cambiosPendientesDashboard = true
-            }
-        })
-    }
-
-    // Delegación de eventos para el modal
+    // Delegación de eventos: clic en card (toggle visibilidad fuera del toggle-group),
+    // toggle-group de dimensiones, clic en pill (toggle visibilidad).
     modal.addEventListener("click", (evento) => {
-        // Botones de ancho [1] [2]
-        const botonAncho = evento.target.closest(".btn-ancho.btn-dimensión")
-        if (botonAncho && !botonAncho.classList.contains("disabled")) {
-            const ancho = parseInt(botonAncho.dataset.ancho, 10)
-            const filaCard = botonAncho.closest(".modal-card-activa")
-            const cardId = filaCard?.dataset.card
-            if (!cardId) return
+        // Toggle-group de dimensiones (ancho y/o alto)
+        const opcion = evento.target.closest(".toggle-option")
+        const grupo = opcion && opcion.closest(".toggle-group[data-card]")
+        if (opcion && grupo && !opcion.classList.contains("active")) {
+            const cardId = grupo.dataset.card
+            const dimensione = grupo.dataset.dimensione // "ancho" | "alto"
+            const valor = parseInt(opcion.dataset.valor, 10)
+            if (!cardId || !dimensione || !Number.isFinite(valor)) return
 
-            filaCard.querySelectorAll(".btn-ancho").forEach(b => b.classList.remove("activo"))
-            botonAncho.classList.add("activo")
+            grupo.querySelectorAll(".toggle-option").forEach(o => o.classList.remove("active"))
+            opcion.classList.add("active")
 
             if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
-            dimensionesModal[cardId].columnas = ancho
+            if (dimensione === "ancho") dimensionesModal[cardId].columnas = valor
+            if (dimensione === "alto") dimensionesModal[cardId].filas = valor
 
-            renderizarCardsActivas()
-            renderizarPreview()
+            renderizarGridEsqueleto()
             cambiosPendientesDashboard = true
             return
         }
 
-        // Botones de alto [1] [2] [3]
-        const botonAlto = evento.target.closest(".btn-alto.btn-dimensión")
-        if (botonAlto && !botonAlto.classList.contains("disabled")) {
-            const alto = parseInt(botonAlto.dataset.alto, 10)
-            const filaCard = botonAlto.closest(".modal-card-activa")
-            const cardId = filaCard?.dataset.card
+        // Clic en una card regular: alterna visibilidad (fuera del toggle-group)
+        const card = evento.target.closest(".editor-card")
+        if (card && !evento.target.closest(".toggle-group") && !evento.target.closest("button")) {
+            const cardId = card.dataset.card
             if (!cardId) return
-
-            filaCard.querySelectorAll(".btn-alto").forEach(b => b.classList.remove("activo"))
-            botonAlto.classList.add("activo")
-
-            if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
-            dimensionesModal[cardId].filas = alto
-
-            renderizarCardsActivas()
-            renderizarPreview()
+            if (visiblesModal.has(cardId)) {
+                visiblesModal.delete(cardId)
+                delete dimensionesModal[cardId]
+            } else {
+                visiblesModal.add(cardId)
+                if (!ordenModal.includes(cardId)) ordenModal.push(cardId)
+            }
+            renderizarGridEsqueleto()
+            renderizarPills()
             cambiosPendientesDashboard = true
             return
         }
 
-        // Botones de acción (arrastrar, subir, bajar, eliminar)
-        const boton = evento.target.closest("button[data-accion]")
-        if (!boton) return
-
-        const accion = boton.dataset.accion
-        const accionesDiv = boton.closest(".modal-card-acciones")
-        const cardId = accionesDiv?.dataset.card
-        if (!cardId) return
-
-        if (accion === "arrastrar") {
-            return // El handle se gestiona con SortableJS
-        }
-
-        if (accion === "subir") {
-            const index = ordenModal.indexOf(cardId)
-            if (index > 0) {
-                ;[ordenModal[index - 1], ordenModal[index]] = [ordenModal[index], ordenModal[index - 1]]
-                renderizarCardsActivas()
-                renderizarPreview()
-                cambiosPendientesDashboard = true
+        // Clic en un pill: alterna visibilidad de la entidad
+        const pill = evento.target.closest(".editor-pill")
+        if (pill) {
+            const cardId = pill.dataset.card
+            if (!cardId) return
+            if (visiblesModal.has(cardId)) {
+                visiblesModal.delete(cardId)
+                ordenModal = ordenModal.filter(cid => cid !== cardId)
+                delete dimensionesModal[cardId]
+            } else {
+                visiblesModal.add(cardId)
+                ordenModal.push(cardId)
             }
-        }
-
-        if (accion === "bajar") {
-            const index = ordenModal.indexOf(cardId)
-            if (index < ordenModal.length - 1) {
-                ;[ordenModal[index], ordenModal[index + 1]] = [ordenModal[index + 1], ordenModal[index]]
-                renderizarCardsActivas()
-                renderizarPreview()
-                cambiosPendientesDashboard = true
-            }
-        }
-
-        if (accion === "eliminar") {
-            visiblesModal.delete(cardId)
-            ordenModal = ordenModal.filter(cid => cid !== cardId)
-            delete dimensionesModal[cardId]
-            renderizarCardsActivas()
-            renderizarPreview()
-            renderizarSelectorEntidades()
+            renderizarGridEsqueleto()
+            renderizarPills()
             cambiosPendientesDashboard = true
+            return
         }
 
-        // Botón agregar entidad (cuenta/activo)
-        if (accion === "agregar-entidad") {
-            const entidadId = boton.dataset.entidadId
-            if (!entidadId || visiblesModal.has(entidadId)) return
-
-            visiblesModal.add(entidadId)
-            ordenModal.push(entidadId)
-
-            renderizarCardsActivas()
-            renderizarPreview()
-            renderizarSelectorEntidades()
+        // Botón Restablecer
+        if (evento.target.closest("[data-dashboard-reset]")) {
             cambiosPendientesDashboard = true
+            ordenModal = [...DEFAULT_CARDS_ORDEN]
+            visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
+            dimensionesModal = {}
+            renderizarGridEsqueleto()
+            renderizarPills()
         }
-    })
-
-    // Cambios en checkboxes (activar/desactivar cards)
-    modal.addEventListener("change", (evento) => {
-        if (!evento.target.matches('input[type="checkbox"][data-tpl="valor"]')) return
-        const id = evento.target.value
-        if (evento.target.checked) {
-            visiblesModal.add(id)
-            if (!ordenModal.includes(id)) ordenModal.push(id)
-        } else {
-            visiblesModal.delete(id)
-            ordenModal = ordenModal.filter(cid => cid !== id)
-            delete dimensionesModal[id]
-        }
-        renderizarCardsActivas()
-        renderizarPreview()
-        renderizarSelectorEntidades()
-        cambiosPendientesDashboard = true
-    })
-
-    // Clic en una card para seleccionarla/deseleccionarla
-    modal.addEventListener("click", (evento) => {
-        const filaCard = evento.target.closest(".modal-card-activa")
-        if (!filaCard) return
-        if (evento.target.closest("button")) return // No seleccionar si se hace clic en un botón
-
-        const cardId = filaCard.dataset.card
-        if (!cardId) return
-
-        cardSeleccionada = cardSeleccionada === cardId ? null : cardId
-        renderizarCardsActivas()
-    })
-
-    // Botón Restablecer
-    modal.querySelector("[data-dashboard-reset]")?.addEventListener("click", () => {
-        cambiosPendientesDashboard = true
-        ordenModal = [...DEFAULT_CARDS_ORDEN]
-        visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
-        dimensionesModal = {}
-        cardSeleccionada = null
-        renderizarCardsActivas()
-        renderizarPreview()
-        renderizarSelectorEntidades()
     })
 }
 
@@ -1733,7 +1661,27 @@ const GENERADORES_CARD = {
     },
 };
 
+// HTML de los 4 botones de acción por card (modo edición). Se inyecta en
+// render() para que viajen en el markup inicial y no solo se añadan después.
+function htmlBotonesAccionCard(id) {
+    return `
+        <div class="card-acciones-edicion">
+            <button type="button" class="card-accion-btn btn-mover-card" data-accion="arrastrar" title="Mover card" aria-label="Mover card" draggable="true">${icono("grip", 16)}</button>
+            <button type="button" class="card-accion-btn btn-subir-card" data-accion="subir" data-id="${id}" title="Subir card" aria-label="Subir card">${icono("chevron-up", 16)}</button>
+            <button type="button" class="card-accion-btn btn-bajar-card" data-accion="bajar" data-id="${id}" title="Bajar card" aria-label="Bajar card">${icono("chevron-down", 16)}</button>
+            <button type="button" class="card-accion-btn btn-eliminar-card" data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">${icono("trash-2", 16)}</button>
+        </div>
+    `
+}
+
 export function render() {
+    // Destroy SortableJS instance before re-rendering to avoid orphaned nodes
+    // and memory leaks. A new instance is created when entering edit mode.
+    if (sortableDashboard) {
+        sortableDashboard.destroy()
+        sortableDashboard = null
+    }
+
     configurarCardsDashboardDesdeSesion()
     const nivelResalte = normalizarNivelResalte(sesion.getPreferencias()?.resaltarPatrimonio)
 
@@ -1760,7 +1708,12 @@ export function render() {
                 const config = DASHBOARD_CARDS.find(c => c.id === id) || {}
                 if (!generador) return ""
                 try {
-                    return generador(config)
+                    let html = generador(config)
+                    // Patrimonio no lleva botones de acción (es fija y va primero).
+                    if (id !== "patrimonio") {
+                        html = html.replace(/<\/div>\s*$/, htmlBotonesAccionCard(id) + "</div>")
+                    }
+                    return html
                 } catch (error) {
                     console.error(`[ERROR] Generador de card "${id}" falló:`, error)
                     return `<div class="glass card card-error" data-dashboard-card="${CSS.escape(id)}" role="button" tabindex="0" title="${CSS.escape(id)}">

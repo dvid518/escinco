@@ -101,3 +101,6 @@ graphify-out/
 
 # OpenCode / Codex (sesiones y estado local del agente)
 .codex/
+
+# Prototipos locales de prueba (no desplegar a producción)
+prototipos/

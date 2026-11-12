@@ -39,7 +39,16 @@
         "docs/**",
         "tests/**",
         "tools/**",
-        "experimentos/**"
+        "experimentos/**",
+        "**/.agents/**",
+        "**/.cursor/**",
+        "**/.opencode/**",
+        "**/.codex/**",
+        "**/*.exe",
+        "**/*.dll",
+        "**/*.bat",
+        "**/*.apk",
+        "**/*.ipa"
       ],
       "404": "/404.html",
       "rewrites": [
@@ -132,7 +141,16 @@
         "tests/**",
         "tools/**",
         "experimentos/**",
-        "index.html"
+        "index.html",
+        "**/.agents/**",
+        "**/.cursor/**",
+        "**/.opencode/**",
+        "**/.codex/**",
+        "**/*.exe",
+        "**/*.dll",
+        "**/*.bat",
+        "**/*.apk",
+        "**/*.ipa"
       ],
       "404": "/404.html",
       "rewrites": [

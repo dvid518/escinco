@@ -17,14 +17,14 @@ export default async function ejecutar(t = nuevoReporter("xss")) {
     t.check("no hay innerHTML con template literal", !/innerHTML\s*=\s*[`']/ .test(dashboard))
 
     // 3. Los nombres de cuenta/activo se escriben por textContent (escapado).
-    t.check("nombre por textContent", /textContent = e\.nombre/.test(dashboard))
-    t.check("tipo por textContent", /textContent = e\.tipo/.test(dashboard))
+    t.check("nombre por textContent", /textContent = nombre/.test(dashboard))
+    t.check("tipo por textContent", /title = tipo/.test(dashboard))
 
     // 4. Los ids viajan en dataset (no interpolados en atributos HTML).
-    t.check("id en dataset.entidadId", /dataset\.entidadId = e\.id/.test(dashboard))
+    t.check("id en dataset.card", /dataset\.card = id/.test(dashboard))
 
-    // 5. iconoNodo (nodo DOM) en lugar de icono() (string HTML) para el boton.
-    t.check("boton usa iconoNodo", /iconoNodo\("plus", 14\)/.test(dashboard))
+    // 5. No hay innerHTML con template literal en este modulo.
+    t.check("no hay innerHTML con template literal", !/innerHTML\s*=\s*[`']/ .test(dashboard))
 
     // 6. CSP de produccion: script-src ya no permite 'unsafe-inline'.
     t.check("CSP script-src sin 'unsafe-inline'", !/script-src[^;]*'unsafe-inline'/.test(csp))

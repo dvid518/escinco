@@ -637,47 +637,14 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
         <div class="modal-dashboard-editor">
             <div class="modal-dashboard-editor-header">
                 <h2 data-tpl="titulo-modal">Elegir cards del dashboard</h2>
-                <p data-tpl="subtitulo-modal">Arrastra para reordenar, ajusta ancho y alto, activa o desactiva las cards.</p>
+                <p data-tpl="subtitulo-modal">Activa o desactiva las cards, ajusta su tamaño y elige qué cuentas y activos ver.</p>
             </div>
 
-            <!-- Sección superior: cards activas -->
-            <div class="modal-dashboard-editor-seccion">
-                <h3>Cards en el dashboard</h3>
-                <div class="modal-dashboard-lista" data-tpl="cards"></div>
-            </div>
+            <!-- Sección 1: Cards regulares (grid esqueleto) -->
+            <div class="editor-grid-esqueleto" data-tpl="grid-esqueleto"></div>
 
-            <!-- Preview gráfico -->
-            <div class="modal-preview-seccion">
-                <h3 class="modal-preview-titulo">Vista previa</h3>
-                <div class="modal-preview-grid" data-tpl="preview-grid"></div>
-            </div>
-
-            <!-- Sección inferior: cuentas y activos disponibles -->
-            <div class="modal-dashboard-editor-seccion">
-                <h3>Agregar cuentas o activos</h3>
-                <div class="modal-selector-entidades" data-tpl="entidades"></div>
-            </div>
-        </div>
-    </template>
-
-    <template id="tpl-dashboard-card">
-        <div class="modal-card-activa" data-tpl="card" data-tpl-attr="data-card">
-            <input type="checkbox" data-tpl="valor" data-tpl-attr="value,checked">
-            <span data-tpl="tamaño" class="modal-tamaño-indicador"></span>
-            <span data-tpl="etiqueta" class="card-nombre"></span>
-            <div class="modal-dimensiones-selector">
-                <button type="button" class="btn-ancho btn-dimensión" data-ancho="1" data-cardid="" title="Ancho 1 columna" data-tpl="btn-ancho-1" data-tpl-attr="class,data-ancho">1</button>
-                <button type="button" class="btn-ancho btn-dimensión" data-ancho="2" data-cardid="" title="Ancho 2 columnas" data-tpl="btn-ancho-2" data-tpl-attr="class,data-ancho">2</button>
-                <button type="button" class="btn-alto btn-dimensión" data-alto="1" data-cardid="" title="Alto 1 fila" data-tpl="btn-alto-1" data-tpl-attr="class,data-alto">1</button>
-                <button type="button" class="btn-alto btn-dimensión" data-alto="2" data-cardid="" title="Alto 2 filas" data-tpl="btn-alto-2" data-tpl-attr="class,data-alto">2</button>
-                <button type="button" class="btn-alto btn-dimensión" data-alto="3" data-cardid="" title="Alto 3 filas" data-tpl="btn-alto-3" data-tpl-attr="class,data-alto">3</button>
-            </div>
-            <div class="modal-card-acciones" data-tpl="acciones" data-tpl-attr="data-id">
-                <button type="button" class="card-accion-btn handle btn-accion" data-accion="arrastrar" title="Arrastrar card" aria-label="Arrastrar card" data-tpl="html-arrastrar"></button>
-                <button type="button" class="card-accion-btn mover-arriba btn-accion" data-accion="subir" title="Subir card" aria-label="Subir card" data-tpl="html-subir"></button>
-                <button type="button" class="card-accion-btn mover-abajo btn-accion" data-accion="bajar" title="Bajar card" aria-label="Bajar card" data-tpl="html-bajar"></button>
-                <button type="button" class="card-accion-btn eliminar btn-accion" data-accion="eliminar" title="Eliminar card del dashboard" aria-label="Eliminar card" data-tpl="html-eliminar"></button>
-            </div>
+            <!-- Sección 2: Cuentas y activos (pills) -->
+            <div class="editor-pills-cuentas" data-tpl="pills-cuentas"></div>
         </div>
     </template>
 
