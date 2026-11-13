@@ -1913,9 +1913,15 @@ body.dashboard-card-dragging * {
    ============================================ */
 
 .modal-dashboard-editor {
-    max-width: 700px;
-    max-height: 85vh;
-    overflow-y: auto;
+    width: 90vw;
+    max-width: 1400px;
+    max-height: 88vh;
+    /* Scroll único: el cuerpo del modal (`.modal-body`) es el único
+       contenedor responsable del scroll vertical. Este bloque no declara
+       overflow-y propio para evitar scrolls anidados con el esqueleto. */
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 .modal-dashboard-editor-header {
@@ -2534,32 +2540,50 @@ body.dashboard-card-dragging * {
     flex-wrap: wrap;
 }
 
+/* Etiqueta descriptiva del eje de redimensionamiento (Alto / Ancho). */
+.eje-label {
+    font-size: 11px;
+    color: var(--textSecondary);
+    margin-right: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 /* Sección 2: Pills de cuentas y activos */
 .editor-pills-cuentas {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
 }
 
 .editor-pill {
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 10px;
+    padding: 8px 16px;
     background: var(--surface);
     border: 1px solid var(--border);
-    border-radius: 40px;
+    border-radius: 50px;
     color: var(--text);
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     transition: border-color 0.2s ease, background 0.2s ease;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
-.editor-pill:hover {
+.editor-pill:hover:not(.pill-seleccionada) {
     border-color: var(--textSecondary);
     background: var(--lightHover);
+}
+
+.editor-pill.pill-seleccionada {
+    border-color: var(--text);
+    background: var(--backgroundAlt);
+    color: var(--textAlt);
 }
 
 .editor-pill.pill-oculta {
@@ -2586,7 +2610,7 @@ body.dashboard-card-dragging * {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    max-width: 160px;
+    min-width: 0;
 }
 
 /* ============================================
@@ -2594,32 +2618,36 @@ body.dashboard-card-dragging * {
    ============================================ */
 
 .card-acciones-edicion {
-    display: none;
     position: absolute;
-    top: 10px;
-    right: 10px;
-    gap: 6px;
+    top: 8px;
+    right: 8px;
+    width: 25px;
+    height: 25px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 50%;
     z-index: 3;
-    background: transparent;
-    border: none;
-    box-shadow: none;
     padding: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease, background 0.2s ease;
 }
 
 /* Mostrar en modo edición o al pasar el cursor sobre la card */
 .dashboard-edicion-activo .card-acciones-edicion,
 .card:hover .card-acciones-edicion {
-    display: flex;
+    display: inline-flex;
 }
 
-/* Botones circulares, sin fondo, con hover sutil */
+/* Botones circulares individuales (25px) */
 .card-acciones-edicion .card-accion-btn {
-    width: 32px;
-    height: 32px;
-    min-width: 32px;
-    min-height: 32px;
+    width: 25px;
+    height: 25px;
+    min-width: 25px;
+    min-height: 25px;
     padding: 0;
-    border: 1px solid var(--border);
+    border: none;
     border-radius: 50%;
     background: transparent;
     color: var(--textSecondary);
@@ -2632,19 +2660,24 @@ body.dashboard-card-dragging * {
 }
 
 .card-acciones-edicion .card-accion-btn:hover {
-    border-color: var(--textSecondary);
     color: var(--text);
     background: var(--lightHover);
 }
 
 .card-acciones-edicion .card-accion-btn.eliminar {
     color: var(--negative);
-    border-color: var(--negative);
 }
 
 .card-acciones-edicion .card-accion-btn.eliminar:hover {
     background: var(--negative);
     color: var(--background);
+}
+
+/* Espacio superior solo en las tarjetas que muestran controles de edición
+   (todas excepto patrimonio, que es fija y no lleva botones). Evita que el
+   título o el contenido queden debajo de los botones. */
+.dashboard-edicion-activo .dashboard .card[data-dashboard-card]:not([data-dashboard-card="patrimonio"]) {
+    padding-top: 36px;
 }
 
 /* Asegurar que la card contenedor sea relative para posicionar los botones */

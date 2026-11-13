@@ -195,16 +195,19 @@ function generarToggleGroupDimensiones(cardId, anchoActual, altoActual, catalogo
 
     let html = ""
 
+    // Cada tarjeta tiene un único eje de redimensionamiento. Si el catálogo
+    // define ambos rangos (caso gráfico), se muestra exclusivamente el eje X
+    // (ancho): el gráfico se redimensiona solo horizontalmente.
     if (rangoAncho) {
         html += `<div class="toggle-group" data-dimensione="ancho" data-card="${cardId}" role="group" aria-label="Ancho de ${cardId}">`
+        html += `<span class="eje-label">Ancho:</span>`
         for (const v of rangoAncho) {
             html += `<span class="toggle-option${v === anchoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
         }
         html += "</div>"
-    }
-
-    if (rangoAlto) {
+    } else if (rangoAlto) {
         html += `<div class="toggle-group" data-dimensione="alto" data-card="${cardId}" role="group" aria-label="Alto de ${cardId}">`
+        html += `<span class="eje-label">Alto:</span>`
         for (const v of rangoAlto) {
             html += `<span class="toggle-option${v === altoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
         }
@@ -1169,7 +1172,7 @@ function abrirSelectorCardsDashboard() {
             const visible = visiblesModal.has(id)
             const pill = document.createElement("button")
             pill.type = "button"
-            pill.className = `editor-pill ${visible ? "pill-visible" : "pill-oculta"}`
+            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
             pill.dataset.card = id
             pill.title = tipo
 
@@ -1195,7 +1198,7 @@ function abrirSelectorCardsDashboard() {
             const visible = visiblesModal.has(id)
             const pill = document.createElement("button")
             pill.type = "button"
-            pill.className = `editor-pill ${visible ? "pill-visible" : "pill-oculta"}`
+            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
             pill.dataset.card = id
             pill.title = tipo
 
@@ -1218,7 +1221,7 @@ function abrirSelectorCardsDashboard() {
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     modal = abrirModal({
         titulo: "Elegir cards del dashboard",
-        variante: "wide",
+        variante: "xl",
         confirmText: "Guardar",
         cancelText: "Cancelar",
         onCancel: () => { cambiosPendientesDashboard = cambiosPendientesAntesModal },
@@ -1679,7 +1682,7 @@ function htmlBotonesAccionCard(id) {
             <button type="button" class="card-accion-btn btn-mover-card" data-accion="arrastrar" title="Mover card" aria-label="Mover card" draggable="true">${icono("grip", 16)}</button>
             <button type="button" class="card-accion-btn btn-subir-card" data-accion="subir" data-id="${id}" title="Subir card" aria-label="Subir card">${icono("chevron-up", 16)}</button>
             <button type="button" class="card-accion-btn btn-bajar-card" data-accion="bajar" data-id="${id}" title="Bajar card" aria-label="Bajar card">${icono("chevron-down", 16)}</button>
-            <button type="button" class="card-accion-btn btn-eliminar-card" data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">${icono("trash-2", 16)}</button>
+            <button type="button" class="card-accion-btn btn-eliminar-card" data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">${icono("minus", 16)}</button>
         </div>
     `
 }
