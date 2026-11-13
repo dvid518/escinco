@@ -1,0 +1,24 @@
+[     657ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[    1871ms] Transition was aborted because of invalid state. ViewTransition opt-in disabled
+[    2109ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[    2238ms] [INFO] %c🌈 Neat Gradients v1.1.1%c
+
+Licensed under MIT + The Commons Clause.
+Free for personal and commercial use.
+Selling this software or its derivatives is strictly prohibited.
+Get a license key to remove the watermark and this message: https://neat.rebase.pro font-weight: bold; font-size: 14px; color: #FF5772; color: inherit; @ http://localhost:5085/node_modules/@firecms/neat/dist/index.es.js:849
+[    2264ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1
+[    2264ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1
+[    2265ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1
+[   12862ms] Transition was aborted because of invalid state. ViewTransition opt-in disabled
+[   13035ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[   13360ms] [INFO] [INFO] Usuario autenticado: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/core/app.js:59
+[   16070ms] [INFO] [INFO] Preferencias cargadas: {periodoFlujo: 90d, resaltarPatrimonio: 2, tema: system, tipoCambio: Object, seg: Object} @ http://localhost:5085/js/core/app.js:75
+[   16075ms] [INFO] [INFO] Iniciando router... @ http://localhost:5085/js/core/router.js:579
+[   16075ms] [INFO] [INFO] Router inicializado con: "/" → "dashboard" @ http://localhost:5085/js/core/router.js:592
+[   16076ms] [INFO] [INFO] Cargando página: dashboard @ http://localhost:5085/js/core/router.js:216
+[   16076ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5085/js/core/router.js:219
+[   16077ms] [INFO] [INFO] ¿"dashboard" está visible? true @ http://localhost:5085/js/core/router.js:220
+[   16160ms] [INFO] [INFO] Módulo "dashboard" cargado correctamente @ http://localhost:5085/js/core/router.js:271
+[   16794ms] [INFO] [INFO] Dashboard iniciado para UID: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/pages/dashboard.js:1878
+[   21449ms] [INFO] [INFO] Snapshot registrado: {patrimonioPEN: 13220.137818075249, patrimonioUSD: 3850.9039387390053, patrimonioUSDT: 3850.9039387390053, porDivisa: Object, totalActivos: 13220.137818075249} @ http://localhost:5085/js/services/SnapshotServicio.js:191

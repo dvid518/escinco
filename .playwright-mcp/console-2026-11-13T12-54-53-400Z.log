@@ -1,0 +1,12 @@
+[    1542ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[    2640ms] Transition was aborted because of invalid state. ViewTransition opt-in disabled
+[    2966ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[    3199ms] [INFO] %c🌈 Neat Gradients v1.1.1%c
+
+Licensed under MIT + The Commons Clause.
+Free for personal and commercial use.
+Selling this software or its derivatives is strictly prohibited.
+Get a license key to remove the watermark and this message: https://neat.rebase.pro font-weight: bold; font-size: 14px; color: #FF5772; color: inherit; @ http://localhost:5085/node_modules/@firecms/neat/dist/index.es.js:849
+[    3210ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1
+[    3210ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1
+[    3210ms] [VERBOSE] [DOM] Password field is not contained in a form: (More info: https://goo.gl/9p2vKq) %o @ http://localhost:5085/login:1

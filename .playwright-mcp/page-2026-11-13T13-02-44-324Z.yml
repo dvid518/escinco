@@ -1,0 +1,122 @@
+- generic [ref=f5e1]:
+  - banner [ref=f5e2]:
+    - link [ref=f5e4] [cursor=pointer]:
+      - /url: /dashboard
+    - generic [ref=f5e8]:
+      - link "Dashboard" [ref=f5e9] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Cuentas" [ref=f5e10] [cursor=pointer]:
+        - /url: /cuentas
+      - link "Movimientos" [ref=f5e11] [cursor=pointer]:
+        - /url: /movimientos
+      - link "Inversiones" [ref=f5e12] [cursor=pointer]:
+        - /url: /inversiones
+      - link "Trading" [ref=f5e13] [cursor=pointer]:
+        - /url: /trading
+    - link "Configuración" [ref=f5e15] [cursor=pointer]:
+      - /url: /configuracion
+  - main [ref=f5e27]:
+    - generic [ref=f5e77]:
+      - button "Añadir/quitar cards" [ref=f5e78] [cursor=pointer]
+      - button "Listo" [ref=f5e79] [cursor=pointer]
+    - generic:
+      - button "Patrimonio total, valor actual":
+        - generic:
+          - generic: Patrimonio Total
+          - combobox "Divisa":
+            - option "S/" [selected]
+            - option "$"
+            - option "₮"
+      - button "Cuentas Mover card Subir card Bajar card Eliminar card":
+        - generic: Cuentas
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - button "Últimos movimientos Cargando datos Mover card Subir card Bajar card Eliminar card":
+        - generic: Últimos movimientos
+        - generic:
+          - status "Cargando datos"
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - button "Inversiones Mover card Subir card Bajar card Eliminar card":
+        - generic: Inversiones
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - region "Metas de ahorro":
+        - generic:
+          - generic: Metas de ahorro
+          - button "Nueva"
+        - generic:
+          - status "Cargando datos"
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - region "Evolución patrimonial":
+        - generic:
+          - generic: 7D
+          - generic: 30D
+          - generic: 90D
+          - generic: Todo
+        - button "Abrir evolución patrimonial":
+          - generic:
+            - status "Cargando gráfico"
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - button "Próximos vencimientos Mover card Subir card Bajar card Eliminar card":
+        - generic: Próximos vencimientos
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - button "Pendientes Cargando datos Mover card Subir card Bajar card Eliminar card":
+        - generic: Pendientes
+        - generic:
+          - status "Cargando datos"
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+      - region "Presupuestos":
+        - generic:
+          - status "Cargando datos"
+        - generic:
+          - button "Mover card"
+          - button "Subir card"
+          - button "Bajar card"
+          - button "Eliminar card"
+  - contentinfo [ref=f5e28]:
+    - generic [ref=f5e30]:
+      - generic [ref=f5e31]:
+        - generic [ref=f5e32] [cursor=pointer]
+        - generic [ref=f5e35] [cursor=pointer]
+        - generic [ref=f5e39] [cursor=pointer]
+        - button [ref=f5e43] [cursor=pointer]
+        - button "Editar dashboard" [active] [ref=f5e46] [cursor=pointer]
+        - button [ref=f5e49] [cursor=pointer]
+      - generic [ref=f5e53]:
+        - button [ref=f5e54] [cursor=pointer]
+        - button [ref=f5e57] [cursor=pointer]
+        - button [ref=f5e62] [cursor=pointer]
+        - button [ref=f5e65] [cursor=pointer]
+        - button [ref=f5e69] [cursor=pointer]
+        - button [ref=f5e72] [cursor=pointer]
+  - generic [ref=f5e80]:
+    - generic [ref=f5e84]:
+      - generic [ref=f5e85]: Modo edición del dashboard activo
+      - generic [ref=f5e86]: 08:02 a. m.
+    - button "Cerrar notificación" [ref=f5e87] [cursor=pointer]

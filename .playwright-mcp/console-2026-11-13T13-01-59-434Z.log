@@ -1,0 +1,33 @@
+[     613ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5085/js/core/pwa.js:29
+[    6424ms] [INFO] [INFO] Usuario autenticado: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/core/app.js:59
+[    7616ms] [INFO] [INFO] Preferencias cargadas: {tema: system, dashboard: Object, tiposMovimiento: Object, tipoCambio: Object, resaltarPatrimonio: 2} @ http://localhost:5085/js/core/app.js:75
+[    7617ms] [INFO] [INFO] Iniciando router... @ http://localhost:5085/js/core/router.js:579
+[    7617ms] [INFO] [INFO] Router inicializado con: "/dashboard.html" → "404" @ http://localhost:5085/js/core/router.js:592
+[    7617ms] [INFO] [INFO] Cargando página: 404 @ http://localhost:5085/js/core/router.js:216
+[    7617ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5085/js/core/router.js:219
+[    7618ms] [INFO] [INFO] ¿"404" está visible? true @ http://localhost:5085/js/core/router.js:220
+[    7631ms] [INFO] [INFO] Módulo "404" cargado correctamente @ http://localhost:5085/js/core/router.js:271
+[   10746ms] [INFO] [INFO] Link clickeado: dashboard @ http://localhost:5085/js/core/router.js:541
+[   10746ms] [INFO] [INFO] Navegando a: /dashboard @ http://localhost:5085/js/core/router.js:482
+[   10746ms] [INFO] [INFO] Página: dashboard @ http://localhost:5085/js/core/router.js:491
+[   10747ms] [INFO] [INFO] Cargando página: dashboard @ http://localhost:5085/js/core/router.js:216
+[   10747ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5085/js/core/router.js:219
+[   10747ms] [INFO] [INFO] ¿"dashboard" está visible? true @ http://localhost:5085/js/core/router.js:220
+[   10909ms] [INFO] [INFO] Módulo "dashboard" cargado correctamente @ http://localhost:5085/js/core/router.js:271
+[   10913ms] [ERROR] Unexpected duplicate view-transition-name: logo @ http://localhost:5085/404:1
+[   10916ms] [INFO] [INFO] Dashboard iniciado para UID: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/pages/dashboard.js:1878
+[   46265ms] [INFO] [INFO] Link clickeado: cuentas @ http://localhost:5085/js/core/router.js:541
+[   46265ms] [INFO] [INFO] Navegando a: /cuentas @ http://localhost:5085/js/core/router.js:482
+[   46265ms] [INFO] [INFO] Página: cuentas @ http://localhost:5085/js/core/router.js:491
+[   46283ms] [INFO] [INFO] Cargando página: cuentas @ http://localhost:5085/js/core/router.js:216
+[   46283ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5085/js/core/router.js:219
+[   46284ms] [INFO] [INFO] ¿"cuentas" está visible? true @ http://localhost:5085/js/core/router.js:220
+[   46970ms] [INFO] [INFO] Cuentas iniciado para UID: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/pages/cuentas.js:433
+[   47576ms] [INFO] [INFO] Link clickeado: dashboard @ http://localhost:5085/js/core/router.js:541
+[   47576ms] [INFO] [INFO] Navegando a: /dashboard @ http://localhost:5085/js/core/router.js:482
+[   47576ms] [INFO] [INFO] Página: dashboard @ http://localhost:5085/js/core/router.js:491
+[   47577ms] [INFO] [INFO] Cargando página: dashboard @ http://localhost:5085/js/core/router.js:216
+[   47578ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5085/js/core/router.js:219
+[   47578ms] [INFO] [INFO] ¿"dashboard" está visible? true @ http://localhost:5085/js/core/router.js:220
+[   48139ms] [INFO] [INFO] Dashboard iniciado para UID: 4ulBrBffJMMM2EojNojawRPjad13 @ http://localhost:5085/js/pages/dashboard.js:1878
+[   48588ms] [INFO] [INFO] Snapshot registrado: {patrimonioPEN: 13220.137818075249, patrimonioUSD: 3850.9039387390053, patrimonioUSDT: 3850.9039387390053, porDivisa: Object, totalActivos: 13220.137818075249} @ http://localhost:5085/js/services/SnapshotServicio.js:191
