@@ -140,8 +140,8 @@ const DASHBOARD_DIMENSIONES = {
     programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    // Eje X e Y (ambos) - gráfico permite 1x1, 2x1, 1x2, 2x2
-    grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 1, altoMax: 2, anchoDefault: 2, altoDefault: 1 },
+    // Eje X únicamente - gráfico permite 1x1 y 2x1 (solo ancho variable)
+    grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 1, altoMax: 1, anchoDefault: 2, altoDefault: 1 },
 };
 
 // Cards visibles de partida para una cuenta nueva o sin elección guardada.
@@ -195,19 +195,17 @@ function generarToggleGroupDimensiones(cardId, anchoActual, altoActual, catalogo
 
     let html = ""
 
-    // Cada tarjeta tiene un único eje de redimensionamiento. Si el catálogo
-    // define ambos rangos (caso gráfico), se muestra exclusivamente el eje X
-    // (ancho): el gráfico se redimensiona solo horizontalmente.
+    // Renderiza un toggle-group por eje que tenga rango variable. El gráfico
+    // permite ambos ejes (1x1, 2x1, 1x2, 2x2); el resto solo uno.
     if (rangoAncho) {
         html += `<div class="toggle-group" data-dimensione="ancho" data-card="${cardId}" role="group" aria-label="Ancho de ${cardId}">`
-        html += `<span class="eje-label">Ancho:</span>`
         for (const v of rangoAncho) {
             html += `<span class="toggle-option${v === anchoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
         }
         html += "</div>"
-    } else if (rangoAlto) {
+    }
+    if (rangoAlto) {
         html += `<div class="toggle-group" data-dimensione="alto" data-card="${cardId}" role="group" aria-label="Alto de ${cardId}">`
-        html += `<span class="eje-label">Alto:</span>`
         for (const v of rangoAlto) {
             html += `<span class="toggle-option${v === altoActual ? " active" : ""}" data-valor="${v}">${v}</span>`
         }
@@ -1088,7 +1086,9 @@ function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
 
     // Estado local del modal (no se persiste hasta pulsar "Guardar")
-    let ordenModal = [...cardsOrdenDashboard.filter(id => id !== "patrimonio")]
+    // ordenModal contiene el orden COMPLETO (visibles y ocultas), siempre con
+    // Patrimonio primero. No se modifica al ocultar/mostrar tarjetas.
+    let ordenModal = [...cardsOrdenDashboard]
     let visiblesModal = new Set(cardsVisiblesDashboard)
     let dimensionesModal = { ...cardsDimensionesDashboard }
     let modal = null
@@ -1111,7 +1111,9 @@ function abrirSelectorCardsDashboard() {
             const cat = DASHBOARD_DIMENSIONES[cardId] ?? DASHBOARD_CARDS.find(c => c.id === cardId)
             const columnas = d?.columnas ?? cat?.anchoDefault ?? cat?.spanColumnas ?? 1
             const filas = d?.filas ?? cat?.altoDefault ?? cat?.spanFilas ?? 1
-            const visible = visiblesModal.has(cardId)
+            // Patrimonio siempre se muestra (no se puede ocultar). Para el resto,
+            // se lee la visibilidad del Set local.
+            const visible = cardId === "patrimonio" ? true : visiblesModal.has(cardId)
 
             // Etiqueta: cuenta/activo dinámico o catálogo fijo
             let etiqueta = cardId
@@ -1234,7 +1236,10 @@ function abrirSelectorCardsDashboard() {
         }),
         onConfirm: async () => {
             const visibles = [...visiblesModal]
-            const orden = normalizarCardsOrden([...visiblesModal])
+            // El orden se construye a partir de ordenModal (orden completo: visibles y
+            // ocultas, Patrimonio primero), no desde visiblesModal (que es solo un Set
+            // de visibilidad y perdería el orden de arrastre al reconstruirse).
+            const orden = [...ordenModal]
 
             try {
                 await guardarPreferenciasDashboard({
@@ -1242,13 +1247,30 @@ function abrirSelectorCardsDashboard() {
                     orden,
                     dimensiones: dimensionesModal
                 })
+                // Solo actualizar el estado global tras confirmar la persistencia
+                // en Firestore. Si falla, se conserva el estado anterior y el
+                // modal permanece abierto para reintentar.
                 cardsVisiblesDashboard = visibles
                 cardsOrdenDashboard = orden
                 cardsDimensionesDashboard = dimensionesModal
                 cambiosPendientesDashboard = false
+
+                // Re-renderiza el dashboard completo en vivo para reflejar
+                // inmediatamente los cambios de visibilidad, orden y dimensiones.
+                const contenedorRender = document.createElement("div")
+                contenedorRender.innerHTML = render()
+                const nuevoDashboard = contenedorRender.querySelector(".dashboard")
+                const dashboardExistente = document.querySelector(".dashboard")
+                if (nuevoDashboard && dashboardExistente) {
+                    dashboardExistente.replaceWith(nuevoDashboard)
+                }
+
                 montarCardsInstanciadas()
                 if (modoEdicionDashboard) prepararEdicionCardsDashboard()
                 reordenarDashboard(true)
+                // Cargar datos reales en las cards recién renderizadas para
+                // evitar que se queden con esqueletos tras guardar.
+                await actualizarUI()
 
                 const previas = new Set(cardsVisiblesDashboard)
                 const nuevas = visibles.filter(id => !previas.has(id))
@@ -1300,12 +1322,15 @@ function abrirSelectorCardsDashboard() {
         if (card && !evento.target.closest(".toggle-group") && !evento.target.closest("button")) {
             const cardId = card.dataset.card
             if (!cardId) return
+            // Patrimonio no se puede ocultar ni desplazar
+            if (cardId === "patrimonio") return
             if (visiblesModal.has(cardId)) {
                 visiblesModal.delete(cardId)
                 delete dimensionesModal[cardId]
             } else {
                 visiblesModal.add(cardId)
-                if (!ordenModal.includes(cardId)) ordenModal.push(cardId)
+                // ordenModal ya contiene la tarjeta en su posición correcta
+                // (orden completo, visibles y ocultas). No la volvemos a push.
             }
             renderizarGridEsqueleto()
             renderizarPills()
@@ -1320,11 +1345,11 @@ function abrirSelectorCardsDashboard() {
             if (!cardId) return
             if (visiblesModal.has(cardId)) {
                 visiblesModal.delete(cardId)
-                ordenModal = ordenModal.filter(cid => cid !== cardId)
                 delete dimensionesModal[cardId]
+                // No tocar ordenModal: la tarjeta sigue en su posición del orden completo.
             } else {
                 visiblesModal.add(cardId)
-                ordenModal.push(cardId)
+                // ordenModal ya contiene la tarjeta, no la añadimos al final.
             }
             renderizarGridEsqueleto()
             renderizarPills()
@@ -1335,7 +1360,7 @@ function abrirSelectorCardsDashboard() {
         // Botón Restablecer
         if (evento.target.closest("[data-dashboard-reset]")) {
             cambiosPendientesDashboard = true
-            ordenModal = [...DEFAULT_CARDS_ORDEN]
+            ordenModal = [...cardsOrdenDashboard]  // Orden completo, Patrimonio primero
             visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
             dimensionesModal = {}
             renderizarGridEsqueleto()
@@ -1429,7 +1454,6 @@ function generarCardListaSimple(cardId, titulo, filas, detalleId = null, _subtit
 }
 
 function claseExtra(id) {
-    // Mapeo de clases extra por id de card
     const extras = {
         "cuentas": "positive card-navegable",
         "favoritos": "card-navegable favoritos-card",
@@ -2517,6 +2541,7 @@ async function actualizarUI() {
     actualizarFlujoCaja()
     actualizarFlujoPeriodo()
     actualizarDeudas()
+    actualizarPresupuestos()
     actualizarDistribucion()
     actualizarProgramados()
     actualizarAlertas()

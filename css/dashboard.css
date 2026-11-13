@@ -1917,11 +1917,11 @@ body.dashboard-card-dragging * {
     max-width: 1400px;
     max-height: 88vh;
     /* Scroll único: el cuerpo del modal (`.modal-body`) es el único
-       contenedor responsable del scroll vertical. Este bloque no declara
-       overflow-y propio para evitar scrolls anidados con el esqueleto. */
+       contenedor responsable del scroll vertical. */
     display: flex;
     flex-direction: column;
     min-height: 0;
+    overflow: hidden;
 }
 
 .modal-dashboard-editor-header {
@@ -2485,8 +2485,10 @@ body.dashboard-card-dragging * {
 
 /* Sección 1: Grid de cards regulares con esqueleto */
 .editor-grid-esqueleto {
+    width: 100%;
+    box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
 }
 
@@ -2538,15 +2540,7 @@ body.dashboard-card-dragging * {
     gap: 4px;
     align-items: center;
     flex-wrap: wrap;
-}
-
-/* Etiqueta descriptiva del eje de redimensionamiento (Alto / Ancho). */
-.eje-label {
-    font-size: 11px;
-    color: var(--textSecondary);
-    margin-right: 6px;
-    white-space: nowrap;
-    flex-shrink: 0;
+    justify-content: center;
 }
 
 /* Sección 2: Pills de cuentas y activos */
@@ -2621,36 +2615,35 @@ body.dashboard-card-dragging * {
     position: absolute;
     top: 8px;
     right: 8px;
-    width: 25px;
-    height: 25px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 50%;
+    width: auto;
+    height: auto;
+    background: transparent;
+    border: none;
     z-index: 3;
     padding: 0;
     display: none;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    gap: 4px;
+    transition: opacity 0.2s ease;
 }
 
-/* Mostrar en modo edición o al pasar el cursor sobre la card */
-.dashboard-edicion-activo .card-acciones-edicion,
-.card:hover .card-acciones-edicion {
-    display: inline-flex;
+/* Mostrar exclusivamente en modo edición (nunca por hover independiente) */
+.dashboard-edicion-activo .card-acciones-edicion {
+    display: flex;
 }
 
-/* Botones circulares individuales (25px) */
+/* Botones circulares individuales (estilo movimientos) */
 .card-acciones-edicion .card-accion-btn {
     width: 25px;
     height: 25px;
     min-width: 25px;
     min-height: 25px;
     padding: 0;
-    border: none;
+    border: 1px solid var(--border);
     border-radius: 50%;
-    background: transparent;
-    color: var(--textSecondary);
+    background: var(--surface);
+    color: var(--text);
     cursor: pointer;
     transition: all 0.2s ease;
     display: inline-flex;
@@ -2660,6 +2653,7 @@ body.dashboard-card-dragging * {
 }
 
 .card-acciones-edicion .card-accion-btn:hover {
+    border-color: var(--textSecondary);
     color: var(--text);
     background: var(--lightHover);
 }
