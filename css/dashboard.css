@@ -1913,8 +1913,10 @@ body.dashboard-card-dragging * {
    ============================================ */
 
 .modal-dashboard-editor {
-    width: 90vw;
-    max-width: 1400px;
+    /* 100% del cuerpo del modal (`wide`, 760px): un ancho en vw desbordaba
+       el contenedor y generaba la barra horizontal. */
+    width: 100%;
+    max-width: none;
     max-height: 88vh;
     /* Scroll único: el cuerpo del modal (`.modal-body`) es el único
        contenedor responsable del scroll vertical. */
@@ -2488,19 +2490,26 @@ body.dashboard-card-dragging * {
     width: 100%;
     box-sizing: border-box;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
     gap: 12px;
+    /* Red de seguridad: si una columna no cabe, se recorta en vez de
+       provocar scroll horizontal en el modal. */
+    overflow: hidden;
 }
 
 .editor-card {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 14px 16px;
+    padding: 12px;
     background: var(--background);
     border: 1px solid var(--border);
     border-radius: 12px;
-    min-height: 120px;
+    box-sizing: border-box;
+    /* Cards uniformes: mismo ancho mínimo y mismo alto en todas. */
+    min-width: 160px;
+    height: 180px;
+    overflow: hidden;
     transition: border-color 0.2s ease, background 0.2s ease;
     cursor: pointer;
 }
@@ -2534,13 +2543,20 @@ body.dashboard-card-dragging * {
     border-radius: 8px;
 }
 
-/* Contenedor del toggle-group de dimensiones (dentro de la card) */
+/* Contenedor de los toggle-group de dimensiones (dentro de la card).
+   En columna: el gráfico declara los dos ejes y en fila no caben. Cada
+   toggle-group conserva su ancho natural (el que piden sus opciones). */
 .editor-card-dimensiones {
     display: flex;
+    flex-direction: column;
     gap: 4px;
     align-items: center;
-    flex-wrap: wrap;
-    justify-content: center;
+    width: 100%;
+    min-width: 0;
+}
+
+.editor-card-dimensiones .toggle-option {
+    font-size: 12px;
 }
 
 /* Sección 2: Pills de cuentas y activos */
@@ -2630,7 +2646,7 @@ body.dashboard-card-dragging * {
 
 /* Mostrar exclusivamente en modo edición (nunca por hover independiente) */
 .dashboard-edicion-activo .card-acciones-edicion {
-    display: flex;
+    display: inline-flex;
 }
 
 /* Botones circulares individuales (estilo movimientos) */

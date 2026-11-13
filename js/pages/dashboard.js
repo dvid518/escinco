@@ -114,6 +114,18 @@ const DASHBOARD_CARDS = [
     { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 1 }
 ]
 
+// Cards con generador propio que no figuran en DASHBOARD_CARDS. Sin esto el
+// editor usaba su id como título ("distribucion-activos").
+const ETIQUETAS_CARD = {
+    "distribucion-activos": "Distribución por tipo de activo"
+}
+
+// Último recurso para un id sin etiqueta: sin guiones y con mayúscula inicial.
+function tituloDesdeIdCard(cardId) {
+    const texto = cardId.replace(/-/g, " ")
+    return texto.charAt(0).toUpperCase() + texto.slice(1)
+}
+
 // Dimensiones permitidas por card (matriz H2).
 // ancho/alto: mínimos y máximos que el usuario puede elegir en el editor.
 // default: valor usado cuando no hay preferencia guardada.
@@ -789,7 +801,9 @@ async function quitarCardDashboard(id) {
     if (id === "patrimonio") return
     const indice = cardsOrdenDashboard.indexOf(id)
     if (indice >= 0) {
-        cardsOrdenDashboard.splice(indice, 1)
+        // No tocar cardsOrdenDashboard: la card debe seguir estando en el orden
+        // completo para que aparezca en el modal (como oculta) y se pueda
+        // reactivar desde allí. Solo se quita de las visibles.
         const idxVis = cardsVisiblesDashboard.indexOf(id)
         if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
         const card = document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
@@ -1091,6 +1105,10 @@ function abrirSelectorCardsDashboard() {
     let ordenModal = [...cardsOrdenDashboard]
     let visiblesModal = new Set(cardsVisiblesDashboard)
     let dimensionesModal = { ...cardsDimensionesDashboard }
+    // Cards cuyo toggle ha tocado el usuario en esta apertura del editor: solo
+    // esas muestran una opción marcada. El resto va neutro (sin reflejar lo
+    // guardado) hasta que se pulse un número.
+    const dimensionesTocadas = new Set()
     let modal = null
 
     const cuentasVisiblesLista = cuentasVisibles(cuentas)
@@ -1106,25 +1124,33 @@ function abrirSelectorCardsDashboard() {
         contenedor.replaceChildren()
 
         const fragmento = document.createDocumentFragment()
-        for (const cardId of ordenModal) {
+        // Patrimonio siempre se renderiza primero, independientemente de su
+        // posición en ordenModal (las preferencias pueden haberlo desplazado).
+        const ordenRenderizado = [...ordenModal].sort(
+            (a, b) => (a === "patrimonio" ? -1 : b === "patrimonio" ? 1 : 0)
+        )
+        for (const cardId of ordenRenderizado) {
             const d = dimensionesModal[cardId]
             const cat = DASHBOARD_DIMENSIONES[cardId] ?? DASHBOARD_CARDS.find(c => c.id === cardId)
+            // Dimensión actual: valor guardado, o el defecto del catálogo (1).
+            // Siempre se marca la opción activa para que el toggle refleje el estado.
             const columnas = d?.columnas ?? cat?.anchoDefault ?? cat?.spanColumnas ?? 1
             const filas = d?.filas ?? cat?.altoDefault ?? cat?.spanFilas ?? 1
             // Patrimonio siempre se muestra (no se puede ocultar). Para el resto,
             // se lee la visibilidad del Set local.
             const visible = cardId === "patrimonio" ? true : visiblesModal.has(cardId)
 
-            // Etiqueta: cuenta/activo dinámico o catálogo fijo
-            let etiqueta = cardId
+            // Etiqueta: cuenta/activo dinámico o catálogo fijo. Nunca el id
+            // crudo: el usuario ve un nombre legible, sin guiones.
+            let etiqueta
             if (cardId.startsWith("cuenta:")) {
                 const cuenta = cuentasVisiblesLista.find(c => c.id === cardId.split(":")[1])
-                etiqueta = cuenta?.nombre || cardId
+                etiqueta = cuenta?.nombre || "Cuenta"
             } else if (cardId.startsWith("activo:")) {
-                const activo = posicionesData.find(p => p.activoId === cardId.split(":")[1])
-                etiqueta = activo?.activo?.nombre || cardId
+                const activo = (posicionesData || []).find(p => p.activoId === cardId.split(":")[1])
+                etiqueta = activo?.activo?.nombre || "Activo"
             } else {
-                etiqueta = cat?.label || cardId
+                etiqueta = cat?.label || ETIQUETAS_CARD[cardId] || tituloDesdeIdCard(cardId)
             }
 
             const card = document.createElement("div")
@@ -1223,7 +1249,7 @@ function abrirSelectorCardsDashboard() {
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     modal = abrirModal({
         titulo: "Elegir cards del dashboard",
-        variante: "xl",
+        variante: "wide",
         confirmText: "Guardar",
         cancelText: "Cancelar",
         onCancel: () => { cambiosPendientesDashboard = cambiosPendientesAntesModal },
@@ -1266,11 +1292,24 @@ function abrirSelectorCardsDashboard() {
                 }
 
                 montarCardsInstanciadas()
-                if (modoEdicionDashboard) prepararEdicionCardsDashboard()
+                if (modoEdicionDashboard && nuevoDashboard) {
+                    // Tras reemplazar el DOM del dashboard, el nuevo nodo perdió
+                    // la clase de edición y la instancia de SortableJS. Se
+                    // restauran para que los botones de acción sigan visibles y
+                    // el arrastre siga funcionando.
+                    nuevoDashboard.classList.add("dashboard-edicion-activo")
+                    document.getElementById("dashboard-edicion-bar")?.removeAttribute("hidden")
+                    configurarEventosReordenamientoDashboard()
+                    prepararEdicionCardsDashboard()
+                    inicializarSortableDashboard()
+                }
                 reordenarDashboard(true)
                 // Cargar datos reales en las cards recién renderizadas para
                 // evitar que se queden con esqueletos tras guardar.
                 await actualizarUI()
+                // actualizarUI no repinta el gráfico: sin esto su card se
+                // quedaba con el esqueleto de "Cargando gráfico".
+                await cargarGraficoPatrimonio()
 
                 const previas = new Set(cardsVisiblesDashboard)
                 const nuevas = visibles.filter(id => !previas.has(id))
@@ -1311,6 +1350,7 @@ function abrirSelectorCardsDashboard() {
             if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
             if (dimensione === "ancho") dimensionesModal[cardId].columnas = valor
             if (dimensione === "alto") dimensionesModal[cardId].filas = valor
+            dimensionesTocadas.add(cardId)
 
             renderizarGridEsqueleto()
             cambiosPendientesDashboard = true
@@ -1363,6 +1403,7 @@ function abrirSelectorCardsDashboard() {
             ordenModal = [...cardsOrdenDashboard]  // Orden completo, Patrimonio primero
             visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
             dimensionesModal = {}
+            dimensionesTocadas.clear()
             renderizarGridEsqueleto()
             renderizarPills()
         }
@@ -2891,7 +2932,19 @@ function actualizarFlujoPeriodo() {
     const ingresosDetalle = document.getElementById("ingresos-periodo-detalle")
     const balanceEl = document.getElementById("balance-periodo-valor")
     const balanceDetalle = document.getElementById("balance-periodo-detalle")
-    if (!datos || !gastosEl || !ingresosEl || !balanceEl) return
+    if (!gastosEl || !ingresosEl || !balanceEl) return
+
+    // Sin datos todavía: limpiar esqueletos para que no queden pegados tras un
+    // render (p. ej. después de guardar el editor de cards).
+    if (!datos) {
+        gastosEl.textContent = ""
+        if (gastosDetalle) gastosDetalle.textContent = ""
+        ingresosEl.textContent = ""
+        if (ingresosDetalle) ingresosDetalle.textContent = ""
+        balanceEl.textContent = ""
+        if (balanceDetalle) balanceDetalle.textContent = ""
+        return
+    }
 
     gastosEl.textContent = formatearMontoConDivisa(datos.gastos, divisaActual)
     if (gastosDetalle) gastosDetalle.textContent = datos.movimientosGastos > 0

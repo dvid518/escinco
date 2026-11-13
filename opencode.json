@@ -1,0 +1,14 @@
+{
+  "mcp": {
+    "servers": {
+      "firecrawl": {
+        "type": "remote",
+        "url": "https://mcp.firecrawl.dev/v2/mcp"
+      },
+      "firecrawl-oauth": {
+        "type": "remote",
+        "url": "https://mcp.firecrawl.dev/v2/mcp-oauth"
+      }
+    }
+  }
+}
