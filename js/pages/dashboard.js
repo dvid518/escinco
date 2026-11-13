@@ -989,13 +989,23 @@ function configurarEdicionDashboard() {
         eventosEdicionDashboardListos = true
         document.addEventListener("pagina-cambiando", manejarCambioPaginaDashboard)
         document.addEventListener("keydown", manejarTeclaEdicionDashboard)
+        // Delegación: render() reconstruye el innerHTML del dashboard (incluyendo
+        // los botones de edición) en cada actualización, así que los listeners
+        // directos se perderían. Usamos delegación en document.body para que
+        // sigan funcionando aunque el nodo se reemplace.
+        document.body.addEventListener("click", (evento) => {
+            const abrir = evento.target.closest("#dashboard-abrir-cards")
+            if (abrir) {
+                activarModoEdicionDashboard()
+                abrirSelectorCardsDashboard()
+                return
+            }
+            const listo = evento.target.closest("#dashboard-listo")
+            if (listo) {
+                guardarYSalirEdicionDashboard()
+            }
+        })
     }
-
-    document.getElementById("dashboard-abrir-cards")?.addEventListener("click", () => {
-        activarModoEdicionDashboard()
-        abrirSelectorCardsDashboard()
-    })
-    document.getElementById("dashboard-listo")?.addEventListener("click", guardarYSalirEdicionDashboard)
 }
 
 function activarModoEdicionDashboard() {

@@ -2600,17 +2600,51 @@ body.dashboard-card-dragging * {
     right: 10px;
     gap: 6px;
     z-index: 3;
-    background: var(--background);
-    padding: 6px;
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    box-shadow: 0 4px 12px var(--shadow);
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
 }
 
 /* Mostrar en modo edición o al pasar el cursor sobre la card */
 .dashboard-edicion-activo .card-acciones-edicion,
 .card:hover .card-acciones-edicion {
     display: flex;
+}
+
+/* Botones circulares, sin fondo, con hover sutil */
+.card-acciones-edicion .card-accion-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.card-acciones-edicion .card-accion-btn:hover {
+    border-color: var(--textSecondary);
+    color: var(--text);
+    background: var(--lightHover);
+}
+
+.card-acciones-edicion .card-accion-btn.eliminar {
+    color: var(--negative);
+    border-color: var(--negative);
+}
+
+.card-acciones-edicion .card-accion-btn.eliminar:hover {
+    background: var(--negative);
+    color: var(--background);
 }
 
 /* Asegurar que la card contenedor sea relative para posicionar los botones */
