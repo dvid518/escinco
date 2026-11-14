@@ -152,8 +152,8 @@ const DASHBOARD_DIMENSIONES = {
     programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    // Eje X únicamente - gráfico permite 1x1 y 2x1 (solo ancho variable)
-    grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 1, altoMax: 1, anchoDefault: 2, altoDefault: 1 },
+    // Eje X variable; alto fijo en 2 filas para que el canvas (200px) quepa.
+    grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 2, altoMax: 2, anchoDefault: 2, altoDefault: 2 },
 };
 
 // Cards visibles de partida para una cuenta nueva o sin elección guardada.
@@ -1045,6 +1045,21 @@ function configurarScrollFadeApp() {
 // persiste en `cardsOrdenDashboard` y Firestore.
 
 let sortableDashboard = null
+// Placeholder manual: con posiciones explícitas SortableJS no deja hueco, así
+// que el destino se pinta con un nodo propio que sigue al cursor.
+let placeholderDashboard = null
+
+function crearPlaceholderDashboard(card) {
+    const placeholder = document.createElement("div")
+    placeholder.className = "sortable-placeholder"
+    placeholder.setAttribute("aria-hidden", "true")
+    // Arranca en la celda de la card arrastrada (mismas dimensiones).
+    placeholder.style.gridColumnStart = card.style.gridColumnStart
+    placeholder.style.gridColumnEnd = card.style.gridColumnEnd
+    placeholder.style.gridRowStart = card.style.gridRowStart
+    placeholder.style.gridRowEnd = card.style.gridRowEnd
+    return placeholder
+}
 
 function moverCardDashboard(id, direccion) {
     const indice = cardsOrdenDashboard.indexOf(id)
@@ -1192,21 +1207,49 @@ function inicializarSortableDashboard() {
 
     sortableDashboard = new Sortable(grid, {
         handle: '.btn-mover-card',
-        // Patrimonio es fija: no se arrastra ni se puede soltar antes de ella.
-        draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio'])",
+        // Patrimonio y Evolución patrimonial no se arrastran (patrimonio es
+        // fija; el gráfico tiene alto fijo y no debe salir de su sitio).
+        draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio']):not([data-dashboard-card='grafico'])",
         animation: reduceMotion ? 0 : 150,
         scroll: true,
         scrollSensitivity: 30,
         scrollSpeed: 10,
         disabled: !modoEdicionDashboard,
         onStart: (evt) => {
-            if (!modoEdicionDashboard || evt.item.dataset.dashboardCard === "patrimonio") {
+            const id = evt.item.dataset.dashboardCard
+            if (!modoEdicionDashboard || id === "patrimonio" || id === "grafico") {
                 sortableDashboard.sort(true) // cancelar el drag
                 return
             }
             arrastrando = true
+            placeholderDashboard = crearPlaceholderDashboard(evt.item)
+            grid.appendChild(placeholderDashboard)
             evt.item.classList.add("dashboard-card-arrastrando")
             document.body.classList.add("dashboard-card-dragging")
+        },
+        onMove: (evt) => {
+            const placeholder = placeholderDashboard
+            if (!placeholder || !evt.related) return
+            const destino = evt.related.closest("[data-dashboard-card]")
+            const arrastrada = evt.dragged
+            if (!destino || destino === arrastrada || !arrastrada) return
+
+            // Tamaño de la card arrastrada, leído de su celda ya calculada.
+            const ancho = Number(arrastrada.style.gridColumnEnd) - Number(arrastrada.style.gridColumnStart)
+            const alto = Number(arrastrada.style.gridRowEnd) - Number(arrastrada.style.gridRowStart)
+            if (!(ancho > 0) || !(alto > 0)) return
+
+            // El destino ya tiene su celda escrita: el placeholder la ocupa con
+            // el tamaño de la card arrastrada, sin salirse de las columnas.
+            let col = Number(destino.style.gridColumnStart)
+            const row = Number(destino.style.gridRowStart)
+            if (!Number.isFinite(col) || !Number.isFinite(row)) return
+            col = Math.max(1, Math.min(col, columnasActuales - ancho + 1))
+
+            placeholder.style.gridColumnStart = String(col)
+            placeholder.style.gridColumnEnd = String(col + ancho)
+            placeholder.style.gridRowStart = String(row)
+            placeholder.style.gridRowEnd = String(row + alto)
         },
         onEnd: (evt) => {
             const card = evt.item
@@ -1248,6 +1291,8 @@ function inicializarSortableDashboard() {
                     console.error("Error guardando orden del dashboard:", error)
                 })
             } finally {
+                placeholderDashboard?.remove()
+                placeholderDashboard = null
                 arrastrando = false
             }
         }

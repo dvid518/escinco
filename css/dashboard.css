@@ -192,6 +192,18 @@
     z-index: 100;
 }
 
+/* Hueco de destino durante el arrastre. SortableJS no lo crea porque cada card
+   lleva su celda explícita; lo inserta onStart y lo mueve onMove. Ocupa el área
+   del grid (mismas columnas/filas que la card arrastrada). */
+.sortable-placeholder {
+    box-sizing: border-box;
+    border: 2px dashed var(--textSecondary);
+    border-radius: 20px;
+    background: transparent;
+    pointer-events: none;
+    z-index: 3;
+}
+
 /* Las cards se desplazan con transición al reordenar: el masonry las
    reubica por appendChild y sin transición el salto es brusco. */
 .dashboard [data-dashboard-card] {
