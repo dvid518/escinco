@@ -357,7 +357,6 @@ function destruirSortable() {
 
 function inicializarSortable() {
     destruirSortable();
-    // El prototipo carga SortableJS por CDN; si no está disponible, el resto del editor sigue funcionando.
     if (typeof Sortable === "undefined") {
         console.warn("SortableJS no disponible: arrastre deshabilitado en el prototipo.");
         return;

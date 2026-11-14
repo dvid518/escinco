@@ -167,14 +167,24 @@ const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
     .map(card => card.id)
     .filter(id => id !== "patrimonio")
 
+// Devuelve el tamaño (columnas × filas) de una card: primero las dimensiones
+// personalizadas del usuario, luego las del catálogo. Fuente única usada por
+// clasesCard() y por calcularDistribucion().
+function dimensionesCard(id) {
+    const personalizada = cardsDimensionesDashboard[id]
+    const catalogo = DASHBOARD_DIMENSIONES[id] ?? DASHBOARD_CARDS.find(c => c.id === id)
+    return {
+        ancho: personalizada?.columnas ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1,
+        alto: personalizada?.filas ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
+    }
+}
+
 // Devuelve las clases CSS de dimensiones para una card dada su id.
 // Ejemplo: "card-span-2 card-con-scroll"
-// Considera primero las dimensiones personalizadas del usuario, luego las del catálogo.
 function clasesCard(id) {
     const personalizada = cardsDimensionesDashboard[id]
     const catalogo = DASHBOARD_DIMENSIONES[id] ?? DASHBOARD_CARDS.find(c => c.id === id)
-    const spanCol = personalizada?.columnas ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1
-    const spanFil = personalizada?.filas ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
+    const { ancho: spanCol, alto: spanFil } = dimensionesCard(id)
     const scroll = personalizada?.scroll ?? catalogo?.scroll ?? false
     const clases = []
     if (spanCol === 2) clases.push("card-span-2")
@@ -182,6 +192,129 @@ function clasesCard(id) {
     if (spanCol === 2 && spanFil === 2) clases.push("card-span-2x2")
     if (scroll) clases.push("card-con-scroll")
     return clases.join(" ")
+}
+
+// Columnas que caben en `ancho` con celdas de `anchoMinimo` y separación `gap`.
+// Debe coincidir con `repeat(auto-fill, minmax(260px, 1fr))` del CSS.
+function calcularColumnas(ancho, anchoMinimo = 260, gap = 16) {
+    return Math.max(1, Math.floor((ancho + gap) / (anchoMinimo + gap)))
+}
+
+/**
+ * Distribuye las cards visibles en celdas explícitas del grid.
+ *
+ * @param {string[]} cards - ids en el orden de preferencia del usuario
+ * @param {Object} dimensiones - overrides por id: { columnas, filas }
+ * @param {number} columnas - columnas disponibles
+ * @param {Object} metadata - catálogo por id con anchoDefault/altoDefault
+ * @returns {Array<{id:string,col:number,row:number,ancho:number,alto:number}>}
+ *   col/row son 0-indexados (la primera celda es (0,0) → línea grid 1/1).
+ */
+function calcularDistribucion(cards, dimensiones, columnas, metadata) {
+    // Tope de iteraciones: sin él, una combinación de huecos y cards que no
+    // encajan podría recorrer celdas indefinidamente.
+    const MAX_ITERACIONES = 10000
+    const totalColumnas = Math.max(1, Math.floor(columnas) || 1)
+
+    function medidas(id) {
+        const d = dimensiones?.[id] || {}
+        const m = metadata?.[id] || {}
+        const anchoBruto = d.columnas ?? d.ancho ?? m.anchoDefault ?? m.spanColumnas ?? 1
+        const altoBruto = d.filas ?? d.alto ?? m.altoDefault ?? m.spanFilas ?? 1
+        // Con menos columnas que el ancho pedido, la card se recorta a 1 columna
+        // (limitación temporal: el alto se respeta, el ancho no desborda el grid).
+        const ancho = Math.min(Math.max(1, Math.floor(anchoBruto) || 1), totalColumnas)
+        const alto = Math.max(1, Math.floor(altoBruto) || 1)
+        return { ancho, alto }
+    }
+
+    const ocupado = new Set()
+    const clave = (fila, col) => fila + "," + col
+
+    function cabe(fila, col, ancho, alto) {
+        if (col + ancho > totalColumnas) return false
+        for (let f = fila; f < fila + alto; f++) {
+            for (let c = col; c < col + ancho; c++) {
+                if (ocupado.has(clave(f, c))) return false
+            }
+        }
+        return true
+    }
+
+    function ocupar(fila, col, ancho, alto) {
+        for (let f = fila; f < fila + alto; f++) {
+            for (let c = col; c < col + ancho; c++) ocupado.add(clave(f, c))
+        }
+    }
+
+    // Marca una celda como no rellenable para que primerHueco avance en la
+    // siguiente iteración cuando ninguna card pendiente encaja ahí.
+    function marcarNoRellenable(fila, col) {
+        ocupado.add(clave(fila, col))
+    }
+
+    function primerHueco() {
+        let fila = 0
+        let col = 0
+        while (true) {
+            while (col < totalColumnas && ocupado.has(clave(fila, col))) col++
+            if (col < totalColumnas) return { fila, col }
+            fila++
+            col = 0
+        }
+    }
+
+    const pendientes = [...cards]
+    const resultado = []
+
+    // Patrimonio siempre primero, en la esquina superior izquierda.
+    const indicePatrimonio = pendientes.indexOf("patrimonio")
+    if (indicePatrimonio >= 0) {
+        pendientes.splice(indicePatrimonio, 1)
+        const { ancho, alto } = medidas("patrimonio")
+        ocupar(0, 0, ancho, alto)
+        resultado.push({ id: "patrimonio", col: 0, row: 0, ancho, alto })
+    }
+
+    let iteraciones = 0
+    while (pendientes.length > 0 && iteraciones < MAX_ITERACIONES) {
+        iteraciones++
+        const { fila, col } = primerHueco()
+
+        // Ancho libre contiguo en la fila del hueco: sirve para preferir la
+        // card que rellena exactamente el hueco antes que una más estrecha.
+        let anchoLibre = 0
+        while (col + anchoLibre < totalColumnas && !ocupado.has(clave(fila, col + anchoLibre))) {
+            anchoLibre++
+        }
+
+        let elegido = -1
+        for (let i = 0; i < pendientes.length; i++) {
+            const { ancho, alto } = medidas(pendientes[i])
+            if (!cabe(fila, col, ancho, alto)) continue
+            const exacto = ancho === anchoLibre
+            if (elegido === -1) {
+                elegido = i
+                continue
+            }
+            const actual = medidas(pendientes[elegido])
+            const actualExacto = actual.ancho === anchoLibre
+            // Prioridad: tamaño exacto → orden (ya implícito por el recorrido).
+            if (exacto && !actualExacto) elegido = i
+        }
+
+        if (elegido === -1) {
+            marcarNoRellenable(fila, col)
+            continue
+        }
+
+        const id = pendientes.splice(elegido, 1)[0]
+        const { ancho, alto } = medidas(id)
+        ocupar(fila, col, ancho, alto)
+        resultado.push({ id, col, row: fila, ancho, alto })
+    }
+
+    return resultado
 }
 
 /**
@@ -401,6 +534,7 @@ function montarCardsInstanciadas() {
         if (montadas.has(id)) return
         const nodo = construirCardInstancia(id)
         if (!(nodo instanceof Element)) return
+        agregarBotonesAccionCard(nodo, id)
         // Animación de entrada: aparece con fade + translateY.
         nodo.classList.add("dashboard-card-entra")
         grid.appendChild(nodo)
@@ -416,6 +550,39 @@ function montarCardsInstanciadas() {
     montadas.forEach((card, id) => {
         if (card && !requeridas.includes(id)) card.remove()
     })
+
+    // Las instancias se añaden después del render de las cards fijas.
+    aplicarPosicionesDashboard()
+}
+
+// Añade los mismos controles de edición que llevan las cards fijas.
+function agregarBotonesAccionCard(card, id) {
+    if (card.querySelector(".card-acciones-edicion")) return
+
+    const controles = document.createElement("div")
+    controles.className = "card-acciones-edicion"
+    const botones = [
+        { clase: "btn-mover-card", accion: "arrastrar", titulo: "Mover card", aria: "Mover card", icono: "grip", draggable: true },
+        { clase: "btn-subir-card", accion: "subir", titulo: "Subir card", aria: "Subir card", icono: "chevron-up", id },
+        { clase: "btn-bajar-card", accion: "bajar", titulo: "Bajar card", aria: "Bajar card", icono: "chevron-down", id },
+        { clase: "btn-eliminar-card", accion: "eliminar", titulo: "Eliminar card del dashboard", aria: "Eliminar card", icono: "minus", id }
+    ]
+
+    botones.forEach(config => {
+        const boton = document.createElement("button")
+        boton.type = "button"
+        boton.className = `card-accion-btn ${config.clase}`
+        boton.dataset.accion = config.accion
+        boton.title = config.titulo
+        boton.setAttribute("aria-label", config.aria)
+        if (config.id) boton.dataset.id = config.id
+        if (config.draggable) boton.draggable = true
+        const svg = iconoNodo(config.icono, 16)
+        if (svg) boton.appendChild(svg)
+        controles.appendChild(boton)
+    })
+
+    card.appendChild(controles)
 }
 
 function construirCardInstancia(id) {
@@ -674,6 +841,94 @@ function enlazarCardInstancia(card, id) {
 
 }
 
+// Columnas del grid y estado del arrastre, compartidos por el observer y por
+// SortableJS: durante el arrastre no se recalculan posiciones.
+let columnasActuales = 0
+let arrastrando = false
+let resizeObserverDashboard = null
+let gridObservado = null
+
+// Ids en el orden en que deben pintarse: patrimonio primero y el resto según
+// cardsOrdenDashboard, filtrado por las visibles.
+function ordenVisibleDashboard(grid) {
+    const visibles = cardsVisiblesDashboard.length > 0
+        ? cardsVisiblesDashboard
+        : [...DEFAULT_CARDS_VISIBLES.filter(id => id !== "patrimonio")]
+    const ordenPreferido = ["patrimonio", ...cardsOrdenDashboard.filter(id => id !== "patrimonio" && visibles.includes(id))]
+    if (!grid) return ordenPreferido
+
+    const idsEnGrid = [...grid.querySelectorAll(":scope > [data-dashboard-card]")]
+        .map(card => card.dataset.dashboardCard)
+    const idsPresentes = new Set(idsEnGrid)
+    const orden = ordenPreferido.filter(id => idsPresentes.has(id))
+    idsEnGrid.forEach(id => {
+        if (!orden.includes(id)) orden.push(id)
+    })
+    return orden
+}
+
+// Escribe las posiciones explícitas del grid según calcularDistribucion().
+// Sustituye a grid-auto-flow: dense; sin esto las cards se auto-colocan y
+// quedan huecos que dense ya no rellena.
+function aplicarPosicionesDashboard() {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return []
+
+    // Se recalcula en cada aplicación: si el primer ancho medido fue 0 px (grid
+    // aún sin layout), columnasActuales quedaría en 1 y todas las cards se
+    // pintarían de una columna para siempre.
+    columnasActuales = calcularColumnas(grid.getBoundingClientRect().width || grid.clientWidth)
+
+    const distribucion = calcularDistribucion(
+        ordenVisibleDashboard(grid),
+        cardsDimensionesDashboard,
+        columnasActuales,
+        DASHBOARD_DIMENSIONES
+    )
+
+    // col/row/… vienen 0-indexados de calcularDistribucion(); las líneas del
+    // grid son 1-indexadas, de ahí el +1 en cada extremo. Un end = start +
+    // tamaño es lo que convierte "ancho 2" / "alto 2" en un span real.
+    distribucion.forEach(({ id, col, row, ancho, alto }) => {
+        const card = grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
+        if (!card) return
+        card.style.gridColumnStart = String(col + 1)
+        card.style.gridColumnEnd = String(col + ancho + 1)
+        card.style.gridRowStart = String(row + 1)
+        card.style.gridRowEnd = String(row + alto + 1)
+    })
+
+    return distribucion
+}
+
+// Mantiene columnasActuales sincronizado con el ancho real del grid. El
+// cálculo replica `repeat(auto-fill, minmax(260px, 1fr))` del CSS.
+function observarAnchoDashboard() {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return
+
+    if (gridObservado !== grid) {
+        resizeObserverDashboard?.disconnect()
+        gridObservado = grid
+        resizeObserverDashboard = new ResizeObserver(entradas => {
+            // Durante el arrastre el grid cambia de tamaño: recalcular aquí
+            // haría saltar las cards bajo el cursor.
+            if (arrastrando) return
+            actualizarColumnasDashboard(entradas[0]?.contentRect?.width ?? grid.clientWidth)
+        })
+        resizeObserverDashboard.observe(grid)
+    }
+
+    actualizarColumnasDashboard(grid.getBoundingClientRect().width || grid.clientWidth)
+}
+
+function actualizarColumnasDashboard(ancho) {
+    const columnas = calcularColumnas(ancho)
+    if (columnas === columnasActuales) return
+    columnasActuales = columnas
+    aplicarPosicionesDashboard()
+}
+
 function reordenarDashboard() {
     const grid = document.querySelector(".dashboard")
     if (!grid) return
@@ -703,6 +958,9 @@ function reordenarDashboard() {
 
     // Restaurar scroll para que no salte tras reordenar las cards
     if (contenedorScroll) contenedorScroll.scrollTop = scrollAntes
+
+    observarAnchoDashboard()
+    aplicarPosicionesDashboard()
 }
 
 // ============================================
@@ -934,7 +1192,8 @@ function inicializarSortableDashboard() {
 
     sortableDashboard = new Sortable(grid, {
         handle: '.btn-mover-card',
-        draggable: "[data-dashboard-card]",
+        // Patrimonio es fija: no se arrastra ni se puede soltar antes de ella.
+        draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio'])",
         animation: reduceMotion ? 0 : 150,
         scroll: true,
         scrollSensitivity: 30,
@@ -945,44 +1204,52 @@ function inicializarSortableDashboard() {
                 sortableDashboard.sort(true) // cancelar el drag
                 return
             }
+            arrastrando = true
             evt.item.classList.add("dashboard-card-arrastrando")
             document.body.classList.add("dashboard-card-dragging")
         },
         onEnd: (evt) => {
-            if (!modoEdicionDashboard) return
-
             const card = evt.item
             card.classList.remove("dashboard-card-arrastrando")
             document.body.classList.remove("dashboard-card-dragging")
+            try {
+                if (!modoEdicionDashboard) return
 
-            // Leer el nuevo orden del DOM (solo cards visibles)
-            const nuevoOrden = []
-            grid.querySelectorAll("[data-dashboard-card]").forEach(c => {
-                const id = c.dataset.dashboardCard
-                if (id && id !== "patrimonio") {
-                    nuevoOrden.push(id)
-                }
-            })
+                // Leer el nuevo orden del DOM (solo cards visibles)
+                const nuevoOrden = []
+                grid.querySelectorAll("[data-dashboard-card]").forEach(c => {
+                    const id = c.dataset.dashboardCard
+                    if (id && id !== "patrimonio") {
+                        nuevoOrden.push(id)
+                    }
+                })
 
-            // Reconstruir cardsOrdenDashboard: las cards que están en el DOM
-            // mantienen su orden relativo; las que no están en el DOM van al final
-            const ordenActual = cardsOrdenDashboard.filter(id => id !== "patrimonio")
-            const nuevoOrdenFiltrado = nuevoOrden.filter(id => ordenActual.includes(id))
-            const noEnDOM = ordenActual.filter(id => !nuevoOrden.includes(id))
-            const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnDOM]
+                // Reconstruir cardsOrdenDashboard: las cards que están en el DOM
+                // mantienen su orden relativo; las que no están en el DOM van al final
+                const ordenActual = cardsOrdenDashboard.filter(id => id !== "patrimonio")
+                const nuevoOrdenFiltrado = nuevoOrden.filter(id => ordenActual.includes(id))
+                const noEnDOM = ordenActual.filter(id => !nuevoOrden.includes(id))
+                const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnDOM]
 
-            // Actualizar cardsOrdenDashboard (manteniendo patrimonio primero)
-            cardsOrdenDashboard = ["patrimonio", ...nuevoOrdenCompleto]
-            cambiosPendientesDashboard = true
+                // Actualizar cardsOrdenDashboard (manteniendo patrimonio primero)
+                cardsOrdenDashboard = ["patrimonio", ...nuevoOrdenCompleto]
+                cambiosPendientesDashboard = true
 
-            // Guardar en Firestore
-            guardarPreferenciasDashboard({
-                orden: cardsOrdenDashboard
-            }).then(() => {
-                cambiosPendientesDashboard = false
-            }).catch(error => {
-                console.error("Error guardando orden del dashboard:", error)
-            })
+                // Sortable solo decide el orden: las posiciones explícitas se
+                // recalculan aquí, sin volver a renderizar el grid entero.
+                aplicarPosicionesDashboard()
+
+                // Guardar en Firestore
+                guardarPreferenciasDashboard({
+                    orden: cardsOrdenDashboard
+                }).then(() => {
+                    cambiosPendientesDashboard = false
+                }).catch(error => {
+                    console.error("Error guardando orden del dashboard:", error)
+                })
+            } finally {
+                arrastrando = false
+            }
         }
     })
 }
@@ -1943,6 +2210,9 @@ export async function init() {
     console.info("[INFO] Dashboard iniciado para UID:", uid)
 
     await cargarCardsVisiblesDashboard()
+    // Posiciones explícitas desde el primer frame (esqueletos incluidos): sin
+    // grid-auto-flow dense, la auto-colocación dejaría huecos hasta la recarga.
+    reordenarDashboard()
     mostrarEsqueletosDashboard()
     configurarDivisa()
     configurarPeriodos()
@@ -4393,6 +4663,9 @@ export function destroy() {
     secuenciaGraficoDashboard++
     destruirGraficoPatrimonio()
     destruirGraficoPatrimonio("evolucion-modal")
+    resizeObserverDashboard?.disconnect()
+    resizeObserverDashboard = null
+    gridObservado = null
     const app = document.getElementById("app-content")
     if (app) {
         app.classList.remove("scroll-fade", "scroll-fade-top", "scroll-fade-bottom")
