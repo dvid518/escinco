@@ -58,7 +58,7 @@ vm.runInContext(extraerFuncion(SRC, "normalizarCardsVisibles") + ";", ctx)
 vm.runInContext(extraerFuncion(SRC, "calcularColumnas") + ";", ctx)
 vm.runInContext(extraerFuncion(SRC, "calcularDistribucion") + ";", ctx)
 
-export default function ejecutar(t = nuevoReporter("card-001")) {
+export default async function ejecutar(t = nuevoReporter("card-001")) {
     const normalizarCardsVisibles = ctx.normalizarCardsVisibles
 
     // Caso: array vacío devuelve DEFAULT_CARDS_VISIBLES.
@@ -220,6 +220,283 @@ export default function ejecutar(t = nuevoReporter("card-001")) {
             `obtuvo: ${JSON.stringify(d[0])}`
         )
     }
+
+    // ================================================================
+    // Fase 1: persistencia atómica y botón minus
+    // ================================================================
+
+    // Estado mutable simulado del dashboard (vive en el contexto VM).
+    ctx.cardsVisiblesDashboard = ["cuentas", "movimientos", "grafico"]
+    ctx.cardsOrdenDashboard = ["patrimonio", "cuentas", "movimientos", "inversiones", "grafico", "metas"]
+    ctx.cardsDimensionesDashboard = { grafico: { ancho: 2, alto: 2 } }
+    ctx.cambiosPendientesDashboard = true
+    ctx.capturaGuardado = null
+    ctx.fallaGuardado = false
+
+    ctx.stubGuardarPreferenciasDashboard = function (campos) {
+        ctx.capturaGuardado = campos
+        if (ctx.fallaGuardado) throw new Error("Firestore falló")
+        return Promise.resolve()
+    }
+    ctx.stubMostrarNotificacion = function () {}
+    ctx.stubReordenarDashboard = function () {}
+    ctx.stubDocument = {
+        querySelector: function () {
+            return { classList: { add: function () {}, remove: function () {} }, remove: function () {} }
+        }
+    }
+    ctx.stubCSS = { escape: function (id) { return id } }
+    ctx.stubSetTimeout = function (fn) { fn(); return 0 }
+
+    ctx.ctx = ctx;
+    vm.runInContext(`
+        var cardsVisiblesDashboard = ctx.cardsVisiblesDashboard;
+        var cardsOrdenDashboard = ctx.cardsOrdenDashboard;
+        var cardsDimensionesDashboard = ctx.cardsDimensionesDashboard;
+        var cambiosPendientesDashboard = ctx.cambiosPendientesDashboard;
+        function guardarPreferenciasDashboard(campos) { return ctx.stubGuardarPreferenciasDashboard(campos); }
+        function mostrarNotificacion() { return ctx.stubMostrarNotificacion(); }
+        function reordenarDashboard() { return ctx.stubReordenarDashboard(); }
+        var document = ctx.stubDocument;
+        var CSS = ctx.stubCSS;
+        var setTimeout = ctx.stubSetTimeout;
+    `, ctx)
+
+    vm.runInContext(extraerFuncion(SRC, "guardarOrdenDashboard") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "quitarCardDashboard") + ";", ctx)
+
+    // Test F1.1: guardarOrdenDashboard persiste los 3 campos juntos.
+    ctx.capturaGuardado = null
+    ctx.fallaGuardado = false
+    ctx.cardsVisiblesDashboard = ["cuentas", "movimientos"]
+    ctx.cardsOrdenDashboard = ["patrimonio", "cuentas", "movimientos", "metas"]
+    ctx.cardsDimensionesDashboard = { metas: { ancho: 1, alto: 1 } }
+    await ctx.guardarOrdenDashboard()
+    t.check(
+        "F1.1 guardarOrdenDashboard recibe cardsVisibles, orden y dimensiones juntos",
+        ctx.capturaGuardado &&
+        Array.isArray(ctx.capturaGuardado.cardsVisibles) &&
+        Array.isArray(ctx.capturaGuardado.orden) &&
+        typeof ctx.capturaGuardado.dimensiones === "object" &&
+        !ctx.capturaGuardado.cardsVisibles.includes("grafico") &&
+        ctx.capturaGuardado.orden.includes("patrimonio") &&
+        JSON.stringify(ctx.capturaGuardado.dimensiones) === JSON.stringify({ metas: { ancho: 1, alto: 1 } }),
+        `captura: ${JSON.stringify(ctx.capturaGuardado)}`
+    )
+    t.check(
+        "F1.1 cambiosPendientesDashboard pasa a false tras guardar",
+        ctx.cambiosPendientesDashboard === false
+    )
+
+    // Test F1.2: si la persistencia falla, no se cierra el modo edición (cambiosPendientesDashboard sigue true).
+    ctx.capturaGuardado = null
+    ctx.fallaGuardado = true
+    ctx.cardsVisiblesDashboard = ["cuentas"]
+    ctx.cardsOrdenDashboard = ["patrimonio", "cuentas"]
+    ctx.cardsDimensionesDashboard = {}
+    ctx.cambiosPendientesDashboard = true
+    const resultado = await ctx.guardarOrdenDashboard()
+    t.check(
+        "F1.2 persistir falla devuelve false",
+        resultado === false
+    )
+    t.check(
+        "F1.2 cambiosPendientesDashboard sigue true tras fallo",
+        ctx.cambiosPendientesDashboard === true
+    )
+
+    // Test F1.3: quitarCardDashboard elimina de visibles pero NO de orden.
+    ctx.cardsVisiblesDashboard = ["patrimonio", "cuentas", "movimientos", "grafico"]
+    ctx.cardsOrdenDashboard = ["patrimonio", "cuentas", "movimientos", "grafico", "metas"]
+    ctx.cambiosPendientesDashboard = false
+    await ctx.quitarCardDashboard("movimientos")
+    t.check(
+        "F1.3 quitarCardDashboard elimina de cardsVisiblesDashboard",
+        !ctx.cardsVisiblesDashboard.includes("movimientos")
+    )
+    t.check(
+        "F1.3 quitarCardDashboard NO elimina de cardsOrdenDashboard",
+        ctx.cardsOrdenDashboard.includes("movimientos")
+    )
+    t.check(
+        "F1.3 quitarCardDashboard pone cambiosPendientesDashboard en true",
+        ctx.cambiosPendientesDashboard === true
+    )
+
+    // Test F1.4: onCancel del modal no llama a guardarPreferenciasDashboard.
+    const iCancel = SRC.indexOf("onCancel:")
+    const iFooter = SRC.indexOf("footerExtra:", iCancel)
+    const onCancelBody = SRC.slice(iCancel, iFooter)
+    t.check(
+        "F1.4 onCancel no llama a guardarPreferenciasDashboard",
+        !onCancelBody.includes("guardarPreferenciasDashboard")
+    )
+    t.check(
+        "F1.4 onCancel solo restaura el flag de cambios pendientes",
+        onCancelBody.includes("cambiosPendientesDashboard = cambiosPendientesAntesModal")
+    )
+
+    // ================================================================
+    // Fase 2: corrección de skeletons persistentes (B2)
+    // ================================================================
+
+    // Stubs para funciones del DOM y utilidades usadas por los actualizadores.
+    ctx.createdElements = {}
+    ctx.stubDocumentGetElementById = function (id) {
+        if (!ctx.createdElements[id]) {
+            ctx.createdElements[id] = {
+                textContent: "",
+                replaceChildren: function () { this.children = [] },
+                classList: {
+                    add: function () {},
+                    remove: function () {},
+                    toggle: function () {},
+                    contains: function () { return false }
+                },
+                style: {},
+                setAttribute: function () {},
+                hidden: false,
+                children: []
+            }
+        }
+        return ctx.createdElements[id]
+    }
+    ctx.stubTarjetaVacia = function (texto) {
+        return { _texto: texto, replaceChildren: function () { this.children = [] } }
+    }
+    ctx.stubActualizarScrollFade = function () {}
+    ctx.stubFormatearMontoConDivisa = function (val, _divisa) {
+        return String(val ?? 0)
+    }
+    ctx.stubFormatearProximaEjecucion = function () { return "Sin próxima ejecución" }
+    ctx.stubContenidoDesdeFilas = function (plantilla, items, _mapear) {
+        return { _items: items.length, replaceChildren: function () {} }
+    }
+    ctx.stubAplicoAnchoBarras = function () {}
+    ctx.stubDibujarDonaDistribucion = function () { return Promise.resolve() }
+
+    // Extraer los 5 actualizadores que tienen retorno anticipado sin limpiar
+    // skeleton cuando analiticaData es null.
+    vm.runInContext(`
+        var document = { getElementById: ctx.stubDocumentGetElementById };
+        var analiticaData = ctx.analiticaData;
+        var divisaActual = ctx.divisaActual;
+        var formatearMontoConDivisa = ctx.stubFormatearMontoConDivisa;
+        var formatearProximaEjecucion = ctx.stubFormatearProximaEjecucion;
+        var tarjetaVacia = ctx.stubTarjetaVacia;
+        var actualizarScrollFade = ctx.stubActualizarScrollFade;
+        var contenidoDesdeFilas = ctx.stubContenidoDesdeFilas;
+        var aplicoAnchoBarras = ctx.stubAplicoAnchoBarras;
+        var dibujarDonaDistribucion = ctx.stubDibujarDonaDistribucion;
+    `, ctx)
+
+    vm.runInContext(extraerFuncion(SRC, "actualizarFlujoCaja") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarDeudas") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarDistribucion") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarProgramados") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarAlertas") + ";", ctx)
+
+    // Helper para verificar que replaceChildren fue llamado en un elemento.
+    function replaceChildrenFueLlamado(id) {
+        const el = ctx.createdElements[id]
+        return el && el.children !== undefined && el.children.length === 0
+    }
+
+    // Test B2.1: actualizarFlujoCaja limpia skeleton cuando analiticaData es null.
+    ctx.analiticaData = null
+    ctx.divisaActual = "pen"
+    ctx.createdElements = {}
+    ctx.actualizarFlujoCaja()
+    const cajaValor = ctx.createdElements["flujo-caja-valor"]
+    const cajaDetalle = ctx.createdElements["flujo-caja-detalle"]
+    t.check(
+        "B2.1 actualizarFlujoCaja limpia valor cuando analiticaData es null",
+        cajaValor && cajaValor.textContent === ""
+    )
+    t.check(
+        "B2.1 actualizarFlujoCaja limpia detalle cuando analiticaData es null",
+        cajaDetalle && cajaDetalle.textContent === ""
+    )
+
+    // Test B2.2: actualizarDeudas limpia skeleton cuando analiticaData es null.
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.actualizarDeudas()
+    const deudasValor = ctx.createdElements["deudas-valor"]
+    const deudasDetalle = ctx.createdElements["deudas-detalle"]
+    t.check(
+        "B2.2 actualizarDeudas limpia valor cuando analiticaData es null",
+        deudasValor && deudasValor.textContent === ""
+    )
+    t.check(
+        "B2.2 actualizarDeudas limpia detalle cuando analiticaData es null",
+        deudasDetalle && deudasDetalle.textContent === ""
+    )
+
+    // Test B2.3: actualizarDistribucion limpia skeleton cuando analiticaData es null.
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.actualizarDistribucion()
+    const _distLista = ctx.createdElements["distribucion-lista"]
+    const distTotal = ctx.createdElements["distribucion-total"]
+    t.check(
+        "B2.3 actualizarDistribucion reemplaza lista cuando analiticaData es null",
+        replaceChildrenFueLlamado("distribucion-lista")
+    )
+    t.check(
+        "B2.3 actualizarDistribucion limpia total cuando analiticaData es null",
+        distTotal && distTotal.textContent === ""
+    )
+
+    // Test B2.4: actualizarProgramados limpia skeleton cuando analiticaData es null.
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.actualizarProgramados()
+    const _progLista = ctx.createdElements["programados-lista"]
+    const progCantidad = ctx.createdElements["programados-cantidad"]
+    t.check(
+        "B2.4 actualizarProgramados reemplaza lista cuando analiticaData es null",
+        replaceChildrenFueLlamado("programados-lista")
+    )
+    t.check(
+        "B2.4 actualizarProgramados pone cantidad en 0 cuando analiticaData es null",
+        progCantidad && progCantidad.textContent === "0"
+    )
+
+    // Test B2.5: actualizarAlertas limpia skeleton cuando analiticaData es null.
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.actualizarAlertas()
+    const _alertaLista = ctx.createdElements["alertas-lista"]
+    const alertaCantidad = ctx.createdElements["alertas-cantidad"]
+    t.check(
+        "B2.5 actualizarAlertas reemplaza lista cuando analiticaData es null",
+        replaceChildrenFueLlamado("alertas-lista")
+    )
+    t.check(
+        "B2.5 actualizarAlertas pone cantidad en 0 cuando analiticaData es null",
+        alertaCantidad && alertaCantidad.textContent === "0"
+    )
+
+    // Test B2.6: actualizarFlujoCaja muestra datos cuando analiticaData tiene datos.
+    ctx.analiticaData = { balance: 100, ingresos: 200, gastos: 100 }
+    ctx.createdElements = {}
+    ctx.actualizarFlujoCaja()
+    const cajaValor2 = ctx.createdElements["flujo-caja-valor"]
+    t.check(
+        "B2.6 actualizarFlujoCaja muestra balance cuando hay datos",
+        cajaValor2 && cajaValor2.textContent === "100"
+    )
+
+    // Test B2.7: actualizarDistribucion muestra datos cuando analiticaData tiene datos.
+    ctx.analiticaData = { distribucion: [] }
+    ctx.createdElements = {}
+    ctx.actualizarDistribucion()
+    const _distLista2 = ctx.createdElements["distribucion-lista"]
+    t.check(
+        "B2.7 actualizarDistribucion reemplaza lista cuando hay datos",
+        replaceChildrenFueLlamado("distribucion-lista")
+    )
 
     return t
 }

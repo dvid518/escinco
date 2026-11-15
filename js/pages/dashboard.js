@@ -1072,22 +1072,16 @@ function moverCardDashboard(id, direccion) {
 
 async function quitarCardDashboard(id) {
     if (id === "patrimonio") return
-    const indice = cardsOrdenDashboard.indexOf(id)
-    if (indice >= 0) {
-        // No tocar cardsOrdenDashboard: la card debe seguir estando en el orden
-        // completo para que aparezca en el modal (como oculta) y se pueda
-        // reactivar desde allí. Solo se quita de las visibles.
-        const idxVis = cardsVisiblesDashboard.indexOf(id)
-        if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
-        const card = document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
-        if (card) {
-            card.classList.add("dashboard-card-sale")
-            await new Promise(resolve => setTimeout(resolve, 200))
-            card.remove()
-        }
-        cambiosPendientesDashboard = true
-        reordenarDashboard()
+    const idxVis = cardsVisiblesDashboard.indexOf(id)
+    if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
+    const card = document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
+    if (card) {
+        card.classList.add("dashboard-card-sale")
+        await new Promise(resolve => setTimeout(resolve, 200))
+        card.remove()
     }
+    cambiosPendientesDashboard = true
+    reordenarDashboard()
 }
 
 function prepararEdicionCardsDashboard() {
@@ -1268,11 +1262,15 @@ function inicializarSortableDashboard() {
                 })
 
                 // Reconstruir cardsOrdenDashboard: las cards que están en el DOM
-                // mantienen su orden relativo; las que no están en el DOM van al final
+                // mantienen su orden relativo; las que no están en el DOM van al final.
+                // Se incluyen también las cards visibles que no estén en
+                // cardsOrdenDashboard (p. ej. instancias añadidas dinámicamente).
                 const ordenActual = cardsOrdenDashboard.filter(id => id !== "patrimonio")
                 const nuevoOrdenFiltrado = nuevoOrden.filter(id => ordenActual.includes(id))
                 const noEnDOM = ordenActual.filter(id => !nuevoOrden.includes(id))
-                const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnDOM]
+                // Añadir al final las cards visibles que no estaban en cardsOrdenDashboard
+                const noEnOrden = nuevoOrden.filter(id => !ordenActual.includes(id))
+                const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnOrden, ...noEnDOM]
 
                 // Actualizar cardsOrdenDashboard (manteniendo patrimonio primero)
                 cardsOrdenDashboard = ["patrimonio", ...nuevoOrdenCompleto]
@@ -1361,12 +1359,16 @@ function salirModoEdicionDashboard(forzar = false) {
 
 async function guardarOrdenDashboard() {
     try {
-        await guardarPreferenciasDashboard({ orden: cardsOrdenDashboard })
+        await guardarPreferenciasDashboard({
+            cardsVisibles: cardsVisiblesDashboard,
+            orden: cardsOrdenDashboard,
+            dimensiones: cardsDimensionesDashboard
+        })
         cambiosPendientesDashboard = false
         return true
     } catch (error) {
-        console.error("Error guardando orden del dashboard:", error)
-        mostrarNotificacion("error", "No se pudo guardar el orden del dashboard")
+        console.error("Error guardando preferencias del dashboard:", error)
+        mostrarNotificacion("error", "No se pudo guardar los cambios del dashboard")
         return false
     }
 }
@@ -1601,6 +1603,11 @@ function abrirSelectorCardsDashboard() {
                 const dashboardExistente = document.querySelector(".dashboard")
                 if (nuevoDashboard && dashboardExistente) {
                     dashboardExistente.replaceWith(nuevoDashboard)
+                    // render() devuelve el dashboard con dashboard-cargando
+                    // (pointer-events: none, bloquea todos los clics). Quitarlo
+                    // tras el reemplazo para que los botones de acción y el resto
+                    // de la UI vuelvan a ser interactivos.
+                    nuevoDashboard.classList.remove("dashboard-cargando")
                 }
 
                 montarCardsInstanciadas()
@@ -3284,7 +3291,11 @@ function actualizarFlujoCaja() {
     const valorEl = document.getElementById("flujo-caja-valor")
     const detalleEl = document.getElementById("flujo-caja-detalle")
     const cardEl = document.getElementById("card-flujo-caja")
-    if (!valorEl || !analiticaData) return
+    if (!valorEl || !analiticaData) {
+        if (valorEl) valorEl.textContent = ""
+        if (detalleEl) detalleEl.textContent = ""
+        return
+    }
 
     valorEl.textContent = formatearMontoConDivisa(analiticaData.balance, divisaActual)
     if (detalleEl) {
@@ -3298,7 +3309,11 @@ function actualizarDeudas() {
     const valorEl = document.getElementById("deudas-valor")
     const detalleEl = document.getElementById("deudas-detalle")
     const cardEl = document.getElementById("card-deudas")
-    if (!valorEl || !analiticaData) return
+    if (!valorEl || !analiticaData) {
+        if (valorEl) valorEl.textContent = ""
+        if (detalleEl) detalleEl.textContent = ""
+        return
+    }
 
     valorEl.textContent = formatearMontoConDivisa(analiticaData.deudas, divisaActual)
     if (detalleEl) {
@@ -3423,7 +3438,13 @@ function aplicoAnchoBarras(lista, items) {
 function actualizarDistribucion() {
     const lista = document.getElementById("distribucion-lista")
     const totalEl = document.getElementById("distribucion-total")
-    if (!lista || !analiticaData) return
+    if (!lista) return
+    if (!analiticaData) {
+        lista.replaceChildren(tarjetaVacia("Sin datos de distribución."))
+        actualizarScrollFade(lista)
+        if (totalEl) totalEl.textContent = ""
+        return
+    }
 
     // Recalcular porcentajes basándose en los valores reales para que la
     // lista y la dona siempre usen los mismos datos y los porcentajes
@@ -3613,7 +3634,13 @@ function actualizarPatrimonioDivisa() {
 function actualizarProgramados() {
     const lista = document.getElementById("programados-lista")
     const cantidadEl = document.getElementById("programados-cantidad")
-    if (!lista || !analiticaData) return
+    if (!lista) return
+    if (!analiticaData) {
+        lista.replaceChildren(tarjetaVacia("No hay datos de movimientos programados."))
+        actualizarScrollFade(lista)
+        if (cantidadEl) cantidadEl.textContent = "0"
+        return
+    }
 
     if (cantidadEl) cantidadEl.textContent = analiticaData.programados.length
     if (analiticaData.programados.length === 0) {
@@ -3636,7 +3663,14 @@ function actualizarAlertas() {
     const lista = document.getElementById("alertas-lista")
     const cantidadEl = document.getElementById("alertas-cantidad")
     const cardEl = document.getElementById("card-alertas")
-    if (!lista || !analiticaData) return
+    if (!lista) return
+    if (!analiticaData) {
+        lista.replaceChildren(tarjetaVacia("No hay datos de alertas."))
+        actualizarScrollFade(lista)
+        if (cantidadEl) cantidadEl.textContent = "0"
+        cardEl?.classList.remove("negative", "positive")
+        return
+    }
 
     const alertas = analiticaData.alertas
     if (cantidadEl) cantidadEl.textContent = alertas.length
