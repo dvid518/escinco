@@ -73,6 +73,15 @@ let eventosRefreshDashboardListos = false
 let timerRefreshDashboard = null
 let secuenciaGraficoDashboard = 0
 let cardsDimensionesDashboard = {}
+// Celda elegida a mano para cada card ({ row, col } 0-indexados). Vive solo en
+// memoria: el empaquetado denso no puede expresar huecos, así que sin esta
+// pista cualquier card movida a una fila inferior volvía a la fila 0.
+let posicionesPreferidasDashboard = {}
+// Celda de destino del arrastre en curso. La previsualización se pinta en la
+// propia card; aquí se recuerda la celda para no perderla al recalcular.
+let celdaDestinoDashboard = null
+// Celda que ocupaba la card al empezar: soltarla ahí no es un movimiento.
+let celdaOrigenDashboard = null
 let patrimonioStats = null
 // Secciones opcionales que fallaron al cargar en el ciclo actual. Las claves
 // son nombres de secciones y los valores son el error capturado. Se usa para
@@ -111,7 +120,7 @@ const DASHBOARD_CARDS = [
     { id: "patrimonio-divisa", label: "Patrimonio por divisa", spanColumnas: 1, spanFilas: 1 },
     { id: "programados", label: "Movimientos programados", spanColumnas: 1, spanFilas: 1 },
     { id: "alertas", label: "Alertas", spanColumnas: 1, spanFilas: 1 },
-    { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 1 }
+    { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 2 }
 ]
 
 // Cards con generador propio que no figuran en DASHBOARD_CARDS. Sin esto el
@@ -169,13 +178,17 @@ const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
 
 // Devuelve el tamaño (columnas × filas) de una card: primero las dimensiones
 // personalizadas del usuario, luego las del catálogo. Fuente única usada por
-// clasesCard() y por calcularDistribucion().
+// clasesCard() y por calcularDistribucion(). Acepta tanto {columnas, filas}
+// como el formato antiguo {ancho, alto}: si solo se leía uno, el marcado de la
+// card y las celdas reservadas por calcularDistribucion() no coincidían.
 function dimensionesCard(id) {
     const personalizada = cardsDimensionesDashboard[id]
     const catalogo = DASHBOARD_DIMENSIONES[id] ?? DASHBOARD_CARDS.find(c => c.id === id)
     return {
-        ancho: personalizada?.columnas ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1,
-        alto: personalizada?.filas ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
+        ancho: personalizada?.columnas ?? personalizada?.ancho
+            ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1,
+        alto: personalizada?.filas ?? personalizada?.alto
+            ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
     }
 }
 
@@ -207,10 +220,12 @@ function calcularColumnas(ancho, anchoMinimo = 260, gap = 16) {
  * @param {Object} dimensiones - overrides por id: { columnas, filas }
  * @param {number} columnas - columnas disponibles
  * @param {Object} metadata - catálogo por id con anchoDefault/altoDefault
+ * @param {Object} [opciones] - { posiciones, prioridad }: celdas elegidas por
+ *   el usuario y card que debe ganar si dos preferencias chocan.
  * @returns {Array<{id:string,col:number,row:number,ancho:number,alto:number}>}
  *   col/row son 0-indexados (la primera celda es (0,0) → línea grid 1/1).
  */
-function calcularDistribucion(cards, dimensiones, columnas, metadata) {
+function calcularDistribucion(cards, dimensiones, columnas, metadata, opciones = {}) {
     // Tope de iteraciones: sin él, una combinación de huecos y cards que no
     // encajan podría recorrer celdas indefinidamente.
     const MAX_ITERACIONES = 10000
@@ -274,6 +289,29 @@ function calcularDistribucion(cards, dimensiones, columnas, metadata) {
         const { ancho, alto } = medidas("patrimonio")
         ocupar(0, 0, ancho, alto)
         resultado.push({ id: "patrimonio", col: 0, row: 0, ancho, alto })
+    }
+
+    // Posiciones elegidas por el usuario: se intentan antes del empaquetado
+    // denso. La card recién movida va primero para quedarse con su celda si
+    // otra preferencia apunta al mismo sitio; las que no caben caen al reparto
+    // normal, así que nunca se pierde una card.
+    const preferidas = opciones.posiciones || {}
+    const prioridad = opciones.prioridad || null
+    const candidatos = prioridad && pendientes.includes(prioridad)
+        ? [prioridad, ...pendientes.filter(id => id !== prioridad)]
+        : [...pendientes]
+
+    for (const id of candidatos) {
+        const posicion = preferidas[id]
+        if (!posicion) continue
+        const fila = Math.floor(Number(posicion.row))
+        const col = Math.floor(Number(posicion.col))
+        if (!Number.isFinite(fila) || !Number.isFinite(col) || fila < 0 || col < 0) continue
+        const { ancho, alto } = medidas(id)
+        if (!cabe(fila, col, ancho, alto)) continue
+        ocupar(fila, col, ancho, alto)
+        resultado.push({ id, col, row: fila, ancho, alto })
+        pendientes.splice(pendientes.indexOf(id), 1)
     }
 
     let iteraciones = 0
@@ -430,11 +468,44 @@ function normalizarCardsOrden(valor) {
     return [...validos, ...DEFAULT_CARDS_ORDEN.filter(id => !validos.includes(id))]
 }
 
+// Clampa las dimensiones guardadas del usuario contra el catálogo permitido
+// (DASHBOARD_DIMENSIONES). Solo afecta al valor aplicado en memoria: nunca
+// modifica la preferencia guardada en Firestore.
+// Acepta el formato actual {columnas, filas} y el antiguo {ancho, alto}: leer
+// solo el actual descartaba el alto guardado y lo dejaba en el valor por
+// defecto (Patrimonio volvía a alto 1 aunque estuviera guardado en 3).
+function clampDimensionesDashboard(dimensiones) {
+    if (!dimensiones || typeof dimensiones !== "object") return {}
+    const aNumero = (valor, porDefecto) => {
+        if (valor === null || valor === undefined || valor === "") return porDefecto
+        const numero = Number(valor)
+        return Number.isFinite(numero) ? numero : porDefecto
+    }
+    const resultado = {}
+    for (const [id, valor] of Object.entries(dimensiones)) {
+        const catalogo = DASHBOARD_DIMENSIONES[id]
+        if (!catalogo) {
+            resultado[id] = valor
+            continue
+        }
+        const columnas = aNumero(valor?.columnas ?? valor?.ancho, catalogo.anchoDefault)
+        const filas = aNumero(valor?.filas ?? valor?.alto, catalogo.altoDefault)
+        resultado[id] = {
+            columnas: Math.min(Math.max(columnas, catalogo.anchoMin), catalogo.anchoMax),
+            filas: Math.min(Math.max(filas, catalogo.altoMin), catalogo.altoMax)
+        }
+    }
+    return resultado
+}
+
 function configurarCardsDashboardDesdeSesion() {
     const dashboard = sesion.getPreferencias()?.dashboard
     cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
     cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
-    cardsDimensionesDashboard = dashboard?.dimensiones || {}
+    cardsDimensionesDashboard = clampDimensionesDashboard(dashboard?.dimensiones) || {}
+    // Las posiciones manuales son de la sesión: al releer las preferencias el
+    // reparto vuelve a mandar.
+    posicionesPreferidasDashboard = {}
 }
 
 async function cargarCardsVisiblesDashboard() {
@@ -444,7 +515,7 @@ async function cargarCardsVisiblesDashboard() {
         const dashboard = preferencias?.dashboard
         cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
         cardsOrdenDashboard = normalizarCardsOrden(dashboard?.orden)
-        cardsDimensionesDashboard = dashboard?.dimensiones || {}
+        cardsDimensionesDashboard = clampDimensionesDashboard(dashboard?.dimensiones) || {}
     } catch (error) {
         console.warn("No se pudieron cargar las cards visibles del dashboard:", error)
         cardsVisiblesDashboard = [...DEFAULT_CARDS_VISIBLES]
@@ -562,7 +633,7 @@ function agregarBotonesAccionCard(card, id) {
     const controles = document.createElement("div")
     controles.className = "card-acciones-edicion"
     const botones = [
-        { clase: "btn-mover-card", accion: "arrastrar", titulo: "Mover card", aria: "Mover card", icono: "grip", draggable: true },
+        { clase: "btn-mover-card", accion: "arrastrar", titulo: "Mover card", aria: "Mover card", icono: "grip" },
         { clase: "btn-subir-card", accion: "subir", titulo: "Subir card", aria: "Subir card", icono: "chevron-up", id },
         { clase: "btn-bajar-card", accion: "bajar", titulo: "Bajar card", aria: "Bajar card", icono: "chevron-down", id },
         { clase: "btn-eliminar-card", accion: "eliminar", titulo: "Eliminar card del dashboard", aria: "Eliminar card", icono: "minus", id }
@@ -576,7 +647,6 @@ function agregarBotonesAccionCard(card, id) {
         boton.title = config.titulo
         boton.setAttribute("aria-label", config.aria)
         if (config.id) boton.dataset.id = config.id
-        if (config.draggable) boton.draggable = true
         const svg = iconoNodo(config.icono, 16)
         if (svg) boton.appendChild(svg)
         controles.appendChild(boton)
@@ -680,7 +750,6 @@ function pintarCardCuenta(cuenta, card) {
 
     card.setAttribute("title", `Ver ${cuenta.nombre || "cuenta"}`)
     const moneda = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
-
     if (cuenta.tipo === "credito") {
         const uso = nivelUsoDe(cuenta)
         const ciclo = estadoCicloDe(cuenta, movimientosCompletosData)
@@ -699,7 +768,9 @@ function pintarCardCuenta(cuenta, card) {
         }
 
         if (estadoEl) {
-            estadoEl.hidden = true
+            // `.badge` fija display:inline-flex y gana a [hidden], así que una
+            // pastilla vacía seguía viéndose como barra gris junto al título.
+            estadoEl.remove()
         }
 
         const barraEl = card.querySelector(`#${prefijo}-barra`)
@@ -756,8 +827,8 @@ if (detalleEl) {
         // En una cuenta no crédito el badge queda libre: el estado
         // (activa/archivada) no se muestra. Las archivadas ya ni siquiera
         // llegan aquí, y "activa" es el estado por defecto: solo añadiría ruido.
-        estadoEl.textContent = ""
-        estadoEl.hidden = true
+        // Se quita del DOM: vacío seguía dibujando la pastilla gris.
+        estadoEl.remove()
     }
 
     if (datosEl) {
@@ -870,7 +941,7 @@ function ordenVisibleDashboard(grid) {
 // Escribe las posiciones explícitas del grid según calcularDistribucion().
 // Sustituye a grid-auto-flow: dense; sin esto las cards se auto-colocan y
 // quedan huecos que dense ya no rellena.
-function aplicarPosicionesDashboard() {
+function aplicarPosicionesDashboard(prioridadId = null) {
     const grid = document.querySelector(".dashboard")
     if (!grid) return []
 
@@ -883,12 +954,16 @@ function aplicarPosicionesDashboard() {
         ordenVisibleDashboard(grid),
         cardsDimensionesDashboard,
         columnasActuales,
-        DASHBOARD_DIMENSIONES
+        DASHBOARD_DIMENSIONES,
+        { posiciones: posicionesPreferidasDashboard, prioridad: prioridadId }
     )
 
     // col/row/… vienen 0-indexados de calcularDistribucion(); las líneas del
     // grid son 1-indexadas, de ahí el +1 en cada extremo. Un end = start +
     // tamaño es lo que convierte "ancho 2" / "alto 2" en un span real.
+    // Todas las cards (incluido el Gráfico) se quedan con la celda asignada:
+    // sobrescribir después una fila rompía el reparto y dejaba celdas
+    // reservadas sin contenido, además de permitir solapamientos.
     distribucion.forEach(({ id, col, row, ancho, alto }) => {
         const card = grid.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
         if (!card) return
@@ -897,6 +972,13 @@ function aplicarPosicionesDashboard() {
         card.style.gridRowStart = String(row + 1)
         card.style.gridRowEnd = String(row + alto + 1)
     })
+
+    // Las preferencias de cards que ya no están en el grid (ocultas o
+    // eliminadas) no deben reaparecer si vuelven a mostrarse.
+    const colocadas = new Set(distribucion.map(card => card.id))
+    for (const id of Object.keys(posicionesPreferidasDashboard)) {
+        if (!colocadas.has(id)) delete posicionesPreferidasDashboard[id]
+    }
 
     return distribucion
 }
@@ -929,7 +1011,7 @@ function actualizarColumnasDashboard(ancho) {
     aplicarPosicionesDashboard()
 }
 
-function reordenarDashboard() {
+function reordenarDashboard(prioridadId = null) {
     const grid = document.querySelector(".dashboard")
     if (!grid) return
 
@@ -960,7 +1042,7 @@ function reordenarDashboard() {
     if (contenedorScroll) contenedorScroll.scrollTop = scrollAntes
 
     observarAnchoDashboard()
-    aplicarPosicionesDashboard()
+    aplicarPosicionesDashboard(prioridadId)
 }
 
 // ============================================
@@ -1045,33 +1127,77 @@ function configurarScrollFadeApp() {
 // persiste en `cardsOrdenDashboard` y Firestore.
 
 let sortableDashboard = null
-// Placeholder manual: con posiciones explícitas SortableJS no deja hueco, así
-// que el destino se pinta con un nodo propio que sigue al cursor.
-let placeholderDashboard = null
 
-function crearPlaceholderDashboard(card) {
-    const placeholder = document.createElement("div")
-    placeholder.className = "sortable-placeholder"
-    placeholder.setAttribute("aria-hidden", "true")
-    // Arranca en la celda de la card arrastrada (mismas dimensiones).
-    placeholder.style.gridColumnStart = card.style.gridColumnStart
-    placeholder.style.gridColumnEnd = card.style.gridColumnEnd
-    placeholder.style.gridRowStart = card.style.gridRowStart
-    placeholder.style.gridRowEnd = card.style.gridRowEnd
-    return placeholder
+// Celda (0-indexada) que ocupa hoy la card: el DOM manda porque refleja el
+// último reparto; la preferencia es el respaldo cuando aún no hay estilos.
+function celdaCardDashboard(id, card) {
+    const filaDom = Number(card?.style?.gridRowStart)
+    const colDom = Number(card?.style?.gridColumnStart)
+    if (filaDom > 0 && colDom > 0) return { row: filaDom - 1, col: colDom - 1 }
+    const preferida = posicionesPreferidasDashboard[id]
+    return preferida ? { row: preferida.row, col: preferida.col } : null
+}
+
+// Celda (0-indexada) que queda bajo el puntero. Se mide el grid real porque las
+// columnas son auto-fill: solo el navegador sabe cuántas hay y cuánto miden.
+function celdaEnPuntoDashboard(x, y) {
+    const grid = document.querySelector(".dashboard")
+    if (!grid || !Number.isFinite(x) || !Number.isFinite(y)) return null
+    const caja = grid.getBoundingClientRect()
+    const estilos = window.getComputedStyle(grid)
+    const anchos = estilos.gridTemplateColumns.split(" ").filter(Boolean)
+    const anchoColumna = parseFloat(anchos[0])
+    const altoFila = parseFloat(estilos.gridAutoRows)
+    const hueco = parseFloat(estilos.rowGap) || 0
+    if (!anchos.length || !(anchoColumna > 0) || !(altoFila > 0)) return null
+    const col = Math.floor((x - caja.left) / (anchoColumna + hueco))
+    const row = Math.floor((y - caja.top) / (altoFila + hueco))
+    if (col < 0 || col >= anchos.length || row < 0) return null
+    return { row, col }
+}
+
+// Previsualización del destino: pinta la card arrastrada en la celda bajo el
+// puntero. Se usa dragover y no onMove porque onMove no se dispara sobre
+// huecos vacíos ni sobre la propia card arrastrada.
+function previsualizarDestinoDashboard(evento) {
+    if (!arrastrando) return
+    const grid = evento.currentTarget
+    const arrastrada = grid.querySelector(":scope > .dashboard-card-ghost")
+    if (!arrastrada) return
+    const celda = celdaEnPuntoDashboard(evento.clientX, evento.clientY)
+    if (!celda) return
+    // El tamaño no se puede leer del DOM: onStart retiró las celdas.
+    const { ancho, alto } = dimensionesCard(arrastrada.dataset.dashboardCard)
+    const col = Math.max(0, Math.min(celda.col, columnasActuales - ancho))
+    celdaDestinoDashboard = { row: celda.row, col }
+    arrastrada.style.gridColumnStart = String(col + 1)
+    arrastrada.style.gridColumnEnd = String(col + ancho + 1)
+    arrastrada.style.gridRowStart = String(celda.row + 1)
+    arrastrada.style.gridRowEnd = String(celda.row + alto + 1)
 }
 
 function moverCardDashboard(id, direccion) {
-    const indice = cardsOrdenDashboard.indexOf(id)
-    const destino = indice + direccion
-    if (indice < 0 || destino < 0 || destino >= cardsOrdenDashboard.length || id === "patrimonio") return
-    [cardsOrdenDashboard[indice], cardsOrdenDashboard[destino]] = [cardsOrdenDashboard[destino], cardsOrdenDashboard[indice]]
+    if (id === "patrimonio") return
+
+    const grid = document.querySelector(".dashboard")
+    const card = grid?.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
+    const celda = celdaCardDashboard(id, card)
+    if (!celda) return
+
+    // Patrimonio ocupa la columna 0 desde arriba: en esa columna la primera
+    // fila libre es la que queda debajo de él.
+    const filaMinima = celda.col === 0 ? dimensionesCard("patrimonio").alto : 0
+    const fila = celda.row + direccion
+    if (fila < filaMinima) return
+
+    posicionesPreferidasDashboard[id] = { row: fila, col: celda.col }
     cambiosPendientesDashboard = true
-    reordenarDashboard()
+    reordenarDashboard(id)
 }
 
 async function quitarCardDashboard(id) {
     if (id === "patrimonio") return
+    delete posicionesPreferidasDashboard[id]
     const idxVis = cardsVisiblesDashboard.indexOf(id)
     if (idxVis >= 0) cardsVisiblesDashboard.splice(idxVis, 1)
     const card = document.querySelector(`[data-dashboard-card="${CSS.escape(id)}"]`)
@@ -1091,15 +1217,12 @@ function prepararEdicionCardsDashboard() {
             card.draggable = false
             return
         }
-        card.draggable = true
-        // Si render() ya inyectó los botones de acción, no los duplicamos:
-        // solo aseguramos que el handle de arrastre sea draggable.
+        // El arrastre lo inicia SortableJS desde .btn-mover-card: es él quien
+        // marca la card como draggable. Si el handle fuera el elemento
+        // draggable, el navegador arrastraría solo el botón y no se vería la
+        // card siguiendo al cursor.
         const controlesExistentes = card.querySelector(".card-acciones-edicion")
-        if (controlesExistentes) {
-            const handle = controlesExistentes.querySelector(".btn-mover-card")
-            if (handle) handle.setAttribute("draggable", "true")
-            return
-        }
+        if (controlesExistentes) return
         const controles = document.createElement("div")
         controles.className = "dashboard-card-edicion"
         const botones = [
@@ -1154,7 +1277,6 @@ function prepararEdicionCardsDashboard() {
 function desactivarEdicionCardsDashboard() {
     document.querySelectorAll(".dashboard [data-dashboard-card]").forEach(card => {
         card.draggable = false
-        card.classList.remove("dashboard-card-arrastrando", "encajando")
     })
     document.body.classList.remove("dashboard-card-dragging")
     if (sortableDashboard) {
@@ -1201,56 +1323,51 @@ function inicializarSortableDashboard() {
 
     sortableDashboard = new Sortable(grid, {
         handle: '.btn-mover-card',
-        // Patrimonio y Evolución patrimonial no se arrastran (patrimonio es
-        // fija; el gráfico tiene alto fijo y no debe salir de su sitio).
-        draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio']):not([data-dashboard-card='grafico'])",
+        // Patrimonio no se arrastra: es fija y va siempre primero.
+        draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio'])",
         animation: reduceMotion ? 0 : 150,
         scroll: true,
         scrollSensitivity: 30,
         scrollSpeed: 10,
         disabled: !modoEdicionDashboard,
+        // Única clase visual del arrastre: SortableJS la pone en la card
+        // arrastrada. El navegador pinta aparte la imagen de arrastre que sigue
+        // al cursor.
+        ghostClass: "dashboard-card-ghost",
         onStart: (evt) => {
             const id = evt.item.dataset.dashboardCard
-            if (!modoEdicionDashboard || id === "patrimonio" || id === "grafico") {
+            if (!modoEdicionDashboard || id === "patrimonio") {
                 sortableDashboard.sort(true) // cancelar el drag
                 return
             }
+            // Celda de origen antes de retirar las celdas explícitas.
+            celdaOrigenDashboard = celdaCardDashboard(id, evt.item)
+            // Sin posiciones explícitas la card entra en el flujo del grid y
+            // SortableJS puede moverla de celda mientras se arrastra; el
+            // reparto se vuelve a escribir al soltar.
+            evt.item.style.gridColumnStart = ""
+            evt.item.style.gridColumnEnd = ""
+            evt.item.style.gridRowStart = ""
+            evt.item.style.gridRowEnd = ""
+            celdaDestinoDashboard = null
             arrastrando = true
-            placeholderDashboard = crearPlaceholderDashboard(evt.item)
-            grid.appendChild(placeholderDashboard)
-            evt.item.classList.add("dashboard-card-arrastrando")
             document.body.classList.add("dashboard-card-dragging")
-        },
-        onMove: (evt) => {
-            const placeholder = placeholderDashboard
-            if (!placeholder || !evt.related) return
-            const destino = evt.related.closest("[data-dashboard-card]")
-            const arrastrada = evt.dragged
-            if (!destino || destino === arrastrada || !arrastrada) return
-
-            // Tamaño de la card arrastrada, leído de su celda ya calculada.
-            const ancho = Number(arrastrada.style.gridColumnEnd) - Number(arrastrada.style.gridColumnStart)
-            const alto = Number(arrastrada.style.gridRowEnd) - Number(arrastrada.style.gridRowStart)
-            if (!(ancho > 0) || !(alto > 0)) return
-
-            // El destino ya tiene su celda escrita: el placeholder la ocupa con
-            // el tamaño de la card arrastrada, sin salirse de las columnas.
-            let col = Number(destino.style.gridColumnStart)
-            const row = Number(destino.style.gridRowStart)
-            if (!Number.isFinite(col) || !Number.isFinite(row)) return
-            col = Math.max(1, Math.min(col, columnasActuales - ancho + 1))
-
-            placeholder.style.gridColumnStart = String(col)
-            placeholder.style.gridColumnEnd = String(col + ancho)
-            placeholder.style.gridRowStart = String(row)
-            placeholder.style.gridRowEnd = String(row + alto)
         },
         onEnd: (evt) => {
             const card = evt.item
-            card.classList.remove("dashboard-card-arrastrando")
-            document.body.classList.remove("dashboard-card-dragging")
+            const idArrastrada = card.dataset.dashboardCard
             try {
                 if (!modoEdicionDashboard) return
+
+                // Escape cancela el arrastre y también llega aquí, pero con
+                // originalEvent "dragend" (un drop real llega como "drop").
+                const mismaCelda = celdaOrigenDashboard &&
+                    celdaDestinoDashboard?.row === celdaOrigenDashboard.row &&
+                    celdaDestinoDashboard?.col === celdaOrigenDashboard.col
+                if (evt.originalEvent?.type !== "drop" || !celdaDestinoDashboard || mismaCelda) {
+                    reordenarDashboard()
+                    return
+                }
 
                 // Leer el nuevo orden del DOM (solo cards visibles)
                 const nuevoOrden = []
@@ -1272,13 +1389,20 @@ function inicializarSortableDashboard() {
                 const noEnOrden = nuevoOrden.filter(id => !ordenActual.includes(id))
                 const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnOrden, ...noEnDOM]
 
-                // Actualizar cardsOrdenDashboard (manteniendo patrimonio primero)
-                cardsOrdenDashboard = ["patrimonio", ...nuevoOrdenCompleto]
+                // Actualizar cardsOrdenDashboard (patrimonio queda fuera: es
+                // fija y reordenarDashboard la antepone siempre; guardarla aquí
+                // descolocaba los movimientos por flechas).
+                cardsOrdenDashboard = nuevoOrdenCompleto
                 cambiosPendientesDashboard = true
 
-                // Sortable solo decide el orden: las posiciones explícitas se
-                // recalculan aquí, sin volver a renderizar el grid entero.
-                aplicarPosicionesDashboard()
+                // La celda de destino manda sobre el orden: sin guardarla, el
+                // empaquetado denso devolvía la card a la primera fila libre.
+                if (celdaDestinoDashboard && idArrastrada && idArrastrada !== "patrimonio") {
+                    posicionesPreferidasDashboard[idArrastrada] = celdaDestinoDashboard
+                }
+
+                // Reescribir las celdas explícitas de todas las cards.
+                aplicarPosicionesDashboard(idArrastrada)
 
                 // Guardar en Firestore
                 guardarPreferenciasDashboard({
@@ -1289,12 +1413,23 @@ function inicializarSortableDashboard() {
                     console.error("Error guardando orden del dashboard:", error)
                 })
             } finally {
-                placeholderDashboard?.remove()
-                placeholderDashboard = null
+                celdaDestinoDashboard = null
+                celdaOrigenDashboard = null
+                document.body.classList.remove("dashboard-card-dragging")
                 arrastrando = false
+                // Si el try salió antes de repartir (edición desactivada), las
+                // celdas siguen sin escribir: se restauran aquí.
+                if (!card.style.gridRowStart) aplicarPosicionesDashboard()
             }
         }
     })
+
+    // El grid recibe dragover durante todo el arrastre: de ahí sale la celda de
+    // destino. SortableJS no mueve nodos porque cada card lleva su celda.
+    if (!grid.dataset.arrastrePreparado) {
+        grid.dataset.arrastrePreparado = "1"
+        grid.addEventListener("dragover", previsualizarDestinoDashboard)
+    }
 }
 
 async function manejarTeclaEdicionDashboard(evento) {
@@ -1593,6 +1728,9 @@ function abrirSelectorCardsDashboard() {
                 cardsVisiblesDashboard = visibles
                 cardsOrdenDashboard = orden
                 cardsDimensionesDashboard = dimensionesModal
+                // El editor fija orden y tamaño: las celdas elegidas a mano
+                // dejan de tener sentido y se recalculan desde cero.
+                posicionesPreferidasDashboard = {}
                 cambiosPendientesDashboard = false
 
                 // Re-renderiza el dashboard completo en vivo para reflejar
@@ -1622,7 +1760,7 @@ function abrirSelectorCardsDashboard() {
                     prepararEdicionCardsDashboard()
                     inicializarSortableDashboard()
                 }
-                reordenarDashboard(true)
+                reordenarDashboard()
                 // Cargar datos reales en las cards recién renderizadas para
                 // evitar que se queden con esqueletos tras guardar.
                 await actualizarUI()
@@ -1791,11 +1929,16 @@ function obtenerPeriodoFlujo(id) {
 function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseAdicional = "", _config = {}) {
     const id = `card-${cardId}`;
     const clasesSpan = clasesCard(cardId)
+    // Sin detalleId no hay detalle: antes se pintaba un hueco con id="null" y su
+    // esqueleto no lo limpiaba nadie (card Cuentas).
+    const detalle = detalleId
+        ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>`
+        : "";
     return `
         <div class="glass card card-navegable metric-card ${claseAdicional} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
             <div class="card-title">${titulo}</div>
             <div class="card-value" id="${valorId}">${skeletonText("skeleton-value")}</div>
-            <div class="card-sub" id="${detalleId}">${skeletonText()}</div>
+            ${detalle}
         </div>
     `;
 }
@@ -2063,7 +2206,7 @@ const GENERADORES_CARD = {
 function htmlBotonesAccionCard(id) {
     return `
         <div class="card-acciones-edicion">
-            <button type="button" class="card-accion-btn btn-mover-card" data-accion="arrastrar" title="Mover card" aria-label="Mover card" draggable="true">${icono("grip", 16)}</button>
+            <button type="button" class="card-accion-btn btn-mover-card" data-accion="arrastrar" title="Mover card" aria-label="Mover card">${icono("grip", 16)}</button>
             <button type="button" class="card-accion-btn btn-subir-card" data-accion="subir" data-id="${id}" title="Subir card" aria-label="Subir card">${icono("chevron-up", 16)}</button>
             <button type="button" class="card-accion-btn btn-bajar-card" data-accion="bajar" data-id="${id}" title="Bajar card" aria-label="Bajar card">${icono("chevron-down", 16)}</button>
             <button type="button" class="card-accion-btn btn-eliminar-card" data-accion="eliminar" data-id="${id}" title="Eliminar card del dashboard" aria-label="Eliminar card">${icono("minus", 16)}</button>
@@ -2323,7 +2466,7 @@ function configurarRefreshDashboard() {
             document.querySelector(".dashboard")?.setAttribute("aria-busy", "true")
             try {
                 await cargarTodo()
-                reordenarDashboard(true)
+                reordenarDashboard()
             } catch (error) {
                 console.error("Error refrescando el dashboard:", error)
             } finally {
@@ -2354,7 +2497,7 @@ export async function recargarDatos() {
     } catch (error) {
         console.error("Error recargando dashboard:", error)
     } finally {
-        reordenarDashboard(true)
+        reordenarDashboard()
         document.querySelector(".dashboard")?.removeAttribute("aria-busy")
         desactivarSpinLogo()
     }
@@ -2908,7 +3051,7 @@ async function actualizarUI() {
     actualizarDistribucion()
     actualizarProgramados()
     actualizarAlertas()
-    reordenarDashboard(true)
+    reordenarDashboard()
 }
 
 // calcularPatrimonio() ya devuelve los totales por divisa, y tres cards los
@@ -2938,7 +3081,7 @@ async function actualizarCuentas() {
         if (stats.tieneDeuda) {
             detalle += ` | Deuda: -${formatearMontoConDivisa(convertirMonto(stats.totalDeuda, "pen", divisaActual), divisaActual)}`
         }
-        detalleEl.textContent = detalle
+        detalleEl.replaceChildren(document.createTextNode(detalle))
     }
 }
 
@@ -3254,31 +3397,27 @@ function actualizarFlujoPeriodo() {
     const ingresosDetalle = document.getElementById("ingresos-periodo-detalle")
     const balanceEl = document.getElementById("balance-periodo-valor")
     const balanceDetalle = document.getElementById("balance-periodo-detalle")
-    if (!gastosEl || !ingresosEl || !balanceEl) return
 
-    // Sin datos todavía: limpiar esqueletos para que no queden pegados tras un
-    // render (p. ej. después de guardar el editor de cards).
+    // Cada card se pinta por separado: se pueden ocultar Gastado e Ingresado y
+    // dejar solo Balance, y el guard anterior (que exigía las tres) le dejaba
+    // el esqueleto pegado para siempre.
     if (!datos) {
-        gastosEl.textContent = ""
-        if (gastosDetalle) gastosDetalle.textContent = ""
-        ingresosEl.textContent = ""
-        if (ingresosDetalle) ingresosDetalle.textContent = ""
-        balanceEl.textContent = ""
-        if (balanceDetalle) balanceDetalle.textContent = ""
+        [gastosEl, gastosDetalle, ingresosEl, ingresosDetalle, balanceEl, balanceDetalle]
+            .forEach(el => el?.replaceChildren())
         return
     }
 
-    gastosEl.textContent = formatearMontoConDivisa(datos.gastos, divisaActual)
+    if (gastosEl) gastosEl.textContent = formatearMontoConDivisa(datos.gastos, divisaActual)
     if (gastosDetalle) gastosDetalle.textContent = datos.movimientosGastos > 0
         ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosGastos)}`
         : periodo.sub
 
-    ingresosEl.textContent = formatearMontoConDivisa(datos.ingresos, divisaActual)
+    if (ingresosEl) ingresosEl.textContent = formatearMontoConDivisa(datos.ingresos, divisaActual)
     if (ingresosDetalle) ingresosDetalle.textContent = datos.movimientosIngresos > 0
         ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosIngresos)}`
         : periodo.sub
 
-    balanceEl.textContent = formatearMontoConDivisa(datos.balance, divisaActual)
+    if (balanceEl) balanceEl.textContent = formatearMontoConDivisa(datos.balance, divisaActual)
     if (balanceDetalle) balanceDetalle.textContent = datos.total > 0
         ? `${pluralizarMovimientos(datos.total)} en total`
         : "Sin movimientos"
@@ -4383,7 +4522,7 @@ function instalarSincronizacionMetas() {
     window.addEventListener("metas-actualizadas", async () => {
         metasData = await cargarMetas()
         actualizarMetas()
-        reordenarDashboard(true)
+        reordenarDashboard()
     })
 }
 
@@ -4400,7 +4539,7 @@ function instalarSincronizacionPresupuestos() {
     sincronizacionPresupuestosInstalada = true
     window.addEventListener("presupuestos-actualizados", async () => {
         await actualizarPresupuestos()
-        reordenarDashboard(true)
+        reordenarDashboard()
     })
 }
 
@@ -4415,6 +4554,9 @@ async function actualizarPresupuestos() {
         presupuestos = await obtenerPresupuestosConProgreso(uid)
     } catch (error) {
         console.error("[ERROR] Error cargando presupuestos para dashboard:", error)
+        lista.replaceChildren(tarjetaVacia("Error al cargar presupuestos."))
+        actualizarScrollFade(lista)
+        if (contador) contador.textContent = "0"
         return
     }
 
@@ -4569,7 +4711,7 @@ function configurarDivisa() {
         actualizarDistribucion()
         actualizarProgramados()
         actualizarAlertas()
-        reordenarDashboard(true)
+        reordenarDashboard()
 
         // Redibujar el gráfico manteniendo el periodo actual
         if (datosGrafico?.labels?.length) {

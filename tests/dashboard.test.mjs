@@ -13,6 +13,7 @@ import { nuevoReporter, leer, extraerFuncion } from "./helpers.mjs"
 import vm from "node:vm"
 
 const SRC = leer("js/pages/dashboard.js")
+const CSS_SRC = leer("css/dashboard.css")
 
 const ctx = {
     DEFAULT_CARDS_VISIBLES: ["cuentas", "movimientos", "inversiones", "metas", "grafico"],
@@ -40,6 +41,7 @@ const ctx = {
         { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 1 }
     ],
     esCardInstancia: (id) => String(id).includes(":"),
+    posicionesPreferidasDashboard: {},
     console: { warn() {}, log() {}, error() {} }
 }
 vm.createContext(ctx)
@@ -343,10 +345,13 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     // Stubs para funciones del DOM y utilidades usadas por los actualizadores.
     ctx.createdElements = {}
     ctx.stubDocumentGetElementById = function (id) {
+        // Simula cards ocultas: el id no existe en el DOM.
+        if (ctx.idsOcultos && ctx.idsOcultos.has(id)) return null
         if (!ctx.createdElements[id]) {
             ctx.createdElements[id] = {
                 textContent: "",
-                replaceChildren: function () { this.children = [] },
+                replaceChildrenCalled: false,
+                replaceChildren: function () { this.children = []; this.replaceChildrenCalled = true },
                 classList: {
                     add: function () {},
                     remove: function () {},
@@ -361,6 +366,9 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         }
         return ctx.createdElements[id]
     }
+    ctx.stubDocumentCreateTextNode = function (texto) {
+        return { textContent: String(texto) }
+    }
     ctx.stubTarjetaVacia = function (texto) {
         return { _texto: texto, replaceChildren: function () { this.children = [] } }
     }
@@ -374,11 +382,20 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     }
     ctx.stubAplicoAnchoBarras = function () {}
     ctx.stubDibujarDonaDistribucion = function () { return Promise.resolve() }
+    ctx.stubPluralizarMovimientos = function (n) { return n + " movimiento" + (n === 1 ? "" : "s") }
+    ctx.stubObtenerPeriodoFlujo = function () { return { sub: "mensual" } }
+    ctx.stubPlantillaPresupuestoDashboard = function (_p) { return { valores: {}, html: {} } }
+    ctx.stubEnlazarListaPresupuestos = function () {}
+    ctx.stubObtenerPresupuestosConProgreso = function () { return [] }
+    ctx.stubPreciosPorSimbolo = function () { return new Map() }
+    ctx.stubDistanciaAlDisparo = function () { return null }
+    ctx.stubConvertirMonto = function (val) { return val }
+    ctx.stubObtenerPatrimonioStats = function () { return { totalCuentas: 0, totalActivos: 0, totalDeuda: 0, tieneDeuda: false, patrimonio: 0 } }
 
     // Extraer los 5 actualizadores que tienen retorno anticipado sin limpiar
     // skeleton cuando analiticaData es null.
     vm.runInContext(`
-        var document = { getElementById: ctx.stubDocumentGetElementById };
+        var document = { getElementById: ctx.stubDocumentGetElementById, createTextNode: ctx.stubDocumentCreateTextNode };
         var analiticaData = ctx.analiticaData;
         var divisaActual = ctx.divisaActual;
         var formatearMontoConDivisa = ctx.stubFormatearMontoConDivisa;
@@ -388,6 +405,17 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var contenidoDesdeFilas = ctx.stubContenidoDesdeFilas;
         var aplicoAnchoBarras = ctx.stubAplicoAnchoBarras;
         var dibujarDonaDistribucion = ctx.stubDibujarDonaDistribucion;
+        var pluralizarMovimientos = ctx.stubPluralizarMovimientos;
+        var obtenerPeriodoFlujo = ctx.stubObtenerPeriodoFlujo;
+        var periodoFlujo = "30d";
+        var plantillaPresupuestoDashboard = ctx.stubPlantillaPresupuestoDashboard;
+        var enlazarListaPresupuestos = ctx.stubEnlazarListaPresupuestos;
+        var obtenerPresupuestosConProgreso = ctx.stubObtenerPresupuestosConProgreso;
+        var preciosPorSimbolo = ctx.stubPreciosPorSimbolo;
+        var distanciaAlDisparo = ctx.stubDistanciaAlDisparo;
+        var ordenesData = ctx.ordenesData || [];
+        var convertirMonto = ctx.stubConvertirMonto;
+        var obtenerPatrimonioStats = ctx.stubObtenerPatrimonioStats;
     `, ctx)
 
     vm.runInContext(extraerFuncion(SRC, "actualizarFlujoCaja") + ";", ctx)
@@ -395,11 +423,15 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     vm.runInContext(extraerFuncion(SRC, "actualizarDistribucion") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarProgramados") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarAlertas") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarFlujoPeriodo") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarOrdenes") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarCuentas") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "actualizarPresupuestos") + ";", ctx)
 
     // Helper para verificar que replaceChildren fue llamado en un elemento.
     function replaceChildrenFueLlamado(id) {
         const el = ctx.createdElements[id]
-        return el && el.children !== undefined && el.children.length === 0
+        return el && el.replaceChildrenCalled === true
     }
 
     // Test B2.1: actualizarFlujoCaja limpia skeleton cuando analiticaData es null.
@@ -497,6 +529,737 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         "B2.7 actualizarDistribucion reemplaza lista cuando hay datos",
         replaceChildrenFueLlamado("distribucion-lista")
     )
+
+    // ================================================================
+    // Fase 2 segunda pasada: skeletons restantes
+    // ================================================================
+
+    // Test B2.8: Balance - actualizarFlujoPeriodo muestra valor con datos.
+    ctx.analiticaData = {
+        flujoPorPeriodo: { "30d": { balance: 1000, gastos: 500, ingresos: 1500, movimientosGastos: 5, movimientosIngresos: 3, total: 8 } }
+    }
+    ctx.divisaActual = "pen"
+    ctx.createdElements = {}
+    ctx.actualizarFlujoPeriodo()
+    const balValor = ctx.createdElements["balance-periodo-valor"]
+    const balDetalle = ctx.createdElements["balance-periodo-detalle"]
+    t.check(
+        "B2.8 Balance muestra valor cuando hay datos",
+        balValor && balValor.textContent === "1000"
+    )
+    t.check(
+        "B2.8 Balance muestra detalle cuando hay datos",
+        balDetalle && balDetalle.textContent === "8 movimientos en total"
+    )
+
+    // Test B2.9: Balance - actualizarFlujoPeriodo limpia skeleton sin datos.
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.actualizarFlujoPeriodo()
+    const balValorVacio = ctx.createdElements["balance-periodo-valor"]
+    const balDetalleVacio = ctx.createdElements["balance-periodo-detalle"]
+    t.check(
+        "B2.9 Balance limpia valor cuando no hay datos",
+        balValorVacio && balValorVacio.textContent === ""
+    )
+    t.check(
+        "B2.9 Balance limpia detalle cuando no hay datos",
+        balDetalleVacio && balDetalleVacio.textContent === ""
+    )
+
+    // Test B2.10: Cuentas - actualizarCuentas muestra total con datos.
+    ctx.createdElements = {}
+    await ctx.actualizarCuentas()
+    const cuentasTotal = ctx.createdElements["total-cuentas"]
+    const cuentasDetalle = ctx.createdElements["patrimonio-detalle"]
+    t.check(
+        "B2.10 Cuentas muestra total cuando hay datos",
+        cuentasTotal && cuentasTotal.replaceChildrenCalled === true
+    )
+    t.check(
+        "B2.10 Cuentas muestra detalle cuando hay datos",
+        cuentasDetalle && cuentasDetalle.replaceChildrenCalled === true
+    )
+
+    // Test B2.11: Órdenes - actualizarOrdenes muestra vacío cuando no hay órdenes.
+    ctx.ordenesData = []
+    ctx.createdElements = {}
+    ctx.actualizarOrdenes()
+    const _ordLista = ctx.createdElements["ordenes-lista"]
+    const ordCantidad = ctx.createdElements["ordenes-cantidad"]
+    const ordDetalle = ctx.createdElements["ordenes-detalle"]
+    t.check(
+        "B2.11 Órdenes reemplaza lista cuando no hay órdenes",
+        replaceChildrenFueLlamado("ordenes-lista")
+    )
+    t.check(
+        "B2.11 Órdenes pone cantidad en 0 cuando no hay órdenes",
+        ordCantidad && String(ordCantidad.textContent) === "0"
+    )
+    t.check(
+        "B2.11 Órdenes muestra detalle vacío cuando no hay órdenes",
+        ordDetalle && ordDetalle.textContent === "Sin órdenes registradas"
+    )
+
+    // Test B2.12: Órdenes - actualizarOrdenes muestra error cuando falla.
+    ctx.createdElements = {}
+    ctx.actualizarOrdenes(new Error("fallo"))
+    const _ordListaErr = ctx.createdElements["ordenes-lista"]
+    const ordCantidadErr = ctx.createdElements["ordenes-cantidad"]
+    t.check(
+        "B2.12 Órdenes reemplaza lista cuando hay error",
+        replaceChildrenFueLlamado("ordenes-lista")
+    )
+    t.check(
+        "B2.12 Órdenes pone cantidad en guion cuando hay error",
+        ordCantidadErr && ordCantidadErr.textContent === "—"
+    )
+
+    // Test B2.13: Presupuestos - actualizarPresupuestos muestra vacía sin datos.
+    ctx.createdElements = {}
+    ctx.actualizarPresupuestos()
+    const _presLista = ctx.createdElements["presupuestos-lista"]
+    const presContador = ctx.createdElements["presupuestos-cantidad"]
+    t.check(
+        "B2.13 Presupuestos reemplaza lista cuando no hay presupuestos",
+        replaceChildrenFueLlamado("presupuestos-lista")
+    )
+    t.check(
+        "B2.13 Presupuestos pone contador en 0 cuando no hay presupuestos",
+        presContador && presContador.textContent === "0"
+    )
+
+    // Test B2.14: Presupuestos - actualizarPresupuestos muestra error cuando falla la carga.
+    ctx.stubObtenerPresupuestosConProgreso = function () { throw new Error("fallo") }
+    ctx.createdElements = {}
+    ctx.actualizarPresupuestos()
+    const _presListaErr = ctx.createdElements["presupuestos-lista"]
+    const presContadorErr = ctx.createdElements["presupuestos-cantidad"]
+    t.check(
+        "B2.14 Presupuestos reemplaza lista cuando falla la carga",
+        replaceChildrenFueLlamado("presupuestos-lista")
+    )
+    t.check(
+        "B2.14 Presupuestos pone contador en 0 cuando falla la carga",
+        presContadorErr && presContadorErr.textContent === "0"
+    )
+    // Restaurar stub para no afectar otros tests
+    ctx.stubObtenerPresupuestosConProgreso = function () { return [] }
+
+    // ================================================================
+    // Fase 2 tercera pasada: Balance, Cuentas y cards de cuenta/activo
+    // ================================================================
+
+    // C1: generarCardMetrica sin detalleId no deja un hueco esqueleto con
+    // id="null" (la barra gris bajo el total de Cuentas).
+    ctx.stubClasesCard = function () { return "" }
+    ctx.stubSkeletonText = function (clase = "") {
+        return `<span class="skeleton skeleton-text ${clase}" aria-hidden="true"></span>`
+    }
+    vm.runInContext(`
+        var clasesCard = ctx.stubClasesCard;
+        var skeletonText = ctx.stubSkeletonText;
+    `, ctx)
+    vm.runInContext(extraerFuncion(SRC, "generarCardMetrica") + ";", ctx)
+
+    const htmlCuentas = ctx.generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null)
+    t.check(
+        "C1 Cuentas no renderiza detalle sin detalleId",
+        !htmlCuentas.includes('class="card-sub"') && !htmlCuentas.includes('id="null"'),
+        htmlCuentas
+    )
+    const htmlBalance = ctx.generarCardMetrica(
+        "balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"
+    )
+    t.check(
+        "C1 Balance conserva su detalle",
+        htmlBalance.includes('id="balance-periodo-detalle"')
+    )
+
+    // C2: Balance se pinta aunque Gastado e Ingresado estén ocultos (antes el
+    // guard exigía las tres cards y dejaba el esqueleto pegado).
+    ctx.idsOcultos = new Set([
+        "gastos-periodo-valor", "gastos-periodo-detalle",
+        "ingresos-periodo-valor", "ingresos-periodo-detalle"
+    ])
+    ctx.analiticaData = {
+        flujoPorPeriodo: { "30d": { balance: 10, gastos: 0, ingresos: 0, movimientosGastos: 0, movimientosIngresos: 0, total: 0 } }
+    }
+    ctx.divisaActual = "pen"
+    ctx.createdElements = {}
+    ctx.actualizarFlujoPeriodo()
+    t.check(
+        "C2 Balance pinta valor con Gastado e Ingresado ocultos",
+        ctx.createdElements["balance-periodo-valor"]?.textContent === "10"
+    )
+    t.check(
+        "C2 Balance pinta estado vacío de movimientos",
+        ctx.createdElements["balance-periodo-detalle"]?.textContent === "Sin movimientos"
+    )
+    ctx.idsOcultos = null
+
+    // C3: Balance sin datos limpia el esqueleto (estado vacío).
+    ctx.analiticaData = null
+    ctx.createdElements = {}
+    ctx.stubDocumentGetElementById("balance-periodo-valor").children = ["esqueleto"]
+    ctx.actualizarFlujoPeriodo()
+    t.check(
+        "C3 Balance sin datos limpia el esqueleto",
+        ctx.createdElements["balance-periodo-valor"].children.length === 0
+    )
+
+    // C4: Cuentas sin datos pinta 0 en lugar de quedarse en esqueleto.
+    ctx.obtenerPatrimonioStats = async function () { throw new Error("sin datos") }
+    ctx.createdElements = {}
+    await ctx.actualizarCuentas()
+    t.check(
+        "C4 Cuentas sin datos pinta el total en 0",
+        ctx.createdElements["total-cuentas"]?.replaceChildrenCalled === true
+    )
+    ctx.obtenerPatrimonioStats = ctx.stubObtenerPatrimonioStats
+
+    // C5/C6: las cards de cuenta quitan el badge de la cabecera, que vacío
+    // seguía dibujando una pastilla gris junto al título.
+    ctx.cuentas = []
+    ctx.movimientosCompletosData = []
+    ctx.tieneHijas = function () { return false }
+    ctx.saldoFamilia = function () { return 0 }
+    ctx.hijasDe = function () { return [] }
+    ctx.esAbstracta = function () { return false }
+    ctx.presentarDivisa = function () { return "S/" }
+    ctx.formatearFecha = function () { return "—" }
+    ctx.nivelUsoDe = function () { return { deuda: 100, limite: 1000, porcentaje: 10, nivel: "normal" } }
+    ctx.estadoCicloDe = function () { return { pagadoCompleto: true, restante: 0 } }
+    ctx.proximaAnualidad = function () { return null }
+    ctx.filaDato = function () { return null }
+    vm.runInContext(`
+        var cuentas = ctx.cuentas;
+        var movimientosCompletosData = ctx.movimientosCompletosData;
+        var tieneHijas = ctx.tieneHijas;
+        var saldoFamilia = ctx.saldoFamilia;
+        var hijasDe = ctx.hijasDe;
+        var esAbstracta = ctx.esAbstracta;
+        var presentarDivisa = ctx.presentarDivisa;
+        var formatearFecha = ctx.formatearFecha;
+        var nivelUsoDe = ctx.nivelUsoDe;
+        var estadoCicloDe = ctx.estadoCicloDe;
+        var proximaAnualidad = ctx.proximaAnualidad;
+        var filaDato = ctx.filaDato;
+    `, ctx)
+    vm.runInContext(extraerFuncion(SRC, "pintarCardCuenta") + ";", ctx)
+
+    function tarjetaFalsa() {
+        const elementos = {}
+        const card = {
+            setAttribute: function () {},
+            querySelector: function (selector) {
+                const id = selector.replace(/^#/, "")
+                if (!elementos[id]) {
+                    elementos[id] = {
+                        textContent: "",
+                        className: "",
+                        removed: false,
+                        children: [],
+                        classList: {
+                            add: function () {},
+                            remove: function () {},
+                            toggle: function () {},
+                            contains: function () { return false }
+                        },
+                        style: { setProperty: function () {} },
+                        replaceChildren: function (...nodos) { this.children = nodos },
+                        remove: function () { this.removed = true }
+                    }
+                }
+                return elementos[id]
+            }
+        }
+        return { card, elementos }
+    }
+
+    const credito = tarjetaFalsa()
+    ctx.pintarCardCuenta({ id: "c1", nombre: "Visa", tipo: "credito", moneda: "pen" }, credito.card)
+    t.check(
+        "C5 card de cuenta (crédito) con datos pinta el valor",
+        credito.elementos["cuenta-card-c1-valor"]?.textContent === "100"
+    )
+    t.check(
+        "C5 card de cuenta (crédito) quita el badge/esqueleto del título",
+        credito.elementos["cuenta-card-c1-estado"]?.removed === true
+    )
+
+    const ahorro = tarjetaFalsa()
+    ctx.pintarCardCuenta({ id: "c2", nombre: "Ahorros", tipo: "ahorro", moneda: "pen", saldoInicial: 50 }, ahorro.card)
+    t.check(
+        "C6 card de cuenta con datos pinta el saldo",
+        ahorro.elementos["cuenta-card-c2-valor"]?.textContent === "50"
+    )
+    t.check(
+        "C6 card de cuenta quita el badge vacío del título",
+        ahorro.elementos["cuenta-card-c2-estado"]?.removed === true
+    )
+
+    // ================================================================
+    // Fase 4: correcciones de auditoría (B3/B5)
+    // ================================================================
+
+    // B3-A: DASHBOARD_CARDS del módulo real declara grafico con spanFilas: 2.
+    const iGrafico = SRC.indexOf('{ id: "grafico"')
+    const bloqueGrafico = SRC.slice(iGrafico, SRC.indexOf("}", iGrafico) + 1)
+    t.check(
+        "B3-A grafico en DASHBOARD_CARDS tiene spanFilas: 2",
+        bloqueGrafico.includes("spanFilas: 2"),
+        bloqueGrafico
+    )
+
+    // B3-B: --altura-celda es 160px en css/dashboard.css.
+    const cssDashboard = leer("css/dashboard.css")
+    t.check(
+        "B3-B --altura-celda es 160px",
+        cssDashboard.includes("--altura-celda: 160px")
+    )
+
+    // B3-C: clamp de dimensiones leídas de Firestore.
+    const iDim = SRC.indexOf("const DASHBOARD_DIMENSIONES = {")
+    const iInicio = SRC.indexOf("{", iDim)
+    let nivelDim = 0, iDimFin = iDim
+    for (let k = iInicio; k < SRC.length; k++) {
+        if (SRC[k] === "{") nivelDim++
+        else if (SRC[k] === "}") { nivelDim--; if (nivelDim === 0) { iDimFin = k + 1; break } }
+    }
+    vm.runInContext(`var DASHBOARD_DIMENSIONES = ${SRC.slice(iInicio, iDimFin)};`, ctx)
+    vm.runInContext(extraerFuncion(SRC, "clampDimensionesDashboard") + ";", ctx)
+
+    const g1 = ctx.clampDimensionesDashboard({ grafico: { columnas: 2, filas: 1 } })
+    t.check(
+        "B3-C grafico alto 1 se clampea a 2 (alto fijo)",
+        g1.grafico.filas === 2 && g1.grafico.columnas === 2
+    )
+    const g2 = ctx.clampDimensionesDashboard({ grafico: { columnas: 3, filas: 2 } })
+    t.check(
+        "B3-C grafico ancho 3 se clampea a 2",
+        g2.grafico.columnas === 2 && g2.grafico.filas === 2
+    )
+    const p = ctx.clampDimensionesDashboard({ patrimonio: { columnas: 1, filas: 5 } })
+    t.check(
+        "B3-C patrimonio alto 5 se clampea a 3",
+        p.patrimonio.filas === 3
+    )
+    const ok = ctx.clampDimensionesDashboard({ metas: { columnas: 1, filas: 2 } })
+    t.check(
+        "B3-C metas dentro de rango se mantienen",
+        ok.metas.columnas === 1 && ok.metas.filas === 2
+    )
+    const sinCat = ctx.clampDimensionesDashboard({ "cuenta:abc": { columnas: 1, filas: 1 } })
+    t.check(
+        "B3-C id sin catalogo se mantiene igual",
+        JSON.stringify(sinCat["cuenta:abc"]) === JSON.stringify({ columnas: 1, filas: 1 })
+    )
+    t.check(
+        "B3-C clamp(null) devuelve {}",
+        JSON.stringify(ctx.clampDimensionesDashboard(null)) === "{}"
+    )
+    t.check(
+        "B3-C clamp(undefined) devuelve {}",
+        JSON.stringify(ctx.clampDimensionesDashboard(undefined)) === "{}"
+    )
+
+    // B5: gráfico movible (arrastre y flechas).
+    const srcSortable = extraerFuncion(SRC, "inicializarSortableDashboard")
+    t.check(
+        "B5 draggable no excluye al gráfico",
+        !srcSortable.includes("data-dashboard-card='grafico'")
+    )
+    t.check(
+        "B5 onStart no cancela el arrastre del gráfico",
+        !srcSortable.includes('id === "grafico"')
+    )
+    const srcMover = extraerFuncion(SRC, "moverCardDashboard")
+    t.check(
+        "B5 moverCardDashboard no bloquea al gráfico",
+        !srcMover.includes('id === "grafico"')
+    )
+
+    // ================================================================
+    // Fase 5: geometría del grid (Patrimonio y filas reservadas)
+    // ================================================================
+    const DIMENSIONES = ctx.DASHBOARD_DIMENSIONES
+
+    // P1: Patrimonio con alto 3 reserva 3 filas y empuja el resto debajo.
+    {
+        const d = distribuir(
+            ["patrimonio", "a", "b"],
+            { patrimonio: { columnas: 1, filas: 3 } },
+            1,
+            DIMENSIONES
+        )
+        const p3 = d.find(c => c.id === "patrimonio")
+        t.check(
+            "P1 Patrimonio alto 3 ocupa 3 filas en el grid virtual",
+            p3?.col === 0 && p3?.row === 0 && p3?.alto === 3,
+            JSON.stringify(p3)
+        )
+        t.check(
+            "P1 Patrimonio alto 3 empuja las cards siguientes a la fila 3",
+            d.filter(c => c.id !== "patrimonio").every(c => c.row >= 3),
+            JSON.stringify(d)
+        )
+    }
+
+    // P2: Patrimonio con alto 1 reserva una sola fila.
+    {
+        const d = distribuir(
+            ["patrimonio", "a"],
+            { patrimonio: { columnas: 1, filas: 1 } },
+            1,
+            DIMENSIONES
+        )
+        const p1 = d.find(c => c.id === "patrimonio")
+        const siguiente = d.find(c => c.id === "a")
+        t.check(
+            "P2 Patrimonio alto 1 ocupa 1 fila",
+            p1?.alto === 1 && p1?.row === 0,
+            JSON.stringify(p1)
+        )
+        t.check(
+            "P2 la card siguiente empieza en la fila 1 (sin celdas de más)",
+            siguiente?.row === 1,
+            JSON.stringify(siguiente)
+        )
+    }
+
+    // P3: no quedan filas fantasma debajo de Patrimonio. En una columna, las
+    // filas ocupadas tienen que ser consecutivas desde la 0.
+    {
+        const d = distribuir(
+            ["patrimonio", "a", "b"],
+            { patrimonio: { columnas: 1, filas: 3 } },
+            1,
+            DIMENSIONES
+        )
+        const filas = new Set()
+        for (const { row, alto } of d) {
+            for (let f = row; f < row + alto; f++) filas.add(f)
+        }
+        const total = Math.max(...filas) + 1
+        let continuas = true
+        for (let f = 0; f < total; f++) if (!filas.has(f)) continuas = false
+        t.check(
+            "P3 Patrimonio alto 3 no deja filas fantasma debajo",
+            filas.size === total && continuas,
+            `filas ocupadas: ${JSON.stringify([...filas].sort((a, b) => a - b))}`
+        )
+    }
+
+    // P4: ninguna otra card puede ocupar las celdas de Patrimonio.
+    {
+        const d = distribuir(
+            ["patrimonio", "cuentas", "movimientos", "grafico", "metas", "favoritos"],
+            { patrimonio: { columnas: 1, filas: 3 } },
+            4,
+            DIMENSIONES
+        )
+        const p4 = d.find(c => c.id === "patrimonio")
+        const celdasPatrimonio = new Set()
+        for (let f = p4.row; f < p4.row + p4.alto; f++) {
+            for (let c = p4.col; c < p4.col + p4.ancho; c++) celdasPatrimonio.add(f + "," + c)
+        }
+        const intrusas = d.filter(card => card.id !== "patrimonio").filter(({ col, row, ancho, alto }) => {
+            for (let f = row; f < row + alto; f++) {
+                for (let c = col; c < col + ancho; c++) {
+                    if (celdasPatrimonio.has(f + "," + c)) return true
+                }
+            }
+            return false
+        })
+        t.check(
+            "P4 otras cards no pueden cubrir a Patrimonio",
+            intrusas.length === 0 && sinSolapes(d),
+            `intrusas: ${JSON.stringify(intrusas)}`
+        )
+    }
+
+    // P5: el clamp y dimensionesCard aceptan el formato antiguo {ancho, alto}
+    // sin degradar el alto guardado a 1.
+    {
+        const legacy = ctx.clampDimensionesDashboard({ patrimonio: { ancho: 1, alto: 3 } })
+        t.check(
+            "P5 clamp conserva alto 3 guardado como {alto}",
+            legacy.patrimonio.columnas === 1 && legacy.patrimonio.filas === 3,
+            JSON.stringify(legacy.patrimonio)
+        )
+        ctx.cardsDimensionesDashboard = { patrimonio: { ancho: 1, alto: 3 } }
+        vm.runInContext(extraerFuncion(SRC, "dimensionesCard") + ";", ctx)
+        const med = ctx.dimensionesCard("patrimonio")
+        t.check(
+            "P5 dimensionesCard lee {ancho, alto} igual que calcularDistribucion",
+            med.ancho === 1 && med.alto === 3,
+            JSON.stringify(med)
+        )
+    }
+
+    // P6: aplicarPosicionesDashboard deja el DOM con la misma geometría que el
+    // reparto (sin recortes ni solapes posteriores).
+    {
+        const ids = ["patrimonio", "cuentas", "movimientos", "grafico", "metas", "favoritos"]
+        const tarjetas = new Map()
+        ids.forEach(id => tarjetas.set(id, { dataset: { dashboardCard: id }, style: {} }))
+        const gridFalso = {
+            style: {},
+            getBoundingClientRect: () => ({ width: 1200, height: 1200 }),
+            querySelector: (selector) => {
+                const match = /data-dashboard-card="([^"]+)"/.exec(selector)
+                return match ? tarjetas.get(match[1]) ?? null : null
+            }
+        }
+        ctx.columnasActuales = 0
+        ctx.document = { querySelector: (selector) => selector === ".dashboard" ? gridFalso : null }
+        ctx.CSS = { escape: (valor) => valor }
+        ctx.cardsDimensionesDashboard = { patrimonio: { columnas: 1, filas: 3 } }
+        ctx.ordenVisibleDashboard = () => [...ids]
+        vm.runInContext(extraerFuncion(SRC, "aplicarPosicionesDashboard") + ";", ctx)
+        ctx.aplicarPosicionesDashboard()
+
+        const rect = id => {
+            const estilo = tarjetas.get(id).style
+            return {
+                c1: Number(estilo.gridColumnStart),
+                c2: Number(estilo.gridColumnEnd),
+                r1: Number(estilo.gridRowStart),
+                r2: Number(estilo.gridRowEnd)
+            }
+        }
+        const p6 = rect("patrimonio")
+        t.check(
+            "P6 aplicarPosiciones pinta Patrimonio de la fila 1 a la 4",
+            p6.r1 === 1 && p6.r2 === 4 && p6.c1 === 1 && p6.c2 === 2,
+            JSON.stringify(p6)
+        )
+        const g6 = rect("grafico")
+        t.check(
+            "P6 el Gráfico conserva las 2 filas que le reserva el reparto",
+            g6.r2 - g6.r1 === 2,
+            JSON.stringify(g6)
+        )
+        const ocupadas = new Set()
+        let solapa = false
+        for (const id of ids) {
+            const { c1, c2, r1, r2 } = rect(id)
+            for (let f = r1; f < r2; f++) {
+                for (let c = c1; c < c2; c++) {
+                    const clave = f + "," + c
+                    if (ocupadas.has(clave)) solapa = true
+                    ocupadas.add(clave)
+                }
+            }
+        }
+        t.check(
+            "P6 ninguna card se solapa con Patrimonio en el DOM",
+            !solapa,
+            JSON.stringify([...tarjetas].map(([id]) => [id, rect(id)]))
+        )
+    }
+
+    // P7: mover una card ya no reescribe cardsOrdenDashboard (el orden de la
+    // lista no puede expresar huecos); por tanto no puede colar a Patrimonio.
+    {
+        const srcMoverP7 = extraerFuncion(SRC, "moverCardDashboard")
+        t.check(
+            "P7 moverCardDashboard no reescribe cardsOrdenDashboard",
+            !srcMoverP7.includes("cardsOrdenDashboard =") && !srcMoverP7.includes("cardsOrdenDashboard["),
+            srcMoverP7
+        )
+        const srcOnEnd = SRC.slice(SRC.indexOf("onEnd: (evt)"), SRC.indexOf("async function manejarTeclaEdicionDashboard"))
+        t.check(
+            "P7 onEnd no antepone Patrimonio a cardsOrdenDashboard",
+            !srcOnEnd.includes('["patrimonio", ...')
+        )
+    }
+
+    // ================================================================
+    // Fase 6: respetar la celda elegida (arrastre y flechas)
+    // ================================================================
+
+    // T1: una card con posición preferida se queda en su fila inferior
+    // aunque la fila 0 tenga hueco.
+    {
+        const d = distribuir(
+            ["patrimonio", "a", "b"],
+            { patrimonio: { columnas: 1, filas: 1 } },
+            2,
+            DIMENSIONES,
+            { posiciones: { b: { row: 2, col: 0 } } }
+        )
+        const b = d.find(c => c.id === "b")
+        t.check(
+            "T1 card movida a la fila 2 no vuelve a la fila 0",
+            b?.row === 2 && b?.col === 0,
+            JSON.stringify(b)
+        )
+        t.check(
+            "T1 respetar la preferencia no crea solapes",
+            d.length === 3 && sinSolapes(d),
+            JSON.stringify(d)
+        )
+        const a = d.find(c => c.id === "a")
+        t.check(
+            "T1 la card desplazada ocupa el hueco libre de arriba",
+            a?.row === 0 || a?.row === 1,
+            JSON.stringify(a)
+        )
+    }
+
+    // T2: el Gráfico 2x2 se puede dejar en la segunda fila y conserva su 2x2.
+    {
+        const d = distribuir(
+            ["patrimonio", "grafico", "cuentas"],
+            { patrimonio: { columnas: 1, filas: 1 }, grafico: { columnas: 2, filas: 2 } },
+            2,
+            DIMENSIONES,
+            { posiciones: { grafico: { row: 1, col: 0 } }, prioridad: "grafico" }
+        )
+        const g = d.find(c => c.id === "grafico")
+        t.check(
+            "T2 el Gráfico 2x2 se coloca en la segunda fila",
+            g?.row === 1 && g?.col === 0 && g?.ancho === 2 && g?.alto === 2,
+            JSON.stringify(g)
+        )
+        t.check(
+            "T2 el Gráfico en fila 1 no se solapa con Patrimonio ni con el resto",
+            sinSolapes(d),
+            JSON.stringify(d)
+        )
+    }
+
+    // T3: las flechas mueven la card una fila y la dejan ahí (la celda actual
+    // se lee del DOM; reordenarDashboard es solo el repintado).
+    {
+        const tarjetas = new Map([
+            ["patrimonio", { style: { gridRowStart: "1", gridColumnStart: "1", gridRowEnd: "3", gridColumnEnd: "2" } }],
+            ["grafico", { style: { gridRowStart: "1", gridColumnStart: "2", gridRowEnd: "3", gridColumnEnd: "4" } }],
+            ["cuentas", { style: { gridRowStart: "3", gridColumnStart: "1", gridRowEnd: "4", gridColumnEnd: "2" } }]
+        ])
+        const gridFalso = {
+            querySelector: selector => tarjetas.get(/="([^"]+)"/.exec(selector)?.[1]) ?? null
+        }
+        ctx.document = { querySelector: selector => selector === ".dashboard" ? gridFalso : null }
+        ctx.CSS = { escape: valor => valor }
+        ctx.posicionesPreferidasDashboard = {}
+        ctx.cardsDimensionesDashboard = { patrimonio: { columnas: 1, filas: 2 } }
+        ctx.cambiosPendientesDashboard = false
+        vm.runInContext(extraerFuncion(SRC, "dimensionesCard") + ";", ctx)
+        vm.runInContext(extraerFuncion(SRC, "celdaCardDashboard") + ";", ctx)
+        vm.runInContext(extraerFuncion(SRC, "moverCardDashboard") + ";", ctx)
+
+        t.check(
+            "T3 celda actual se lee de la línea del grid del DOM",
+            JSON.stringify(ctx.celdaCardDashboard("grafico", tarjetas.get("grafico"))) === JSON.stringify({ row: 0, col: 1 })
+        )
+
+        ctx.moverCardDashboard("grafico", 1)
+        t.check(
+            "T3 flecha abajo baja el Gráfico de la fila 0 a la 1",
+            ctx.posicionesPreferidasDashboard.grafico?.row === 1 &&
+            ctx.posicionesPreferidasDashboard.grafico?.col === 1,
+            JSON.stringify(ctx.posicionesPreferidasDashboard.grafico)
+        )
+        t.check(
+            "T3 la flecha marca cambios pendientes de guardar",
+            ctx.cambiosPendientesDashboard === true
+        )
+
+        // El repintado escribió la nueva celda: subir vuelve a la fila 0.
+        tarjetas.get("grafico").style.gridRowStart = "2"
+        tarjetas.get("grafico").style.gridRowEnd = "4"
+        ctx.moverCardDashboard("grafico", -1)
+        t.check(
+            "T3 flecha arriba devuelve el Gráfico a la fila 0",
+            ctx.posicionesPreferidasDashboard.grafico?.row === 0,
+            JSON.stringify(ctx.posicionesPreferidasDashboard.grafico)
+        )
+
+        // En la columna de Patrimonio (alto 2) no hay fila libre hasta la 2.
+        tarjetas.get("cuentas").style.gridRowStart = "3"
+        ctx.moverCardDashboard("cuentas", -1)
+        t.check(
+            "T3 una card en la columna de Patrimonio no sube a sus filas",
+            ctx.posicionesPreferidasDashboard.cuentas === undefined,
+            JSON.stringify(ctx.posicionesPreferidasDashboard)
+        )
+    }
+
+    // ================================================================
+    // Fase 7: arrastre visual (ghost nativo y hueco de destino)
+    // ================================================================
+    {
+        const srcArrastre = extraerFuncion(SRC, "inicializarSortableDashboard")
+
+        t.check(
+            "A1 no queda placeholder manual en el arrastre",
+            !SRC.includes("placeholderDashboard") &&
+            !SRC.includes("sortable-placeholder") &&
+            !CSS_SRC.includes(".sortable-placeholder")
+        )
+        t.check(
+            "A1 dragClass/chosenClass no ocultan el ghost nativo",
+            !srcArrastre.includes("dragClass") &&
+            !srcArrastre.includes("chosenClass") &&
+            srcArrastre.includes('ghostClass: "dashboard-card-ghost"')
+        )
+
+        const iOrigen = srcArrastre.indexOf("celdaOrigenDashboard = celdaCardDashboard")
+        const iLimpieza = srcArrastre.indexOf('evt.item.style.gridRowStart = ""')
+        t.check(
+            "A1 onStart guarda la celda de origen antes de retirar las celdas",
+            iOrigen !== -1 && iLimpieza !== -1 && iOrigen < iLimpieza
+        )
+        t.check(
+            "A1 el hueco de destino se pinta desde dragover con la geometría del grid",
+            srcArrastre.includes('grid.addEventListener("dragover", previsualizarDestinoDashboard)') &&
+            !srcArrastre.includes("onMove:")
+        )
+        t.check(
+            "A1 Escape y soltar en la celda de origen no guardan cambios",
+            srcArrastre.includes('evt.originalEvent?.type !== "drop"') &&
+            srcArrastre.includes("mismaCelda") &&
+            srcArrastre.includes("reordenarDashboard()")
+        )
+        t.check(
+            "A1 el ghost deja pasar el puntero para no bloquear el dragover",
+            /\.dashboard-card-ghost\s*\{[^}]*pointer-events:\s*none/.test(CSS_SRC)
+        )
+    }
+
+    // A2: la celda bajo el puntero sale de la geometría real del grid.
+    {
+        const gridFalso = {
+            getBoundingClientRect: () => ({ left: 24, top: 40 })
+        }
+        ctx.document = { querySelector: selector => selector === ".dashboard" ? gridFalso : null }
+        ctx.window = {
+            getComputedStyle: () => ({
+                gridTemplateColumns: "296px 296px",
+                gridAutoRows: "160px",
+                rowGap: "16px"
+            })
+        }
+        vm.runInContext(extraerFuncion(SRC, "celdaEnPuntoDashboard") + ";", ctx)
+
+        t.check(
+            "A2 el puntero en la primera celda devuelve fila 0 columna 0",
+            JSON.stringify(ctx.celdaEnPuntoDashboard(100, 50)) === JSON.stringify({ row: 0, col: 0 }),
+            JSON.stringify(ctx.celdaEnPuntoDashboard(100, 50))
+        )
+        t.check(
+            "A2 el puntero en la segunda columna y tercera fila se indexa bien",
+            JSON.stringify(ctx.celdaEnPuntoDashboard(400, 400)) === JSON.stringify({ row: 2, col: 1 }),
+            JSON.stringify(ctx.celdaEnPuntoDashboard(400, 400))
+        )
+        t.check(
+            "A2 fuera del grid no hay celda de destino",
+            ctx.celdaEnPuntoDashboard(10, 50) === null && ctx.celdaEnPuntoDashboard(100, 10) === null
+        )
+    }
 
     return t
 }

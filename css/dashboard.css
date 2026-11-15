@@ -6,7 +6,7 @@
 .dashboard {
     --unidad-card: 148px;
     --gap-card: 16px;
-    --altura-celda: 120px;
+    --altura-celda: 160px;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
     grid-auto-rows: var(--altura-celda);
@@ -184,24 +184,18 @@
     display: inline-flex;
 }
 
-.dashboard-card-arrastrando {
-    opacity: 0.6;
-    transform: scale(1.02);
-    box-shadow: 0 8px 24px var(--shadow);
-    cursor: grabbing;
-    z-index: 100;
-}
-
-/* Hueco de destino durante el arrastre. SortableJS no lo crea porque cada card
-   lleva su celda explícita; lo inserta onStart y lo mueve onMove. Ocupa el área
-   del grid (mismas columnas/filas que la card arrastrada). */
-.sortable-placeholder {
-    box-sizing: border-box;
+.dashboard-card-ghost {
+    /* Hueco de destino: SortableJS pone esta clase en la card que queda en la
+       celda donde se soltará. La imagen que sigue al cursor la pinta el propio
+       navegador con el arrastre nativo. */
+    opacity: 0.4;
     border: 2px dashed var(--textSecondary);
     border-radius: 20px;
+    box-shadow: none;
     background: transparent;
+    /* Deja pasar el puntero: así SortableJS sigue viendo la card de debajo y
+       la previsualización puede avanzar de celda. */
     pointer-events: none;
-    z-index: 3;
 }
 
 /* Las cards se desplazan con transición al reordenar: el masonry las
@@ -240,10 +234,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .dashboard-card-arrastrando {
-        transition: none !important;
-        animation: none !important;
-    }
     .dashboard-column [data-dashboard-card] {
         transition: none !important;
     }
