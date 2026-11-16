@@ -3,7 +3,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { tieneHijas, hijasDe, saldoFamilia, cuentasVisibles, esHija, esAbstracta, esSaldoInmovil } from "../core/familiaCuentas.js"
+import { tieneHijas, hijasDe, cuentasVisibles, esHija, esAbstracta, esSaldoInmovil } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -481,8 +481,15 @@ function clampDimensionesDashboard(dimensiones) {
         const numero = Number(valor)
         return Number.isFinite(numero) ? numero : porDefecto
     }
+    // Instancias cuenta: y activo: son 1×1 y no redimensionables
+    const esInstancia = id => id && (id.startsWith("cuenta:") || id.startsWith("activo:"))
     const resultado = {}
     for (const [id, valor] of Object.entries(dimensiones)) {
+        if (esInstancia(id)) {
+            // Forzar 1×1 para instancias, sin permitir redimensionar
+            resultado[id] = { columnas: 1, filas: 1 }
+            continue
+        }
         const catalogo = DASHBOARD_DIMENSIONES[id]
         if (!catalogo) {
             resultado[id] = valor
@@ -554,12 +561,10 @@ async function guardarPreferenciasDashboard(dashboard) {
 function entidadDeInstancia(id) {
     const { tipo, entidadId } = entidadDeCardInstancia(id)
     if (tipo === "cuenta") {
+        // También las hijas son instancias propias (M6): la card del padre ya
+        // no agrega a la familia.
         const cuenta = cuentas.find(item => item.id === entidadId)
-        // Una hija no tiene card: su dinero esta en la del padre, que muestra
-        // el total de la familia. Si alguna quedo guardada de antes, se ignora
-        // para no duplicar el patrimonio.
-        if (!cuenta || esHija(cuenta)) return null
-        return { tipo, cuenta }
+        return cuenta ? { tipo, cuenta } : null
     }
     const posicion = posicionesData.find(item => item.activoId === entidadId)
     return posicion ? { tipo, posicion } : null
@@ -802,26 +807,24 @@ function pintarCardCuenta(cuenta, card) {
         return
     }
 
-// El saldo de una cuenta con subcuentas es el total de la familia, no solo el
-// nominal de su propia divisa: si no, la card dejaria fuera el resto del dinero
-// de esa cuenta.
-const saldo = tieneHijas(cuenta, cuentas)
-    ? saldoFamilia(cuenta, cuentas)
-    : Number(cuenta.saldoInicial) || 0
-valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
-valorEl.classList.remove("positive", "negative")
-if (saldo > 0) valorEl.classList.add("positive")
-else if (saldo < 0) valorEl.classList.add("negative")
+    // El saldo de una cuenta con subcuentas es su saldo propio (no el familiar
+    // agregado): al aplicar M6 las hijas son cards independientes y sumar la
+    // familia duplicaría el conteo.
+    const saldo = Number(cuenta.saldoInicial) || 0
+    valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
+    valorEl.classList.remove("positive", "negative")
+    if (saldo > 0) valorEl.classList.add("positive")
+    else if (saldo < 0) valorEl.classList.add("negative")
 
-if (detalleEl) {
-    const monedaDistinta = moneda !== divisaActual
-    const nHijas = tieneHijas(cuenta, cuentas) ? hijasDe(cuenta, cuentas).length : 0
-    const nSub = esAbstracta(cuenta) ? nHijas : nHijas + 1
-    const etiqueta = nHijas > 0 ? `${nSub} subcuentas · saldo disponible` : "Saldo disponible"
-    detalleEl.textContent = monedaDistinta
-        ? `${etiqueta} · ${formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
-        : etiqueta
-}
+    if (detalleEl) {
+        const monedaDistinta = moneda !== divisaActual
+        const nHijas = tieneHijas(cuenta, cuentas) ? hijasDe(cuenta, cuentas).length : 0
+        const nSub = esAbstracta(cuenta) ? nHijas : nHijas + 1
+        const etiqueta = nHijas > 0 ? `${nSub} subcuentas · saldo disponible` : "Saldo disponible"
+        detalleEl.textContent = monedaDistinta
+            ? `${etiqueta} · ${formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
+            : etiqueta
+    }
 
     if (estadoEl) {
         // En una cuenta no crédito el badge queda libre: el estado
@@ -1631,6 +1634,7 @@ function abrirSelectorCardsDashboard() {
         contenedor.appendChild(fragmento)
     }
 
+    // Renderiza la sección 2: pills de cuentas disponibles.
     // Renderiza la sección 2: pills de cuentas y activos disponibles.
     // Cada pill tiene un punto de estado: verde si está visible como card, gris si no.
     function renderizarPills() {

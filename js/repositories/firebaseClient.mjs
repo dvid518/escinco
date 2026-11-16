@@ -1,0 +1,47 @@
+// Mock de firebaseClient.js para tests F7.3
+// La app en navegador continúa usando el archivo real desde CDN (firebase/firebaseClient.js).
+// Este mock en js/repositories/ evita que Node.js procese URLs https:// en tiempo de módulo.
+//
+// Se exporta un objeto único con todas las propiedades esperadas por la cadena de imports F7.3.
+export const FIRBASE_MOCK = {
+    firebase: {},
+    initializeApp: () => {},
+    getAnalytics: () => null,
+    getFirestore: () => ({
+        doc: () => ({}),
+        getDoc: () => ({}),
+        getDocs: () => ({}),
+        collection: () => ({}),
+        addDoc: async () => ({}),
+        setDoc: async () => {},
+        updateDoc: async () => {},
+        deleteDoc: async () => {},
+        serverTimestamp: () => null,
+        writeBatch: () => ({}),
+        deleteField: () => ({}),
+        query: () => ({}),
+        where: () => ({}),
+        orderBy: () => ({}),
+        limit: () => ({}),
+    }),
+    EmailAuthProvider: {},
+    GoogleAuthProvider: {},
+    FacebookAuthProvider: {},
+    linkWithCredential: {},
+    updatePassword: {},
+    reauthenticateWithCredential: {},
+    fetchSignInMethodsForEmail: {},
+    getAdditionalUserInfo: {},
+    deleteUser: {},
+    sendEmailVerification: {},
+    sendPasswordResetEmail: {},
+    confirmPasswordReset: {},
+    applyActionCode: {},
+    reload: {},
+    setPersistence: {},
+    browserSessionPersistence: {},
+    browserLocalPersistence: {},
+    logEvent: {},
+    setUserId: {},
+    setUserProperties: {},
+};

@@ -187,7 +187,6 @@ export async function guardarTipoCambio(uid, penUSD, modo = "manual", actualizac
 // TIPO DE CAMBIO AUTOMÁTICO
 // --------------------------------------------
 
-const API_TIPO_CAMBIO = "https://open.er-api.com/v6/latest/USD"
 const TIEMPO_MAXIMO_API = 10000
 
 /**
@@ -196,6 +195,7 @@ const TIEMPO_MAXIMO_API = 10000
  * valor actual; la capa de UI conserva así el valor manual como respaldo.
  */
 export async function actualizarTipoCambioAuto(uid) {
+    const API_TIPO_CAMBIO = "https://open.er-api.com/v6/latest/USD"
     const controlador = new AbortController()
     const temporizador = setTimeout(() => controlador.abort(), TIEMPO_MAXIMO_API)
 

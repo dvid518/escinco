@@ -6,7 +6,7 @@
 // y se inicializan los mismos módulos que arranca la app real salvo la
 // autenticación.
 
-import { sesion } from "../core/sesion.js"
+import { sesion, PREFERENCIAS_POR_DEFECTO, fusionarProfundo } from "../core/sesion.js"
 import { initRouter } from "../core/router.js"
 import { obtenerPreferencias, asegurarCuentaEfectivoInicial } from "../../firebase/firestore.js"
 import { initTemaLocal, aplicarTema } from "../core/tema.js"
@@ -28,17 +28,21 @@ initDoodles({ logoSpin: false })
 async function arrancar() {
     const sembrado = sembrar()
 
+    try { sessionStorage.removeItem("escinco_preferencias") } catch {}
     sesion.setUsuario({ uid: UID, email: "demo@escinco.app", nombre: "Invitado" })
 
     try {
         await asegurarCuentaEfectivoInicial(UID, { uid: UID })
         const preferencias = await obtenerPreferencias(UID)
-        if (preferencias) sesion.setPreferencias(preferencias)
+        const base = fusionarProfundo({}, PREFERENCIAS_POR_DEFECTO)
+        sesion.setPreferencias(preferencias ? fusionarProfundo(base, preferencias) : base)
     } catch (error) {
         console.warn("[DEMO] No se pudieron cargar las preferencias:", error)
+        sesion.setPreferencias(fusionarProfundo({}, PREFERENCIAS_POR_DEFECTO))
     }
 
     aplicarTema(sesion.getPreferencias()?.tema || "dark")
+    aplicarAparienciaInicial()
     document.body.classList.remove("loading")
 
     initRouter("dashboard")
@@ -48,6 +52,18 @@ async function arrancar() {
     conectarBanner()
 
     if (sembrado) console.info("[DEMO] Datos de ejemplo sembrados")
+}
+
+function aplicarAparienciaInicial() {
+    const paginas = sesion.getPaginasVisibles() || {}
+    document.querySelectorAll(".nav-container a").forEach(link => {
+        const page = link.dataset.page
+        if (page && paginas[page] === false) {
+            link.classList.add("nav-oculto")
+        } else {
+            link.classList.remove("nav-oculto")
+        }
+    })
 }
 
 function conectarBanner() {

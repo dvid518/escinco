@@ -1,0 +1,36 @@
+{
+  "migracion": "M4",
+  "fecha": "2026-11-16T03:52:16.406Z",
+  "total_pestañas": 0,
+  "total_propuestas": 2,
+  "propuestas": [
+    {
+      "tipo": "posicion_sin_pestaña",
+      "posicion_candidata": {
+        "posicionId": "QBWXRTxjiSHLGzNrkHY7",
+        "activoId": "CREDITC1",
+        "cantidad": 216,
+        "custodioId": null
+      },
+      "accion_propuesta": "mantener",
+      "motivo": "Posición sin pestaña exchange correspondiente, mantener legacy",
+      "certeza": "medio",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "posicion_sin_pestaña",
+      "posicion_candidata": {
+        "posicionId": "bD2abZUUxsMQvBBqUuyG",
+        "activoId": "NFLX",
+        "cantidad": 2,
+        "custodioId": null
+      },
+      "accion_propuesta": "mantener",
+      "motivo": "Posición sin pestaña exchange correspondiente, mantener legacy",
+      "certeza": "medio",
+      "estado": "pendiente"
+    }
+  ],
+  "estado_general": "pendiente_aplicacion",
+  "instrucciones": "Revisar cada propuesta en propuesta-m4.json. 'aprobar' (aplicar) o 'rechazar' (mantener status quo). Ejecutar: node scripts/migraciones/aplicar-propuesta.mjs propuesta-m4.json"
+}

@@ -18,10 +18,6 @@ import { fechaLocalISO } from "../core/fechas.js"
 
 const TIEMPO_MAXIMO_API = 10000
 
-const BINANCE_API_BASE = "https://api.binance.com/api/v3"
-const YAHOO_API_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
-const PROXY_CORS = "https://api.allorigins.win/raw?url="
-
 // --------------------------------------------
 // SÍMBOLO RESUELTO PARA LA API
 // --------------------------------------------
@@ -87,11 +83,14 @@ function validarPrecio(precio) {
 // --------------------------------------------
 
 async function precioBinance(simbolo) {
+    const BINANCE_API_BASE = "https://api.binance.com/api/v3"
     const datos = await fetchJson(`${BINANCE_API_BASE}/ticker/price?symbol=${simbolo}`)
     return validarPrecio(datos?.price)
 }
 
 async function precioYahoo(simbolo) {
+    const YAHOO_API_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
+    const PROXY_CORS = "https://api.allorigins.win/raw?url="
     const urlApi = `${YAHOO_API_BASE}/${simbolo}?interval=1d&range=1d&includePrePost=false&events=div%2Csplit`
     const datos = await fetchJson(`${PROXY_CORS}${encodeURIComponent(urlApi)}`)
 
@@ -108,6 +107,7 @@ async function precioYahoo(simbolo) {
 }
 
 async function historicoBinance(simbolo, dias) {
+    const BINANCE_API_BASE = "https://api.binance.com/api/v3"
     const datos = await fetchJson(
         `${BINANCE_API_BASE}/klines?symbol=${simbolo}&interval=1d&limit=${dias}`
     )
@@ -127,6 +127,8 @@ async function historicoBinance(simbolo, dias) {
 
 async function historicoYahoo(simbolo, dias) {
     // Yahoo no acepta "Nd"; se pide un mes y se recorta a los últimos N días
+    const YAHOO_API_BASE = "https://query1.finance.yahoo.com/v8/finance/chart"
+    const PROXY_CORS = "https://api.allorigins.win/raw?url="
     const urlApi = `${YAHOO_API_BASE}/${simbolo}?interval=1d&range=1mo&includePrePost=false`
     const datos = await fetchJson(`${PROXY_CORS}${encodeURIComponent(urlApi)}`)
 

@@ -1,0 +1,198 @@
+{
+  "migracion": "M6",
+  "fecha": "2026-11-16T04:06:55.019Z",
+  "uid": "4ulBrBffJMMM2EojNojawRPjad13",
+  "fuente": "backup C:/Users/david/Downloads/escinco_backup_2026-11-15.dvid",
+  "resumen": {
+    "familia_expandida": 6
+  },
+  "cambios": [
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:Ho6FnoacSRZ6eGMRVdJf",
+      "listas": [
+        "orden",
+        "cardsVisibles"
+      ],
+      "antes": [
+        "TRII",
+        "TRII $"
+      ],
+      "despues": [
+        "cuenta:Ho6FnoacSRZ6eGMRVdJf",
+        "cuenta:kbSszqb8R5cZbAGoOoJc"
+      ],
+      "motivo": "\"TRII\" pasa a cuentas independientes: su saldo propio y sus subcuentas"
+    },
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:noVODx3OSiCHhXFN42eJ",
+      "listas": [
+        "orden",
+        "cardsVisibles"
+      ],
+      "antes": [
+        "BCP",
+        "BCP $"
+      ],
+      "despues": [
+        "cuenta:noVODx3OSiCHhXFN42eJ",
+        "cuenta:Q3vbelj9AoRo7HgVnKr8"
+      ],
+      "motivo": "\"BCP\" pasa a cuentas independientes: su saldo propio y sus subcuentas"
+    },
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:n4URpr41VNHRoHQNypp1",
+      "listas": [
+        "orden",
+        "cardsVisibles"
+      ],
+      "antes": [
+        "BANBIF",
+        "BANBIF $"
+      ],
+      "despues": [
+        "cuenta:n4URpr41VNHRoHQNypp1",
+        "cuenta:D8YyRypvuhbCfXjqxzF4"
+      ],
+      "motivo": "\"BANBIF\" pasa a cuentas independientes: su saldo propio y sus subcuentas"
+    },
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:C6YgDtXAwtiHIt5IOTuQ",
+      "listas": [
+        "orden",
+        "cardsVisibles"
+      ],
+      "antes": [
+        "BBVA",
+        "BBVA $"
+      ],
+      "despues": [
+        "cuenta:C6YgDtXAwtiHIt5IOTuQ",
+        "cuenta:v9X2UzxYorDLFcePgOEH"
+      ],
+      "motivo": "\"BBVA\" pasa a cuentas independientes: su saldo propio y sus subcuentas"
+    },
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:QDQpBpxq5dX0aRWWHrgM",
+      "listas": [
+        "orden",
+        "cardsVisibles"
+      ],
+      "antes": [
+        "EFECTIVO SOLES",
+        "EFECTIVO EUROS"
+      ],
+      "despues": [
+        "cuenta:JG6exBq4R5VTlFBXHBwm",
+        "cuenta:rQnGMA79who6mQ8axI1g"
+      ],
+      "motivo": "\"EFECTIVO\" es abstracta: su card agregada se sustituye por sus subcuentas"
+    },
+    {
+      "tipo": "familia_expandida",
+      "cardId": "cuenta:X6s5eOk1kKam7vxqqAWJ",
+      "listas": [
+        "orden"
+      ],
+      "antes": [
+        "INTERBANK",
+        "INTERBANK DÓLARES"
+      ],
+      "despues": [
+        "cuenta:X6s5eOk1kKam7vxqqAWJ",
+        "cuenta:M4gFRwphJNjKOsnZDLQ3"
+      ],
+      "motivo": "\"INTERBANK\" pasa a cuentas independientes: su saldo propio y sus subcuentas"
+    }
+  ],
+  "dashboard_propuesto": {
+    "orden": [
+      "inversiones",
+      "grafico",
+      "favoritos",
+      "cuenta:Ho6FnoacSRZ6eGMRVdJf",
+      "cuenta:kbSszqb8R5cZbAGoOoJc",
+      "distribucion",
+      "vencimientos",
+      "cuentas",
+      "cuenta:noVODx3OSiCHhXFN42eJ",
+      "cuenta:Q3vbelj9AoRo7HgVnKr8",
+      "presupuestos",
+      "balance-periodo",
+      "flujo-caja",
+      "estrategias",
+      "programados",
+      "movimientos",
+      "pendientes",
+      "deudas",
+      "ordenes",
+      "cuenta:n4URpr41VNHRoHQNypp1",
+      "cuenta:D8YyRypvuhbCfXjqxzF4",
+      "cuenta:C6YgDtXAwtiHIt5IOTuQ",
+      "cuenta:v9X2UzxYorDLFcePgOEH",
+      "cuenta:JG6exBq4R5VTlFBXHBwm",
+      "cuenta:rQnGMA79who6mQ8axI1g",
+      "metas",
+      "cuenta:efectivo-inicial",
+      "cuenta:Y7ME01TjU0ZuwG0fFauy",
+      "cuenta:TiWR5GIJeXKfS7nz3wB5",
+      "cuenta:X6s5eOk1kKam7vxqqAWJ",
+      "cuenta:M4gFRwphJNjKOsnZDLQ3",
+      "cuenta:eqBM2R5XXGG7g5dkTnTa",
+      "activo:03PZzelji3qc26su5GoJ",
+      "activo:ZZmpir7rJATWqTLcdH7u",
+      "cuenta:vwAXkhwi4LTjHNnDubD3",
+      "ingresos-periodo",
+      "gastos-periodo",
+      "patrimonio-divisa",
+      "alertas"
+    ],
+    "cardsVisibles": [
+      "cuentas",
+      "movimientos",
+      "inversiones",
+      "metas",
+      "cuenta:n4URpr41VNHRoHQNypp1",
+      "cuenta:D8YyRypvuhbCfXjqxzF4",
+      "flujo-caja",
+      "vencimientos",
+      "distribucion",
+      "cuenta:Ho6FnoacSRZ6eGMRVdJf",
+      "cuenta:kbSszqb8R5cZbAGoOoJc",
+      "presupuestos",
+      "cuenta:noVODx3OSiCHhXFN42eJ",
+      "cuenta:Q3vbelj9AoRo7HgVnKr8",
+      "favoritos",
+      "estrategias",
+      "ordenes",
+      "balance-periodo",
+      "programados",
+      "pendientes",
+      "deudas",
+      "cuenta:C6YgDtXAwtiHIt5IOTuQ",
+      "cuenta:v9X2UzxYorDLFcePgOEH",
+      "cuenta:JG6exBq4R5VTlFBXHBwm",
+      "cuenta:rQnGMA79who6mQ8axI1g",
+      "cuenta:efectivo-inicial",
+      "cuenta:Y7ME01TjU0ZuwG0fFauy",
+      "grafico"
+    ],
+    "dimensiones": {
+      "grafico": {
+        "filas": 2,
+        "columnas": 2
+      }
+    }
+  },
+  "estado_general": "aprobada",
+  "instrucciones": [
+    "Revisar los cambios y editar el JSON si algún caso no debe migrarse.",
+    "Aplicar cuando la UI de F7.7 lea cada cuenta como instancia individual:",
+    "  hoy el dashboard sigue agregando la familia y poda las cards de hijas.",
+    "No se escribe Firestore desde Node; la aplicación real requiere un escritor de preferencias."
+  ]
+}

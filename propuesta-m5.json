@@ -1,0 +1,77 @@
+{
+  "migracion": "M5",
+  "fecha": "2026-11-16T03:52:55.583Z",
+  "total_posiciones_sin_custodio": 2,
+  "propuestas": [
+    {
+      "tipo": "posicion_sin_custodio",
+      "posicion": {
+        "posicionId": "QBWXRTxjiSHLGzNrkHY7",
+        "activoId": "CREDITC1",
+        "cantidad": 216
+      },
+      "custodio_posible": [
+        {
+          "id": "Ho6FnoacSRZ6eGMRVdJf",
+          "nombre": "TRII",
+          "tipo": "broker"
+        },
+        {
+          "id": "eqBM2R5XXGG7g5dkTnTa",
+          "nombre": "BINANCE",
+          "tipo": "exchange"
+        },
+        {
+          "id": "kbSszqb8R5cZbAGoOoJc",
+          "nombre": "TRII $",
+          "tipo": "broker"
+        },
+        {
+          "id": "vwAXkhwi4LTjHNnDubD3",
+          "nombre": "BLACKBULL DEMO",
+          "tipo": "broker"
+        }
+      ],
+      "accion_propuesta": "pendiente",
+      "motivo": "Múltiples custodios posibles (4), requiere decisión usuario",
+      "certeza": "baja",
+      "estado": "pendiente"
+    },
+    {
+      "tipo": "posicion_sin_custodio",
+      "posicion": {
+        "posicionId": "bD2abZUUxsMQvBBqUuyG",
+        "activoId": "NFLX",
+        "cantidad": 2
+      },
+      "custodio_posible": [
+        {
+          "id": "Ho6FnoacSRZ6eGMRVdJf",
+          "nombre": "TRII",
+          "tipo": "broker"
+        },
+        {
+          "id": "eqBM2R5XXGG7g5dkTnTa",
+          "nombre": "BINANCE",
+          "tipo": "exchange"
+        },
+        {
+          "id": "kbSszqb8R5cZbAGoOoJc",
+          "nombre": "TRII $",
+          "tipo": "broker"
+        },
+        {
+          "id": "vwAXkhwi4LTjHNnDubD3",
+          "nombre": "BLACKBULL DEMO",
+          "tipo": "broker"
+        }
+      ],
+      "accion_propuesta": "pendiente",
+      "motivo": "Múltiples custodios posibles (4), requiere decisión usuario",
+      "certeza": "baja",
+      "estado": "pendiente"
+    }
+  ],
+  "estado_general": "pendiente_aplicacion",
+  "instrucciones": "Revisar cada propuesta en propuesta-m5.json. 'aprobar' (asignar custodio) o 'rechazar' (mantener pendiente_asignacion). Ejecutar: node scripts/migraciones/aplicar-propuesta.mjs propuesta-m5.json"
+}

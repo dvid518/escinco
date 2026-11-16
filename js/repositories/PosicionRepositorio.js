@@ -73,26 +73,89 @@ export async function obtenerPosicion(uid, posicionId) {
     return pos
 }
 
-export async function obtenerPosicionPorActivo(uid, activoId) {
-    const referencia = collection(db, "usuarios", uid, "posiciones")
-    const q = query(referencia, where("activoId", "==", activoId))
-    const resultado = await getDocs(q)
-    
-    if (resultado.empty) {
-        return null
+// NUEVA: devolver todas las posiciones de un activo (array)
+export async function obtenerPosicionesPorActivo(uid, activoId) {
+    const posiciones = await obtenerPosiciones(uid)
+    return posiciones.filter(p => p.activoId === activoId)
+}
+
+// ACTUALIZADO: ahora firma enhanced con custodioId opcional
+export async function obtenerPosicionPorActivo(uid, activoId, custodioId = null) {
+    // Si se especifica custodioId, buscar solo la de ese custodio
+    if (custodioId) {
+        const posiciones = await obtenerPosicionesPorActivo(uid, activoId)
+        const pos = posiciones.find(p => p.custodioId === custodioId)
+        return pos || null
     }
     
-    const documento = resultado.docs[0]
-    const pos = Posicion.fromFirestore(documento.id, documento.data())
+    // Sin custodioId: devolver null para forzar al llamador a pasar custodioId
+    // o usar obtenerPosicionesPorActivo para ver todas las posiciones
+    return null
+}
+
+// ACTUALIZADO: mantener firma actual como fallback legacy
+// Si custodioId es undefined → posición legacy (custodioId: null)
+// Si custodioId está definido → usar identidad custodioId + activoId
+export async function crearOActualizarPosicion(uid, datos) {
+    const { activoId, cantidad, divisa = 'usd', precioPromedio, custodioId } = datos
     
-    try {
-        const activo = await obtenerActivo(uid, pos.activoId)
-        pos.activo = activo
-    } catch {
-        console.warn(`Activo no encontrado para posición ${pos.id}`)
+    // Validación básica
+    if (!activoId) {
+        throw new Error('El ID del activo es obligatorio')
+    }
+    if (cantidad === undefined || cantidad === null) {
+        throw new Error('La cantidad es obligatoria')
     }
     
-    return pos
+    // Si custodioId no está definido (undefined), crear posición legacy
+    if (custodioId === undefined) {
+        // Posición legacy: custodioId será null, pendiente_asignacion (M5)
+        const id = await crearPosicion(uid, {
+            activoId,
+            custodioId: null,
+            cantidad,
+            divisa,
+            precioPromedio
+        })
+        return id
+    }
+    
+    // Si custodioId está definido, usar identidad custodioId + activoId
+    // Verificar si ya existe posición para este custodio + activo
+    const posicionExistente = await obtenerPosicionPorActivo(uid, activoId, custodioId)
+    
+    if (posicionExistente) {
+        // Fusionar cantidad
+        const nuevaCantidad = posicionExistente.cantidad + cantidad
+        if (nuevaCantidad <= 0) {
+            await eliminarPosicion(uid, posicionExistente.id)
+            return null
+        }
+        // Recalcular precio promedio solo en compra (cantidad > 0)
+        let nuevoPrecioPromedio = posicionExistente.precioPromedio
+        if (cantidad > 0) {
+            const valorTotalActual = posicionExistente.cantidad * posicionExistente.precioPromedio
+            const valorNuevo = cantidad * precioPromedio
+            nuevoPrecioPromedio = (valorTotalActual + valorNuevo) / nuevaCantidad
+        }
+        await actualizarPosicion(uid, posicionExistente.id, {
+            cantidad: nuevaCantidad,
+            precioPromedio: nuevoPrecioPromedio,
+            divisa: divisa,
+            custodioId: custodioId
+        })
+        return posicionExistente.id
+    } else {
+        // Crear nueva posición con custodioId definido
+        const id = await crearPosicion(uid, {
+            activoId,
+            custodioId,
+            cantidad,
+            divisa,
+            precioPromedio
+        })
+        return id
+    }
 }
 
 export async function actualizarPosicion(uid, posicionId, datos) {
@@ -110,58 +173,4 @@ export async function eliminarPosicion(uid, posicionId) {
     const resultado = await deleteDoc(referencia)
     cacheCapa.invalidar(uid, "posiciones")
     return resultado
-}
-
-// ============================================
-// ✅ CREAR O ACTUALIZAR POSICIÓN
-// ============================================
-
-export async function crearOActualizarPosicion(uid, activoId, cantidad, precio, divisa = 'usd') {
-    const posicionExistente = await obtenerPosicionPorActivo(uid, activoId)
-    
-    if (posicionExistente) {
-        const cantidadActual = posicionExistente.cantidad
-        const precioPromedioActual = posicionExistente.precioPromedio
-        
-        const nuevaCantidad = cantidadActual + cantidad
-        let nuevoPrecioPromedio = precioPromedioActual
-        
-        if (cantidad > 0) {
-            // COMPRA: recalcular precio promedio ponderado
-            // ✅ El precio ya incluye la comisión (viene de PosicionServicio)
-            const valorTotalActual = cantidadActual * precioPromedioActual
-            const valorNuevo = cantidad * precio
-            nuevoPrecioPromedio = (valorTotalActual + valorNuevo) / nuevaCantidad
-        } else {
-            // VENTA: mantener precio promedio
-            // El precio promedio NO cambia al vender
-            nuevoPrecioPromedio = precioPromedioActual
-        }
-        
-        if (nuevaCantidad <= 0) {
-            await eliminarPosicion(uid, posicionExistente.id)
-            return null
-        }
-        
-        await actualizarPosicion(uid, posicionExistente.id, {
-            cantidad: nuevaCantidad,
-            precioPromedio: nuevoPrecioPromedio,
-            divisa: divisa
-        })
-        
-        return posicionExistente.id
-    } else {
-        if (cantidad <= 0) {
-            throw new Error('No tienes posición en este activo')
-        }
-        
-        const id = await crearPosicion(uid, {
-            activoId,
-            cantidad,
-            divisa,
-            precioPromedio: precio
-        })
-        
-        return id
-    }
 }

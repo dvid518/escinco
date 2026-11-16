@@ -1,0 +1,88 @@
+{
+  "migracion": "M8",
+  "fecha": "2026-11-16T04:09:05.309Z",
+  "uid": "4ulBrBffJMMM2EojNojawRPjad13",
+  "fuente": "backup C:/Users/david/Downloads/escinco_backup_2026-11-15.dvid",
+  "formato": "simbolo",
+  "resumen": {
+    "nombre_automatico": 3,
+    "nombres_personalizados_conservados": 5
+  },
+  "cambios": [
+    {
+      "tipo": "nombre_automatico",
+      "cuentaId": "JG6exBq4R5VTlFBXHBwm",
+      "accion": "borrar_nombre",
+      "nombreActual": "EFECTIVO SOLES",
+      "nombreDerivado": "EFECTIVO SOLES",
+      "motivo": "subcuenta automática: el nombre se deriva de padre + divisa y el campo guardado lo petrifica"
+    },
+    {
+      "tipo": "nombre_automatico",
+      "cuentaId": "M4gFRwphJNjKOsnZDLQ3",
+      "accion": "borrar_nombre",
+      "nombreActual": "INTERBANK DÓLARES",
+      "nombreDerivado": "INTERBANK DÓLARES",
+      "motivo": "subcuenta automática: el nombre se deriva de padre + divisa y el campo guardado lo petrifica"
+    },
+    {
+      "tipo": "nombre_automatico",
+      "cuentaId": "rQnGMA79who6mQ8axI1g",
+      "accion": "borrar_nombre",
+      "nombreActual": "EFECTIVO EUROS",
+      "nombreDerivado": "EFECTIVO EUROS",
+      "motivo": "subcuenta automática: el nombre se deriva de padre + divisa y el campo guardado lo petrifica"
+    }
+  ],
+  "cuentas_propuestas": [
+    {
+      "id": "JG6exBq4R5VTlFBXHBwm",
+      "eliminar": [
+        "nombre"
+      ],
+      "nombre_derivado": "EFECTIVO SOLES"
+    },
+    {
+      "id": "M4gFRwphJNjKOsnZDLQ3",
+      "eliminar": [
+        "nombre"
+      ],
+      "nombre_derivado": "INTERBANK DÓLARES"
+    },
+    {
+      "id": "rQnGMA79who6mQ8axI1g",
+      "eliminar": [
+        "nombre"
+      ],
+      "nombre_derivado": "EFECTIVO EUROS"
+    }
+  ],
+  "nombres_conservados": [
+    {
+      "cuentaId": "D8YyRypvuhbCfXjqxzF4",
+      "nombre": "BANBIF $"
+    },
+    {
+      "cuentaId": "NSZuDcLMtQEsPj7bGByG",
+      "nombre": "BBVA $"
+    },
+    {
+      "cuentaId": "Q3vbelj9AoRo7HgVnKr8",
+      "nombre": "BCP $"
+    },
+    {
+      "cuentaId": "kbSszqb8R5cZbAGoOoJc",
+      "nombre": "TRII $"
+    },
+    {
+      "cuentaId": "v9X2UzxYorDLFcePgOEH",
+      "nombre": "BBVA $"
+    }
+  ],
+  "estado_general": "pendiente_aplicacion",
+  "instrucciones": [
+    "Cada entrada de cuentas_propuestas pide borrar el campo `nombre` de una subcuenta automática.",
+    "No se escribe `tieneNombrePropio`: el contrato lo deriva de si existe `nombre`.",
+    "Aplicar después de revisar que ningún nombre personalizado aparece en cuentas_propuestas."
+  ]
+}

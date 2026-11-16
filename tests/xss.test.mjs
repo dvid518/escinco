@@ -28,7 +28,14 @@ export default async function ejecutar(t = nuevoReporter("xss")) {
 
     // 6. CSP de produccion: script-src ya no permite 'unsafe-inline'.
     t.check("CSP script-src sin 'unsafe-inline'", !/script-src[^;]*'unsafe-inline'/.test(csp))
-    t.check("CSP script-src permite https de firebase/gstatic", /script-src 'self' https:/.test(csp))
+
+    // El SDK de Firebase se carga desde gstatic. La CSP real lo permite por host
+    // concreto; el test anterior exigía el comodín `https:` y por eso fallaba
+    // aunque la política fuera MÁS estricta de lo que pedía.
+    const scriptSrc = csp.match(/script-src([^;]*)/)?.[1] || ""
+    t.check("CSP script-src permite el SDK de Firebase y no usa comodines",
+        scriptSrc.includes("https://www.gstatic.com") && !/(^|\s)(\*|https:)(\s|$)/.test(scriptSrc),
+        scriptSrc.trim())
 
     return t
 }

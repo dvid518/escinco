@@ -13,7 +13,9 @@ import { RAIZ } from "./helpers.mjs"
 // Nombres de export que una sentencia `export` puede producir.
 function exportsDe(codigo) {
     const nombres = new Set()
-    for (const m of codigo.matchAll(/^\s*export\s+(?:async\s+)?(?:function\*?|class)\s+([A-Za-z0-9_$]+)/gm)) {
+    // El nombre puede llevar acentos (esPestañaCripto, esPosiciónLegacy): no se
+    // puede limitar a [A-Za-z0-9_$] o los exports reales parecen inexistentes.
+    for (const m of codigo.matchAll(/^\s*export\s+(?:async\s+)?(?:function\*?|class)\s+([^\s({;,]+)/gm)) {
         nombres.add(m[1])
     }
     for (const m of codigo.matchAll(/^\s*export\s+(?:const|let|var)\s+([^=;\n]+)/gm)) {
