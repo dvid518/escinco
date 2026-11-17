@@ -575,11 +575,25 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
                 <p data-tpl="subtitulo-modal">Activa o desactiva las cards, ajusta su tamaño y elige qué cuentas y activos ver.</p>
             </div>
 
-            <!-- Sección 1: Cards regulares (grid esqueleto) -->
-            <div class="editor-grid-esqueleto" data-tpl="grid-esqueleto"></div>
+            <div class="modal-dashboard-editor-body">
+                <!-- Sección 1: Cards regulares (grid de esqueletos) -->
+                <div class="modal-dashboard-editor-seccion">
+                    <h3 class="modal-dashboard-editor-titulo">Cards</h3>
+                    <div class="editor-grid-esqueleto" data-tpl="grid-esqueleto"></div>
+                </div>
 
-            <!-- Sección 2: Cuentas y activos (pills) -->
-            <div class="editor-pills-cuentas" data-tpl="pills-cuentas"></div>
+                <!-- Sección 2: Cuentas finales (pills) -->
+                <div class="modal-dashboard-editor-seccion">
+                    <h3 class="modal-dashboard-editor-titulo">Cuentas</h3>
+                    <div class="editor-pills-cuentas" data-tpl="pills-cuentas"></div>
+                </div>
+
+                <!-- Sección 3: Activos (pills) -->
+                <div class="modal-dashboard-editor-seccion">
+                    <h3 class="modal-dashboard-editor-titulo">Activos</h3>
+                    <div class="editor-pills-activos" data-tpl="pills-activos"></div>
+                </div>
+            </div>
         </div>
     </template>
 

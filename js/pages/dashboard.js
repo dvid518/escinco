@@ -3,7 +3,7 @@ import { sesion } from "../core/sesion.js"
 import { cacheCapa } from "../core/cache.js"
 import { activarSpinLogo, desactivarSpinLogo, navigateTo } from "../core/router.js"
 import { obtenerCuentas, obtenerMovimientos, obtenerPreferencias, actualizarPreferencias } from "../../firebase/firestore.js"
-import { tieneHijas, hijasDe, cuentasVisibles, esHija, esAbstracta, esSaldoInmovil } from "../core/familiaCuentas.js"
+import { tieneHijas, hijasDe, esHija, esAbstracta, esSaldoInmovil } from "../core/familiaCuentas.js"
 import { CONFIG_MOVIMIENTOS, TIPOS_MOVIMIENTO } from "../../constants/tiposMovimiento.js"
 import {
     registrarSnapshot,
@@ -139,15 +139,16 @@ function tituloDesdeIdCard(cardId) {
 // ancho/alto: mínimos y máximos que el usuario puede elegir en el editor.
 // default: valor usado cuando no hay preferencia guardada.
 const DASHBOARD_DIMENSIONES = {
-    // Eje Y máx 3 (alto 1-3, ancho siempre 1)
-    patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    // Eje Y. Solo "distribucion" permite 3 filas (requisito PO Etapa 8).
+    // Patrimonio: 1x1 y 1x2 (altoMax 2). El resto de tarjetas: alto 1-2.
+    patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
-    metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 2 },
+    metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     // Eje Y máx 2 (alto 1-2, ancho siempre 1)
     cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
@@ -1548,24 +1549,68 @@ function manejarCambioPaginaDashboard(evento) {
     ])
 }
 
+// Estado temporal del editor: se edita una copia y solo se persiste al pulsar
+// "Guardar". `estadoInicial` es el snapshot de apertura; la detección de
+// cambios compara el estado actual contra él (sin un booleano suelto).
+function clonarDimensiones(dimensiones) {
+    const salida = {}
+    for (const [id, d] of Object.entries(dimensiones || {})) {
+        salida[id] = { columnas: d.columnas, filas: d.filas }
+    }
+    return salida
+}
+
+function crearEditorState(orden, visibles, dimensiones) {
+    const visiblesSet = new Set(visibles)
+    return {
+        ordenModal: [...orden],
+        visiblesModal: visiblesSet,
+        dimensionesModal: clonarDimensiones(dimensiones),
+        estadoInicial: {
+            orden: [...orden],
+            visibles: new Set(visibles),
+            dimensiones: clonarDimensiones(dimensiones)
+        }
+    }
+}
+
+// Compara el estado actual del editor contra su snapshot inicial.
+// Devuelve true si hay cambios: se basa en la comparación, no en un booleano.
+function hayCambiosEditor(editorState) {
+    const ini = editorState.estadoInicial
+    if (JSON.stringify(editorState.ordenModal) !== JSON.stringify(ini.orden)) return true
+    if (editorState.visiblesModal.size !== ini.visibles.size) return true
+    for (const id of editorState.visiblesModal) if (!ini.visibles.has(id)) return true
+    return JSON.stringify(editorState.dimensionesModal) !== JSON.stringify(ini.dimensiones)
+}
+
+// Cuentas finales: cuentas visibles que no son hijas (tienen `padreId`) y no
+// tienen hijas propias, es decir, nunca padres. Son las que se pueden agregar
+// como card individual al dashboard. Si no hay ninguna (p. ej. M6 no aplicada),
+// la sección de Cuentas queda vacía: no se inventan datos.
+function cuentasFinales(lista) {
+    return lista.filter(cuenta => {
+        if (!cuenta || cuenta.padreId) return false
+        return !lista.some(otra => otra.padreId === cuenta.id)
+    })
+}
+
 function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
 
     // Estado local del modal (no se persiste hasta pulsar "Guardar")
-    // ordenModal contiene el orden COMPLETO (visibles y ocultas), siempre con
-    // Patrimonio primero. No se modifica al ocultar/mostrar tarjetas.
-    let ordenModal = [...cardsOrdenDashboard]
-    let visiblesModal = new Set(cardsVisiblesDashboard)
-    let dimensionesModal = { ...cardsDimensionesDashboard }
+    // ordenModal contiene el orden COMPLETO (visibles y ocultas). Patrimonio
+    // se prepende al renderizar y nunca se mueve ni se oculta.
+    let editorState = crearEditorState(cardsOrdenDashboard, cardsVisiblesDashboard, cardsDimensionesDashboard)
     // Cards cuyo toggle ha tocado el usuario en esta apertura del editor: solo
     // esas muestran una opción marcada. El resto va neutro (sin reflejar lo
     // guardado) hasta que se pulse un número.
     const dimensionesTocadas = new Set()
     let modal = null
 
-    const cuentasVisiblesLista = cuentasVisibles(cuentas)
-    const cuentasInDashboard = new Set(ordenModal.filter(id => id.startsWith("cuenta:")))
-    const activosInDashboard = new Set(ordenModal.filter(id => id.startsWith("activo:")))
+    const cuentasFinalesLista = cuentasFinales(cuentas)
+    const cuentasInDashboard = new Set(editorState.ordenModal.filter(id => id.startsWith("cuenta:")))
+    const activosInDashboard = new Set(editorState.ordenModal.filter(id => id.startsWith("activo:")))
 
     // Renderiza la sección 1: grid de cards regulares con esqueleto + toggle-group de dimensiones.
     // Se itera sobre TODAS las cards de ordenModal (catálogo + instancias) para que el usuario
@@ -1578,11 +1623,14 @@ function abrirSelectorCardsDashboard() {
         const fragmento = document.createDocumentFragment()
         // Patrimonio siempre se renderiza primero, independientemente de su
         // posición en ordenModal (las preferencias pueden haberlo desplazado).
-        const ordenRenderizado = [...ordenModal].sort(
-            (a, b) => (a === "patrimonio" ? -1 : b === "patrimonio" ? 1 : 0)
-        )
+        // Patrimonio siempre se renderiza primero y nunca se mueve ni se oculta
+        // (no forma parte de `ordenModal` almacenado, se prepende solo al render).
+        const ordenRenderizado = [
+            "patrimonio",
+            ...editorState.ordenModal.filter(id => id !== "patrimonio")
+        ]
         for (const cardId of ordenRenderizado) {
-            const d = dimensionesModal[cardId]
+            const d = editorState.dimensionesModal[cardId]
             const cat = DASHBOARD_DIMENSIONES[cardId] ?? DASHBOARD_CARDS.find(c => c.id === cardId)
             // Dimensión actual: valor guardado, o el defecto del catálogo (1).
             // Siempre se marca la opción activa para que el toggle refleje el estado.
@@ -1590,13 +1638,13 @@ function abrirSelectorCardsDashboard() {
             const filas = d?.filas ?? cat?.altoDefault ?? cat?.spanFilas ?? 1
             // Patrimonio siempre se muestra (no se puede ocultar). Para el resto,
             // se lee la visibilidad del Set local.
-            const visible = cardId === "patrimonio" ? true : visiblesModal.has(cardId)
+            const visible = cardId === "patrimonio" ? true : editorState.visiblesModal.has(cardId)
 
             // Etiqueta: cuenta/activo dinámico o catálogo fijo. Nunca el id
             // crudo: el usuario ve un nombre legible, sin guiones.
             let etiqueta
             if (cardId.startsWith("cuenta:")) {
-                const cuenta = cuentasVisiblesLista.find(c => c.id === cardId.split(":")[1])
+                const cuenta = cuentas.find(c => c.id === cardId.split(":")[1])
                 etiqueta = cuenta?.nombre || "Cuenta"
             } else if (cardId.startsWith("activo:")) {
                 const activo = (posicionesData || []).find(p => p.activoId === cardId.split(":")[1])
@@ -1634,49 +1682,19 @@ function abrirSelectorCardsDashboard() {
         contenedor.appendChild(fragmento)
     }
 
-    // Renderiza la sección 2: pills de cuentas disponibles.
-    // Renderiza la sección 2: pills de cuentas y activos disponibles.
-    // Cada pill tiene un punto de estado: verde si está visible como card, gris si no.
-    function renderizarPills() {
+    // Renderiza la sección 2: pills de cuentas finales (nunca padres).
+    function renderizarPillsCuentas() {
         const contenedor = modal.querySelector(".editor-pills-cuentas")
         if (!contenedor) return
         contenedor.replaceChildren()
 
         const pills = document.createDocumentFragment()
-
-        // Cuentas no en el dashboard
-        for (const cuenta of cuentasVisiblesLista) {
+        for (const cuenta of cuentasFinalesLista) {
             const id = `cuenta:${cuenta.id}`
             if (cuentasInDashboard.has(id)) continue
             const nombre = cuenta.nombre || "Cuenta"
             const tipo = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
-            const visible = visiblesModal.has(id)
-            const pill = document.createElement("button")
-            pill.type = "button"
-            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
-            pill.dataset.card = id
-            pill.title = tipo
-
-            const punto = document.createElement("span")
-            punto.className = "editor-pill-punto"
-            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
-
-            const span = document.createElement("span")
-            span.className = "editor-pill-nombre"
-            span.textContent = nombre
-
-            pill.appendChild(punto)
-            pill.appendChild(span)
-            pills.appendChild(pill)
-        }
-
-        // Activos no en el dashboard
-        for (const posicion of (posicionesData || [])) {
-            const id = `activo:${posicion.activoId}`
-            if (activosInDashboard.has(id)) continue
-            const nombre = posicion.activo?.nombre || posicion.activoId
-            const tipo = ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo"
-            const visible = visiblesModal.has(id)
+            const visible = editorState.visiblesModal.has(id)
             const pill = document.createElement("button")
             pill.type = "button"
             pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
@@ -1699,6 +1717,46 @@ function abrirSelectorCardsDashboard() {
         contenedor.appendChild(pills)
     }
 
+    // Renderiza la sección 3: pills de activos (en su propio bloque, debajo de Cuentas).
+    function renderizarPillsActivos() {
+        const contenedor = modal.querySelector(".editor-pills-activos")
+        if (!contenedor) return
+        contenedor.replaceChildren()
+
+        const pills = document.createDocumentFragment()
+        for (const posicion of (posicionesData || [])) {
+            const id = `activo:${posicion.activoId}`
+            if (activosInDashboard.has(id)) continue
+            const nombre = posicion.activo?.nombre || posicion.activoId
+            const tipo = ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo"
+            const visible = editorState.visiblesModal.has(id)
+            const pill = document.createElement("button")
+            pill.type = "button"
+            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
+            pill.dataset.card = id
+            pill.title = tipo
+
+            const punto = document.createElement("span")
+            punto.className = "editor-pill-punto"
+            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
+
+            const span = document.createElement("span")
+            span.className = "editor-pill-nombre"
+            span.textContent = nombre
+
+            pill.appendChild(punto)
+            pill.appendChild(span)
+            pills.appendChild(pill)
+        }
+
+        contenedor.appendChild(pills)
+    }
+
+    function renderizarPills() {
+        renderizarPillsCuentas()
+        renderizarPillsActivos()
+    }
+
     const cambiosPendientesAntesModal = cambiosPendientesDashboard
     modal = abrirModal({
         titulo: "Elegir cards del dashboard",
@@ -1714,24 +1772,24 @@ function abrirSelectorCardsDashboard() {
             }
         }),
         onConfirm: async () => {
-            const visibles = [...visiblesModal]
+            const visibles = [...editorState.visiblesModal]
             // El orden se construye a partir de ordenModal (orden completo: visibles y
-            // ocultas, Patrimonio primero), no desde visiblesModal (que es solo un Set
+            // ocultas), no desde visiblesModal (que es solo un Set
             // de visibilidad y perdería el orden de arrastre al reconstruirse).
-            const orden = [...ordenModal]
+            const orden = [...editorState.ordenModal]
 
             try {
                 await guardarPreferenciasDashboard({
                     cardsVisibles: visibles,
                     orden,
-                    dimensiones: dimensionesModal
+                    dimensiones: editorState.dimensionesModal
                 })
                 // Solo actualizar el estado global tras confirmar la persistencia
                 // en Firestore. Si falla, se conserva el estado anterior y el
                 // modal permanece abierto para reintentar.
                 cardsVisiblesDashboard = visibles
                 cardsOrdenDashboard = orden
-                cardsDimensionesDashboard = dimensionesModal
+                cardsDimensionesDashboard = editorState.dimensionesModal
                 // El editor fija orden y tamaño: las celdas elegidas a mano
                 // dejan de tener sentido y se recalculan desde cero.
                 posicionesPreferidasDashboard = {}
@@ -1808,13 +1866,13 @@ function abrirSelectorCardsDashboard() {
             grupo.querySelectorAll(".toggle-option").forEach(o => o.classList.remove("active"))
             opcion.classList.add("active")
 
-            if (!dimensionesModal[cardId]) dimensionesModal[cardId] = {}
-            if (dimensione === "ancho") dimensionesModal[cardId].columnas = valor
-            if (dimensione === "alto") dimensionesModal[cardId].filas = valor
+            if (!editorState.dimensionesModal[cardId]) editorState.dimensionesModal[cardId] = {}
+            if (dimensione === "ancho") editorState.dimensionesModal[cardId].columnas = valor
+            if (dimensione === "alto") editorState.dimensionesModal[cardId].filas = valor
             dimensionesTocadas.add(cardId)
 
             renderizarGridEsqueleto()
-            cambiosPendientesDashboard = true
+            cambiosPendientesDashboard = hayCambiosEditor(editorState)
             return
         }
 
@@ -1823,47 +1881,49 @@ function abrirSelectorCardsDashboard() {
         if (card && !evento.target.closest(".toggle-group") && !evento.target.closest("button")) {
             const cardId = card.dataset.card
             if (!cardId) return
-            // Patrimonio no se puede ocultar ni desplazar
-            if (cardId === "patrimonio") return
-            if (visiblesModal.has(cardId)) {
-                visiblesModal.delete(cardId)
-                delete dimensionesModal[cardId]
+            // Patrimonio: siempre visible, no se puede ocultar ni desplazar;
+            // al hacer clic se abre su modal de detalle existente.
+            if (cardId === "patrimonio") {
+                abrirModalPatrimonioDashboard()
+                return
+            }
+            if (editorState.visiblesModal.has(cardId)) {
+                editorState.visiblesModal.delete(cardId)
+                delete editorState.dimensionesModal[cardId]
             } else {
-                visiblesModal.add(cardId)
+                editorState.visiblesModal.add(cardId)
                 // ordenModal ya contiene la tarjeta en su posición correcta
                 // (orden completo, visibles y ocultas). No la volvemos a push.
             }
             renderizarGridEsqueleto()
             renderizarPills()
-            cambiosPendientesDashboard = true
+            cambiosPendientesDashboard = hayCambiosEditor(editorState)
             return
         }
 
-        // Clic en un pill: alterna visibilidad de la entidad
+        // Clic en un pill: alterna visibilidad de la entidad (cuentas o activos)
         const pill = evento.target.closest(".editor-pill")
         if (pill) {
             const cardId = pill.dataset.card
             if (!cardId) return
-            if (visiblesModal.has(cardId)) {
-                visiblesModal.delete(cardId)
-                delete dimensionesModal[cardId]
+            if (editorState.visiblesModal.has(cardId)) {
+                editorState.visiblesModal.delete(cardId)
+                delete editorState.dimensionesModal[cardId]
                 // No tocar ordenModal: la tarjeta sigue en su posición del orden completo.
             } else {
-                visiblesModal.add(cardId)
+                editorState.visiblesModal.add(cardId)
                 // ordenModal ya contiene la tarjeta, no la añadimos al final.
             }
             renderizarGridEsqueleto()
             renderizarPills()
-            cambiosPendientesDashboard = true
+            cambiosPendientesDashboard = hayCambiosEditor(editorState)
             return
         }
 
-        // Botón Restablecer
+        // Botón Restablecer: carga valores por defecto sin persistir hasta Guardar.
         if (evento.target.closest("[data-dashboard-reset]")) {
-            cambiosPendientesDashboard = true
-            ordenModal = [...cardsOrdenDashboard]  // Orden completo, Patrimonio primero
-            visiblesModal = new Set(DEFAULT_CARDS_VISIBLES)
-            dimensionesModal = {}
+            cambiosPendientesDashboard = hayCambiosEditor(editorState)
+            editorState = crearEditorState(DEFAULT_CARDS_ORDEN, DEFAULT_CARDS_VISIBLES, {})
             dimensionesTocadas.clear()
             renderizarGridEsqueleto()
             renderizarPills()
@@ -1872,6 +1932,13 @@ function abrirSelectorCardsDashboard() {
 }
 
 export function abrirEditorDashboard() {
+    // Toggle del botón "Editar Dashboard": si ya está activo, sale del modo
+    // edición (sin guardar silenciosamente: `salirModoEdicionDashboard`
+    // advierte si hay cambios pendientes).
+    if (modoEdicionDashboard) {
+        salirModoEdicionDashboard()
+        return
+    }
     activarModoEdicionDashboard()
 }
 
@@ -4039,8 +4106,6 @@ function configurarCardsNavegacion() {
 }
 
 function abrirModalPatrimonioDashboard() {
-    if (modoEdicionDashboard) return
-
     const modal = abrirModal({
         titulo: "Patrimonio total",
         contenido: contenidoDesdeTemplate("tpl-patrimonio-loading", {

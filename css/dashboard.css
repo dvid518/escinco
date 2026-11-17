@@ -1919,18 +1919,49 @@ body.dashboard-card-dragging * {
    ============================================ */
 
 .modal-dashboard-editor {
-    /* 100% del cuerpo del modal (`wide`, 760px): un ancho en vw desbordaba
-       el contenedor y generaba la barra horizontal. */
     width: 100%;
     max-width: none;
-    max-height: 88vh;
-    /* Scroll único: el cuerpo del modal (`.modal-body`) es el único
-       contenedor responsable del scroll vertical. */
     display: flex;
     flex-direction: column;
     min-height: 0;
-    overflow: hidden;
+    overflow: visible;
 }
+
+.modal-dashboard-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+    overflow: visible;
+}
+
+.modal-dashboard-editor-seccion {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.modal-dashboard-editor-titulo {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 0 0 6px 0;
+    flex-shrink: 0;
+}
+
+/* Pills de cuentas y de activos: lista envolvente por sección. */
+.editor-pills-activos {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+
+/* La pill ya existe como .editor-pill (reutilizada). El punto de estado
+   (verde activa / gris inactiva) se pinta con .punto-visible / .punto-oculto. */
 
 .modal-dashboard-editor-header {
     display: flex;

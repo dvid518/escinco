@@ -842,8 +842,8 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
     const p = ctx.clampDimensionesDashboard({ patrimonio: { columnas: 1, filas: 5 } })
     t.check(
-        "B3-C patrimonio alto 5 se clampea a 3",
-        p.patrimonio.filas === 3
+        "B3-C patrimonio alto 5 se clampea a 2 (maximo permitido)",
+        p.patrimonio.filas === 2
     )
     const ok = ctx.clampDimensionesDashboard({ metas: { columnas: 1, filas: 2 } })
     t.check(
@@ -982,10 +982,10 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     // P5: el clamp y dimensionesCard aceptan el formato antiguo {ancho, alto}
     // sin degradar el alto guardado a 1.
     {
-        const legacy = ctx.clampDimensionesDashboard({ patrimonio: { ancho: 1, alto: 3 } })
+        const legacy = ctx.clampDimensionesDashboard({ patrimonio: { ancho: 1, alto: 2 } })
         t.check(
-            "P5 clamp conserva alto 3 guardado como {alto}",
-            legacy.patrimonio.columnas === 1 && legacy.patrimonio.filas === 3,
+            "P5 clamp conserva alto 2 guardado como {alto} (maximo patrimonio)",
+            legacy.patrimonio.columnas === 1 && legacy.patrimonio.filas === 2,
             JSON.stringify(legacy.patrimonio)
         )
         ctx.cardsDimensionesDashboard = { patrimonio: { ancho: 1, alto: 3 } }
@@ -1260,6 +1260,90 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
             ctx.celdaEnPuntoDashboard(10, 50) === null && ctx.celdaEnPuntoDashboard(100, 10) === null
         )
     }
+
+    // ================================================================
+    // Etapa 8 Fase 1: estado temporal del editor
+    // ================================================================
+    {
+        vm.runInContext(extraerFuncion(SRC, "clonarDimensiones") + ";", ctx)
+        vm.runInContext(extraerFuncion(SRC, "crearEditorState") + ";", ctx)
+        vm.runInContext(extraerFuncion(SRC, "hayCambiosEditor") + ";", ctx)
+        vm.runInContext(extraerFuncion(SRC, "cuentasFinales") + ";", ctx)
+
+        const orden = ["patrimonio", "cuentas", "movimientos"]
+        const visibles = new Set(["cuentas", "movimientos"])
+        const dimensiones = { cuentas: { columnas: 1, filas: 2 } }
+        const es = ctx.crearEditorState(orden, visibles, dimensiones)
+
+        t.check(
+            "E8.1 crearEditorState clona orden, visibles y dimensiones",
+            JSON.stringify(es.ordenModal) === JSON.stringify(orden) &&
+            JSON.stringify([...es.visiblesModal].sort()) === JSON.stringify(["cuentas", "movimientos"].sort()) &&
+            JSON.stringify(es.dimensionesModal) === JSON.stringify(dimensiones)
+        )
+
+        t.check(
+            "E8.2 estadoInicial es copia independiente al abrir",
+            es.estadoInicial !== es &&
+            JSON.stringify(es.estadoInicial.orden) === JSON.stringify(orden) &&
+            Array.from(es.estadoInicial.visibles).sort().join(",") === "cuentas,movimientos"
+        )
+
+        // Sin cambios: la detección compara contra estadoInicial (no booleano).
+        t.check("E8.3 hayCambiosEditor false sin modificaciones", ctx.hayCambiosEditor(es) === false)
+
+        // Cambio de visibilidad se detecta por comparación.
+        es.visiblesModal.delete("movimientos")
+        t.check("E8.4 hayCambiosEditor true al quitar una visible", ctx.hayCambiosEditor(es) === true)
+
+        // Cambio de dimensiones se detecta por comparación.
+        const es2 = ctx.crearEditorState(orden, visibles, dimensiones)
+        es2.dimensionesModal.cuentas = { columnas: 2, filas: 2 }
+        t.check("E8.5 hayCambiosEditor true al cambiar dimensiones", ctx.hayCambiosEditor(es2) === true)
+
+        // Cambio de orden se detecta por comparación.
+        const es3 = ctx.crearEditorState(orden, visibles, dimensiones)
+        es3.ordenModal = ["patrimonio", "movimientos", "cuentas"]
+        t.check("E8.6 hayCambiosEditor true al cambiar orden", ctx.hayCambiosEditor(es3) === true)
+    }
+
+    {
+        // Pills de cuentas: solo cuentas finales, nunca padres ni hijas.
+        const cuentas = [
+            { id: "padre", nombre: "Padre", moneda: "pen" },              // tiene hija -> no es final
+            { id: "hija", nombre: "Hija", moneda: "usd", padreId: "padre" }, // es hija -> no es final
+            { id: "final1", nombre: "Final 1", moneda: "pen" },           // final
+            { id: "final2", nombre: "Final 2", moneda: "usd" }            // final
+        ]
+        const finales = ctx.cuentasFinales(cuentas)
+        t.check(
+            "E8.7 cuentasFinales devuelve solo cuentas finales (no padres ni hijas)",
+            JSON.stringify(finales.map(c => c.id).sort()) === JSON.stringify(["final1", "final2"])
+        )
+    }
+
+    {
+        // Restablecer: valores por defecto sin persistir (se construye el estado base).
+        const ordenResetCatalogo = ctx.DASHBOARD_CARDS.map(c => c.id).filter(id => id !== "patrimonio")
+        const reset = ctx.crearEditorState(ordenResetCatalogo, ctx.DEFAULT_CARDS_VISIBLES, {})
+        t.check(
+            "E8.8 restablecedor usa DEFAULT_CARDS_VISIBLES y dimensiones vacías",
+            JSON.stringify([...reset.visiblesModal].sort()) === JSON.stringify(ctx.DEFAULT_CARDS_VISIBLES.sort()) &&
+            JSON.stringify(reset.dimensionesModal) === JSON.stringify({})
+        )
+    }
+
+    // Toggle del modo edición: entra y sale, sin guardar silenciosamente.
+    ctx.modoEdicionDashboard = false
+    ctx.salirModoEdicionDashboard = function () { ctx.modoEdicionDashboard = false }
+    ctx.activarModoEdicionDashboard = function () { ctx.modoEdicionDashboard = true }
+    vm.runInContext(extraerFuncion(SRC, "abrirEditorDashboard") + ";", ctx)
+
+    ctx.abrirEditorDashboard()
+    t.check("E8.9 toggle entra al modo edición", ctx.modoEdicionDashboard === true)
+
+    ctx.abrirEditorDashboard()
+    t.check("E8.10 toggle sale del modo edición", ctx.modoEdicionDashboard === false)
 
     return t
 }
