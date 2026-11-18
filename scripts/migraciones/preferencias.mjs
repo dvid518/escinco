@@ -35,6 +35,7 @@ export const CARDS_ESTANDAR = [
     "balance-periodo",
     "deudas",
     "distribucion",
+    "distribucion-activos",
     "patrimonio-divisa",
     "programados",
     "alertas",

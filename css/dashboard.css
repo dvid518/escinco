@@ -185,17 +185,28 @@
 }
 
 .dashboard-card-ghost {
-    /* Hueco de destino: SortableJS pone esta clase en la card que queda en la
-       celda donde se soltará. La imagen que sigue al cursor la pinta el propio
-       navegador con el arrastre nativo. */
-    opacity: 0.4;
-    border: 2px dashed var(--textSecondary);
-    border-radius: 20px;
-    box-shadow: none;
-    background: transparent;
-    /* Deja pasar el puntero: así SortableJS sigue viendo la card de debajo y
-       la previsualización puede avanzar de celda. */
+    /* Hueco de destino: la card queda invisible en el grid y las demás se
+       reacomodan a su alrededor. La que sigue al puntero es el clon del
+       fallback, así que aquí no hace falta borde ni fondo. */
+    opacity: 0;
+    /* Deja pasar el puntero: la celda bajo el cursor se mide con pointermove
+       y el hueco no debe interceptarlo. */
     pointer-events: none;
+}
+
+/* Card que sigue al cursor durante el arrastre (forceFallback de SortableJS).
+   SortableJS la cuelga del propio grid, así que hereda el estilo de card; aquí
+   solo se le añade profundidad. */
+.dashboard-card-fallback {
+    box-shadow: 0 18px 40px var(--shadow);
+}
+
+/* La clase de edición se pone en el propio grid, de ahí el doble selector.
+   SortableJS mueve el clon con `transform` inline y la card tiene transición
+   de `transform`: sin anularla, el clon persigue al puntero con retardo y
+   parece que apenas se desplaza de su sitio. */
+.dashboard.dashboard-edicion-activo > .dashboard-card-fallback {
+    transition: none;
 }
 
 /* Las cards se desplazan con transición al reordenar: el masonry las
@@ -291,7 +302,17 @@ body.dashboard-card-dragging * {
     user-select: none !important;
 }
 
-.dashboard-edicion-activo .card.card-navegable {
+/* En edición la card entera es zona de arrastre; los controles conservan su
+   cursor propio y Patrimonio no se mueve. */
+.dashboard.dashboard-edicion-activo > [data-dashboard-card]:not([data-dashboard-card="patrimonio"]) {
+    cursor: grab;
+}
+
+.dashboard.dashboard-edicion-activo > [data-dashboard-card] :is(button, a, input, textarea, select, label) {
+    cursor: pointer;
+}
+
+.dashboard-edicion-activo .card.card-navegable[data-dashboard-card="patrimonio"] {
     cursor: default;
 }
 
@@ -584,18 +605,29 @@ body.dashboard-card-dragging * {
     border-radius: 10px;
 }
 
-.patrimonio-card.resaltado-1 {
+/* Niveles de resaltado de patrimonio. Las mismas reglas sirven para el card del
+   dashboard y para su versión en el editor de cards, aplicadas solo al
+   contenedor de cada una. */
+.patrimonio-card.resaltado-1,
+.editor-card[data-card="patrimonio"].resaltado-1 {
     background-color: var(--lightHover);
     color: var(--border);
 }
 
-.patrimonio-card.resaltado-2 {
+.patrimonio-card.resaltado-2,
+.editor-card[data-card="patrimonio"].resaltado-2 {
     background-color: var(--backgroundAlt);
     --lightBorder: var(--lightGraphite);
     --shadow: var(--lightSlateGrey);
 }
 
-.patrimonio-card.resaltado-2 .card-title {
+/* El card del editor no usa --lightBorder; replica el borde del card real. */
+.editor-card[data-card="patrimonio"].resaltado-2 {
+    border-color: var(--lightGraphite);
+}
+
+.patrimonio-card.resaltado-2 .card-title,
+.editor-card[data-card="patrimonio"].resaltado-2 .editor-card-titulo {
     color: var(--textAlt);
 }
 
@@ -1952,11 +1984,11 @@ body.dashboard-card-dragging * {
     flex-shrink: 0;
 }
 
-/* Pills de cuentas y de activos: lista envolvente por sección. */
+/* Pills de cuentas y de activos: misma rejilla en ambas secciones. */
 .editor-pills-activos {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
     min-width: 0;
 }
 
@@ -2547,7 +2579,7 @@ body.dashboard-card-dragging * {
     min-width: 160px;
     height: 180px;
     overflow: hidden;
-    transition: border-color 0.2s ease, background 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
     cursor: pointer;
 }
 
@@ -2570,6 +2602,7 @@ body.dashboard-card-dragging * {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    transition: color 0.2s ease;
 }
 
 /* Placeholder gris que simula el contenido de la card */
@@ -2730,4 +2763,26 @@ body.dashboard-card-dragging * {
 /* Asegurar que la card contenedor sea relative para posicionar los botones */
 .dashboard .card {
     position: relative;
+}
+
+/* Variante 1x1 de Distribución y Distribución Activos: contenedor de texto
+   sin scroll interno, solo los porcentajes y qué representa cada uno. */
+.distribucion-lista.texto {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 14px;
+    overflow: visible;
+    max-height: none;
+}
+
+/* Botones "Ver más" en variantes 1x2 de Metas y Presupuestos.
+   Reusan .glass-btn y .glass; solo se añade margen superior y ancho completo. */
+.btn-ver-mas-metas,
+.btn-ver-mas-presupuestos {
+    width: 100%;
+    margin-top: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    text-align: center;
 }

@@ -82,6 +82,9 @@ let posicionesPreferidasDashboard = {}
 let celdaDestinoDashboard = null
 // Celda que ocupaba la card al empezar: soltarla ahí no es un movimiento.
 let celdaOrigenDashboard = null
+// Preferencia que tenía la card arrastrada antes de empezar. Se restaura al
+// volver a su celda para que el reparto base no cambie a mitad del arrastre.
+let preferenciaOrigenDashboard = null
 let patrimonioStats = null
 // Secciones opcionales que fallaron al cargar en el ciclo actual. Las claves
 // son nombres de secciones y los valores son el error capturado. Se usa para
@@ -117,6 +120,7 @@ const DASHBOARD_CARDS = [
     { id: "balance-periodo", label: "Balance", spanColumnas: 1, spanFilas: 1 },
     { id: "deudas", label: "Deudas", spanColumnas: 1, spanFilas: 1 },
     { id: "distribucion", label: "Distribución patrimonial", spanColumnas: 1, spanFilas: 2 },
+    { id: "distribucion-activos", label: "Distribución por tipo de activo", spanColumnas: 1, spanFilas: 1 },
     { id: "patrimonio-divisa", label: "Patrimonio por divisa", spanColumnas: 1, spanFilas: 1 },
     { id: "programados", label: "Movimientos programados", spanColumnas: 1, spanFilas: 1 },
     { id: "alertas", label: "Alertas", spanColumnas: 1, spanFilas: 1 },
@@ -143,6 +147,7 @@ const DASHBOARD_DIMENSIONES = {
     // Patrimonio: 1x1 y 1x2 (altoMax 2). El resto de tarjetas: alto 1-2.
     patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    "distribucion-activos": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 2 },
     metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
@@ -541,14 +546,22 @@ async function guardarPreferenciasDashboard(dashboard) {
     if (dashboard.cardsVisibles !== undefined) cambios["dashboard.cardsVisibles"] = dashboard.cardsVisibles
     if (dashboard.orden !== undefined) cambios["dashboard.orden"] = dashboard.orden
     if (dashboard.dimensiones !== undefined) cambios["dashboard.dimensiones"] = dashboard.dimensiones
+    // El resaltado de patrimonio es una preferencia de raíz, no de `dashboard`.
+    const nivelResalte = dashboard.resaltarPatrimonio === undefined
+        ? undefined
+        : normalizarNivelResalte(dashboard.resaltarPatrimonio)
+    if (nivelResalte !== undefined) cambios.resaltarPatrimonio = nivelResalte
 
     await actualizarPreferencias(uid, cambios)
     const preferencias = sesion.getPreferencias()
+    const cambiosDashboard = { ...dashboard }
+    delete cambiosDashboard.resaltarPatrimonio
     sesion.setPreferencias({
         ...preferencias,
+        ...(nivelResalte !== undefined ? { resaltarPatrimonio: nivelResalte } : {}),
         dashboard: {
             ...(preferencias.dashboard || {}),
-            ...dashboard
+            ...cambiosDashboard
         }
     })
 }
@@ -920,6 +933,8 @@ function enlazarCardInstancia(card, id) {
 // SortableJS: durante el arrastre no se recalculan posiciones.
 let columnasActuales = 0
 let arrastrando = false
+// Escape durante el arrastre: onEnd lo lee para restaurar sin guardar.
+let arrastreCanceladoDashboard = false
 let resizeObserverDashboard = null
 let gridObservado = null
 
@@ -945,7 +960,7 @@ function ordenVisibleDashboard(grid) {
 // Escribe las posiciones explícitas del grid según calcularDistribucion().
 // Sustituye a grid-auto-flow: dense; sin esto las cards se auto-colocan y
 // quedan huecos que dense ya no rellena.
-function aplicarPosicionesDashboard(prioridadId = null) {
+function aplicarPosicionesDashboard(prioridadId = null, posiciones = posicionesPreferidasDashboard) {
     const grid = document.querySelector(".dashboard")
     if (!grid) return []
 
@@ -959,7 +974,7 @@ function aplicarPosicionesDashboard(prioridadId = null) {
         cardsDimensionesDashboard,
         columnasActuales,
         DASHBOARD_DIMENSIONES,
-        { posiciones: posicionesPreferidasDashboard, prioridad: prioridadId }
+        { posiciones, prioridad: prioridadId }
     )
 
     // col/row/… vienen 0-indexados de calcularDistribucion(); las líneas del
@@ -978,12 +993,50 @@ function aplicarPosicionesDashboard(prioridadId = null) {
     })
 
     // Las preferencias de cards que ya no están en el grid (ocultas o
-    // eliminadas) no deben reaparecer si vuelven a mostrarse.
-    const colocadas = new Set(distribucion.map(card => card.id))
-    for (const id of Object.keys(posicionesPreferidasDashboard)) {
-        if (!colocadas.has(id)) delete posicionesPreferidasDashboard[id]
+    // eliminadas) no deben reaparecer si vuelven a mostrarse. El reparto en
+    // vivo pasa una copia, así que solo se limpia el objeto real.
+    if (posiciones === posicionesPreferidasDashboard) {
+        const colocadas = new Set(distribucion.map(card => card.id))
+        for (const id of Object.keys(posicionesPreferidasDashboard)) {
+            if (!colocadas.has(id)) delete posicionesPreferidasDashboard[id]
+        }
     }
 
+    return distribucion
+}
+
+// FLIP: mide las cards antes de repartir y anima la diferencia. Sin esto las
+// cards saltan de celda en vez de deslizarse al hueco nuevo.
+function animarRepartoDashboard(grid, antes, idSinAnimar = null) {
+    if (!antes.size || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return
+    grid.querySelectorAll(":scope > [data-dashboard-card]").forEach(card => {
+        if (card.dataset.dashboardCard === idSinAnimar) return
+        const desde = antes.get(card)
+        if (!desde) return
+        const hasta = card.getBoundingClientRect()
+        const dx = desde.left - hasta.left
+        const dy = desde.top - hasta.top
+        if (!dx && !dy) return
+        card.animate(
+            [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0, 0)" }],
+            { duration: 180, easing: "ease" }
+        )
+    })
+}
+
+// Reparte con `posiciones` y anima el movimiento resultante. `idSinAnimar` es
+// la card arrastrada: su hueco debe seguir al puntero sin transición.
+function repartirDashboard(prioridadId = null, posiciones = posicionesPreferidasDashboard, idSinAnimar = null) {
+    const grid = document.querySelector(".dashboard")
+    if (!grid) return []
+
+    const antes = new Map()
+    grid.querySelectorAll(":scope > [data-dashboard-card]").forEach(card => {
+        antes.set(card, card.getBoundingClientRect())
+    })
+
+    const distribucion = aplicarPosicionesDashboard(prioridadId, posiciones)
+    animarRepartoDashboard(grid, antes, idSinAnimar)
     return distribucion
 }
 
@@ -1125,10 +1178,10 @@ function configurarScrollFadeApp() {
 // ============================================
 // ARRASTRAR Y SOLTAR CON SORTABLEJS
 // ============================================
-// SortableJS gestiona el drag & drop sobre el grid de celdas uniformes,
-// incluyendo el indicador visual de inserción, el auto-scroll y el soporte
-// táctil nativo. Al soltar (onEnd), se lee el nuevo orden del DOM y se
-// persiste en `cardsOrdenDashboard` y Firestore.
+// SortableJS gestiona el inicio y el fin del arrastre sobre el grid de celdas
+// uniformes, con auto-scroll y soporte táctil. El reparto de celdas lo decide
+// la app: mientras se arrastra se previsualiza en vivo y al soltar (onEnd) se
+// persiste el orden resultante en `cardsOrdenDashboard` y Firestore.
 
 let sortableDashboard = null
 
@@ -1160,24 +1213,49 @@ function celdaEnPuntoDashboard(x, y) {
     return { row, col }
 }
 
-// Previsualización del destino: pinta la card arrastrada en la celda bajo el
-// puntero. Se usa dragover y no onMove porque onMove no se dispara sobre
-// huecos vacíos ni sobre la propia card arrastrada.
+// Previsualización del destino: reparte el grid con la card en la celda bajo
+// el puntero, así las demás se apartan en vivo. Se usa pointermove porque el
+// arrastre es propio (forceFallback) y porque onMove de SortableJS no distingue
+// celdas vacías.
 function previsualizarDestinoDashboard(evento) {
     if (!arrastrando) return
     const grid = evento.currentTarget
     const arrastrada = grid.querySelector(":scope > .dashboard-card-ghost")
     if (!arrastrada) return
+    const id = arrastrada.dataset.dashboardCard
     const celda = celdaEnPuntoDashboard(evento.clientX, evento.clientY)
     if (!celda) return
-    // El tamaño no se puede leer del DOM: onStart retiró las celdas.
-    const { ancho, alto } = dimensionesCard(arrastrada.dataset.dashboardCard)
+    const { ancho } = dimensionesCard(id)
     const col = Math.max(0, Math.min(celda.col, columnasActuales - ancho))
-    celdaDestinoDashboard = { row: celda.row, col }
-    arrastrada.style.gridColumnStart = String(col + 1)
-    arrastrada.style.gridColumnEnd = String(col + ancho + 1)
-    arrastrada.style.gridRowStart = String(celda.row + 1)
-    arrastrada.style.gridRowEnd = String(celda.row + alto + 1)
+    const fila = Math.max(0, celda.row)
+    // Patrimonio es fijo en la esquina: soltar encima no es un destino válido.
+    const { ancho: anchoPatrimonio, alto: altoPatrimonio } = dimensionesCard("patrimonio")
+    if (col < anchoPatrimonio && fila < altoPatrimonio) return
+    if (celdaDestinoDashboard?.row === fila && celdaDestinoDashboard?.col === col) return
+    celdaDestinoDashboard = { row: fila, col }
+
+    // Se reparte sobre una copia: las preferencias reales solo cambian al
+    // soltar. Volver a la celda de origen restaura la preferencia previa para
+    // que el reparto quede exactamente como estaba.
+    const posiciones = { ...posicionesPreferidasDashboard }
+    const enOrigen = celdaOrigenDashboard?.row === fila && celdaOrigenDashboard?.col === col
+    if (enOrigen) {
+        if (preferenciaOrigenDashboard) posiciones[id] = preferenciaOrigenDashboard
+        else delete posiciones[id]
+    } else {
+        posiciones[id] = celdaDestinoDashboard
+    }
+    repartirDashboard(id, posiciones, id)
+}
+
+// SortableJS no cancela el arrastre propio con Escape: se le envía el soltado
+// que espera para que aborte. onEnd lee la marca y restaura sin guardar.
+function cancelarArrastreDashboard(evento) {
+    if (evento.key !== "Escape" || !arrastrando) return
+    evento.preventDefault()
+    evento.stopPropagation()
+    arrastreCanceladoDashboard = true
+    document.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }))
 }
 
 function moverCardDashboard(id, direccion) {
@@ -1326,7 +1404,12 @@ function inicializarSortableDashboard() {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
     sortableDashboard = new Sortable(grid, {
-        handle: '.btn-mover-card',
+        // El arrastre nace en cualquier zona no interactiva del cuerpo de la
+        // card (y en la empuñadura). Los controles internos quedan fuera para
+        // que un clic en un botón, enlace o campo no mueva la card.
+        handle: null,
+        filter: "button:not(.btn-mover-card), a, input, textarea, select, label, [contenteditable='true']",
+        preventOnFilter: false,
         // Patrimonio no se arrastra: es fija y va siempre primero.
         draggable: "[data-dashboard-card]:not([data-dashboard-card='patrimonio'])",
         animation: reduceMotion ? 0 : 150,
@@ -1334,9 +1417,19 @@ function inicializarSortableDashboard() {
         scrollSensitivity: 30,
         scrollSpeed: 10,
         disabled: !modoEdicionDashboard,
-        // Única clase visual del arrastre: SortableJS la pone en la card
-        // arrastrada. El navegador pinta aparte la imagen de arrastre que sigue
-        // al cursor.
+        // Arrastre propio en vez del nativo de HTML5: el nativo no permite
+        // controlar el cursor (grab/grabbing) ni el aspecto de la card en mano.
+        forceFallback: true,
+        fallbackClass: "dashboard-card-fallback",
+        // El clon se cuelga del grid (y no del body) para heredar el mismo
+        // estilo de card: fondo opaco, padding y tipografía.
+        fallbackOnBody: false,
+        fallbackTolerance: 3,
+        // El reparto lo decide aplicarPosicionesDashboard(): SortableJS no debe
+        // mover nodos ni animar por su cuenta.
+        onMove: () => false,
+        // Única clase visual del arrastre: SortableJS la pone en la card que
+        // queda en el grid. La que sigue al cursor es el clon del fallback.
         ghostClass: "dashboard-card-ghost",
         onStart: (evt) => {
             const id = evt.item.dataset.dashboardCard
@@ -1344,18 +1437,26 @@ function inicializarSortableDashboard() {
                 sortableDashboard.sort(true) // cancelar el drag
                 return
             }
-            // Celda de origen antes de retirar las celdas explícitas.
+            // El clon copia id y atributo de la card: dentro del grid contaría
+            // como una card más en el reparto. Se limpia también la opacidad
+            // inline que le pone SortableJS.
+            const clon = document.querySelector(".dashboard-card-fallback")
+            if (clon) {
+                clon.removeAttribute("id")
+                clon.removeAttribute("data-dashboard-card")
+                clon.style.removeProperty("opacity")
+            }
+            // Celda de origen: se compara al soltar para no guardar un
+            // arrastre que acaba donde empezó.
             celdaOrigenDashboard = celdaCardDashboard(id, evt.item)
-            // Sin posiciones explícitas la card entra en el flujo del grid y
-            // SortableJS puede moverla de celda mientras se arrastra; el
-            // reparto se vuelve a escribir al soltar.
-            evt.item.style.gridColumnStart = ""
-            evt.item.style.gridColumnEnd = ""
-            evt.item.style.gridRowStart = ""
-            evt.item.style.gridRowEnd = ""
+            preferenciaOrigenDashboard = posicionesPreferidasDashboard[id]
+                ? { ...posicionesPreferidasDashboard[id] }
+                : null
             celdaDestinoDashboard = null
+            arrastreCanceladoDashboard = false
             arrastrando = true
             document.body.classList.add("dashboard-card-dragging")
+            document.addEventListener("keydown", cancelarArrastreDashboard, true)
         },
         onEnd: (evt) => {
             const card = evt.item
@@ -1363,50 +1464,35 @@ function inicializarSortableDashboard() {
             try {
                 if (!modoEdicionDashboard) return
 
-                // Escape cancela el arrastre y también llega aquí, pero con
-                // originalEvent "dragend" (un drop real llega como "drop").
                 const mismaCelda = celdaOrigenDashboard &&
                     celdaDestinoDashboard?.row === celdaOrigenDashboard.row &&
                     celdaDestinoDashboard?.col === celdaOrigenDashboard.col
-                if (evt.originalEvent?.type !== "drop" || !celdaDestinoDashboard || mismaCelda) {
+                if (arrastreCanceladoDashboard || !celdaDestinoDashboard || mismaCelda) {
                     reordenarDashboard()
                     return
                 }
 
-                // Leer el nuevo orden del DOM (solo cards visibles)
-                const nuevoOrden = []
-                grid.querySelectorAll("[data-dashboard-card]").forEach(c => {
-                    const id = c.dataset.dashboardCard
-                    if (id && id !== "patrimonio") {
-                        nuevoOrden.push(id)
-                    }
-                })
-
-                // Reconstruir cardsOrdenDashboard: las cards que están en el DOM
-                // mantienen su orden relativo; las que no están en el DOM van al final.
-                // Se incluyen también las cards visibles que no estén en
-                // cardsOrdenDashboard (p. ej. instancias añadidas dinámicamente).
-                const ordenActual = cardsOrdenDashboard.filter(id => id !== "patrimonio")
-                const nuevoOrdenFiltrado = nuevoOrden.filter(id => ordenActual.includes(id))
-                const noEnDOM = ordenActual.filter(id => !nuevoOrden.includes(id))
-                // Añadir al final las cards visibles que no estaban en cardsOrdenDashboard
-                const noEnOrden = nuevoOrden.filter(id => !ordenActual.includes(id))
-                const nuevoOrdenCompleto = [...nuevoOrdenFiltrado, ...noEnOrden, ...noEnDOM]
-
-                // Actualizar cardsOrdenDashboard (patrimonio queda fuera: es
-                // fija y reordenarDashboard la antepone siempre; guardarla aquí
-                // descolocaba los movimientos por flechas).
-                cardsOrdenDashboard = nuevoOrdenCompleto
-                cambiosPendientesDashboard = true
-
                 // La celda de destino manda sobre el orden: sin guardarla, el
-                // empaquetado denso devolvía la card a la primera fila libre.
-                if (celdaDestinoDashboard && idArrastrada && idArrastrada !== "patrimonio") {
+                // empaquetado denso devolvía la card a su hueco anterior.
+                if (idArrastrada && idArrastrada !== "patrimonio") {
                     posicionesPreferidasDashboard[idArrastrada] = celdaDestinoDashboard
                 }
 
                 // Reescribir las celdas explícitas de todas las cards.
-                aplicarPosicionesDashboard(idArrastrada)
+                const distribucion = repartirDashboard(idArrastrada)
+
+                // El DOM no se mueve durante el arrastre (onMove devuelve
+                // false): el orden sale del reparto, en orden de lectura. Las
+                // cards ocultas conservan su orden relativo al final.
+                const visibles = distribucion
+                    .filter(({ id }) => id !== "patrimonio")
+                    .sort((a, b) => a.row - b.row || a.col - b.col)
+                    .map(({ id }) => id)
+                const ocultas = cardsOrdenDashboard.filter(id =>
+                    id !== "patrimonio" && !visibles.includes(id)
+                )
+                cardsOrdenDashboard = [...visibles, ...ocultas]
+                cambiosPendientesDashboard = true
 
                 // Guardar en Firestore
                 guardarPreferenciasDashboard({
@@ -1419,20 +1505,20 @@ function inicializarSortableDashboard() {
             } finally {
                 celdaDestinoDashboard = null
                 celdaOrigenDashboard = null
+                preferenciaOrigenDashboard = null
+                arrastreCanceladoDashboard = false
                 document.body.classList.remove("dashboard-card-dragging")
+                document.removeEventListener("keydown", cancelarArrastreDashboard, true)
                 arrastrando = false
-                // Si el try salió antes de repartir (edición desactivada), las
-                // celdas siguen sin escribir: se restauran aquí.
-                if (!card.style.gridRowStart) aplicarPosicionesDashboard()
             }
         }
     })
 
-    // El grid recibe dragover durante todo el arrastre: de ahí sale la celda de
-    // destino. SortableJS no mueve nodos porque cada card lleva su celda.
+    // El grid recibe pointermove durante todo el arrastre: de ahí sale la celda
+    // de destino y el reacomodo en vivo.
     if (!grid.dataset.arrastrePreparado) {
         grid.dataset.arrastrePreparado = "1"
-        grid.addEventListener("dragover", previsualizarDestinoDashboard)
+        grid.addEventListener("pointermove", previsualizarDestinoDashboard)
     }
 }
 
@@ -1595,6 +1681,67 @@ function cuentasFinales(lista) {
     })
 }
 
+// Las cuentas y los activos son entidades dinámicas: en el editor aparecen
+// siempre como pills en su contenedor, nunca como cards del grid.
+function esCardInstanciaDashboard(id) {
+    return id.startsWith("cuenta:") || id.startsWith("activo:")
+}
+
+// Ids del grid del editor: solo cards estándar. Patrimonio siempre primero y
+// las instancias dinámicas quedan fuera (van a los contenedores de pills).
+function idsGridEditor(orden) {
+    return [
+        "patrimonio",
+        ...orden.filter(id => id !== "patrimonio" && !esCardInstanciaDashboard(id))
+    ]
+}
+
+// Alterna la visibilidad de una card o pill dentro del editor. Al activar una
+// instancia que no estaba en el orden completo se añade al final: render()
+// solo pinta lo visible que figura en cardsOrdenDashboard.
+function alternarVisibilidadEditor(editorState, cardId) {
+    if (editorState.visiblesModal.has(cardId)) {
+        editorState.visiblesModal.delete(cardId)
+        delete editorState.dimensionesModal[cardId]
+    } else {
+        editorState.visiblesModal.add(cardId)
+        if (!editorState.ordenModal.includes(cardId)) editorState.ordenModal.push(cardId)
+    }
+}
+
+// Pinta las pills de una sección del editor (cuentas o activos). Cada pill
+// alterna la visibilidad de su entidad al pulsarla.
+function pintarPillsEditor(contenedor, entidades, prefijo, editorState) {
+    if (!contenedor) return
+    contenedor.replaceChildren()
+
+    const fragmento = document.createDocumentFragment()
+    for (const entidad of entidades) {
+        const { id: entidadId, nombre, tipo } = entidad
+        const id = `${prefijo}:${entidadId}`
+        const visible = editorState.visiblesModal.has(id)
+        const pill = document.createElement("button")
+        pill.type = "button"
+        pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
+        pill.dataset.card = id
+        pill.title = tipo
+
+        const punto = document.createElement("span")
+        punto.className = "editor-pill-punto"
+        punto.classList.add(visible ? "punto-visible" : "punto-oculto")
+
+        const span = document.createElement("span")
+        span.className = "editor-pill-nombre"
+        span.textContent = nombre
+
+        pill.appendChild(punto)
+        pill.appendChild(span)
+        fragmento.appendChild(pill)
+    }
+
+    contenedor.appendChild(fragmento)
+}
+
 function abrirSelectorCardsDashboard() {
     if (!modoEdicionDashboard) return
 
@@ -1606,15 +1753,27 @@ function abrirSelectorCardsDashboard() {
     // esas muestran una opción marcada. El resto va neutro (sin reflejar lo
     // guardado) hasta que se pulse un número.
     const dimensionesTocadas = new Set()
+    // Nivel de resaltado de patrimonio dentro del editor: se previsualiza en su
+    // card y solo se persiste al pulsar Guardar (Cancelar lo descarta).
+    const nivelResalteInicial = normalizarNivelResalte(sesion.getPreferencias()?.resaltarPatrimonio)
+    let nivelResalteModal = nivelResalteInicial
+    const hayCambiosModal = () => hayCambiosEditor(editorState) || nivelResalteModal !== nivelResalteInicial
     let modal = null
 
     const cuentasFinalesLista = cuentasFinales(cuentas)
-    const cuentasInDashboard = new Set(editorState.ordenModal.filter(id => id.startsWith("cuenta:")))
-    const activosInDashboard = new Set(editorState.ordenModal.filter(id => id.startsWith("activo:")))
+    const cuentasEditor = cuentasFinalesLista.map(cuenta => ({
+        id: cuenta.id,
+        nombre: cuenta.nombre || "Cuenta",
+        tipo: ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
+    }))
+    const activosEditor = (posicionesData || []).map(posicion => ({
+        id: posicion.activoId,
+        nombre: posicion.activo?.nombre || posicion.activoId,
+        tipo: ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo"
+    }))
 
-    // Renderiza la sección 1: grid de cards regulares con esqueleto + toggle-group de dimensiones.
-    // Se itera sobre TODAS las cards de ordenModal (catálogo + instancias) para que el usuario
-    // pueda activar/desactivar cualquiera.
+    // Renderiza la sección 1: grid de cards estándar con esqueleto + toggle-group
+    // de dimensiones. Las cuentas y activos no entran aquí: van como pills.
     function renderizarGridEsqueleto() {
         const contenedor = modal.querySelector(".editor-grid-esqueleto")
         if (!contenedor) return
@@ -1623,13 +1782,8 @@ function abrirSelectorCardsDashboard() {
         const fragmento = document.createDocumentFragment()
         // Patrimonio siempre se renderiza primero, independientemente de su
         // posición en ordenModal (las preferencias pueden haberlo desplazado).
-        // Patrimonio siempre se renderiza primero y nunca se mueve ni se oculta
-        // (no forma parte de `ordenModal` almacenado, se prepende solo al render).
-        const ordenRenderizado = [
-            "patrimonio",
-            ...editorState.ordenModal.filter(id => id !== "patrimonio")
-        ]
-        for (const cardId of ordenRenderizado) {
+        // Nunca se mueve ni se oculta; se prepende solo al render.
+        for (const cardId of idsGridEditor(editorState.ordenModal)) {
             const d = editorState.dimensionesModal[cardId]
             const cat = DASHBOARD_DIMENSIONES[cardId] ?? DASHBOARD_CARDS.find(c => c.id === cardId)
             // Dimensión actual: valor guardado, o el defecto del catálogo (1).
@@ -1640,21 +1794,17 @@ function abrirSelectorCardsDashboard() {
             // se lee la visibilidad del Set local.
             const visible = cardId === "patrimonio" ? true : editorState.visiblesModal.has(cardId)
 
-            // Etiqueta: cuenta/activo dinámico o catálogo fijo. Nunca el id
-            // crudo: el usuario ve un nombre legible, sin guiones.
-            let etiqueta
-            if (cardId.startsWith("cuenta:")) {
-                const cuenta = cuentas.find(c => c.id === cardId.split(":")[1])
-                etiqueta = cuenta?.nombre || "Cuenta"
-            } else if (cardId.startsWith("activo:")) {
-                const activo = (posicionesData || []).find(p => p.activoId === cardId.split(":")[1])
-                etiqueta = activo?.activo?.nombre || "Activo"
-            } else {
-                etiqueta = cat?.label || ETIQUETAS_CARD[cardId] || tituloDesdeIdCard(cardId)
-            }
+            // Etiqueta del catálogo fijo. Nunca el id crudo: el usuario ve un
+            // nombre legible, sin guiones.
+            const etiqueta = cat?.label || ETIQUETAS_CARD[cardId] || tituloDesdeIdCard(cardId)
 
             const card = document.createElement("div")
             card.className = `editor-card ${visible ? "" : "card-oculta"}`
+            // El card de patrimonio del editor reproduce el nivel de resaltado
+            // del dashboard, aplicado solo a su contenedor.
+            if (cardId === "patrimonio" && nivelResalteModal > 0) {
+                card.classList.add(`resaltado-${nivelResalteModal}`)
+            }
             card.dataset.card = cardId
             card.role = "button"
             card.tabIndex = 0
@@ -1682,74 +1832,25 @@ function abrirSelectorCardsDashboard() {
         contenedor.appendChild(fragmento)
     }
 
-    // Renderiza la sección 2: pills de cuentas finales (nunca padres).
+    // Sección 2: pills de cuentas finales (nunca padres). Se listan todas,
+    // visibles u ocultas: el punto de estado indica cuáles están en el dashboard.
     function renderizarPillsCuentas() {
-        const contenedor = modal.querySelector(".editor-pills-cuentas")
-        if (!contenedor) return
-        contenedor.replaceChildren()
-
-        const pills = document.createDocumentFragment()
-        for (const cuenta of cuentasFinalesLista) {
-            const id = `cuenta:${cuenta.id}`
-            if (cuentasInDashboard.has(id)) continue
-            const nombre = cuenta.nombre || "Cuenta"
-            const tipo = ETIQUETAS_TIPO_CUENTA[cuenta.tipo] || "Cuenta"
-            const visible = editorState.visiblesModal.has(id)
-            const pill = document.createElement("button")
-            pill.type = "button"
-            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
-            pill.dataset.card = id
-            pill.title = tipo
-
-            const punto = document.createElement("span")
-            punto.className = "editor-pill-punto"
-            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
-
-            const span = document.createElement("span")
-            span.className = "editor-pill-nombre"
-            span.textContent = nombre
-
-            pill.appendChild(punto)
-            pill.appendChild(span)
-            pills.appendChild(pill)
-        }
-
-        contenedor.appendChild(pills)
+        pintarPillsEditor(
+            modal.querySelector(".editor-pills-cuentas"),
+            cuentasEditor,
+            "cuenta",
+            editorState
+        )
     }
 
-    // Renderiza la sección 3: pills de activos (en su propio bloque, debajo de Cuentas).
+    // Sección 3: pills de activos en su propio bloque, debajo de Cuentas.
     function renderizarPillsActivos() {
-        const contenedor = modal.querySelector(".editor-pills-activos")
-        if (!contenedor) return
-        contenedor.replaceChildren()
-
-        const pills = document.createDocumentFragment()
-        for (const posicion of (posicionesData || [])) {
-            const id = `activo:${posicion.activoId}`
-            if (activosInDashboard.has(id)) continue
-            const nombre = posicion.activo?.nombre || posicion.activoId
-            const tipo = ETIQUETAS_TIPO_ACTIVO[posicion.activo?.tipo] || "Activo"
-            const visible = editorState.visiblesModal.has(id)
-            const pill = document.createElement("button")
-            pill.type = "button"
-            pill.className = `editor-pill ${visible ? "pill-seleccionada" : "pill-oculta"}`
-            pill.dataset.card = id
-            pill.title = tipo
-
-            const punto = document.createElement("span")
-            punto.className = "editor-pill-punto"
-            punto.classList.add(visible ? "punto-visible" : "punto-oculto")
-
-            const span = document.createElement("span")
-            span.className = "editor-pill-nombre"
-            span.textContent = nombre
-
-            pill.appendChild(punto)
-            pill.appendChild(span)
-            pills.appendChild(pill)
-        }
-
-        contenedor.appendChild(pills)
+        pintarPillsEditor(
+            modal.querySelector(".editor-pills-activos"),
+            activosEditor,
+            "activo",
+            editorState
+        )
     }
 
     function renderizarPills() {
@@ -1782,7 +1883,8 @@ function abrirSelectorCardsDashboard() {
                 await guardarPreferenciasDashboard({
                     cardsVisibles: visibles,
                     orden,
-                    dimensiones: editorState.dimensionesModal
+                    dimensiones: editorState.dimensionesModal,
+                    resaltarPatrimonio: nivelResalteModal
                 })
                 // Solo actualizar el estado global tras confirmar la persistencia
                 // en Firestore. Si falla, se conserva el estado anterior y el
@@ -1872,7 +1974,7 @@ function abrirSelectorCardsDashboard() {
             dimensionesTocadas.add(cardId)
 
             renderizarGridEsqueleto()
-            cambiosPendientesDashboard = hayCambiosEditor(editorState)
+            cambiosPendientesDashboard = hayCambiosModal()
             return
         }
 
@@ -1881,23 +1983,24 @@ function abrirSelectorCardsDashboard() {
         if (card && !evento.target.closest(".toggle-group") && !evento.target.closest("button")) {
             const cardId = card.dataset.card
             if (!cardId) return
-            // Patrimonio: siempre visible, no se puede ocultar ni desplazar;
-            // al hacer clic se abre su modal de detalle existente.
+            // Patrimonio: siempre visible, no se puede ocultar ni desplazar.
+            // Al hacer clic recorre sus niveles de resaltado (0 → 1 → 2 → 0),
+            // igual que en configuración. Se actualiza el elemento existente en
+            // el DOM (sin recrear el grid) para que la transición CSS se vea.
             if (cardId === "patrimonio") {
-                abrirModalPatrimonioDashboard()
+                nivelResalteModal = (nivelResalteModal + 1) % 3
+                const cardExistente = modal.querySelector('.editor-card[data-card="patrimonio"]')
+                if (cardExistente) {
+                    cardExistente.classList.remove("resaltado-1", "resaltado-2")
+                    if (nivelResalteModal > 0) cardExistente.classList.add(`resaltado-${nivelResalteModal}`)
+                }
+                cambiosPendientesDashboard = hayCambiosModal()
                 return
             }
-            if (editorState.visiblesModal.has(cardId)) {
-                editorState.visiblesModal.delete(cardId)
-                delete editorState.dimensionesModal[cardId]
-            } else {
-                editorState.visiblesModal.add(cardId)
-                // ordenModal ya contiene la tarjeta en su posición correcta
-                // (orden completo, visibles y ocultas). No la volvemos a push.
-            }
+            alternarVisibilidadEditor(editorState, cardId)
             renderizarGridEsqueleto()
             renderizarPills()
-            cambiosPendientesDashboard = hayCambiosEditor(editorState)
+            cambiosPendientesDashboard = hayCambiosModal()
             return
         }
 
@@ -1906,23 +2009,15 @@ function abrirSelectorCardsDashboard() {
         if (pill) {
             const cardId = pill.dataset.card
             if (!cardId) return
-            if (editorState.visiblesModal.has(cardId)) {
-                editorState.visiblesModal.delete(cardId)
-                delete editorState.dimensionesModal[cardId]
-                // No tocar ordenModal: la tarjeta sigue en su posición del orden completo.
-            } else {
-                editorState.visiblesModal.add(cardId)
-                // ordenModal ya contiene la tarjeta, no la añadimos al final.
-            }
-            renderizarGridEsqueleto()
+            alternarVisibilidadEditor(editorState, cardId)
             renderizarPills()
-            cambiosPendientesDashboard = hayCambiosEditor(editorState)
+            cambiosPendientesDashboard = hayCambiosModal()
             return
         }
 
         // Botón Restablecer: carga valores por defecto sin persistir hasta Guardar.
         if (evento.target.closest("[data-dashboard-reset]")) {
-            cambiosPendientesDashboard = hayCambiosEditor(editorState)
+            cambiosPendientesDashboard = hayCambiosModal()
             editorState = crearEditorState(DEFAULT_CARDS_ORDEN, DEFAULT_CARDS_VISIBLES, {})
             dimensionesTocadas.clear()
             renderizarGridEsqueleto()
@@ -2000,9 +2095,9 @@ function obtenerPeriodoFlujo(id) {
 function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseAdicional = "", _config = {}) {
     const id = `card-${cardId}`;
     const clasesSpan = clasesCard(cardId)
-    // Sin detalleId no hay detalle: antes se pintaba un hueco con id="null" y su
-    // esqueleto no lo limpiaba nadie (card Cuentas).
-    const detalle = detalleId
+    const { filas } = dimensionesCard(cardId)
+    const esUnoXUno = filas === 1
+    const detalle = detalleId && !esUnoXUno
         ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>`
         : "";
     return `
@@ -2014,43 +2109,19 @@ function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, clase
     `;
 }
 
-function generarCardListaSimple(cardId, titulo, filas, detalleId = null, _subtituloHtml = "", _config = {}) {
-    const id = `card-${cardId}`;
-    const detalle = detalleId ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>` : "";
-    const clasesSpan = clasesCard(cardId)
-    return `
-        <div class="glass card card-navegable ${claseExtra(cardId)} ${clasesSpan}" id="${id}" data-dashboard-card="${cardId}" role="button" tabindex="0" title="${titulo}">
-            <div class="card-title">${titulo}</div>
-            <div class="${cardId}-lista scroll-fade" id="${cardId}-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
-            ${detalle}
-        </div>
-    `;
-}
-
-function claseExtra(id) {
-    const extras = {
-        "cuentas": "positive card-navegable",
-        "favoritos": "card-navegable favoritos-card",
-        "movimientos": "movimientos-card card-navegable",
-        "pendientes": "pendientes-card card-navegable",
-        "ordenes": "ordenes-card card-navegable",
-        "distribucion-activos": "card-navegable distribucion-activos-card",
-        "patrimonio-divisa": "card-navegable patrimonio-divisa-card",
-        "flujo-caja": "card-navegable metric-card",
-        "gastos-periodo": "card-navegable metric-card gastos-periodo-card",
-        "ingresos-periodo": "card-navegable metric-card",
-        "balance-periodo": "card-navegable metric-card",
-        "deudas": "card-navegable metric-card deudas-card",
-        "distribucion": "card-navegable distribucion-card",
-        "programados": "programados-card",
-        "alertas": "alertas-card",
-        "estrategias": "estrategias-card",
-        "presupuestos": "presupuestos-card",
-        "metas": "metas-card",
-        "vencimientos": "card-navegable",
-        "inversiones": "card-navegable"
-    };
-    return extras[id] || "";
+// Calcula ingresos y egresos totales en la divisa de cada movimiento, para mostrar
+// en la variante 1x1 de la tarjeta Movimientos. No convierte divisas: cada monto
+// se suma en su propia moneda y se presenta con su divisa original.
+function calcularIngresosEgresos(movimientos = []) {
+    let ingresos = 0
+    let egresos = 0
+    for (const m of movimientos) {
+        const monto = montoDeMovimiento(m)
+        if (!Number.isFinite(monto) || monto <= 0) continue
+        if (esMovimientoPositivo(m)) ingresos += monto
+        else egresos += monto
+    }
+    return { ingresos, egresos }
 }
 
 function generarCardPatrimonio(nivelResalte) {
@@ -2093,43 +2164,27 @@ function generarCardGrafico(_config = {}) {
 
 function generarCardDistribucionDona(_config = {}) {
     const clasesSpan = clasesCard("distribucion")
+    const { filas } = dimensionesCard("distribucion")
+    if (filas === 1) {
+        return `
+        <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
+            <div class="card-header">
+                <span class="card-title">Distribución patrimonial</span>
+            </div>
+            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+    }
+    const dona = filas === 3
+        ? `<div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+        : ""
     return `
         <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
             <div class="card-header">
                 <span class="card-title">Distribución patrimonial</span>
             </div>
-            <div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
+            ${dona}
             <div class="distribucion-lista scroll-fade" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-        </div>
-    `;
-}
-
-function generarCardMetas(_config = {}) {
-    const clasesSpan = clasesCard("metas")
-    return `
-        <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
-            <div class="card-header">
-                <span class="card-title">Metas de ahorro</span>
-                <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
-                    ${icono("plus-circle", 14)} Nueva
-                </button>
-            </div>
-            <div class="metas-lista scroll-fade" id="metas-lista">
-                ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
-            </div>
-        </div>
-    `;
-}
-
-function generarCardPresupuestos(_config = {}) {
-    const clasesSpan = clasesCard("presupuestos")
-    return `
-        <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
-            <div class="card-header">
-                <span class="card-title">Presupuestos</span>
-                <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
-            </div>
-            <div class="presupuestos-lista scroll-fade" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
 }
@@ -2138,14 +2193,97 @@ function generarCardPresupuestos(_config = {}) {
 const GENERADORES_CARD = {
     "grafico": generarCardGrafico,
     "distribucion": generarCardDistribucionDona,
-    "metas": generarCardMetas,
-    "presupuestos": generarCardPresupuestos,
+    "metas": (_config = {}) => {
+        const clasesSpan = clasesCard("metas")
+        const { filas } = dimensionesCard("metas")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
+                <div class="card-header">
+                    <span class="card-title">Metas de ahorro</span>
+                </div>
+                <div class="card-value" id="metas-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="metas-detalle">${skeletonText()}</div>
+            </div>
+        `;
+        }
+        return `
+        <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
+            <div class="card-header">
+                <span class="card-title">Metas de ahorro</span>
+                <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
+                    ${icono("plus-circle", 14)} Nueva
+                </button>
+            </div>
+            <div class="metas-lista scroll-fade" id="metas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+    },
+    "presupuestos": (_config = {}) => {
+        const clasesSpan = clasesCard("presupuestos")
+        const { filas } = dimensionesCard("presupuestos")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
+                <div class="card-header">
+                    <span class="card-title">Presupuestos</span>
+                </div>
+                <div class="card-value" id="presupuestos-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="presupuestos-detalle">${skeletonText()}</div>
+            </div>
+        `;
+        }
+        return `
+        <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
+            <div class="card-header">
+                <span class="card-title">Presupuestos</span>
+                <span class="badge" id="presupuestos-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="presupuestos-lista scroll-fade" id="presupuestos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+    },
     "cuentas": () => generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
     "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
-    "movimientos": () => generarCardListaSimple("movimientos", "Últimos movimientos", 2),
+    "movimientos": (_config = {}) => {
+        const clasesSpan = clasesCard("movimientos")
+        const { filas } = dimensionesCard("movimientos")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable movimientos-card ${clasesSpan}" id="card-movimientos" data-dashboard-card="movimientos" role="button" tabindex="0" title="Últimos movimientos">
+                <div class="card-header">
+                    <span class="card-title">Últimos movimientos</span>
+                </div>
+                <div class="card-value" id="movimientos-valor">${skeletonText("skeleton-value")}</div>
+                <div class="card-sub" id="movimientos-detalle">${skeletonText()}</div>
+            </div>
+        `;
+        }
+        return `
+        <div class="glass card card-navegable movimientos-card ${clasesSpan}" id="card-movimientos" data-dashboard-card="movimientos" role="button" tabindex="0" title="Últimos movimientos">
+            <div class="card-title">Últimos movimientos</div>
+            <div class="movimientos-lista scroll-fade" id="movimientos-lista">${skeletonMarkup({ rows: filas, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+    },
     "favoritos": (_config = {}) => {
         const clasesSpan = clasesCard("favoritos")
+        const { filas } = dimensionesCard("favoritos")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
+                <div class="card-header">
+                    <span class="card-title">Favoritos</span>
+                    <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
             <div class="card-header">
@@ -2160,6 +2298,18 @@ const GENERADORES_CARD = {
     },
     "pendientes": (_config = {}) => {
         const clasesSpan = clasesCard("pendientes")
+        const { filas } = dimensionesCard("pendientes")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
+                <div class="card-header">
+                    <span class="card-title">Pendientes</span>
+                    <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
             <div class="card-header">
@@ -2172,6 +2322,18 @@ const GENERADORES_CARD = {
     },
     "ordenes": (_config = {}) => {
         const clasesSpan = clasesCard("ordenes")
+        const { filas } = dimensionesCard("ordenes")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
+                <div class="card-header">
+                    <span class="card-title">Órdenes</span>
+                    <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
             <div class="card-header">
@@ -2185,12 +2347,26 @@ const GENERADORES_CARD = {
     },
     "distribucion-activos": (_config = {}) => {
         const clasesSpan = clasesCard("distribucion-activos")
+        const { filas } = dimensionesCard("distribucion-activos")
+        if (filas === 1) {
+            return `
+            <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
+                <div class="card-header">
+                    <span class="card-title">Distribución por tipo de activo</span>
+                </div>
+                <div class="distribucion-lista texto" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            </div>
+        `;
+        }
+        const dona = filas === 3
+            ? `<div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+            : ""
         return `
         <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
             <div class="card-header">
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
-            <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
+            ${dona}
             <div class="distribucion-lista scroll-fade" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
@@ -2209,6 +2385,18 @@ const GENERADORES_CARD = {
     },
     "estrategias": (_config = {}) => {
         const clasesSpan = clasesCard("estrategias")
+        const { filas } = dimensionesCard("estrategias")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
+                <div class="card-header">
+                    <span class="card-title">Estrategias</span>
+                    <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
             <div class="card-header">
@@ -2222,6 +2410,18 @@ const GENERADORES_CARD = {
     "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
     "gastos-periodo": (_config = {}) => {
         const clasesSpan = clasesCard("gastos-periodo")
+        const { filas } = dimensionesCard("gastos-periodo")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
+                <div class="card-header">
+                    <span class="card-title">Gastado</span>
+                </div>
+                <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
@@ -2234,6 +2434,18 @@ const GENERADORES_CARD = {
     },
     "ingresos-periodo": (_config = {}) => {
         const clasesSpan = clasesCard("ingresos-periodo")
+        const { filas } = dimensionesCard("ingresos-periodo")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
+                <div class="card-header">
+                    <span class="card-title">Ingresado</span>
+                </div>
+                <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
             <div class="card-header">
@@ -2248,6 +2460,18 @@ const GENERADORES_CARD = {
     "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
     "programados": (_config = {}) => {
         const clasesSpan = clasesCard("programados")
+        const { filas } = dimensionesCard("programados")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
+                <div class="card-header">
+                    <span class="card-title">Programados</span>
+                    <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
             <div class="card-header">
@@ -2260,6 +2484,18 @@ const GENERADORES_CARD = {
     },
     "alertas": (_config = {}) => {
         const clasesSpan = clasesCard("alertas")
+        const { filas } = dimensionesCard("alertas")
+        const esUnoXUno = filas === 1
+        if (esUnoXUno) {
+            return `
+            <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
+                <div class="card-header">
+                    <span class="card-title">Alertas</span>
+                    <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
+                </div>
+            </div>
+        `;
+        }
         return `
         <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
             <div class="card-header">
@@ -3273,6 +3509,20 @@ function mostrarErrorCarga() {
 }
 
 function actualizarPendientes(error) {
+    const { filas } = dimensionesCard("pendientes")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const contadorEl = document.getElementById("pendientes-cantidad")
+        if (!contadorEl) return
+        if (error) {
+            contadorEl.textContent = "—"
+            return
+        }
+        contadorEl.textContent = pendientesData.length
+        return
+    }
+
     const lista = document.getElementById("pendientes-lista")
     const cantidadEl = document.getElementById("pendientes-cantidad")
     if (!lista) return
@@ -3345,6 +3595,23 @@ function distanciaAlDisparo(orden, precioActual) {
 }
 
 function actualizarOrdenes(error) {
+    const { filas } = dimensionesCard("ordenes")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const cantidadEl = document.getElementById("ordenes-cantidad")
+        if (!cantidadEl) return
+        if (error) {
+            cantidadEl.textContent = "—"
+            cantidadEl.hidden = false
+            return
+        }
+        const pendientes = ordenesData.filter(orden => orden.estaPendiente)
+        cantidadEl.textContent = pendientes.length
+        cantidadEl.hidden = pendientes.length === 0
+        return
+    }
+
     const lista = document.getElementById("ordenes-lista")
     const cantidadEl = document.getElementById("ordenes-cantidad")
     const detalleEl = document.getElementById("ordenes-detalle")
@@ -3412,6 +3679,20 @@ function actualizarOrdenes(error) {
 }
 
 function actualizarEstrategias(error) {
+    const { filas } = dimensionesCard("estrategias")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const cantidadEl = document.getElementById("estrategias-cantidad")
+        if (!cantidadEl) return
+        if (error) {
+            cantidadEl.textContent = "—"
+            return
+        }
+        cantidadEl.textContent = estrategiasData.length
+        return
+    }
+
     const lista = document.getElementById("estrategias-lista")
     const cantidadEl = document.getElementById("estrategias-cantidad")
     if (!lista) return
@@ -3646,8 +3927,10 @@ function aplicoAnchoBarras(lista, items) {
 }
 
 function actualizarDistribucion() {
+    const { filas } = dimensionesCard("distribucion")
     const lista = document.getElementById("distribucion-lista")
     const totalEl = document.getElementById("distribucion-total")
+    const donaPlaceholder = document.getElementById("distribucion-dona-placeholder")
     if (!lista) return
     if (!analiticaData) {
         lista.replaceChildren(tarjetaVacia("Sin datos de distribución."))
@@ -3680,10 +3963,15 @@ function actualizarDistribucion() {
             "valor": formatearMontoConDivisa(item.valor, divisaActual)
         }
     })))
-    aplicoAnchoBarras(lista, itemsConPorcentaje)
+
+    if (filas >= 2) {
+        aplicoAnchoBarras(lista, itemsConPorcentaje)
+    }
     actualizarScrollFade(lista)
 
-    dibujarDonaDistribucion(itemsConPorcentaje).catch(() => {})
+    if (filas === 3 && donaPlaceholder) {
+        dibujarDonaDistribucion(itemsConPorcentaje).catch(() => {})
+    }
 }
 
 // ============================================
@@ -3703,9 +3991,49 @@ const CLASES_TIPO_ACTIVO = {
 }
 
 function actualizarDistribucionActivos() {
+    const { filas } = dimensionesCard("distribucion-activos")
     const lista = document.getElementById("distribucion-activos-lista")
     const dona = document.getElementById("distribucion-activos-dona-placeholder")
     if (!lista) return
+
+    if (filas === 1) {
+        // 1x1: mostrar solo el tipo con mayor valor (texto, sin dona)
+        if (!posicionesData || posicionesData.length === 0) {
+            lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
+            actualizarScrollFade(lista)
+            return
+        }
+        const porTipo = new Map()
+        for (const posicion of posicionesData) {
+            const activo = posicion.activo || {}
+            const tipo = String(activo.tipo || "accion").toLowerCase()
+            const cantidad = Number(posicion.cantidad) || 0
+            const ultimoPrecio = Number(activo.ultimoPrecio) || 0
+            if (cantidad <= 0 || ultimoPrecio <= 0) continue
+            const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
+            porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
+        }
+        const items = [...porTipo.entries()]
+            .filter(([, v]) => v > 0)
+            .sort((a, b) => b[1] - a[1])
+        if (items.length === 0) {
+            lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
+            actualizarScrollFade(lista)
+            return
+        }
+        const [tipo, valor] = items[0]
+        const label = ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros"
+        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", [{ label, valor, clase: CLASES_TIPO_ACTIVO[tipo] || "otros", porcentaje: 100 }], item => ({
+            valores: {
+                "etiqueta": item.label,
+                "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+                "barra-clase@data-clase": item.clase,
+                "valor": formatearMontoConDivisa(item.valor, divisaActual)
+            }
+        })))
+        actualizarScrollFade(lista)
+        return
+    }
 
     if (dona) dona.replaceChildren()
 
@@ -3715,9 +4043,6 @@ function actualizarDistribucionActivos() {
         return
     }
 
-    // Se agrupa por tipo y se convierte todo a la divisa del selector UNA sola
-    // vez, como en las demás cards: convertir y luego volver a convertir
-    // deformaba los porcentajes.
     const porTipo = new Map()
     for (const posicion of posicionesData) {
         const activo = posicion.activo || {}
@@ -3725,12 +4050,7 @@ function actualizarDistribucionActivos() {
         const cantidad = Number(posicion.cantidad) || 0
         const ultimoPrecio = Number(activo.ultimoPrecio) || 0
         if (cantidad <= 0 || ultimoPrecio <= 0) continue
-
-        const valor = convertirMonto(
-            cantidad * ultimoPrecio,
-            posicion.divisa || "usd",
-            divisaActual
-        )
+        const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
         porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
     }
 
@@ -3762,6 +4082,11 @@ function actualizarDistribucionActivos() {
     })))
     aplicoAnchoBarras(lista, items)
     actualizarScrollFade(lista)
+
+    if (filas === 3 && dona) {
+        // Dona solo en 1x3 para distribucion-activos (altoMax 3 permite 3 filas)
+        dibujarDonaDistribucion(items).catch(() => {})
+    }
 }
 
 // ============================================
@@ -3842,6 +4167,20 @@ function actualizarPatrimonioDivisa() {
 }
 
 function actualizarProgramados() {
+    const { filas } = dimensionesCard("programados")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const cantidadEl = document.getElementById("programados-cantidad")
+        if (!cantidadEl) return
+        if (!analiticaData) {
+            cantidadEl.textContent = "0"
+            return
+        }
+        cantidadEl.textContent = analiticaData.programados.length
+        return
+    }
+
     const lista = document.getElementById("programados-lista")
     const cantidadEl = document.getElementById("programados-cantidad")
     if (!lista) return
@@ -3870,6 +4209,21 @@ function actualizarProgramados() {
 }
 
 function actualizarAlertas() {
+    const { filas } = dimensionesCard("alertas")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const cantidadEl = document.getElementById("alertas-cantidad")
+        if (!cantidadEl) return
+        if (!analiticaData) {
+            cantidadEl.textContent = "0"
+            return
+        }
+        const alertas = analiticaData.alertas
+        cantidadEl.textContent = alertas.length
+        return
+    }
+
     const lista = document.getElementById("alertas-lista")
     const cantidadEl = document.getElementById("alertas-cantidad")
     const cardEl = document.getElementById("card-alertas")
@@ -3918,6 +4272,29 @@ function formatearProximaEjecucion(fecha) {
 // ============================================
 
 function actualizarMovimientos() {
+    const { filas } = dimensionesCard("movimientos")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const valorEl = document.getElementById("movimientos-valor")
+        const detalleEl = document.getElementById("movimientos-detalle")
+        if (!valorEl) return
+
+        const { ingresos, egresos } = calcularIngresosEgresos(movimientosCompletosData)
+        const ingresosStr = formatearMontoConDivisa(convertirMonto(ingresos, "pen", divisaActual), divisaActual)
+        const egresosStr = formatearMontoConDivisa(convertirMonto(egresos, "pen", divisaActual), divisaActual)
+        valorEl.textContent = `+ ${ingresosStr} | - ${egresosStr}`
+
+        if (detalleEl) {
+            const total = movimientosCompletosData ? movimientosCompletosData.length : 0
+            detalleEl.textContent = total === 0 ? "Sin movimientos" : `${total} movimiento${total === 1 ? "" : "s"}`
+        }
+        valorEl.classList.remove("positive", "negative")
+        if (ingresos > egresos) valorEl.classList.add("positive")
+        else if (egresos > ingresos) valorEl.classList.add("negative")
+        return
+    }
+
     const lista = document.getElementById("movimientos-lista")
     const detalleEl = document.getElementById("movimientos-detalle")
     if (!lista) return
@@ -4513,6 +4890,16 @@ function textoDias(dias) {
 // ============================================
 
 function actualizarFavoritos() {
+    const { filas } = dimensionesCard("favoritos")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const contadorEl = document.getElementById("favoritos-cantidad")
+        if (!contadorEl) return
+        contadorEl.textContent = favoritosData.length
+        return
+    }
+
     const lista = document.getElementById("favoritos-lista")
     const cantidadEl = document.getElementById("favoritos-cantidad")
     if (!lista) return
@@ -4613,6 +5000,30 @@ function instalarSincronizacionPresupuestos() {
 }
 
 async function actualizarPresupuestos() {
+    const { filas } = dimensionesCard("presupuestos")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const valorEl = document.getElementById("presupuestos-valor")
+        const detalleEl = document.getElementById("presupuestos-detalle")
+        if (!valorEl) return
+
+        let presupuestos
+        try {
+            presupuestos = await obtenerPresupuestosConProgreso(uid)
+        } catch (error) {
+            console.error("[ERROR] Error cargando presupuestos para dashboard:", error)
+            valorEl.textContent = "—"
+            if (detalleEl) detalleEl.textContent = "Error al cargar presupuestos."
+            return
+        }
+
+        const total = presupuestos.length
+        valorEl.textContent = total === 0 ? "0 presupuestos" : `Tienes ${total} presupuesto${total === 1 ? "" : "s"}`
+        if (detalleEl) detalleEl.textContent = total === 0 ? "Crea tu primer presupuesto." : ""
+        return
+    }
+
     const lista = document.getElementById("presupuestos-lista")
     if (!lista) return
 
@@ -4637,7 +5048,23 @@ async function actualizarPresupuestos() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-presupuesto-card", presupuestos, plantillaPresupuestoDashboard))
+    // En 1x2, si hay más de un item, mostrar solo el primero y un botón "Ver más".
+    const itemsAMostrar = presupuestos.length > 1 ? presupuestos.slice(0, 1) : presupuestos
+    lista.replaceChildren(contenidoDesdeFilas("tpl-presupuesto-card", itemsAMostrar, plantillaPresupuestoDashboard))
+
+    if (presupuestos.length > 1) {
+        const btnVerMas = document.createElement("button")
+        btnVerMas.type = "button"
+        btnVerMas.className = "glass-btn glass btn-ver-mas-presupuestos"
+        btnVerMas.textContent = `Ver más presupuestos (${presupuestos.length})`
+        btnVerMas.addEventListener("click", (evento) => {
+            evento?.preventDefault?.()
+            evento?.stopPropagation?.()
+            abrirModalPresupuestos()
+        })
+        lista.appendChild(btnVerMas)
+    }
+
     enlazarListaPresupuestos(lista)
     actualizarScrollFade(lista)
 }
@@ -4690,6 +5117,26 @@ function enlazarListaPresupuestos(lista) {
 
 
 function actualizarMetas(error) {
+    const { filas } = dimensionesCard("metas")
+    const esUnoXUno = filas === 1
+
+    if (esUnoXUno) {
+        const valorEl = document.getElementById("metas-valor")
+        const detalleEl = document.getElementById("metas-detalle")
+        if (!valorEl) return
+
+        if (error) {
+            valorEl.textContent = "—"
+            if (detalleEl) detalleEl.textContent = "Error al cargar esta sección"
+            return
+        }
+
+        const total = metasData.length
+        valorEl.textContent = total === 0 ? "0 metas" : `Tienes ${total} meta${total === 1 ? "" : "s"}`
+        if (detalleEl) detalleEl.textContent = total === 0 ? "Crea tu primera meta de ahorro." : ""
+        return
+    }
+
     const lista = document.getElementById("metas-lista")
     if (!lista) return
 
@@ -4706,7 +5153,23 @@ function actualizarMetas(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-meta", metasData, plantillaMeta))
+    // En 1x2, si hay más de un item, mostrar solo el primero y un botón "Ver más".
+    const itemsAMostrar = metasData.length > 1 ? metasData.slice(0, 1) : metasData
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-meta", itemsAMostrar, plantillaMeta))
+
+    if (metasData.length > 1) {
+        const btnVerMas = document.createElement("button")
+        btnVerMas.type = "button"
+        btnVerMas.className = "glass-btn glass btn-ver-mas-metas"
+        btnVerMas.textContent = `Ver más metas (${metasData.length})`
+        btnVerMas.addEventListener("click", (evento) => {
+            evento?.preventDefault?.()
+            evento?.stopPropagation?.()
+            abrirModalMeta()
+        })
+        lista.appendChild(btnVerMas)
+    }
+
     enlazarListaMetas(lista)
     actualizarScrollFade(lista)
 }

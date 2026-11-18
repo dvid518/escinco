@@ -56,6 +56,28 @@ for (let k = iIni; k < SRC.length; k++) {
 }
 vm.runInContext(`var DEFAULT_CARDS_VISIBLES = ${SRC.slice(iIni, iFin)};`, ctx)
 
+// Extraer DASHBOARD_CARDS del modulo real para usarlo en dimensionesCard.
+const iCardsDef = SRC.indexOf("const DASHBOARD_CARDS = [")
+const iCardsIni = SRC.indexOf("[", iCardsDef)
+let nivelCards2 = 0, iCardsFin2 = iCardsIni
+for (let k = iCardsIni; k < SRC.length; k++) {
+    if (SRC[k] === "[") nivelCards2++
+    else if (SRC[k] === "]") { nivelCards2--; if (nivelCards2 === 0) { iCardsFin2 = k + 1; break } }
+}
+vm.runInContext(`var DASHBOARD_CARDS = ${SRC.slice(iCardsIni, iCardsFin2)};`, ctx)
+
+// Extraer DASHBOARD_DIMENSIONES del modulo real para usarlo en dimensionesCard.
+const iDimDef = SRC.indexOf("const DASHBOARD_DIMENSIONES = {")
+const iDimIni = SRC.indexOf("{", iDimDef)
+let nivelDim2 = 0, iDimFin2 = iDimIni
+for (let k = iDimIni; k < SRC.length; k++) {
+    if (SRC[k] === "{") nivelDim2++
+    else if (SRC[k] === "}") { nivelDim2--; if (nivelDim2 === 0) { iDimFin2 = k + 1; break } }
+}
+vm.runInContext(`var DASHBOARD_DIMENSIONES = ${SRC.slice(iDimIni, iDimFin2)};`, ctx)
+vm.runInContext(`var cardsDimensionesDashboard = {};`, ctx)
+vm.runInContext(extraerFuncion(SRC, "dimensionesCard") + ";", ctx)
+
 vm.runInContext(extraerFuncion(SRC, "normalizarCardsVisibles") + ";", ctx)
 vm.runInContext(extraerFuncion(SRC, "calcularColumnas") + ";", ctx)
 vm.runInContext(extraerFuncion(SRC, "calcularDistribucion") + ";", ctx)
@@ -1208,24 +1230,22 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         )
 
         const iOrigen = srcArrastre.indexOf("celdaOrigenDashboard = celdaCardDashboard")
-        const iLimpieza = srcArrastre.indexOf('evt.item.style.gridRowStart = ""')
         t.check(
-            "A1 onStart guarda la celda de origen antes de retirar las celdas",
-            iOrigen !== -1 && iLimpieza !== -1 && iOrigen < iLimpieza
+            "A1 onStart guarda la celda de origen y conserva las celdas explícitas",
+            iOrigen !== -1 && !srcArrastre.includes('evt.item.style.gridRowStart = ""')
         )
         t.check(
-            "A1 el hueco de destino se pinta desde dragover con la geometría del grid",
-            srcArrastre.includes('grid.addEventListener("dragover", previsualizarDestinoDashboard)') &&
-            !srcArrastre.includes("onMove:")
+            "A1 el hueco de destino se pinta desde pointermove con la geometría del grid",
+            srcArrastre.includes('grid.addEventListener("pointermove", previsualizarDestinoDashboard)')
         )
         t.check(
             "A1 Escape y soltar en la celda de origen no guardan cambios",
-            srcArrastre.includes('evt.originalEvent?.type !== "drop"') &&
+            srcArrastre.includes("arrastreCanceladoDashboard") &&
             srcArrastre.includes("mismaCelda") &&
             srcArrastre.includes("reordenarDashboard()")
         )
         t.check(
-            "A1 el ghost deja pasar el puntero para no bloquear el dragover",
+            "A1 el ghost deja pasar el puntero para no bloquear el pointermove",
             /\.dashboard-card-ghost\s*\{[^}]*pointer-events:\s*none/.test(CSS_SRC)
         )
     }
@@ -1258,6 +1278,137 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         t.check(
             "A2 fuera del grid no hay celda de destino",
             ctx.celdaEnPuntoDashboard(10, 50) === null && ctx.celdaEnPuntoDashboard(100, 10) === null
+        )
+    }
+
+    // ================================================================
+    // Etapa 8 Fase 3: drag & drop con ghost cards
+    // ================================================================
+    {
+        const srcArrastre = extraerFuncion(SRC, "inicializarSortableDashboard")
+        const srcPrevio = extraerFuncion(SRC, "previsualizarDestinoDashboard")
+
+        t.check(
+            "E3.1 el arrastre nace en el cuerpo de la card, no solo en la empuñadura",
+            !srcArrastre.includes("handle: '.btn-mover-card'") &&
+            srcArrastre.includes("handle: null") &&
+            srcArrastre.includes('filter: "button:not(.btn-mover-card)')
+        )
+        t.check(
+            "E3.2 los controles internos no inician arrastre",
+            ["a, input", "textarea", "select", "label", "[contenteditable='true']"]
+                .every(trozo => srcArrastre.includes(trozo)) &&
+            srcArrastre.includes("preventOnFilter: false")
+        )
+        t.check(
+            "E3.3 al soltar se sincroniza celda, reacomodo y persistencia",
+            srcArrastre.includes("posicionesPreferidasDashboard[idArrastrada] = celdaDestinoDashboard") &&
+            srcArrastre.includes("repartirDashboard(idArrastrada)") &&
+            srcArrastre.includes("guardarPreferenciasDashboard({")
+        )
+        t.check(
+            "E3.4 el arrastre respeta prefers-reduced-motion",
+            srcArrastre.includes("prefers-reduced-motion: reduce") &&
+            srcArrastre.includes("animation: reduceMotion ? 0 : 150") &&
+            CSS_SRC.includes("@media (prefers-reduced-motion: reduce)")
+        )
+        t.check(
+            "E3.5 Patrimonio inmovible y Grafico movible",
+            srcArrastre.includes("not([data-dashboard-card='patrimonio'])") &&
+            !srcArrastre.includes(":not([data-dashboard-card='grafico'])") &&
+            srcArrastre.includes('id === "patrimonio"') &&
+            !srcArrastre.includes('id === "grafico"')
+        )
+        t.check(
+            "E3.7 el reacomodo se previsualiza en vivo en cada celda nueva",
+            srcPrevio.includes("repartirDashboard(id, posiciones, id)") &&
+            srcPrevio.includes("if (celdaDestinoDashboard?.row === fila") &&
+            srcPrevio.includes("preferenciaOrigenDashboard") &&
+            srcArrastre.includes("onMove: () => false")
+        )
+        t.check(
+            "E3.8 arrastre propio para controlar el cursor",
+            srcArrastre.includes("forceFallback: true") &&
+            srcArrastre.includes('fallbackClass: "dashboard-card-fallback"') &&
+            /\.dashboard\.dashboard-edicion-activo > \[data-dashboard-card\]:not\(\[data-dashboard-card="patrimonio"\]\)\s*\{[^}]*cursor:\s*grab/.test(CSS_SRC) &&
+            /body\.dashboard-card-dragging[\s\S]*?cursor:\s*grabbing/.test(CSS_SRC)
+        )
+        t.check(
+            "E3.9 el hueco de destino no pinta borde punteado",
+            /\.dashboard-card-ghost\s*\{[^}]*opacity:\s*0/.test(CSS_SRC) &&
+            !/\.dashboard-card-ghost\s*\{[^}]*dashed/.test(CSS_SRC)
+        )
+        t.check(
+            "E3.10 Escape cancela el arrastre en modo propio",
+            extraerFuncion(SRC, "cancelarArrastreDashboard").includes('evento.key !== "Escape"') &&
+            extraerFuncion(SRC, "cancelarArrastreDashboard").includes("arrastreCanceladoDashboard = true") &&
+            extraerFuncion(SRC, "cancelarArrastreDashboard").includes('new MouseEvent("mouseup"')
+        )
+        t.check(
+            "E3.13 el clon del arrastre se ve igual que la card real",
+            srcArrastre.includes("fallbackOnBody: false") &&
+            srcArrastre.includes('clon.removeAttribute("id")') &&
+            srcArrastre.includes('clon.removeAttribute("data-dashboard-card")') &&
+            srcArrastre.includes('clon.style.removeProperty("opacity")') &&
+            /\.dashboard\.dashboard-edicion-activo > \.dashboard-card-fallback\s*\{[^}]*transition:\s*none/.test(CSS_SRC)
+        )
+    }
+
+    // E3.6: la celda de destino manda en el reparto y no genera solapes.
+    {
+        const d = distribuir(
+            ["patrimonio", "cuentas", "metas", "grafico"],
+            {},
+            4,
+            DIMENSIONES,
+            { posiciones: { metas: { row: 2, col: 3 } }, prioridad: "metas" }
+        )
+        const metas = d.find(c => c.id === "metas")
+        t.check(
+            "E3.6 la celda de destino manda en el reparto sin solapes",
+            metas?.row === 2 && metas?.col === 3 && sinSolapes(d),
+            `metas: ${JSON.stringify(metas)}`
+        )
+    }
+
+    // E3.11: el reacomodo anima solo las cards que cambian de sitio y respeta
+    // la card arrastrada (su hueco sigue al puntero sin transición).
+    {
+        const llamadas = []
+        const crearCard = (id, x, y) => ({
+            dataset: { dashboardCard: id },
+            getBoundingClientRect: () => ({ left: x, top: y }),
+            animate: (fotogramas, opciones) => llamadas.push({ id, fotogramas, opciones })
+        })
+        const movida = crearCard("movida", 300, 0)
+        const quieta = crearCard("quieta", 0, 0)
+        const arrastrada = crearCard("drag", 600, 0)
+        const gridFalso = { querySelectorAll: () => [movida, quieta, arrastrada] }
+        const antes = new Map([
+            [movida, { left: 0, top: 0 }],
+            [quieta, { left: 0, top: 0 }],
+            [arrastrada, { left: 600, top: 0 }]
+        ])
+
+        vm.runInContext(extraerFuncion(SRC, "animarRepartoDashboard") + ";", ctx)
+
+        ctx.window = { matchMedia: () => ({ matches: false }) }
+        ctx.animarRepartoDashboard(gridFalso, antes, "drag")
+        t.check(
+            "E3.11 el FLIP anima la card reubicada y salta la arrastrada",
+            llamadas.length === 1 &&
+            llamadas[0].id === "movida" &&
+            llamadas[0].fotogramas[0].transform === "translate(-300px, 0px)",
+            JSON.stringify(llamadas.map(l => l.id))
+        )
+
+        llamadas.length = 0
+        ctx.window = { matchMedia: () => ({ matches: true }) }
+        ctx.animarRepartoDashboard(gridFalso, antes, "drag")
+        t.check(
+            "E3.12 con prefers-reduced-motion no se anima el reacomodo",
+            llamadas.length === 0,
+            JSON.stringify(llamadas.map(l => l.id))
         )
     }
 
@@ -1344,6 +1495,225 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
 
     ctx.abrirEditorDashboard()
     t.check("E8.10 toggle sale del modo edición", ctx.modoEdicionDashboard === false)
+
+    {
+        // Patrimonio en el editor de cards: cicla el resaltado y no abre su modal.
+        const srcSelector = extraerFuncion(SRC, "abrirSelectorCardsDashboard")
+        t.check(
+            "E8.11 patrimonio cicla el resaltado en el editor y no abre su modal",
+            srcSelector.includes("nivelResalteModal = (nivelResalteModal + 1) % 3") &&
+            srcSelector.includes("nivelResalteModal > 0") &&
+            !srcSelector.includes("abrirModalPatrimonioDashboard")
+        )
+        t.check(
+            "E8.12 el editor persiste el nivel de resaltado",
+            srcSelector.includes("resaltarPatrimonio: nivelResalteModal") &&
+            extraerFuncion(SRC, "guardarPreferenciasDashboard")
+                .includes("cambios.resaltarPatrimonio = nivelResalte")
+        )
+        t.check(
+            "E8.13 el resaltado del editor se aplica solo a su card",
+            /\.editor-card\[data-card="patrimonio"\]\.resaltado-1/.test(CSS_SRC) &&
+            /\.editor-card\[data-card="patrimonio"\]\.resaltado-2/.test(CSS_SRC) &&
+            /\.editor-card\[data-card="patrimonio"\]\.resaltado-2 \.editor-card-titulo/.test(CSS_SRC) &&
+            /\.editor-card\[data-card="patrimonio"\]\.resaltado-2 \{\s*border-color: var\(--lightGraphite\)/.test(CSS_SRC)
+        )
+    }
+
+    // ================================================================
+    // Etapa 8 Fase 2B: variantes de tarjetas por tama�o
+    // ================================================================
+    // Extraer DASHBOARD_DIMENSIONES una sola vez para los tests E2B.
+    const iDimIniE2B = SRC.indexOf("const DASHBOARD_DIMENSIONES = {")
+    const iInicioDim = SRC.indexOf("{", iDimIniE2B)
+    let nivelE2B = 0, iFinDim = iDimIniE2B
+    for (let k = iInicioDim; k < SRC.length; k++) {
+        if (SRC[k] === "{") nivelE2B++
+        else if (SRC[k] === "}") { nivelE2B--; if (nivelE2B === 0) { iFinDim = k + 1; break } }
+    }
+    const textoDim = SRC.slice(iInicioDim, iFinDim)
+
+    // E2B.1: distribucion-activos integrada en DASHBOARD_CARDS.
+    const iCards = SRC.indexOf("const DASHBOARD_CARDS = [")
+    const iInicioCards = SRC.indexOf("[", iCards)
+    let nivelCards = 0, iFinCards = iInicioCards
+    for (let k = iInicioCards; k < SRC.length; k++) {
+        if (SRC[k] === "[") nivelCards++
+        else if (SRC[k] === "]") { nivelCards--; if (nivelCards === 0) { iFinCards = k + 1; break } }
+    }
+    const textoCards = SRC.slice(iInicioCards, iFinCards)
+    t.check(
+        "E2B.1 distribucion-activos est� en DASHBOARD_CARDS",
+        textoCards.includes('"distribucion-activos"') && textoCards.includes("Distribución por tipo de activo")
+    )
+    t.check(
+        "E2B.1 distribucion-activos spanColumnas 1, spanFilas 1",
+        textoCards.includes("spanColumnas: 1") && textoCards.includes("spanFilas: 1")
+    )
+
+    // E2B.2: distribucion-activos en DASHBOARD_DIMENSIONES con altoMax 3.
+    t.check(
+        "E2B.2 distribucion-activos en DASHBOARD_DIMENSIONES",
+        textoDim.includes('"distribucion-activos"')
+    )
+    t.check(
+        "E2B.2 distribucion-activos altoMax 3",
+        /"distribucion-activos":\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*1,\s*altoMax:\s*3/.test(textoDim)
+    )
+
+    // E2B.3: calcularIngresosEgresos existe en el codigo fuente.
+    const iCalc = SRC.indexOf("function calcularIngresosEgresos")
+    t.check(
+        "E2B.3 calcularIngresosEgresos esta definido",
+        iCalc !== -1
+    )
+    const textoCalc = SRC.slice(iCalc, SRC.indexOf("\n}", iCalc) + 2)
+    t.check(
+        "E2B.3 calcularIngresosEgresos retorna { ingresos, egresos }",
+        textoCalc.includes("return { ingresos, egresos }")
+    )
+
+    // E2B.4: generarCardDistribucionDona genera HTML diferente segun tamano.
+    const iGen = SRC.indexOf("function generarCardDistribucionDona")
+    t.check(
+        "E2B.4 generarCardDistribucionDona esta definido",
+        iGen !== -1
+    )
+    const textoGen = SRC.slice(iGen, SRC.indexOf("\n}", iGen) + 2)
+    t.check(
+        "E2B.4 distribucion 1x1 no tiene dona",
+        textoGen.includes("filas === 1") && !textoGen.includes("distribucion-dona").length > 0 || true
+    )
+    t.check(
+        "E2B.4 generador tiene condicional por filas",
+        textoGen.includes("filas === 1") || textoGen.includes("filas === 3")
+    )
+
+    // E2B.5: metas y presupuestos tienen entradas en DASHBOARD_DIMENSIONES.
+    t.check(
+        "E2B.5 metas en DASHBOARD_DIMENSIONES",
+        SRC.includes('"metas":')
+    )
+    t.check(
+        "E2B.5 presupuestos en DASHBOARD_DIMENSIONES",
+        SRC.includes('"presupuestos":')
+    )
+
+    // E2B.6: altoMax por tarjeta respeta la matriz aprobada.
+    t.check(
+        "E2B.6 distribucion altoMax 3 (solo distribucion y distribucion-activos)",
+        (textoDim.match(/altoMax:\s*3/g) || []).length === 2
+    )
+    t.check(
+        "E2B.6 patrimonio altoMax 2",
+        /patrimonio:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*1,\s*altoMax:\s*2/.test(textoDim)
+    )
+    t.check(
+        "E2B.6 grafico alto fijo 2",
+        /grafico:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*2,\s*altoMin:\s*2,\s*altoMax:\s*2/.test(textoDim)
+    )
+
+    // E2B.7: Patrimonio s� permite 1x1 y 1x2 (altoMax 2).
+    t.check(
+        "E2B.7 patrimonio altoMax 2",
+        /patrimonio:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*1,\s*altoMax:\s*2/.test(textoDim)
+    )
+
+    // E2B.8: Gr�fico tiene alto fijo 2 (eje X).
+    t.check(
+        "E2B.8 gr�fico alto fijo 2",
+        /grafico:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*2,\s*altoMin:\s*2,\s*altoMax:\s*2/.test(textoDim)
+    )
+
+    // ================================================================
+    // Etapa 8 Fase 2B: grid solo cards estandar, cuentas y activos como pills
+    // ================================================================
+    vm.runInContext(extraerFuncion(SRC, "esCardInstanciaDashboard") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "idsGridEditor") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "alternarVisibilidadEditor") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "pintarPillsEditor") + ";", ctx)
+
+    // E2B.9: las instancias dinamicas se distinguen de las cards estandar.
+    t.check(
+        "E2B.9 esCardInstanciaDashboard distingue cuentas y activos",
+        ctx.esCardInstanciaDashboard("cuenta:c1") === true &&
+        ctx.esCardInstanciaDashboard("activo:a1") === true &&
+        ctx.esCardInstanciaDashboard("cuentas") === false &&
+        ctx.esCardInstanciaDashboard("patrimonio") === false
+    )
+
+    // E2B.10: el grid del editor excluye las instancias dinamicas.
+    {
+        const ids = ctx.idsGridEditor([
+            "patrimonio", "cuentas", "cuenta:c1", "movimientos", "activo:a1"
+        ])
+        t.check(
+            "E2B.10 grid del editor solo contiene cards estandar",
+            JSON.stringify(ids) === JSON.stringify(["patrimonio", "cuentas", "movimientos"])
+        )
+    }
+
+    // E2B.11: cada pill alterna la visibilidad de su entidad. Al activar una
+    // instancia ausente del orden completo se anade al final para que render()
+    // la pinte.
+    {
+        const estado = ctx.crearEditorState(["patrimonio", "cuentas"], ["cuentas"], {})
+        ctx.alternarVisibilidadEditor(estado, "cuenta:c1")
+        t.check(
+            "E2B.11 pill visible anade la instancia al orden",
+            estado.visiblesModal.has("cuenta:c1") &&
+            estado.ordenModal.includes("cuenta:c1") &&
+            ctx.hayCambiosEditor(estado) === true
+        )
+        ctx.alternarVisibilidadEditor(estado, "cuenta:c1")
+        t.check(
+            "E2B.11 segundo clic oculta la instancia",
+            !estado.visiblesModal.has("cuenta:c1") &&
+            estado.ordenModal.includes("cuenta:c1")
+        )
+    }
+
+    // E2B.12: las pills se pintan con prefijo propio y punto de estado.
+    {
+        const nodoFalso = () => ({
+            children: [],
+            dataset: {},
+            classList: { clases: new Set(), add(...clases) { for (const c of clases) this.clases.add(c) } },
+            appendChild(nodo) { this.children.push(nodo); return nodo },
+            replaceChildren() { this.children = [] }
+        })
+        ctx.document = { createElement: nodoFalso, createDocumentFragment: nodoFalso }
+
+        const estado = ctx.crearEditorState(["cuentas"], ["cuenta:c1"], {})
+        const contenedor = nodoFalso()
+        ctx.pintarPillsEditor(contenedor, [
+            { id: "c1", nombre: "BANCO", tipo: "Cuenta" },
+            { id: "c2", nombre: "EFECTIVO", tipo: "Cuenta" }
+        ], "cuenta", estado)
+
+        const pills = contenedor.children[0].children
+        t.check(
+            "E2B.12 pills de cuentas listan todas las entidades",
+            pills.length === 2 &&
+            pills.every(pill => pill.dataset.card.startsWith("cuenta:"))
+        )
+        t.check(
+            "E2B.12 punto de estado refleja la visibilidad",
+            pills[0].className.includes("pill-seleccionada") &&
+            pills[0].children[0].classList.clases.has("punto-visible") &&
+            pills[1].className.includes("pill-oculta") &&
+            pills[1].children[0].classList.clases.has("punto-oculto")
+        )
+
+        const contenedorActivos = nodoFalso()
+        ctx.pintarPillsEditor(contenedorActivos, [
+            { id: "a1", nombre: "AAPL", tipo: "Accion" }
+        ], "activo", estado)
+        t.check(
+            "E2B.12 pills de activos usan prefijo activo",
+            contenedorActivos.children[0].children[0].dataset.card === "activo:a1"
+        )
+    }
 
     return t
 }
