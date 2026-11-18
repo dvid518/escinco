@@ -19,8 +19,8 @@ import {
     getDivisaPrincipal,
     getFormatoDivisa,
     convertirMonto,
+    convertirMontoConResultado,
     formatearMonto,
-    formatearMontoConDivisa,
     presentarDivisa,
     etiquetaDivisa
 } from "../services/DivisaServicio.js"
@@ -63,7 +63,6 @@ let inversionesData = null
 let vencimientosData = null
 let favoritosData = []
 let metasData = []
-let movimientosData = []
 let movimientosCompletosData = []
 let pendientesData = []
 let ordenesData = []
@@ -148,24 +147,24 @@ const DASHBOARD_DIMENSIONES = {
     patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "distribucion-activos": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 2 },
-    metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+    metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     // Eje Y máx 2 (alto 1-2, ancho siempre 1)
     cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "ingresos-periodo":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "gastos-periodo":  { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "balance-periodo": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    ordenes:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    estrategias:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    ordenes:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    estrategias:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     // Eje X variable; alto fijo en 2 filas para que el canvas (200px) quepa.
     grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 2, altoMax: 2, anchoDefault: 2, altoDefault: 2 },
@@ -190,12 +189,15 @@ const DEFAULT_CARDS_ORDEN = DASHBOARD_CARDS
 function dimensionesCard(id) {
     const personalizada = cardsDimensionesDashboard[id]
     const catalogo = DASHBOARD_DIMENSIONES[id] ?? DASHBOARD_CARDS.find(c => c.id === id)
-    return {
-        ancho: personalizada?.columnas ?? personalizada?.ancho
-            ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1,
-        alto: personalizada?.filas ?? personalizada?.alto
-            ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
-    }
+    const ancho = personalizada?.columnas ?? personalizada?.ancho
+        ?? catalogo?.anchoDefault ?? catalogo?.spanColumnas ?? 1
+    const alto = personalizada?.filas ?? personalizada?.alto
+        ?? catalogo?.altoDefault ?? catalogo?.spanFilas ?? 1
+    // `columnas`/`filas` son los nombres que consumen las variantes de
+    // contenido; `ancho`/`alto` los que usa el reparto del grid. Devolver
+    // ambos evita que `const { filas } = dimensionesCard(id)` sea siempre
+    // undefined y que ninguna variante 1x1 llegue a pintarse.
+    return { ancho, alto, columnas: ancho, filas: alto }
 }
 
 // Devuelve las clases CSS de dimensiones para una card dada su id.
@@ -208,9 +210,17 @@ function clasesCard(id) {
     const clases = []
     if (spanCol === 2) clases.push("card-span-2")
     if (spanFil === 2) clases.push("card-span-row-2")
+    if (spanFil === 3) clases.push("card-alto-3")
     if (spanCol === 2 && spanFil === 2) clases.push("card-span-2x2")
     if (scroll) clases.push("card-con-scroll")
     return clases.join(" ")
+}
+
+// Registros que caben en una lista sin scroll según el alto de la card:
+// 1x2 deja espacio para 3; 1x3 para 6.
+function limiteItemsLista(filas) {
+    if (filas <= 1) return 1
+    return filas === 2 ? 3 : 6
 }
 
 // Columnas que caben en `ancho` con celdas de `anchoMinimo` y separación `gap`.
@@ -511,6 +521,24 @@ function clampDimensionesDashboard(dimensiones) {
     return resultado
 }
 
+// ============================================
+// FORMATADOR NUMÉRICO DEL DASHBOARD
+// ============================================
+// Separa miles con espacio y usa coma decimal (ej. "12 500,00").
+// Respeta el formato de divisa del usuario (símbolo o código) definido en
+// DivisaServicio.js. Es exclusivo de la presentación del dashboard: no afecta
+// a otras pantallas ni a los cálculos financieros.
+function formatearMontoDashboard(monto, divisa = null) {
+    const importe = Number(monto).toFixed(2)
+    const [entera, decimal] = importe.split(".")
+    const enteraConSeparador = entera.replace(/\B(?=(\d{3})+(?!\d))/g, " ")
+    const importeFormateado = `${enteraConSeparador},${decimal}`
+    if (getFormatoDivisa() === "codigo") {
+        return `${importeFormateado} ${presentarDivisa(divisa)}`
+    }
+    return `${presentarDivisa(divisa)} ${importeFormateado}`
+}
+
 function configurarCardsDashboardDesdeSesion() {
     const dashboard = sesion.getPreferencias()?.dashboard
     cardsVisiblesDashboard = normalizarCardsVisibles(dashboard?.cardsVisibles)
@@ -776,13 +804,13 @@ function pintarCardCuenta(cuenta, card) {
         const corte = cuenta.diaCorte ? `Corte día ${cuenta.diaCorte}` : ""
         const pago = cuenta.diaPago ? `Pago día ${cuenta.diaPago}` : ""
 
-        valorEl.textContent = formatearMontoConDivisa(uso.deuda, moneda)
+        valorEl.textContent = formatearMontoDashboard(uso.deuda, moneda)
         valorEl.classList.remove("positive", "negative")
         if (uso.deuda > 0) valorEl.classList.add("negative")
 
         if (detalleEl) {
             detalleEl.textContent = uso.limite > 0
-                ? `De ${formatearMontoConDivisa(uso.limite, moneda)}`
+                ? `De ${formatearMontoDashboard(uso.limite, moneda)}`
                 : "Sin línea de crédito definida"
         }
 
@@ -809,10 +837,10 @@ function pintarCardCuenta(cuenta, card) {
                 filaDato("Por pagar", ciclo.pagadoCompleto
                     ? "Estado de cuenta pagado"
                     : ciclo.restante > 0
-                        ? formatearMontoConDivisa(ciclo.restante, moneda)
+                        ? formatearMontoDashboard(ciclo.restante, moneda)
                         : "Sin saldo pendiente"),
                 filaDato("Anualidad", anualidad
-                    ? `${formatearMontoConDivisa(anualidad.monto, moneda)} · ${formatearFecha(anualidad.fecha)}`
+                    ? `${formatearMontoDashboard(anualidad.monto, moneda)} · ${formatearFecha(anualidad.fecha)}`
                     : cuenta.desgravamen
                         ? `Desgravamen ${cuenta.desgravamen}%`
                         : "")
@@ -825,7 +853,7 @@ function pintarCardCuenta(cuenta, card) {
     // agregado): al aplicar M6 las hijas son cards independientes y sumar la
     // familia duplicaría el conteo.
     const saldo = Number(cuenta.saldoInicial) || 0
-    valorEl.textContent = formatearMontoConDivisa(saldo, moneda)
+    valorEl.textContent = formatearMontoDashboard(saldo, moneda)
     valorEl.classList.remove("positive", "negative")
     if (saldo > 0) valorEl.classList.add("positive")
     else if (saldo < 0) valorEl.classList.add("negative")
@@ -836,7 +864,7 @@ function pintarCardCuenta(cuenta, card) {
         const nSub = esAbstracta(cuenta) ? nHijas : nHijas + 1
         const etiqueta = nHijas > 0 ? `${nSub} subcuentas · saldo disponible` : "Saldo disponible"
         detalleEl.textContent = monedaDistinta
-            ? `${etiqueta} · ${formatearMontoConDivisa(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
+            ? `${etiqueta} · ${formatearMontoDashboard(convertirMonto(saldo, moneda, divisaActual), divisaActual)}`
             : etiqueta
     }
 
@@ -884,12 +912,12 @@ function pintarCardActivo(posicion, card) {
     valorEl.classList.remove("positive", "negative")
 
     if (sinPrecio) {
-        valorEl.textContent = formatearMontoConDivisa(0, divisaActual)
+        valorEl.textContent = formatearMontoDashboard(0, divisaActual)
         detalleEl.textContent = "Sin precio para valorar"
     } else {
-        valorEl.textContent = formatearMontoConDivisa(convertirMonto(valorTotal, divisa, divisaActual), divisaActual)
+        valorEl.textContent = formatearMontoDashboard(convertirMonto(valorTotal, divisa, divisaActual), divisaActual)
         const signo = ganancia >= 0 ? "+" : ""
-        detalleEl.textContent = `${signo}${formatearMontoConDivisa(convertirMonto(ganancia, divisa, divisaActual), divisaActual)} · ${rendimiento >= 0 ? "+" : ""}${rendimiento.toFixed(1)}%`
+        detalleEl.textContent = `${signo}${formatearMontoDashboard(convertirMonto(ganancia, divisa, divisaActual), divisaActual)} · ${rendimiento >= 0 ? "+" : ""}${rendimiento.toFixed(1)}%`
         if (ganancia > 0) valorEl.classList.add("positive")
         else if (ganancia < 0) valorEl.classList.add("negative")
     }
@@ -897,7 +925,7 @@ function pintarCardActivo(posicion, card) {
     if (datosEl) {
         datosEl.replaceChildren(...[
             filaDato("Cantidad", `${cantidadDeActivo(cantidad)} ${activo.simbolo || ""}`.trim()),
-            filaDato("Precio", `${formatearMontoConDivisa(ultimoPrecio, divisa)} · prom. ${formatearMontoConDivisa(precioPromedio, divisa)}`),
+            filaDato("Precio", `${formatearMontoDashboard(ultimoPrecio, divisa)} · prom. ${formatearMontoDashboard(precioPromedio, divisa)}`),
             filaDato("Tipo", ETIQUETAS_TIPO_ACTIVO[activo.tipo] || "")
         ].filter(Boolean))
     }
@@ -1397,6 +1425,20 @@ function configurarEventosReordenamientoDashboard() {
     })
 }
 
+// Chart.js dibuja sobre <canvas>, y cloneNode no copia el bitmap: el clon que
+// sigue al puntero salía en blanco. Se replica el contenido píxel a píxel.
+function copiarCanvasAlClon(original, clon) {
+    const origenes = original.querySelectorAll("canvas")
+    const copias = clon.querySelectorAll("canvas")
+    origenes.forEach((origen, indice) => {
+        const destino = copias[indice]
+        if (!destino) return
+        destino.width = origen.width
+        destino.height = origen.height
+        destino.getContext("2d")?.drawImage(origen, 0, 0)
+    })
+}
+
 function inicializarSortableDashboard() {
     const grid = document.querySelector(".dashboard")
     if (!grid || sortableDashboard) return
@@ -1445,6 +1487,7 @@ function inicializarSortableDashboard() {
                 clon.removeAttribute("id")
                 clon.removeAttribute("data-dashboard-card")
                 clon.style.removeProperty("opacity")
+                copiarCanvasAlClon(evt.item, clon)
             }
             // Celda de origen: se compara al soltar para no guardar un
             // arrastre que acaba donde empezó.
@@ -1670,13 +1713,12 @@ function hayCambiosEditor(editorState) {
     return JSON.stringify(editorState.dimensionesModal) !== JSON.stringify(ini.dimensiones)
 }
 
-// Cuentas finales: cuentas visibles que no son hijas (tienen `padreId`) y no
-// tienen hijas propias, es decir, nunca padres. Son las que se pueden agregar
-// como card individual al dashboard. Si no hay ninguna (p. ej. M6 no aplicada),
-// la sección de Cuentas queda vacía: no se inventan datos.
+// Cuentas finales: hojas del árbol familiar, sin hijas propias. Incluye las
+// cuentas sueltas y las subcuentas de M6 (que sí tienen `padreId`): cada hoja
+// es una instancia operable. Los padres, abstractos o legacy, nunca entran.
 function cuentasFinales(lista) {
     return lista.filter(cuenta => {
-        if (!cuenta || cuenta.padreId) return false
+        if (!cuenta || esAbstracta(cuenta)) return false
         return !lista.some(otra => otra.padreId === cuenta.id)
     })
 }
@@ -1909,6 +1951,10 @@ function abrirSelectorCardsDashboard() {
                     // (pointer-events: none, bloquea todos los clics). Quitarlo
                     // tras el reemplazo para que los botones de acción y el resto
                     // de la UI vuelvan a ser interactivos.
+                    // La hoja ya está aplicada a estas alturas (el editor solo
+                    // se abre con el dashboard cargado): el nodo nuevo nace
+                    // visible, sin esperar a un segundo init().
+                    nuevoDashboard.classList.add("dashboard-estilos-listos")
                     nuevoDashboard.classList.remove("dashboard-cargando")
                 }
 
@@ -2109,23 +2155,66 @@ function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, clase
     `;
 }
 
-// Calcula ingresos y egresos totales en la divisa de cada movimiento, para mostrar
-// en la variante 1x1 de la tarjeta Movimientos. No convierte divisas: cada monto
-// se suma en su propia moneda y se presenta con su divisa original.
-function calcularIngresosEgresos(movimientos = []) {
-    let ingresos = 0
-    let egresos = 0
-    for (const m of movimientos) {
-        const monto = montoDeMovimiento(m)
-        if (!Number.isFinite(monto) || monto <= 0) continue
-        if (esMovimientoPositivo(m)) ingresos += monto
-        else egresos += monto
+// Calcula ingresos y egresos totales, convirtiendo cada movimiento desde su
+// divisa original hacia `divisaActual`. Los importes que no pueden convertirse
+// (falta de tasa) se excluyen del total convertido y se listan por separado.
+// Los importes originales se agrupan por divisa en `porDivisa`, nunca se suman
+// entre divisas distintas.
+function calcularIngresosEgresos(movimientos = [], divisaDestino) {
+    const resultado = {
+        ingresos: { convertido: 0, porDivisa: {} },
+        egresos: { convertido: 0, porDivisa: {} },
+        noConvertibles: [],
+        balanceConvertido: 0
     }
-    return { ingresos, egresos }
+
+    for (const m of movimientos) {
+        const montoOriginal = montoDeMovimiento(m)
+        if (!Number.isFinite(montoOriginal) || montoOriginal <= 0) continue
+
+        const divisaOrigen = divisaDeMovimiento(m)
+        const { valor: montoConvertido, convertido } = convertirMontoConResultado(montoOriginal, divisaOrigen, divisaDestino)
+
+        if (esMovimientoPositivo(m)) {
+            if (!resultado.ingresos.porDivisa[divisaOrigen]) {
+                resultado.ingresos.porDivisa[divisaOrigen] = 0
+            }
+            if (convertido) {
+                resultado.ingresos.convertido += montoConvertido
+            }
+            resultado.ingresos.porDivisa[divisaOrigen] += montoOriginal
+        } else {
+            if (!resultado.egresos.porDivisa[divisaOrigen]) {
+                resultado.egresos.porDivisa[divisaOrigen] = 0
+            }
+            if (convertido) {
+                resultado.egresos.convertido += montoConvertido
+            }
+            resultado.egresos.porDivisa[divisaOrigen] += montoOriginal
+        }
+
+        if (!convertido) {
+            resultado.noConvertibles.push({
+                monto: montoOriginal,
+                divisa: divisaOrigen,
+                motivo: "sin_tasa",
+                movimientoId: m.id,
+                tipo: esMovimientoPositivo(m) ? "ingreso" : "egreso"
+            })
+        }
+    }
+
+    resultado.balanceConvertido = resultado.ingresos.convertido - resultado.egresos.convertido
+    return resultado
 }
 
 function generarCardPatrimonio(nivelResalte) {
     const resaltado = nivelResalte ? ` resaltado-${nivelResalte}` : "";
+    // 1x1: solo el total. 1x2: además el desglose de activos/deuda que ya
+    // calcula calcularPatrimonio() (no se añade ninguna métrica nueva).
+    const detalle = dimensionesCard("patrimonio").filas >= 2
+        ? `<div class="card-sub" id="patrimonio-detalle">${skeletonText()}</div>`
+        : ""
     return `
         <div class="glass card primary patrimonio-card${resaltado}" data-dashboard-card="patrimonio" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Patrimonio total, valor actual">
             <div class="card-header">
@@ -2137,7 +2226,7 @@ function generarCardPatrimonio(nivelResalte) {
                 </select>
             </div>
             <div class="card-value" id="patrimonio-valor" aria-live="polite">${skeletonText("skeleton-value-large")}</div>
-            <div class="card-sub" id="patrimonio-detalle">${skeletonText()}</div>
+            ${detalle}
         </div>
     `;
 }
@@ -2171,7 +2260,7 @@ function generarCardDistribucionDona(_config = {}) {
             <div class="card-header">
                 <span class="card-title">Distribución patrimonial</span>
             </div>
-            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     }
@@ -2247,7 +2336,22 @@ const GENERADORES_CARD = {
     },
     "cuentas": () => generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
-    "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
+    "vencimientos": () => {
+        const { filas } = dimensionesCard("vencimientos")
+        // 1x1/1x2: contador + resumen. 1x3: listado de los más urgentes.
+        if (filas < 3) {
+            return generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle")
+        }
+        return `
+        <div class="glass card card-navegable metric-card ${clasesCard("vencimientos")}" id="card-vencimientos" data-dashboard-card="vencimientos" role="button" tabindex="0" title="Próximos vencimientos">
+            <div class="card-header">
+                <span class="card-title">Próximos vencimientos</span>
+                <span class="badge" id="vencimientos-cantidad">${skeletonText("skeleton-badge")}</span>
+            </div>
+            <div class="vencimientos-dashboard" id="vencimientos-lista">${skeletonMarkup({ rows: 4, className: "skeleton-dashboard-list" })}</div>
+        </div>
+    `;
+    },
     "movimientos": (_config = {}) => {
         const clasesSpan = clasesCard("movimientos")
         const { filas } = dimensionesCard("movimientos")
@@ -2258,7 +2362,16 @@ const GENERADORES_CARD = {
                 <div class="card-header">
                     <span class="card-title">Últimos movimientos</span>
                 </div>
-                <div class="card-value" id="movimientos-valor">${skeletonText("skeleton-value")}</div>
+                <div class="movimientos-resumen">
+                    <div class="movimientos-resumen-col">
+                        <span class="movimientos-resumen-etiqueta">Ingresos</span>
+                        <span class="movimientos-resumen-valor positive" id="movimientos-ingresos">${skeletonText("skeleton-value")}</span>
+                    </div>
+                    <div class="movimientos-resumen-col">
+                        <span class="movimientos-resumen-etiqueta">Egresos</span>
+                        <span class="movimientos-resumen-valor negative" id="movimientos-egresos">${skeletonText("skeleton-value")}</span>
+                    </div>
+                </div>
                 <div class="card-sub" id="movimientos-detalle">${skeletonText()}</div>
             </div>
         `;
@@ -2354,7 +2467,7 @@ const GENERADORES_CARD = {
                 <div class="card-header">
                     <span class="card-title">Distribución por tipo de activo</span>
                 </div>
-                <div class="distribucion-lista texto" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+                <div class="distribucion-lista texto" id="distribucion-activos-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
             </div>
         `;
         }
@@ -2373,12 +2486,26 @@ const GENERADORES_CARD = {
     },
     "patrimonio-divisa": (_config = {}) => {
         const clasesSpan = clasesCard("patrimonio-divisa")
+        const { filas } = dimensionesCard("patrimonio-divisa")
+        if (filas === 1) {
+            return `
+            <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
+                <div class="card-header">
+                    <span class="card-title">Patrimonio por divisa</span>
+                </div>
+                <div class="divisa-lista texto" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
+            </div>
+        `;
+        }
+        const dona = filas === 3
+            ? `<div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+            : ""
         return `
         <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
             <div class="card-header">
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
-            <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
+            ${dona}
             <div class="divisa-lista scroll-fade" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
@@ -2711,6 +2838,12 @@ export async function init() {
     periodoFlujo = obtenerPeriodoFlujo(sesion.getPreferencias()?.periodoFlujo || PERIODO_FLUJO_POR_DEFECTO).id
     console.info("[INFO] Dashboard iniciado para UID:", uid)
 
+    // La hoja del dashboard se inyecta de forma diferida. Hasta que esté
+    // aplicada, style.css mantiene el grid oculto (anti-FOUC): sin esto se veía
+    // como una lista vertical sin estilos durante la carga.
+    await asegurarEstilos("dashboard")
+    document.querySelector(".dashboard")?.classList.add("dashboard-estilos-listos")
+
     await cargarCardsVisiblesDashboard()
     // Posiciones explícitas desde el primer frame (esqueletos incluidos): sin
     // grid-auto-flow dense, la auto-colocación dejaría huecos hasta la recarga.
@@ -2882,7 +3015,6 @@ async function cargarTodo() {
             favoritosData = inversionesResp.favoritos || []
             metasData = metasResp
             movimientosCompletosData = movimientosResp
-            movimientosData = movimientosResp.slice(0, cantidadMovimientosRecientes())
             pendientesData = pendientesResp
             ordenesData = ordenesResp
             estrategiasData = estrategiasResp
@@ -3384,9 +3516,9 @@ async function actualizarCuentas() {
     const detalleEl = document.getElementById("patrimonio-detalle")
     if (detalleEl) {
         const activos = convertirMonto(stats.totalActivos, "pen", divisaActual)
-        let detalle = `Activos: ${formatearMontoConDivisa(activos, divisaActual)}`
+        let detalle = `Activos: ${formatearMontoDashboard(activos, divisaActual)}`
         if (stats.tieneDeuda) {
-            detalle += ` | Deuda: -${formatearMontoConDivisa(convertirMonto(stats.totalDeuda, "pen", divisaActual), divisaActual)}`
+            detalle += ` | Deuda: -${formatearMontoDashboard(convertirMonto(stats.totalDeuda, "pen", divisaActual), divisaActual)}`
         }
         detalleEl.replaceChildren(document.createTextNode(detalle))
     }
@@ -3399,7 +3531,7 @@ async function actualizarPatrimonio() {
     if (!valorEl) return
 
     const valor = convertirMonto(stats.patrimonio, "pen", divisaActual)
-    valorEl.textContent = formatearMontoConDivisa(valor, divisaActual)
+    valorEl.textContent = formatearMontoDashboard(valor, divisaActual)
 
     valorEl.classList.remove("positive", "negative")
     if (valor > 0) valorEl.classList.add("positive")
@@ -3436,12 +3568,12 @@ function actualizarInversiones(error) {
         divisaActual
     )
 
-    valorEl.textContent = formatearMontoConDivisa(valorConvertido, divisaActual)
+    valorEl.textContent = formatearMontoDashboard(valorConvertido, divisaActual)
 
     if (detalleEl) {
         const signo = inversionesData.gananciaTotal >= 0 ? "+" : ""
         detalleEl.textContent =
-            `${signo}${formatearMontoConDivisa(inversionesData.gananciaTotal, inversionesData.divisa)}` +
+            `${signo}${formatearMontoDashboard(inversionesData.gananciaTotal, inversionesData.divisa)}` +
             ` · ${inversionesData.cantidad} posici${inversionesData.cantidad === 1 ? "ón" : "ones"}`
     }
 
@@ -3462,6 +3594,33 @@ function actualizarVencimientos(error) {
         cantidadEl.textContent = "—"
         if (detalleEl) detalleEl.textContent = "Error al cargar esta sección"
         cardEl?.classList.remove("positive", "negative")
+        return
+    }
+
+    if (dimensionesCard("vencimientos").filas === 3) {
+        const lista = document.getElementById("vencimientos-lista")
+        if (!lista) return
+        cantidadEl.textContent = vencimientosData.total
+        cardEl?.classList.toggle("negative", vencimientosData.vencidos > 0)
+        if (vencimientosData.items.length === 0) {
+            lista.replaceChildren(tarjetaVacia(`Sin vencimientos en los próximos ${DIAS_VENCIMIENTO} días`))
+            actualizarScrollFade(lista)
+            return
+        }
+        // Ya vienen ordenados por días restantes: lo más urgente, primero.
+        lista.replaceChildren(contenidoDesdeFilas(
+            "tpl-dashboard-list-item",
+            vencimientosData.items.slice(0, limiteItemsLista(3)),
+            v => ({
+                valores: {
+                    "titulo": v.titulo,
+                    "detalle": v.diasRestantes == null ? v.subtitulo : `${v.subtitulo} · ${textoDias(v.diasRestantes)}`,
+                    "valor@class": `dashboard-list-value ${v.tipo === "pendiente" ? (v.esCobrar ? "positive" : "negative") : (v.vencido ? "negative" : "")}`,
+                    "valor-texto": formatearMontoDashboard(v.monto, v.divisa)
+                }
+            })
+        ))
+        actualizarScrollFade(lista)
         return
     }
 
@@ -3542,7 +3701,7 @@ function actualizarPendientes(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData, pendiente => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData.slice(0, limiteItemsLista(filas)), pendiente => {
         const clase = pendiente.tipo ? "positive" : "negative"
         const signo = pendiente.tipo ? "+" : "−"
         const detalle = pendiente.fechaVencimiento
@@ -3553,7 +3712,7 @@ function actualizarPendientes(error) {
                 "titulo": pendiente.concepto,
                 "detalle": detalle,
                 "valor@class": `dashboard-list-value ${clase}`,
-                "valor-texto": `${signo} ${formatearMontoConDivisa(pendiente.monto, pendiente.divisa)}`
+                "valor-texto": `${signo} ${formatearMontoDashboard(pendiente.monto, pendiente.divisa)}`
             }
         }
     }))
@@ -3571,7 +3730,6 @@ function actualizarPendientes(error) {
 //   · el pie resume cuántas hay ejecutadas y canceladas.
 // Si no hay pendientes, la lista lo dice y el pie da el resumen.
 
-const ORDENES_MAX_FILAS = 3
 
 // Último precio conocido por símbolo, tomado de las posiciones abiertas. Una
 // orden puede apuntar a un activo del que no se tiene posición, y entonces no
@@ -3653,7 +3811,8 @@ function actualizarOrdenes(error) {
 
     const precios = preciosPorSimbolo()
 
-    const fragmento = contenidoDesdeFilas("tpl-dashboard-list-item", pendientes.slice(0, ORDENES_MAX_FILAS), orden => {
+    const limite = limiteItemsLista(filas)
+    const fragmento = contenidoDesdeFilas("tpl-dashboard-list-item", pendientes.slice(0, limite), orden => {
         const precioActual = precios.get(String(orden.activo || "").toUpperCase()) || 0
         const distancia = distanciaAlDisparo(orden, precioActual)
         // Por debajo del 2% la orden está a punto de saltar: se resalta.
@@ -3667,12 +3826,12 @@ function actualizarOrdenes(error) {
                 "titulo": orden.activo,
                 "detalle@class": claseDistancia ? `dashboard-list-detail ${claseDistancia}` : "dashboard-list-detail",
                 "detalle": detalle,
-                "valor-texto": formatearMontoConDivisa(orden.precioDisparo, orden.divisa)
+                "valor-texto": formatearMontoDashboard(orden.precioDisparo, orden.divisa)
             }
         }
     })
-    if (pendientes.length > ORDENES_MAX_FILAS) {
-        fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - ORDENES_MAX_FILAS} más…`))
+    if (pendientes.length > limite) {
+        fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - limite} más…`))
     }
     lista.replaceChildren(fragmento)
     actualizarScrollFade(lista)
@@ -3712,7 +3871,7 @@ function actualizarEstrategias(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", estrategiasData, estrategia => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", estrategiasData.slice(0, limiteItemsLista(filas)), estrategia => {
         const cuenta = cuentas.find(item => item.id === estrategia.cuentaId)
         const controlCuenta = cuenta
             ? contenidoDesdeTemplate("tpl-dashboard-estrategia-cuenta", {
@@ -3728,7 +3887,7 @@ function actualizarEstrategias(error) {
                 "item@class": "dashboard-list-item estrategia-dashboard-item",
                 "titulo": estrategia.nombre,
                 "detalle": `${estrategia.activoSimbolo} · ${formatearProximaEjecucion(estrategia.proximaEjecucion)}`,
-                "valor-texto": formatearMontoConDivisa(estrategia.montoFijo, estrategia.divisa)
+                "valor-texto": formatearMontoDashboard(estrategia.montoFijo, estrategia.divisa)
             },
             html: { extra: controlCuenta }
         }
@@ -3759,17 +3918,17 @@ function actualizarFlujoPeriodo() {
         return
     }
 
-    if (gastosEl) gastosEl.textContent = formatearMontoConDivisa(datos.gastos, divisaActual)
+    if (gastosEl) gastosEl.textContent = formatearMontoDashboard(datos.gastos, divisaActual)
     if (gastosDetalle) gastosDetalle.textContent = datos.movimientosGastos > 0
         ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosGastos)}`
         : periodo.sub
 
-    if (ingresosEl) ingresosEl.textContent = formatearMontoConDivisa(datos.ingresos, divisaActual)
+    if (ingresosEl) ingresosEl.textContent = formatearMontoDashboard(datos.ingresos, divisaActual)
     if (ingresosDetalle) ingresosDetalle.textContent = datos.movimientosIngresos > 0
         ? `${periodo.sub} · ${pluralizarMovimientos(datos.movimientosIngresos)}`
         : periodo.sub
 
-    if (balanceEl) balanceEl.textContent = formatearMontoConDivisa(datos.balance, divisaActual)
+    if (balanceEl) balanceEl.textContent = formatearMontoDashboard(datos.balance, divisaActual)
     if (balanceDetalle) balanceDetalle.textContent = datos.total > 0
         ? `${pluralizarMovimientos(datos.total)} en total`
         : "Sin movimientos"
@@ -3788,9 +3947,9 @@ function actualizarFlujoCaja() {
         return
     }
 
-    valorEl.textContent = formatearMontoConDivisa(analiticaData.balance, divisaActual)
+    valorEl.textContent = formatearMontoDashboard(analiticaData.balance, divisaActual)
     if (detalleEl) {
-        detalleEl.textContent = `+${formatearMontoConDivisa(analiticaData.ingresos, divisaActual)} · −${formatearMontoConDivisa(analiticaData.gastos, divisaActual)}`
+        detalleEl.textContent = `+${formatearMontoDashboard(analiticaData.ingresos, divisaActual)} · −${formatearMontoDashboard(analiticaData.gastos, divisaActual)}`
     }
     cardEl?.classList.toggle("positive", analiticaData.balance > 0)
     cardEl?.classList.toggle("negative", analiticaData.balance < 0)
@@ -3806,7 +3965,7 @@ function actualizarDeudas() {
         return
     }
 
-    valorEl.textContent = formatearMontoConDivisa(analiticaData.deudas, divisaActual)
+    valorEl.textContent = formatearMontoDashboard(analiticaData.deudas, divisaActual)
     if (detalleEl) {
         const proximo = analiticaData.programados.find(item => item.tipo === "tarjeta")
         detalleEl.textContent = proximo
@@ -3837,8 +3996,10 @@ const COLORES_DISTRIBUCION = {
 }
 
 // La dona solo se recrea si cambió la composición: comparar huellas evita
-// redibujar en cada refresco del dashboard cuando el reparto no varió.
-let ultimaDonaDistribucion = ""
+// redibujar en cada refresco del dashboard cuando el reparto no varió. La
+// huella va por canvas porque hay dos donas de distribución (patrimonio y
+// tipos de activo).
+const huellasDonaDistribucion = new Map()
 let ultimaDonaDivisa = ""
 
 async function dibujarDonaDivisa(items) {
@@ -3869,12 +4030,15 @@ async function dibujarDonaDivisa(items) {
         colores: items.map(item => COLORES_DISTRIBUCION[item.clave] || "--positive")
     }, {
         chartKey: "patrimonio-divisa-dona",
-        formatear: monto => formatearMontoConDivisa(monto, divisaActual)
+        formatear: monto => formatearMontoDashboard(monto, divisaActual)
     })
 }
 
-async function dibujarDonaDistribucion(items) {
-    const contenedor = document.getElementById("distribucion-dona-placeholder")
+// Hay dos cards con dona de distribución (patrimonio y tipos de activo), así
+// que contenedor, canvas y chartKey se reciben por parámetro: antes la función
+// escribía siempre en el contenedor de patrimonio.
+async function dibujarDonaDistribucion(items, contenedorId, canvasId, chartKey) {
+    const contenedor = document.getElementById(contenedorId)
     if (!contenedor) return
     if (!items || items.length === 0) {
         contenedor.replaceChildren()
@@ -3882,8 +4046,8 @@ async function dibujarDonaDistribucion(items) {
     }
 
     const huella = items.map(item => `${item.clase}:${item.valor}`).join("|")
-    if (huella === ultimaDonaDistribucion && contenedor.querySelector("canvas")) return
-    ultimaDonaDistribucion = huella
+    if (huella === huellasDonaDistribucion.get(canvasId) && contenedor.querySelector("canvas")) return
+    huellasDonaDistribucion.set(canvasId, huella)
 
     let canvas = contenedor.querySelector("canvas")
     if (!canvas) {
@@ -3891,32 +4055,27 @@ async function dibujarDonaDistribucion(items) {
         // superponen en el mismo contenedor.
         contenedor.replaceChildren()
         canvas = document.createElement("canvas")
-        canvas.id = "distribucion-dona"
+        canvas.id = canvasId
         contenedor.appendChild(canvas)
     }
 
     // `limpiarEsqueletosDashboard()` puede borrar el placeholder mientras
     // esperamos a que cargue Chart.js. Verificar que el canvas sigue vivo.
-    if (!document.getElementById("distribucion-dona")) return
+    if (!document.getElementById(canvasId)) return
 
-    await crearGraficoDistribucion("distribucion-dona", {
+    await crearGraficoDistribucion(canvasId, {
         labels: items.map(item => item.label),
         data: items.map(item => item.valor),
         colores: items.map(item => COLORES_DISTRIBUCION[item.clase] || "--distribucion-liquidez")
     }, {
-        chartKey: "distribucion-dashboard",
-        formatear: monto => formatearMontoConDivisa(monto, divisaActual)
+        chartKey,
+        formatear: monto => formatearMontoDashboard(monto, divisaActual)
     })
 }
 
 /* Aplica el ancho de cada barra de distribución vía variable CSS
    (el width vive en .distribucion-barra .barra-progreso). */
 function aplicoAnchoBarras(lista, items) {
-    // Retrocompatibilidad: llamada con un solo argumento (patrimonio por divisa).
-    if (!Array.isArray(items)) {
-        items = lista
-        lista = document
-    }
     const barras = lista.querySelectorAll(".distribucion-barra .barra-progreso")
     barras.forEach((barra, i) => {
         if (!items[i]) return
@@ -3949,18 +4108,44 @@ function actualizarDistribucion() {
         valor: Math.max(0, item.valor)
     }))
     const total = items.reduce((sum, item) => sum + item.valor, 0)
-    const itemsConPorcentaje = items.map(item => ({
-        ...item,
-        porcentaje: total > 0 ? (item.valor / total) * 100 : 0
-    }))
+    // Se ordena por valor: en 1x1 la cabecera debe ser la categoría con más
+    // peso (no la primera del array) y en 1x3 el listado va por relevancia.
+    const itemsConPorcentaje = items
+        .map(item => ({
+            ...item,
+            porcentaje: total > 0 ? (item.valor / total) * 100 : 0
+        }))
+        .sort((a, b) => b.valor - a.valor)
 
-    if (totalEl) totalEl.textContent = formatearMontoConDivisa(total, divisaActual)
+    if (totalEl) totalEl.textContent = formatearMontoDashboard(total, divisaActual)
+
+    if (filas === 1) {
+        // 1x1: mostrar solo la categoría con mayor participación
+        const itemMayor = itemsConPorcentaje[0]
+        if (!itemMayor) {
+            lista.replaceChildren(tarjetaVacia("Sin datos de distribución."))
+            actualizarScrollFade(lista)
+            return
+        }
+        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", [itemMayor], item => ({
+            valores: {
+                "etiqueta": item.label,
+                "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+                "barra-clase@data-clase": item.clase,
+                "valor": formatearMontoDashboard(item.valor, divisaActual)
+            }
+        })))
+        aplicoAnchoBarras(lista, [itemMayor])
+        actualizarScrollFade(lista)
+        return
+    }
+
     lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", itemsConPorcentaje, item => ({
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
             "barra-clase@data-clase": item.clase,
-            "valor": formatearMontoConDivisa(item.valor, divisaActual)
+            "valor": formatearMontoDashboard(item.valor, divisaActual)
         }
     })))
 
@@ -3970,7 +4155,12 @@ function actualizarDistribucion() {
     actualizarScrollFade(lista)
 
     if (filas === 3 && donaPlaceholder) {
-        dibujarDonaDistribucion(itemsConPorcentaje).catch(() => {})
+        dibujarDonaDistribucion(
+            itemsConPorcentaje,
+            "distribucion-dona-placeholder",
+            "distribucion-dona",
+            "distribucion-dashboard"
+        ).catch(() => {})
     }
 }
 
@@ -3996,48 +4186,8 @@ function actualizarDistribucionActivos() {
     const dona = document.getElementById("distribucion-activos-dona-placeholder")
     if (!lista) return
 
-    if (filas === 1) {
-        // 1x1: mostrar solo el tipo con mayor valor (texto, sin dona)
-        if (!posicionesData || posicionesData.length === 0) {
-            lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
-            actualizarScrollFade(lista)
-            return
-        }
-        const porTipo = new Map()
-        for (const posicion of posicionesData) {
-            const activo = posicion.activo || {}
-            const tipo = String(activo.tipo || "accion").toLowerCase()
-            const cantidad = Number(posicion.cantidad) || 0
-            const ultimoPrecio = Number(activo.ultimoPrecio) || 0
-            if (cantidad <= 0 || ultimoPrecio <= 0) continue
-            const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
-            porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
-        }
-        const items = [...porTipo.entries()]
-            .filter(([, v]) => v > 0)
-            .sort((a, b) => b[1] - a[1])
-        if (items.length === 0) {
-            lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
-            actualizarScrollFade(lista)
-            return
-        }
-        const [tipo, valor] = items[0]
-        const label = ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros"
-        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", [{ label, valor, clase: CLASES_TIPO_ACTIVO[tipo] || "otros", porcentaje: 100 }], item => ({
-            valores: {
-                "etiqueta": item.label,
-                "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-                "barra-clase@data-clase": item.clase,
-                "valor": formatearMontoConDivisa(item.valor, divisaActual)
-            }
-        })))
-        actualizarScrollFade(lista)
-        return
-    }
-
-    if (dona) dona.replaceChildren()
-
     if (!posicionesData || posicionesData.length === 0) {
+        if (dona) dona.replaceChildren()
         lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
         actualizarScrollFade(lista)
         return
@@ -4066,26 +4216,35 @@ function actualizarDistribucionActivos() {
 
     const total = items.reduce((suma, item) => suma + item.valor, 0)
     if (items.length === 0 || total <= 0) {
+        if (dona) dona.replaceChildren()
         lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
         actualizarScrollFade(lista)
         return
     }
     for (const item of items) item.porcentaje = (item.valor / total) * 100
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", items, item => ({
+    // En 1x1 solo se muestra el tipo con más peso; en 1x2/1x3, la lista
+    // completa ordenada de mayor a menor.
+    const visibles = filas === 1 ? items.slice(0, 1) : items
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", visibles, item => ({
         valores: {
             "etiqueta": item.label,
             "porcentaje": `${item.porcentaje.toFixed(0)}%`,
             "barra-clase@data-clase": item.clase,
-            "valor": formatearMontoConDivisa(item.valor, divisaActual)
+            "valor": formatearMontoDashboard(item.valor, divisaActual)
         }
     })))
-    aplicoAnchoBarras(lista, items)
+    aplicoAnchoBarras(lista, visibles)
     actualizarScrollFade(lista)
 
     if (filas === 3 && dona) {
         // Dona solo en 1x3 para distribucion-activos (altoMax 3 permite 3 filas)
-        dibujarDonaDistribucion(items).catch(() => {})
+        dibujarDonaDistribucion(
+            items,
+            "distribucion-activos-dona-placeholder",
+            "distribucion-activos-dona",
+            "distribucion-activos-dashboard"
+        ).catch(() => {})
     }
 }
 
@@ -4105,6 +4264,7 @@ function actualizarDistribucionActivos() {
 const ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur", "usdt"]
 
 function actualizarPatrimonioDivisa() {
+    const { filas } = dimensionesCard("patrimonio-divisa")
     const lista = document.getElementById("patrimonio-divisa-lista")
     if (!lista) return
 
@@ -4145,25 +4305,29 @@ function actualizarPatrimonioDivisa() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", items, item => {
-        const equivalente = convertirMonto(item.valor, item.clave, divisaActual)
-        const porcentaje = Math.max(0, Math.min(100, (equivalente / total) * 100))
-        return {
-            valores: {
-                "etiqueta": item.etiqueta,
-                "porcentaje": `${porcentaje.toFixed(0)}%`,
-                "barra-clase@data-clase": item.clave,
-                "valor": formatearMontoConDivisa(item.valor, item.clave)
-            }
-        }
-    }))
-    actualizarScrollFade(lista)
-    aplicoAnchoBarras(items.map(item => ({
-        ...item,
-        porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
-    })))
+    const itemsConPorcentaje = items
+        .map(item => ({
+            ...item,
+            porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
+        }))
+        // La divisa con más peso va primero: en 1x1 es la única que se pinta y
+        // en 1x2/1x3 el listado también se lee por relevancia.
+        .sort((a, b) => b.porcentaje - a.porcentaje)
+    const visibles = filas === 1 ? itemsConPorcentaje.slice(0, 1) : itemsConPorcentaje
 
-    dibujarDonaDivisa(items).catch(() => {})
+    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", visibles, item => ({
+        valores: {
+            "etiqueta": item.etiqueta,
+            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+            "barra-clase@data-clase": item.clave,
+            "valor": formatearMontoDashboard(item.valor, item.clave)
+        }
+    })))
+    aplicoAnchoBarras(lista, visibles)
+    actualizarScrollFade(lista)
+
+    // La dona solo cabe y solo aporta en 1x3; en 1x1/1x2 las barras bastan.
+    if (filas === 3) dibujarDonaDivisa(itemsConPorcentaje).catch(() => {})
 }
 
 function actualizarProgramados() {
@@ -4198,11 +4362,11 @@ function actualizarProgramados() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", analiticaData.programados, item => ({
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", analiticaData.programados.slice(0, limiteItemsLista(filas)), item => ({
         valores: {
             "titulo": item.titulo,
             "detalle": formatearProximaEjecucion(item.fecha),
-            "valor-texto": formatearMontoConDivisa(item.monto, divisaActual)
+            "valor-texto": formatearMontoDashboard(item.monto, divisaActual)
         }
     })))
     actualizarScrollFade(lista)
@@ -4247,7 +4411,7 @@ function actualizarAlertas() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-alerta-item", alertas, alerta => ({
+    lista.replaceChildren(contenidoDesdeFilas("tpl-alerta-item", alertas.slice(0, limiteItemsLista(filas)), alerta => ({
         valores: {
             "alerta@class": `alerta-item ${alerta.nivel}`,
             "titulo": alerta.titulo,
@@ -4276,22 +4440,28 @@ function actualizarMovimientos() {
     const esUnoXUno = filas === 1
 
     if (esUnoXUno) {
-        const valorEl = document.getElementById("movimientos-valor")
+        const ingresosEl = document.getElementById("movimientos-ingresos")
+        const egresosEl = document.getElementById("movimientos-egresos")
         const detalleEl = document.getElementById("movimientos-detalle")
-        if (!valorEl) return
+        if (!ingresosEl || !egresosEl) return
 
-        const { ingresos, egresos } = calcularIngresosEgresos(movimientosCompletosData)
-        const ingresosStr = formatearMontoConDivisa(convertirMonto(ingresos, "pen", divisaActual), divisaActual)
-        const egresosStr = formatearMontoConDivisa(convertirMonto(egresos, "pen", divisaActual), divisaActual)
-        valorEl.textContent = `+ ${ingresosStr} | - ${egresosStr}`
+        const { ingresos, egresos, noConvertibles } = calcularIngresosEgresos(movimientosCompletosData, divisaActual)
+        const ingresosStr = formatearMontoDashboard(ingresos.convertido, divisaActual)
+        const egresosStr = formatearMontoDashboard(egresos.convertido, divisaActual)
+        ingresosEl.textContent = `+ ${ingresosStr}`
+        egresosEl.textContent = `- ${egresosStr}`
 
         if (detalleEl) {
             const total = movimientosCompletosData ? movimientosCompletosData.length : 0
-            detalleEl.textContent = total === 0 ? "Sin movimientos" : `${total} movimiento${total === 1 ? "" : "s"}`
+            const sinConvertir = noConvertibles.length
+            detalleEl.textContent = total === 0
+                ? "Sin movimientos"
+                : `${total} movimiento${total === 1 ? "" : "s"}${sinConvertir > 0 ? ` · ${sinConvertir} sin convertir` : ""}`
         }
-        valorEl.classList.remove("positive", "negative")
-        if (ingresos > egresos) valorEl.classList.add("positive")
-        else if (egresos > ingresos) valorEl.classList.add("negative")
+        ingresosEl.classList.remove("positive", "negative")
+        egresosEl.classList.remove("positive", "negative")
+        if (ingresos.convertido > egresos.convertido) ingresosEl.classList.add("positive")
+        else if (egresos.convertido > ingresos.convertido) egresosEl.classList.add("negative")
         return
     }
 
@@ -4301,13 +4471,18 @@ function actualizarMovimientos() {
 
     if (detalleEl) detalleEl.replaceChildren()
 
-    if (movimientosData.length === 0) {
+    // La preferencia de "movimientos recientes" (2-5) manda en 1x2; en 1x3 se
+    // amplía para que la card alta muestre el listado más completo posible.
+    const limite = filas === 3 ? limiteItemsLista(3) : cantidadMovimientosRecientes()
+    const visibles = movimientosCompletosData.slice(0, limite)
+
+    if (visibles.length === 0) {
         lista.replaceChildren(tarjetaVacia("Sin movimientos por ahora."))
         actualizarScrollFade(lista)
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-movimiento", movimientosData, plantillaMovimiento))
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-movimiento", visibles, plantillaMovimiento))
     enlazarMovimientos(lista)
     actualizarScrollFade(lista)
 }
@@ -4317,7 +4492,7 @@ function enlazarMovimientos(lista) {
         const abrir = async (evento) => {
             evento?.preventDefault?.()
             evento?.stopPropagation?.()
-            const m = movimientosData.find(x => x.id === item.dataset.movimientoId)
+            const m = movimientosCompletosData.find(x => x.id === item.dataset.movimientoId)
             if (!m) return
             const { abrirFormularioDetalle } = await import("./movimientos.js")
             abrirFormularioDetalle(m)
@@ -4350,7 +4525,7 @@ function plantillaMovimiento(m) {
             "titulo": m.concepto || m.activo || tipoNombre,
             "detalle": formatearFecha(fechaDeMovimiento(m)),
             "monto@class": `movimiento-monto ${clase}`,
-            "monto-texto": `${signo} ${formatearMontoConDivisa(Math.abs(monto), m.divisa || "pen")}`
+            "monto-texto": `${signo} ${formatearMontoDashboard(Math.abs(monto), m.divisa || "pen")}`
         },
         html: { etiquetas: etiquetasFrag }
     }
@@ -4508,10 +4683,10 @@ function abrirModalPatrimonioDashboard() {
                 valores: {
                     nombre: nombreUsuario,
                     "total@class": `patrimonio-modal-total ${patrimonioNeto < 0 ? "negative" : "positive"}`,
-                    patrimonio: formatearMontoConDivisa(patrimonioNeto, divisaActual),
-                    disponible: formatearMontoConDivisa(disponible, divisaActual),
-                    invertido: formatearMontoConDivisa(invertido, divisaActual),
-                    deudas: formatearMontoConDivisa(deudas, divisaActual)
+                    patrimonio: formatearMontoDashboard(patrimonioNeto, divisaActual),
+                    disponible: formatearMontoDashboard(disponible, divisaActual),
+                    invertido: formatearMontoDashboard(invertido, divisaActual),
+                    deudas: formatearMontoDashboard(deudas, divisaActual)
                 }
             }))
         })
@@ -4542,7 +4717,7 @@ function abrirModalDistribucionPatrimonial() {
         .map(item => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
             valores: {
                 etiqueta: item.etiqueta,
-                valor: formatearMontoConDivisa(item.valor, divisaActual)
+                valor: formatearMontoDashboard(item.valor, divisaActual)
             }
         }))
 
@@ -4562,7 +4737,7 @@ function abrirModalDistribucionPatrimonial() {
         .map(([tipo, valor]) => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
             valores: {
                 etiqueta: ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros",
-                valor: formatearMontoConDivisa(valor, divisaActual)
+                valor: formatearMontoDashboard(valor, divisaActual)
             }
         }))
 
@@ -4577,7 +4752,7 @@ function abrirModalDistribucionPatrimonial() {
         .map(clave => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
             valores: {
                 etiqueta: etiquetaDivisa(clave),
-                valor: formatearMontoConDivisa(desgloseDivisa[clave], clave)
+                valor: formatearMontoDashboard(desgloseDivisa[clave], clave)
             }
         }))
 
@@ -4601,8 +4776,8 @@ function abrirModalDistribucionPatrimonial() {
                 valores: {
                     etiqueta: `${cuenta.nombre} · ${etiqueta}`,
                     valor: esCredito
-                        ? formatearMontoConDivisa(convertirMonto(monto, moneda, divisaActual), divisaActual)
-                        : formatearMontoConDivisa(convertirMonto(monto, moneda, divisaActual), divisaActual),
+                        ? formatearMontoDashboard(convertirMonto(monto, moneda, divisaActual), divisaActual)
+                        : formatearMontoDashboard(convertirMonto(monto, moneda, divisaActual), divisaActual),
                     detalle: etiquetaDivisa(moneda)
                 }
             })
@@ -4751,7 +4926,7 @@ function abrirModalProgramados() {
             valores: {
                 "titulo": item.titulo,
                 "detalle": formatearFecha(item.fecha),
-                "valor-texto": formatearMontoConDivisa(item.monto, divisaActual)
+                "valor-texto": formatearMontoDashboard(item.monto, divisaActual)
             }
         })))
         contenido = wrapper
@@ -4873,7 +5048,7 @@ function plantillaVencimiento(v) {
             "titulo": `${v.titulo}${v.vencido ? " · VENCIDO" : ""}`,
             "detalle": `${v.subtitulo} · ${textoDias(v.diasRestantes)}`,
             "valor@class": `card-item-valor ${claseValor}`.trim(),
-            "valor-texto": `${signo ? `${signo} ` : ""}${formatearMontoConDivisa(v.monto, v.divisa)}`
+            "valor-texto": `${signo ? `${signo} ` : ""}${formatearMontoDashboard(v.monto, v.divisa)}`
         }
     }
 }
@@ -4912,7 +5087,7 @@ function actualizarFavoritos() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-favorito", favoritosData, plantillaFavorito))
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-favorito", favoritosData.slice(0, limiteItemsLista(filas)), plantillaFavorito))
     enlazarFavoritos(lista)
     actualizarScrollFade(lista)
 }
@@ -4944,7 +5119,7 @@ function plantillaFavorito(posicion) {
             "item@data-activo-id": posicion.activoId,
             "nombre": activo.nombre || posicion.activoId,
             "simbolo": activo.simbolo || "",
-            "precio": formatearMontoConDivisa(precio, posicion.divisa)
+            "precio": formatearMontoDashboard(precio, posicion.divisa)
         }
     }
 }
@@ -5048,11 +5223,12 @@ async function actualizarPresupuestos() {
         return
     }
 
-    // En 1x2, si hay más de un item, mostrar solo el primero y un botón "Ver más".
-    const itemsAMostrar = presupuestos.length > 1 ? presupuestos.slice(0, 1) : presupuestos
+    // 1x2 muestra hasta 3 presupuestos y 1x3 hasta 6; el resto, en el modal.
+    const limite = limiteItemsLista(filas)
+    const itemsAMostrar = presupuestos.slice(0, limite)
     lista.replaceChildren(contenidoDesdeFilas("tpl-presupuesto-card", itemsAMostrar, plantillaPresupuestoDashboard))
 
-    if (presupuestos.length > 1) {
+    if (presupuestos.length > limite) {
         const btnVerMas = document.createElement("button")
         btnVerMas.type = "button"
         btnVerMas.className = "glass-btn glass btn-ver-mas-presupuestos"
@@ -5078,7 +5254,7 @@ function plantillaPresupuestoDashboard(p) {
             "presupuesto@class": `presupuesto-item ${estadoClase}`,
             nombre: pp.nombre,
             estado: p.estadoTexto,
-            detalle: `${formatearMontoConDivisa(p.gastoReal, pp.divisa)} de ${formatearMontoConDivisa(pp.monto, pp.divisa)}`,
+            detalle: `${formatearMontoDashboard(p.gastoReal, pp.divisa)} de ${formatearMontoDashboard(pp.monto, pp.divisa)}`,
             valor: `${p.porcentaje.toFixed(0)}%`
         },
         html: {
@@ -5153,11 +5329,12 @@ function actualizarMetas(error) {
         return
     }
 
-    // En 1x2, si hay más de un item, mostrar solo el primero y un botón "Ver más".
-    const itemsAMostrar = metasData.length > 1 ? metasData.slice(0, 1) : metasData
+    // 1x2 muestra hasta 3 metas y 1x3 hasta 6; el resto, en el modal.
+    const limite = limiteItemsLista(filas)
+    const itemsAMostrar = metasData.slice(0, limite)
     lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-meta", itemsAMostrar, plantillaMeta))
 
-    if (metasData.length > 1) {
+    if (metasData.length > limite) {
         const btnVerMas = document.createElement("button")
         btnVerMas.type = "button"
         btnVerMas.className = "glass-btn glass btn-ver-mas-metas"
@@ -5190,7 +5367,7 @@ function plantillaMeta(meta) {
             "item@class": clases,
             "item@data-meta-id": meta.id,
             "nombre": meta.nombre,
-            "cantidad": formatearMontoConDivisa(monto, meta.divisa),
+            "cantidad": formatearMontoDashboard(monto, meta.divisa),
             "porcentaje": `${pct.toFixed(0)}%`
         }
     }

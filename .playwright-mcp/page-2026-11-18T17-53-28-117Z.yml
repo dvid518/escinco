@@ -1,0 +1,26 @@
+- generic [active] [ref=f4e1]:
+  - note [ref=f4e2]:
+    - generic [ref=f4e3]:
+      - strong [ref=f4e4]: escinco demo.
+      - text: Datos de prueba guardados solo en este navegador.
+    - generic [ref=f4e5]:
+      - button "Reiniciar demo" [ref=f4e6] [cursor=pointer]
+      - button "Salir" [ref=f4e7] [cursor=pointer]
+  - banner [ref=f4e8]:
+    - link [ref=f4e10] [cursor=pointer]:
+      - /url: /demo/dashboard
+    - generic [ref=f4e14]:
+      - link "Dashboard" [ref=f4e15] [cursor=pointer]:
+        - /url: /demo/dashboard
+      - link "Cuentas" [ref=f4e16] [cursor=pointer]:
+        - /url: /demo/cuentas
+      - link "Movimientos" [ref=f4e17] [cursor=pointer]:
+        - /url: /demo/movimientos
+      - link "Inversiones" [ref=f4e18] [cursor=pointer]:
+        - /url: /demo/inversiones
+      - link "Trading" [ref=f4e19] [cursor=pointer]:
+        - /url: /demo/trading
+    - link "Configuración" [ref=f4e21] [cursor=pointer]:
+      - /url: /demo/configuracion
+  - main [ref=f4e33]
+  - contentinfo [ref=f4e34]

@@ -131,5 +131,21 @@ export default function ejecutar(t = nuevoReporter("estilos")) {
     }
     t.check("las páginas que reutilizan markup ajeno declaran su hoja", repartoFallan.length === 0, repartoFallan.join(" | "))
 
+    // Anti-FOUC: el dashboard espera a que su hoja esté aplicada antes de
+    // mostrarse. Si se pierde la espera o la regla que oculta el grid, vuelve
+    // el destello de cards apiladas en vertical sin grid.
+    const estiloGlobal = leer("css/style.css")
+    t.check(
+        "style.css oculta el dashboard hasta que su hoja está aplicada",
+        /#app-content > \.dashboard:not\(\.dashboard-estilos-listos\)\s*\{[^}]*visibility:\s*hidden/.test(estiloGlobal)
+    )
+    const dashboardJs = leer("js/pages/dashboard.js")
+    t.check(
+        "dashboard.js espera su hoja y marca el grid como listo",
+        src.includes("return Promise.all(") &&
+        /await asegurarEstilos\(["']dashboard["']\)/.test(dashboardJs) &&
+        dashboardJs.includes('classList.add("dashboard-estilos-listos")')
+    )
+
     return t
 }

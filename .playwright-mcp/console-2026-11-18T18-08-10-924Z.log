@@ -1,0 +1,15 @@
+[     176ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Inter/Inter_18pt-Bold.ttf @ http://localhost:5080/demo/dashboard:1
+[     176ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Inter/Inter_18pt-Regular.ttf @ http://localhost:5080/demo/dashboard:1
+[    1417ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5080/js/core/pwa.js:29
+[    1424ms] [INFO] [INFO] Iniciando router... @ http://localhost:5080/js/core/router.js:579
+[    1424ms] [INFO] [INFO] Router inicializado con: "/dashboard" → "dashboard" @ http://localhost:5080/js/core/router.js:592
+[    1424ms] [INFO] [INFO] Cargando página: dashboard @ http://localhost:5080/js/core/router.js:216
+[    1426ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5080/js/core/router.js:219
+[    1428ms] [INFO] [INFO] ¿"dashboard" está visible? true @ http://localhost:5080/js/core/router.js:220
+[    2356ms] [INFO] [INFO] Módulo "dashboard" cargado correctamente @ http://localhost:5080/js/core/router.js:271
+[    2568ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Inter/Inter_18pt-Medium.ttf @ http://localhost:5080/demo:1
+[    3143ms] [INFO] [INFO] Dashboard iniciado para UID: demo @ http://localhost:5080/js/pages/dashboard.js:2839
+[    3295ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Roboto_Mono/RobotoMono-Bold.ttf @ http://localhost:5080/js/pages/dashboard.js:998
+[    3321ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Roboto_Mono/RobotoMono-Regular.ttf @ http://localhost:5080/js/pages/dashboard.js:1145
+[    3385ms] [INFO] Slow network is detected. See https://www.chromestatus.com/feature/5636954674692096 for more details. Fallback font will be used while loading: http://localhost:5080/fonts/Roboto_Mono/RobotoMono-SemiBold.ttf @ http://localhost:5080/js/pages/dashboard.js:1145
+[    3475ms] [INFO] [INFO] Snapshot registrado: {patrimonioPEN: 11368.6, patrimonioUSD: 3031.6266666666666, patrimonioUSDT: 3031.6266666666666, porDivisa: Object, totalActivos: 12599} @ http://localhost:5080/js/services/SnapshotServicio.js:191

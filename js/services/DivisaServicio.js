@@ -127,6 +127,37 @@ export function convertirMonto(monto, desde, hacia) {
     return (monto / tasaDesde) * tasaHacia
 }
 
+/**
+ * Convierte un monto y reporta explícitamente si la conversión fue posible.
+ * A diferencia de `convertirMonto()`, no devuelve el monto original en caso
+ * de fallo silencioso: el booleano `convertido` permite distinguir entre
+ * "conversión exitosa" y "tasa inexistente".
+ *
+ * @param {number} monto - Importe a convertir.
+ * @param {string} desde - Divisa de origen.
+ * @param {string} hacia - Divisa de destino.
+ * @returns {{valor: number, convertido: boolean}} Objeto con el valor convertido
+ *   (o el original si falló) y un booleano que indica si la conversión se realizó.
+ */
+export function convertirMontoConResultado(monto, desde, hacia) {
+    if (!Number.isFinite(monto) || monto <= 0) {
+        return { valor: monto, convertido: false }
+    }
+
+    if (desde === hacia) return { valor: monto, convertido: true }
+
+    const tasaDesde = getTasaCambio(desde)
+    const tasaHacia = getTasaCambio(hacia)
+
+    // Sin tasa conocida en alguno de los lados, no se convierte.
+    if (tasaDesde == null || tasaHacia == null) {
+        return { valor: monto, convertido: false }
+    }
+
+    // Normalizar a USD y volver a la divisa destino.
+    return { valor: (monto / tasaDesde) * tasaHacia, convertido: true }
+}
+
 // --------------------------------------------
 // FORMATEO
 // --------------------------------------------

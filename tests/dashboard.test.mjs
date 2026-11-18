@@ -398,6 +398,9 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctx.stubFormatearMontoConDivisa = function (val, _divisa) {
         return String(val ?? 0)
     }
+    ctx.stubFormatearMontoDashboard = function (val, _divisa) {
+        return String(val ?? 0)
+    }
     ctx.stubFormatearProximaEjecucion = function () { return "Sin próxima ejecución" }
     ctx.stubContenidoDesdeFilas = function (plantilla, items, _mapear) {
         return { _items: items.length, replaceChildren: function () {} }
@@ -412,6 +415,17 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctx.stubPreciosPorSimbolo = function () { return new Map() }
     ctx.stubDistanciaAlDisparo = function () { return null }
     ctx.stubConvertirMonto = function (val) { return val }
+    ctx.stubConvertirMontoConResultado = function (_monto, _desde, _hacia) {
+        return { valor: _monto, convertido: true }
+    }
+    ctx.stubMontoDeMovimiento = function (m) { return Number(m.monto) || 0 }
+    ctx.stubEsMovimientoPositivo = function (m) {
+        return m.tipo === "ingreso" || m.tipo === "ventaActivo" || m.tipo === "p2pVenta"
+    }
+    ctx.stubDivisaDeMovimiento = function (m) {
+        if (m.divisa) return String(m.divisa).toLowerCase()
+        return "pen"
+    }
     ctx.stubObtenerPatrimonioStats = function () { return { totalCuentas: 0, totalActivos: 0, totalDeuda: 0, tieneDeuda: false, patrimonio: 0 } }
 
     // Extraer los 5 actualizadores que tienen retorno anticipado sin limpiar
@@ -421,6 +435,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var analiticaData = ctx.analiticaData;
         var divisaActual = ctx.divisaActual;
         var formatearMontoConDivisa = ctx.stubFormatearMontoConDivisa;
+        var formatearMontoDashboard = ctx.stubFormatearMontoDashboard;
         var formatearProximaEjecucion = ctx.stubFormatearProximaEjecucion;
         var tarjetaVacia = ctx.stubTarjetaVacia;
         var actualizarScrollFade = ctx.stubActualizarScrollFade;
@@ -437,6 +452,10 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var distanciaAlDisparo = ctx.stubDistanciaAlDisparo;
         var ordenesData = ctx.ordenesData || [];
         var convertirMonto = ctx.stubConvertirMonto;
+        var convertirMontoConResultado = ctx.stubConvertirMontoConResultado;
+        var montoDeMovimiento = ctx.stubMontoDeMovimiento;
+        var esMovimientoPositivo = ctx.stubEsMovimientoPositivo;
+        var divisaDeMovimiento = ctx.stubDivisaDeMovimiento;
         var obtenerPatrimonioStats = ctx.stubObtenerPatrimonioStats;
     `, ctx)
 
@@ -449,6 +468,17 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     vm.runInContext(extraerFuncion(SRC, "actualizarOrdenes") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarCuentas") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarPresupuestos") + ";", ctx)
+
+    // Las variantes de contenido dependen del alto real: estas pruebas
+    // ejercitan las cards en su versión de lista (1x3) y el detalle de
+    // Balance (1x2). Sin fijarlo, todas caen en su 1x1 por defecto.
+    ctx.cardsDimensionesDashboard = {
+        programados: { columnas: 1, filas: 3 },
+        alertas: { columnas: 1, filas: 3 },
+        ordenes: { columnas: 1, filas: 3 },
+        presupuestos: { columnas: 1, filas: 3 },
+        "balance-periodo": { columnas: 1, filas: 2 }
+    }
 
     // Helper para verificar que replaceChildren fue llamado en un elemento.
     function replaceChildrenFueLlamado(id) {
@@ -1352,6 +1382,33 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
             srcArrastre.includes('clon.style.removeProperty("opacity")') &&
             /\.dashboard\.dashboard-edicion-activo > \.dashboard-card-fallback\s*\{[^}]*transition:\s*none/.test(CSS_SRC)
         )
+
+        // SortableJS clona con cloneNode(true), que no copia el bitmap de un
+        // canvas: sin esta copia el gráfico se arrastraba en blanco.
+        vm.runInContext(extraerFuncion(SRC, "copiarCanvasAlClon") + ";", ctx)
+        {
+            const dibujos = []
+            const origen = { width: 800, height: 400 }
+            const destino = {
+                width: 0,
+                height: 0,
+                getContext: () => ({ drawImage: (...args) => dibujos.push(args) })
+            }
+            ctx.copiarCanvasAlClon(
+                { querySelectorAll: () => [origen] },
+                { querySelectorAll: () => [destino] }
+            )
+            t.check(
+                "E3.14 el clon del arrastre copia el bitmap de los canvas",
+                destino.width === 800 && destino.height === 400 &&
+                dibujos.length === 1 && dibujos[0][0] === origen,
+                JSON.stringify({ ancho: destino.width, alto: destino.height, dibujos: dibujos.length })
+            )
+        }
+        t.check(
+            "E3.15 onStart replica los canvas en el clon del fallback",
+            srcArrastre.includes("copiarCanvasAlClon(evt.item, clon)")
+        )
     }
 
     // E3.6: la celda de destino manda en el reparto y no genera solapes.
@@ -1419,6 +1476,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         vm.runInContext(extraerFuncion(SRC, "clonarDimensiones") + ";", ctx)
         vm.runInContext(extraerFuncion(SRC, "crearEditorState") + ";", ctx)
         vm.runInContext(extraerFuncion(SRC, "hayCambiosEditor") + ";", ctx)
+        ctx.esAbstracta = (cuenta) => cuenta?.esAbstracta === true
         vm.runInContext(extraerFuncion(SRC, "cuentasFinales") + ";", ctx)
 
         const orden = ["patrimonio", "cuentas", "movimientos"]
@@ -1459,17 +1517,22 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     }
 
     {
-        // Pills de cuentas: solo cuentas finales, nunca padres ni hijas.
+        // Pills de cuentas: hojas del árbol. Incluye las subcuentas de M6
+        // (tienen `padreId` pero no hijas); nunca padres ni cuentas con hijas.
         const cuentas = [
-            { id: "padre", nombre: "Padre", moneda: "pen" },              // tiene hija -> no es final
-            { id: "hija", nombre: "Hija", moneda: "usd", padreId: "padre" }, // es hija -> no es final
-            { id: "final1", nombre: "Final 1", moneda: "pen" },           // final
-            { id: "final2", nombre: "Final 2", moneda: "usd" }            // final
+            { id: "madre", nombre: "Madre" },                                // abstracta con hija
+            { id: "hija", nombre: "Hija", moneda: "pen", padreId: "madre" }, // hoja M6 -> final
+            { id: "madre2", nombre: "Madre 2", moneda: "pen" },              // padre legacy -> fuera
+            { id: "hija2", nombre: "Hija 2", moneda: "usd", padreId: "madre2" }, // tiene hija -> fuera
+            { id: "nieta", nombre: "Nieta", moneda: "usd", padreId: "hija2" },   // hoja -> final
+            { id: "suelta", nombre: "Suelta", moneda: "pen" }                // hoja sin familia -> final
         ]
+        cuentas[0].esAbstracta = true
         const finales = ctx.cuentasFinales(cuentas)
         t.check(
-            "E8.7 cuentasFinales devuelve solo cuentas finales (no padres ni hijas)",
-            JSON.stringify(finales.map(c => c.id).sort()) === JSON.stringify(["final1", "final2"])
+            "E8.7 cuentasFinales devuelve hojas (incluye subcuentas M6) y excluye padres",
+            JSON.stringify(finales.map(c => c.id).sort()) === JSON.stringify(["hija", "nieta", "suelta"]),
+            JSON.stringify(finales.map(c => c.id).sort())
         )
     }
 
@@ -1569,8 +1632,15 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
     const textoCalc = SRC.slice(iCalc, SRC.indexOf("\n}", iCalc) + 2)
     t.check(
-        "E2B.3 calcularIngresosEgresos retorna { ingresos, egresos }",
-        textoCalc.includes("return { ingresos, egresos }")
+        "E2B.3 calcularIngresosEgresos recibe divisa destino como segundo parametro",
+        textoCalc.includes("divisaDestino")
+    )
+    t.check(
+        "E2B.3 calcularIngresosEgresos retorna objeto estructurado con ingresos, egresos, noConvertibles y balanceConvertido",
+        textoCalc.includes("ingresos: { convertido") &&
+        textoCalc.includes("egresos: { convertido") &&
+        textoCalc.includes("noConvertibles: []") &&
+        textoCalc.includes("balanceConvertido: 0")
     )
 
     // E2B.4: generarCardDistribucionDona genera HTML diferente segun tamano.
@@ -1600,9 +1670,12 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
 
     // E2B.6: altoMax por tarjeta respeta la matriz aprobada.
+    // 13 tarjetas permiten alto 3: distribucion, distribucion-activos,
+    // patrimonio-divisa, movimientos, metas, pendientes, favoritos,
+    // presupuestos, vencimientos, ordenes, estrategias, programados, alertas.
     t.check(
-        "E2B.6 distribucion altoMax 3 (solo distribucion y distribucion-activos)",
-        (textoDim.match(/altoMax:\s*3/g) || []).length === 2
+        "E2B.6 distribucion y demas listas permiten altoMax 3",
+        (textoDim.match(/altoMax:\s*3/g) || []).length === 13
     )
     t.check(
         "E2B.6 patrimonio altoMax 2",
@@ -1623,6 +1696,140 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     t.check(
         "E2B.8 gr�fico alto fijo 2",
         /grafico:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*2,\s*altoMin:\s*2,\s*altoMax:\s*2/.test(textoDim)
+    )
+
+    // ================================================================
+    // Etapa 8 Fase B1: conversion monetaria de ingresos y egresos
+    // ================================================================
+    const DIVISA_SRC = leer("js/services/DivisaServicio.js")
+
+    // Stub para getTasaCambio (dependencia directa de convertirMontoConResultado)
+    ctx.stubGetTasaCambio = function (divisa) {
+        const tasas = { pen: 3.75, usd: 1, eur: 0.92, usdt: 1 }
+        return tasas[String(divisa).toLowerCase()] ?? null
+    }
+
+    // Extraer convertirMontoConResultado de DivisaServicio
+    const convertirMontoConResultadoSrc = extraerFuncion(DIVISA_SRC, "convertirMontoConResultado")
+
+    vm.runInContext(`
+        var getTasaCambio = ctx.stubGetTasaCambio;
+    `, ctx)
+
+    vm.runInContext(convertirMontoConResultadoSrc + ";", ctx)
+
+    // Extraer calcularIngresosEgresos de dashboard.js con stubs
+    vm.runInContext(extraerFuncion(SRC, "calcularIngresosEgresos") + ";", ctx)
+
+    // --- Tests de convertirMontoConResultado ---
+    t.check(
+        "B1.1 convertirMontoConResultado PEN->PEN mismo monto",
+        ctx.convertirMontoConResultado(100, "pen", "pen").valor === 100 &&
+        ctx.convertirMontoConResultado(100, "pen", "pen").convertido === true
+    )
+    t.check(
+        "B1.2 convertirMontoConResultado USD->PEN (tasa 3.75)",
+        Math.abs(ctx.convertirMontoConResultado(100, "usd", "pen").valor - 375) < 0.001 &&
+        ctx.convertirMontoConResultado(100, "usd", "pen").convertido === true
+    )
+    t.check(
+        "B1.3 convertirMontoConResultado EUR->PEN (tasa 0.92, via USD)",
+        Math.abs(ctx.convertirMontoConResultado(100, "eur", "pen").valor - 407.61) < 0.01 &&
+        ctx.convertirMontoConResultado(100, "eur", "pen").convertido === true
+    )
+    t.check(
+        "B1.4 convertirMontoConResultado divisa sin tasa (btc)",
+        ctx.convertirMontoConResultado(1, "btc", "pen").valor === 1 &&
+        ctx.convertirMontoConResultado(1, "btc", "pen").convertido === false
+    )
+    t.check(
+        "B1.5 convertirMontoConResultado monto invalido",
+        ctx.convertirMontoConResultado(-50, "pen", "usd").valor === -50 &&
+        ctx.convertirMontoConResultado(-50, "pen", "usd").convertido === false
+    )
+    t.check(
+        "B1.6 convertirMontoConResultado monto cero",
+        ctx.convertirMontoConResultado(0, "pen", "usd").valor === 0 &&
+        ctx.convertirMontoConResultado(0, "pen", "usd").convertido === false
+    )
+
+    // --- Tests de calcularIngresosEgresos con conversion ---
+    const movimientosMixto = [
+        { id: "m1", monto: 100, divisa: "pen", tipo: "ingreso" },
+        { id: "m2", monto: 50, divisa: "usd", tipo: "ingreso" },
+        { id: "m3", monto: 200, divisa: "pen", tipo: "gasto" },
+        { id: "m4", monto: 30, divisa: "eur", tipo: "gasto" },
+        { id: "m5", monto: 1, divisa: "btc", tipo: "ingreso" }
+    ]
+
+    const resMixto = ctx.calcularIngresosEgresos(movimientosMixto, "pen")
+
+    t.check(
+        "B1.7 calcularIngresosEgresos ingresos convertido (100 PEN + 50 USD*3.75)",
+        Math.abs(resMixto.ingresos.convertido - 287.5) < 0.001
+    )
+    t.check(
+        "B1.8 calcularIngresosEgresos ingresos porDivisa (pen: 100, usd: 50)",
+        resMixto.ingresos.porDivisa.pen === 100 &&
+        resMixto.ingresos.porDivisa.usd === 50
+    )
+    t.check(
+        "B1.9 calcularIngresosEgresos egresos convertido (200 PEN + 30 EUR->PEN)",
+        Math.abs(resMixto.egresos.convertido - 322.2826086956522) < 0.001
+    )
+    t.check(
+        "B1.10 calcularIngresosEgresos egresos porDivisa (pen: 200, eur: 30)",
+        resMixto.egresos.porDivisa.pen === 200 &&
+        resMixto.egresos.porDivisa.eur === 30
+    )
+    t.check(
+        "B1.11 calcularIngresosEgresos noConvertibles (btc sin tasa)",
+        resMixto.noConvertibles.length === 1 &&
+        resMixto.noConvertibles[0].monto === 1 &&
+        resMixto.noConvertibles[0].divisa === "btc" &&
+        resMixto.noConvertibles[0].motivo === "sin_tasa" &&
+        resMixto.noConvertibles[0].movimientoId === "m5" &&
+        resMixto.noConvertibles[0].tipo === "ingreso"
+    )
+    t.check(
+        "B1.12 calcularIngresosEgresos balanceConvertido",
+        Math.abs(resMixto.balanceConvertido - (-34.7826086956522)) < 0.001
+    )
+
+    // Test: solo PEN (ninguna conversion necesaria)
+    const resSoloPen = ctx.calcularIngresosEgresos([
+        { id: "m1", monto: 100, divisa: "pen", tipo: "ingreso" },
+        { id: "m2", monto: 50, divisa: "pen", tipo: "gasto" }
+    ], "pen")
+    t.check(
+        "B1.13 calcularIngresosEgresos solo PEN sin conversion",
+        resSoloPen.ingresos.convertido === 100 &&
+        resSoloPen.egresos.convertido === 50 &&
+        resSoloPen.noConvertibles.length === 0 &&
+        resSoloPen.balanceConvertido === 50
+    )
+
+    // Test: array vacio
+    const resVacio = ctx.calcularIngresosEgresos([], "pen")
+    t.check(
+        "B1.14 calcularIngresosEgresos array vacio",
+        resVacio.ingresos.convertido === 0 &&
+        resVacio.egresos.convertido === 0 &&
+        resVacio.balanceConvertido === 0 &&
+        resVacio.noConvertibles.length === 0
+    )
+
+    // Test: movimientos con monto <= 0 se ignoran
+    const resSinValido = ctx.calcularIngresosEgresos([
+        { id: "m1", monto: 0, divisa: "pen", tipo: "ingreso" },
+        { id: "m2", monto: -10, divisa: "pen", tipo: "gasto" },
+        { id: "m3", monto: 100, divisa: "pen", tipo: "ingreso" }
+    ], "pen")
+    t.check(
+        "B1.15 calcularIngresosEgresos ignora montos <= 0",
+        resSinValido.ingresos.convertido === 100 &&
+        resSinValido.egresos.convertido === 0 &&
+        resSinValido.noConvertibles.length === 0
     )
 
     // ================================================================
@@ -1714,6 +1921,274 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
             contenedorActivos.children[0].children[0].dataset.card === "activo:a1"
         )
     }
+
+    // ================================================================
+    // Etapa 8: variantes de contenido según el alto de la card
+    // ================================================================
+    // Contexto aislado: aquí solo se prueban las variantes, sin arrastrar los
+    // stubs del bloque anterior.
+    const ctxV = { console: { warn() {}, log() {}, error() {} }, __els: {} }
+    vm.createContext(ctxV)
+    vm.runInContext(`
+        var DASHBOARD_CARDS = ${SRC.slice(iCardsIni, iCardsFin2)};
+        var DASHBOARD_DIMENSIONES = ${SRC.slice(iDimIni, iDimFin2)};
+        var cardsDimensionesDashboard = {};
+    `, ctxV)
+    vm.runInContext(extraerFuncion(SRC, "dimensionesCard") + ";", ctxV)
+    vm.runInContext(extraerFuncion(SRC, "clasesCard") + ";", ctxV)
+    vm.runInContext(extraerFuncion(SRC, "limiteItemsLista") + ";", ctxV)
+
+    // E8.1: las variantes no se pintaban porque dimensionesCard() solo
+    // devolvía {ancho, alto} y todos los consumidores desestructuran {filas}.
+    ctxV.cardsDimensionesDashboard = { movimientos: { ancho: 1, alto: 2 } }
+    const dimMov = ctxV.dimensionesCard("movimientos")
+    t.check(
+        "E8.1 dimensionesCard expone filas y columnas además de ancho y alto",
+        dimMov.filas === 2 && dimMov.columnas === 1 && dimMov.alto === 2 && dimMov.ancho === 1,
+        JSON.stringify(dimMov)
+    )
+    t.check(
+        "E8.2 limiteItemsLista da 1, 3 y 6 registros para alto 1, 2 y 3",
+        ctxV.limiteItemsLista(1) === 1 && ctxV.limiteItemsLista(2) === 3 && ctxV.limiteItemsLista(3) === 6
+    )
+    ctxV.cardsDimensionesDashboard = { alertas: { columnas: 1, filas: 3 } }
+    t.check(
+        "E8.2 clasesCard marca la card de 3 filas con card-alto-3",
+        ctxV.clasesCard("alertas") === "card-alto-3",
+        ctxV.clasesCard("alertas")
+    )
+
+    // --- Generadores: el marcado cambia con el alto ---
+    vm.runInContext(`
+        var skeletonText = function (clase) { return '<i class="skeleton ' + (clase || "") + '"></i>'; };
+        var skeletonMarkup = function () { return '<i class="skeleton-filas"></i>'; };
+        var icono = function () { return ""; };
+        var getFormatoDivisa = function () { return "codigo"; };
+        var presentarDivisa = function (d) { return String(d).toUpperCase(); };
+        var generarCardGrafico = function () { return ""; };
+        var generarCardDistribucionDona = function () { return ""; };
+        var generarCardMetrica = function (cardId, titulo, subtitulo, valorId, detalleId) {
+            var detalle = detalleId && dimensionesCard(cardId).filas > 1
+                ? '<div class="card-sub" id="' + detalleId + '"></div>'
+                : "";
+            return '<div id="card-' + cardId + '"><div class="card-value" id="' + valorId + '"></div>' + detalle + '</div>';
+        };
+    `, ctxV)
+    const iGenDef = SRC.indexOf("const GENERADORES_CARD = {")
+    const iGenIni = SRC.indexOf("{", iGenDef)
+    let nivelGen = 0, iGenFin = iGenIni
+    for (let k = iGenIni; k < SRC.length; k++) {
+        if (SRC[k] === "{") nivelGen++
+        else if (SRC[k] === "}") { nivelGen--; if (nivelGen === 0) { iGenFin = k + 1; break } }
+    }
+    vm.runInContext(`var GENERADORES_CARD = ${SRC.slice(iGenIni, iGenFin)};`, ctxV)
+    vm.runInContext(extraerFuncion(SRC, "generarCardPatrimonio") + ";", ctxV)
+
+    ctxV.cardsDimensionesDashboard = { patrimonio: { columnas: 1, filas: 1 } }
+    const pat1 = ctxV.generarCardPatrimonio(null)
+    ctxV.cardsDimensionesDashboard = { patrimonio: { columnas: 1, filas: 2 } }
+    const pat2 = ctxV.generarCardPatrimonio(null)
+    t.check(
+        "E8.3 Patrimonio 1x1 resume el total sin desglose y conserva el selector",
+        !pat1.includes("patrimonio-detalle") && pat1.includes('id="divisa-select"'),
+        pat1
+    )
+    t.check(
+        "E8.3 Patrimonio 1x2 añade el desglose ya existente",
+        pat2.includes('id="patrimonio-detalle"'),
+        pat2
+    )
+
+    ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 1 } }
+    const pv1 = ctxV.GENERADORES_CARD["patrimonio-divisa"]()
+    ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 2 } }
+    const pv2 = ctxV.GENERADORES_CARD["patrimonio-divisa"]()
+    ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 3 } }
+    const pv3 = ctxV.GENERADORES_CARD["patrimonio-divisa"]()
+    t.check(
+        "E8.4 Patrimonio por divisa 1x1 y 1x2 no reservan dona",
+        !pv1.includes("divisa-dona") && !pv2.includes("divisa-dona") &&
+        pv1.includes('id="patrimonio-divisa-lista"') && pv2.includes('id="patrimonio-divisa-lista"')
+    )
+    t.check(
+        "E8.4 Patrimonio por divisa 1x3 reserva dona y lista",
+        pv3.includes("patrimonio-divisa-dona-placeholder") && pv3.includes('id="patrimonio-divisa-lista"')
+    )
+
+    ctxV.cardsDimensionesDashboard = { vencimientos: { columnas: 1, filas: 2 } }
+    const ven2 = ctxV.GENERADORES_CARD.vencimientos()
+    ctxV.cardsDimensionesDashboard = { vencimientos: { columnas: 1, filas: 3 } }
+    const ven3 = ctxV.GENERADORES_CARD.vencimientos()
+    t.check(
+        "E8.4 Próximos vencimientos 1x2 es una métrica con detalle",
+        ven2.includes('class="card-value"') && ven2.includes('id="vencimientos-detalle"') &&
+        !ven2.includes("vencimientos-lista"),
+        ven2
+    )
+    t.check(
+        "E8.4 Próximos vencimientos 1x3 muestra el listado",
+        ven3.includes('id="vencimientos-lista"') && !ven3.includes('class="card-value"'),
+        ven3
+    )
+
+    // --- Actualizadores: selección del elemento principal y límites ---
+    vm.runInContext(`
+        var document = {
+            getElementById: function (id) {
+                if (!__els[id]) {
+                    __els[id] = {
+                        textContent: "",
+                        hidden: false,
+                        hijos: [],
+                        replaceChildren: function () { this.hijos = [].slice.call(arguments); },
+                        classList: { add: function () {}, remove: function () {}, toggle: function () {}, contains: function () { return false; } },
+                        querySelectorAll: function () { return []; }
+                    };
+                }
+                return __els[id];
+            }
+        };
+        var tarjetaVacia = function (texto) { return { vacio: texto }; };
+        var actualizarScrollFade = function () {};
+        var formatearMontoDashboard = function (valor) { return String(valor); };
+        var divisaActual = "pen";
+        var contenidoDesdeFilas = function (plantilla, items, mapear) { return { items: items.slice(), mapear: mapear }; };
+        var aplicoAnchoBarras = function () {};
+        var dibujarDonaDistribucion = function () { __donaLlamada = true; return Promise.resolve(); };
+        var dibujarDonaDivisa = function () { __donaLlamada = true; return Promise.resolve(); };
+        var __donaLlamada = false;
+        var convertirMonto = function (monto) { return monto; };
+        var etiquetaDivisa = function (divisa) { return String(divisa).toUpperCase(); };
+        var ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur", "usdt"];
+        var analiticaData = null;
+        var patrimonioStats = null;
+        var posicionesData = [];
+        var favoritosData = [];
+        var ETIQUETAS_TIPO_ACTIVO = { crypto: "Cripto", accion: "Acciones", etf: "ETF" };
+        var CLASES_TIPO_ACTIVO = { crypto: "cripto", accion: "accion", etf: "etf" };
+        var sesion = { getPreferencias: function () { return { movimientosRecientes: 2 }; } };
+        var movimientosCompletosData = [];
+        var enlazarMovimientos = function () {};
+        var enlazarFavoritos = function () {};
+        var plantillaMovimiento = function () { return {}; };
+        var plantillaFavorito = function () { return {}; };
+    `, ctxV)
+    ;[
+        "cantidadMovimientosRecientes",
+        "actualizarDistribucion",
+        "actualizarDistribucionActivos",
+        "actualizarPatrimonioDivisa",
+        "actualizarMovimientos",
+        "actualizarFavoritos"
+    ].forEach(nombre => vm.runInContext(extraerFuncion(SRC, nombre) + ";", ctxV))
+
+    const itemsRenderizados = (id) => ctxV.__els[id]?.hijos?.[0]?.items ?? []
+    const valoresRenderizados = (id) => {
+        const contenedor = ctxV.__els[id]?.hijos?.[0]
+        return contenedor ? contenedor.items.map(contenedor.mapear) : []
+    }
+
+    ctxV.cardsDimensionesDashboard = { distribucion: { columnas: 1, filas: 1 } }
+    ctxV.__els = {}
+    ctxV.analiticaData = {
+        distribucion: [
+            { label: "Liquidez", valor: 100, clase: "liquidez" },
+            { label: "Inversiones", valor: 700, clase: "inversiones" },
+            { label: "Inmovilizado", valor: 100, clase: "inmovil" },
+            { label: "Deudas", valor: 100, clase: "deudas" }
+        ]
+    }
+    ctxV.actualizarDistribucion()
+    const dist1 = valoresRenderizados("distribucion-lista")
+    t.check(
+        "E8.5 Distribución 1x1 muestra la categoría de mayor participación",
+        dist1.length === 1 && dist1[0].valores.etiqueta === "Inversiones" &&
+        dist1[0].valores.porcentaje === "70%",
+        JSON.stringify(dist1)
+    )
+
+    ctxV.cardsDimensionesDashboard = { "distribucion-activos": { columnas: 1, filas: 1 } }
+    ctxV.__els = {}
+    ctxV.posicionesData = [
+        { cantidad: 1, divisa: "usd", activo: { tipo: "crypto", ultimoPrecio: 700 } },
+        { cantidad: 1, divisa: "usd", activo: { tipo: "accion", ultimoPrecio: 200 } },
+        { cantidad: 1, divisa: "usd", activo: { tipo: "etf", ultimoPrecio: 100 } }
+    ]
+    ctxV.actualizarDistribucionActivos()
+    const act1 = valoresRenderizados("distribucion-activos-lista")
+    t.check(
+        "E8.5 Distribución por activo 1x1 muestra el tipo con más valor y su porcentaje real",
+        act1.length === 1 && act1[0].valores.etiqueta === "Cripto" &&
+        act1[0].valores.porcentaje === "70%",
+        JSON.stringify(act1)
+    )
+
+    ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 1 } }
+    ctxV.__els = {}
+    ctxV.__donaLlamada = false
+    ctxV.patrimonioStats = { porDivisa: { pen: 100, usd: 400 } }
+    ctxV.actualizarPatrimonioDivisa()
+    const pdiv1 = valoresRenderizados("patrimonio-divisa-lista")
+    t.check(
+        "E8.6 Patrimonio por divisa 1x1 muestra la divisa con más peso",
+        pdiv1.length === 1 && pdiv1[0].valores.etiqueta === "USD" &&
+        pdiv1[0].valores.porcentaje === "80%",
+        JSON.stringify(pdiv1)
+    )
+    t.check(
+        "E8.6 Patrimonio por divisa 1x1 no dibuja dona",
+        ctxV.__donaLlamada === false
+    )
+
+    ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 3 } }
+    ctxV.__els = {}
+    ctxV.__donaLlamada = false
+    ctxV.actualizarPatrimonioDivisa()
+    t.check(
+        "E8.6 Patrimonio por divisa 1x3 lista todas las divisas y dibuja dona",
+        valoresRenderizados("patrimonio-divisa-lista").length === 2 && ctxV.__donaLlamada === true,
+        JSON.stringify({
+            items: valoresRenderizados("patrimonio-divisa-lista").length,
+            dona: ctxV.__donaLlamada
+        })
+    )
+
+    ctxV.movimientosCompletosData = Array.from({ length: 9 }, (_, i) => (
+        { id: `m${i}`, monto: 10, tipo: "gasto", divisa: "pen" }
+    ))
+    ctxV.cardsDimensionesDashboard = { movimientos: { columnas: 1, filas: 3 } }
+    ctxV.__els = {}
+    ctxV.actualizarMovimientos()
+    t.check(
+        "E8.7 Movimientos 1x3 amplía el listado a 6 registros",
+        itemsRenderizados("movimientos-lista").length === 6,
+        String(itemsRenderizados("movimientos-lista").length)
+    )
+    ctxV.cardsDimensionesDashboard = { movimientos: { columnas: 1, filas: 2 } }
+    ctxV.__els = {}
+    ctxV.actualizarMovimientos()
+    t.check(
+        "E8.7 Movimientos 1x2 respeta la preferencia de movimientos recientes",
+        itemsRenderizados("movimientos-lista").length === 2,
+        String(itemsRenderizados("movimientos-lista").length)
+    )
+
+    ctxV.favoritosData = Array.from({ length: 10 }, (_, i) => (
+        { activoId: `a${i}`, divisa: "usd", activo: { nombre: `A${i}` } }
+    ))
+    ctxV.cardsDimensionesDashboard = { favoritos: { columnas: 1, filas: 2 } }
+    ctxV.__els = {}
+    ctxV.actualizarFavoritos()
+    const fav2 = itemsRenderizados("favoritos-lista").length
+    ctxV.cardsDimensionesDashboard = { favoritos: { columnas: 1, filas: 3 } }
+    ctxV.__els = {}
+    ctxV.actualizarFavoritos()
+    const fav3 = itemsRenderizados("favoritos-lista").length
+    t.check(
+        "E8.7 Favoritos muestra 3 registros en 1x2 y 6 en 1x3",
+        fav2 === 3 && fav3 === 6,
+        JSON.stringify({ fav2, fav3 })
+    )
 
     return t
 }

@@ -320,19 +320,12 @@ body.dashboard-card-dragging * {
    CARDS - ESTILO MEJORADO
    ============================================ */
 
-    /* `transition: all` en una card es caro: hay ~20 en pantalla a la vez y
-       `all` incluye las propiedades que disparan layout (padding, min-height,
-       font-size…), así que cada hover pedía recomponer la página entera. Se
-       declaran solo las que de verdad cambian. */
 .dashboard .card {
     box-sizing: border-box;
     width: 100%;
     max-width: 100%;
     min-width: 0;
     min-height: var(--altura-celda);
-    /* 100% del área del grid: una card de 2 filas mide 120*2 + 16 = 256px.
-       Sin esto, height:auto deja la card a la altura de su contenido y el
-       fondo no cubre las celdas que ocupa (ni se ve el span de filas). */
     height: 100%;
     max-height: none;
     display: flex;
@@ -341,10 +334,7 @@ body.dashboard-card-dragging * {
     padding: 24px;
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     position: relative;
-    /* Debe coincidir con .dashboard > *: si esta regla (0,2,0) deja visible,
-       gana a la de arriba y el contenido se sale de la celda. */
     overflow: hidden;
-    background-color: var(--background);
 }
 
 /* El ::before lleva su propia transición: la del padre no se hereda a los
@@ -456,11 +446,8 @@ body.dashboard-card-dragging * {
 }
 
 .grafico-patrimonio-card .grafico-container-dashboard {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
     width: 100%;
-    height: 200px;
-    min-height: 200px;
-    max-height: 200px;
     min-width: 0;
     position: relative;
     margin-top: 8px;
@@ -759,13 +746,6 @@ body.dashboard-card-dragging * {
         font-size: 28px;
     }
 
-    .grafico-patrimonio-card .grafico-container-dashboard {
-        flex-basis: 160px;
-        height: 160px;
-        min-height: 160px;
-        max-height: 160px;
-    }
-
 }
 
 @media (max-width: 899px) {
@@ -1020,6 +1000,13 @@ body.dashboard-card-dragging * {
     max-height: 220px;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
+}
+
+/* En una card de 3 filas la lista dispone del alto completo, así que se
+   muestran más registros sin scroll interno (el contenido se limita en JS). */
+.card-alto-3 .scroll-fade {
+    overflow: visible;
+    max-height: none;
 }
 
 .distribucion-dona {
@@ -1402,6 +1389,46 @@ body.dashboard-card-dragging * {
 
 .movimientos-card .card-title {
     margin-bottom: 12px;
+}
+
+/* 1x1 de movimientos: ingresos y egresos lado a lado, sin scroll interno. */
+.movimientos-resumen {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    padding: 0 2px;
+}
+
+.movimientos-resumen-col {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+}
+
+.movimientos-resumen-etiqueta {
+    font-size: 11px;
+    color: var(--textSecondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.movimientos-resumen-valor {
+    font-family: var(--font-secondary);
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.movimientos-resumen-valor.positive {
+    color: var(--positive);
+}
+
+.movimientos-resumen-valor.negative {
+    color: var(--negative);
 }
 
 .movimientos-lista {

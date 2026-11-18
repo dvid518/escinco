@@ -1,0 +1,9 @@
+[     257ms] [INFO] [PWA] SW no registrado en desarrollo (localhost / 127.0.0.1) @ http://localhost:5080/js/core/pwa.js:29
+[     259ms] [INFO] [INFO] Iniciando router... @ http://localhost:5080/js/core/router.js:579
+[     259ms] [INFO] [INFO] Router inicializado con: "/dashboard" → "dashboard" @ http://localhost:5080/js/core/router.js:592
+[     260ms] [INFO] [INFO] Cargando página: dashboard @ http://localhost:5080/js/core/router.js:216
+[     260ms] [INFO] [INFO] Páginas visibles: {dashboard: true, cuentas: true, movimientos: true, inversiones: true, trading: true} @ http://localhost:5080/js/core/router.js:219
+[     260ms] [INFO] [INFO] ¿"dashboard" está visible? true @ http://localhost:5080/js/core/router.js:220
+[     433ms] [INFO] [INFO] Módulo "dashboard" cargado correctamente @ http://localhost:5080/js/core/router.js:271
+[     976ms] [INFO] [INFO] Dashboard iniciado para UID: demo @ http://localhost:5080/js/pages/dashboard.js:2830
+[    1167ms] [INFO] [INFO] Snapshot registrado: {patrimonioPEN: 11368.6, patrimonioUSD: 3031.6266666666666, patrimonioUSDT: 3031.6266666666666, porDivisa: Object, totalActivos: 12599} @ http://localhost:5080/js/services/SnapshotServicio.js:191

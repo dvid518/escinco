@@ -91,6 +91,7 @@ function leerColores() {
         border: estilos.getPropertyValue('--border').trim() || '#D0DCE8',
         textAct: estilos.getPropertyValue('--textAct').trim() || '#F3F3F3',
         paleSky: estilos.getPropertyValue('--paleSky').trim() || '#D0DCE8',
+        surface: estilos.getPropertyValue('--surface').trim() || '#1a1a1a',
         distribucionLiquidez: estilos.getPropertyValue('--distribucion-liquidez').trim() || '#BFE8C8',
         distribucionInversiones: estilos.getPropertyValue('--distribucion-inversiones').trim() || '#7FE3D2',
         distribucionInmovil: estilos.getPropertyValue('--distribucion-inmovil').trim() || '#F6C9D8',
@@ -153,9 +154,10 @@ export async function crearGraficoLinea(canvasId, datos, opciones = {}) {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: colores.surface,
                         titleColor: colorText,
                         bodyColor: colorText,
+                        borderColor: colorBorder,
                         padding: 10,
                         cornerRadius: 8,
                         displayColors: false,
@@ -350,9 +352,10 @@ export async function crearGraficoPatrimonio(canvasId, datos, opciones = {}) {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: colores.surface,
                         titleColor: colorText,
                         bodyColor: colorText,
+                        borderColor: colorBorder,
                         padding: 10,
                         cornerRadius: 8,
                         displayColors: false,
@@ -481,9 +484,10 @@ export async function crearGraficoDistribucion(canvasId, datos, opciones = {}) {
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: "rgba(0, 0, 0, 0.8)",
+                        backgroundColor: colores.surface,
                         titleColor: colorText,
                         bodyColor: colorText,
+                        borderColor: colorBorder,
                         padding: 10,
                         cornerRadius: 8,
                         displayColors: false,

@@ -26,24 +26,45 @@ const ESTILOS = {
     trading: ["css/trading.css", "css/inversiones.css"]
 }
 
-const inyectadas = new Set()
+// Cada hoja se carga una sola vez. La promesa resuelve al terminar la carga
+// (o al fallar), para que una página pueda esperar sus estilos antes de
+// mostrarse y no pintar el layout sin la hoja aplicada.
+const cargadas = new Map()
+
+function cargarHoja(href) {
+    if (cargadas.has(href)) return cargadas.get(href)
+
+    const existente = [...document.querySelectorAll('link[rel="stylesheet"]')]
+        .find(link => (link.getAttribute("href") || "").endsWith(href))
+
+    let promesa
+    if (existente) {
+        // `sheet` solo existe cuando la hoja ya se aplicó.
+        promesa = existente.sheet
+            ? Promise.resolve()
+            : new Promise(resolve => {
+                existente.addEventListener("load", resolve, { once: true })
+                existente.addEventListener("error", resolve, { once: true })
+            })
+    } else {
+        const link = document.createElement("link")
+        link.rel = "stylesheet"
+        link.href = href
+        promesa = new Promise(resolve => {
+            link.addEventListener("load", resolve, { once: true })
+            link.addEventListener("error", resolve, { once: true })
+        })
+        document.head.appendChild(link)
+    }
+
+    cargadas.set(href, promesa)
+    return promesa
+}
 
 export function estilosDe(nombre) {
     return ESTILOS[nombre] ? [...ESTILOS[nombre]] : []
 }
 
 export function asegurarEstilos(nombre) {
-    for (const href of estilosDe(nombre)) {
-        if (inyectadas.has(href)) continue
-        inyectadas.add(href)
-
-        const yaEnHtml = [...document.querySelectorAll('link[rel="stylesheet"]')]
-            .some(link => (link.getAttribute("href") || "").endsWith(href))
-        if (yaEnHtml) continue
-
-        const link = document.createElement("link")
-        link.rel = "stylesheet"
-        link.href = href
-        document.head.appendChild(link)
-    }
+    return Promise.all(estilosDe(nombre).map(cargarHoja))
 }
