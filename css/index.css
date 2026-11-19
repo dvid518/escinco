@@ -57,12 +57,10 @@
     box-sizing: border-box;
     width: 100%;
     height: 50px;
-    background-color: var(--surface);
     transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.3s ease;
 }
 
 .login-form input:hover {
-    background-color: var(--lightHover);
     box-shadow: inset 0 0 15px var(--shadow);
     border-color: var(--border);
     transform: scale(1.02);
@@ -113,80 +111,43 @@
 }
 
 /* --------------------------------------------
-   BOTÓN DE GOOGLE
+   BOTONES DE PROVEEDOR
    -------------------------------------------- */
+/* Círculo con solo el logo: el nombre accesible vive en aria-label. */
 
-.google-btn {
+.google-btn,
+.facebook-btn,
+.apple-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 320px;
+    width: 50px;
     height: 50px;
-    padding: 0 20px;
-    border-radius: 30px;
-    color: var(--text);
-    font-family: var(--font-primary);
-    font-size: 14px;
-    font-weight: 500;
+    padding: 0;
+    border-radius: 50%;
     cursor: pointer;
-    transition: all 0.3s ease;
     box-sizing: border-box;
+    transition: all 0.3s ease;
 }
 
-.google-btn:hover {
+.google-btn:hover,
+.facebook-btn:hover,
+.apple-btn:hover {
     background: var(--lightHover);
     box-shadow: inset 0 0 15px var(--shadow);
     border-color: var(--border);
-    transform: scale(1.02);
+    transform: scale(1.08);
 }
 
-.google-btn svg {
+.google-btn svg,
+.facebook-btn svg,
+.apple-btn svg {
     flex-shrink: 0;
 }
 
-.google-btn.destacado {
-    border-color: var(--positive);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 15%, transparent);
-    animation: pulso 1.2s ease-in-out infinite;
-}
-
-/* --------------------------------------------
-   BOTÓN DE FACEBOOK
-   -------------------------------------------- */
-
-.facebook-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    width: 100%;
-    max-width: 320px;
-    height: 50px;
-    padding: 0 20px;
-    border-radius: 30px;
-    color: var(--text);
-    font-family: var(--font-primary);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-sizing: border-box;
-}
-
-.facebook-btn:hover {
-    background: var(--lightHover);
-    box-shadow: inset 0 0 15px var(--shadow);
-    border-color: var(--border);
-    transform: scale(1.02);
-}
-
-.facebook-btn svg {
-    flex-shrink: 0;
-}
-
-.facebook-btn.destacado {
+.google-btn.destacado,
+.facebook-btn.destacado,
+.apple-btn.destacado {
     border-color: var(--positive);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--positive) 15%, transparent);
     animation: pulso 1.2s ease-in-out infinite;
@@ -214,68 +175,6 @@
     50% {
         transform: scale(1.03);
     }
-}
-
-/* --------------------------------------------
-   VERSIÓN · BORDE INFERIOR DEL PANEL
-   -------------------------------------------- */
-/* Nombre y versión al pie del panel, en Roboto Mono (--font-secondary), que
-   es la fuente con la que se leen todas las cifras de la app.
-   `margin-top: auto` la empuja al borde inferior aunque el contenido se quede
-   corto: .login-section es una columna de altura completa con el contenido
-   centrado. */
-.panel-version {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    width: 100%;
-    margin-top: auto;
-    padding-top: 8px;
-    font-family: var(--font-secondary);
-    font-size: 11px;
-    color: var(--textSecondary);
-    opacity: 0.6;
-}
-
-.panel-version-brand {
-    font-weight: 600;
-    color: var(--text);
-}
-
-/* El nombre y la versión son la única salida a la landing en las páginas de
-   acceso: sustituyen al enlace de pie. Sin esto heredaría el subrayado global
-   de los <a>. */
-.panel-version-link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: inherit;
-    text-decoration: none;
-}
-
-.panel-version-link:hover .panel-version-brand {
-    color: var(--positive);
-}
-
-.panel-version-numero {
-    padding: 1px 8px;
-    border: 1px solid var(--border);
-    border-radius: 50px;
-}
-
-/* La versión abre el modal de novedades: es un botón, no un enlace. */
-.panel-version-boton {
-    font: inherit;
-    color: inherit;
-    background: none;
-    cursor: pointer;
-    transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.panel-version-boton:hover {
-    color: var(--text);
-    border-color: var(--textSecondary);
 }
 
 /* --------------------------------------------

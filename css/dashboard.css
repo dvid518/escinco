@@ -367,7 +367,7 @@ body.dashboard-card-dragging * {
 .dashboard .card:hover {
     transform: scale(1.01);
     border-color: var(--border);
-    --glow: inset 0 0 10px var(--shadow);
+    --glow: inset 0 0 20px var(--shadow);
 }
 
 .dashboard .card:hover::before {

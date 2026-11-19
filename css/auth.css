@@ -92,6 +92,17 @@ button:disabled {
 }
 
 /* --------------------------------------------
+   PROVEEDORES
+   -------------------------------------------- */
+
+/* Los tres círculos (Google, Facebook y Apple) van en fila bajo el divisor. */
+.auth-proveedores {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+}
+
+/* --------------------------------------------
    BOTONES DE ACCIÓN SIN CAMPO
    -------------------------------------------- */
 

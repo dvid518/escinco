@@ -10,7 +10,6 @@
     width: 100%;
     height: 100%;
     padding-right: 46px;
-    background-color: var(--surface);
 }
 
 .pass-field .pass-toggle {
@@ -70,8 +69,6 @@
     color: var(--text);
     border-radius: 30px;
     --blur-frosted: 14px;
-    /* El velo y el difuminado los aporta .glass; aquí solo se fija el nivel.
-       Sin borde ni glow en reposo, igual que antes de llevar .glass. */
     --glow: none;
     border: 0;
     --acento: var(--textSecondary);
@@ -282,7 +279,6 @@
     color: var(--textSecondary);
 }
 
-/* Botones de acción dentro de la fila de totales */
 .totales-acciones {
     display: inline-flex;
     align-items: center;
@@ -976,3 +972,69 @@
 .presupuesto-item.estado-alerta .card-item-valor { color: var(--ambar); }
 .presupuesto-item.estado-critico .card-item-valor { color: var(--negativeAlt); }
 .presupuesto-item.estado-superado .card-item-valor { color: var(--negative); }
+
+/* ============================================
+   VERSIÓN · NOMBRE Y NÚMERO DE LA APP
+   ============================================ */
+/* Pie compartido por las páginas de acceso, la landing y la configuración.
+   En las columnas de altura completa (login) `margin-top: auto` lo empuja al
+   borde inferior. */
+.panel-version {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    margin-top: auto;
+    padding-top: 8px;
+    font-family: var(--font-secondary);
+    font-size: 11px;
+    color: var(--textSecondary);
+}
+
+.panel-version-brand {
+    font-weight: 600;
+    color: var(--text);
+}
+
+/* El nombre y la versión son la única salida a la landing en las páginas de
+   acceso: sustituyen al enlace de pie. Sin esto heredaría el subrayado global
+   de los <a>. */
+.panel-version-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: inherit;
+    text-decoration: none;
+}
+
+.panel-version-link:hover .panel-version-brand {
+    color: var(--positive);
+}
+
+.panel-version-numero {
+    padding: 1px 8px;
+    border: 1px solid var(--border);
+    border-radius: 50px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.panel-version-numero:hover {
+    background-color: var(--border);
+    color: var(--textAlt);
+}
+
+/* La versión abre el modal de novedades: es un botón, no un enlace. */
+.panel-version-boton {
+    font: inherit;
+    color: inherit;
+    background: none;
+    cursor: pointer;
+    transition: color 0.2s ease, border-color 0.2s ease;
+}
+
+.panel-version-boton:hover {
+    color: var(--text);
+    border-color: var(--textSecondary);
+}

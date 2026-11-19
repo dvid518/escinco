@@ -769,31 +769,12 @@
     flex-shrink: 0;
 }
 
+/* Solo se ajusta la colocación: en el pie es una fila, no una columna de
+   altura completa, así que no necesita empujarse al borde inferior. */
 .home-footer .panel-version {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    justify-content: flex-start;
     width: auto;
     margin: 0;
     padding: 0;
-    opacity: 1;
-}
-
-.home-footer .panel-version-brand {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.home-footer .panel-version-numero {
-    font-family: var(--font-secondary);
-    font-size: 12px;
-    color: var(--text);
-    padding: 2px 10px;
-    border: 1px solid var(--border);
-    border-radius: 50px;
-    background: var(--glass-frosted);
 }
 
 .home-footer-link {
@@ -832,6 +813,21 @@
     .home-footer {
         padding-left: 16px;
         padding-right: 16px;
+    }
+
+    /* La cabecera flota pegada al borde: en móvil se separa algo más para que
+       la píldora no toque los laterales de la pantalla. */
+    .home-header {
+        width: calc(100% - 32px);
+        padding-left: 20px;
+        padding-right: 20px;
+    }
+
+    /* Móvil: solo logo y "Crear cuenta". El tema se cambia dentro de la app y
+       "Entrar" sigue disponible en el hero. */
+    .home-nav .home-tema,
+    .home-nav .home-btn-fantasma {
+        display: none;
     }
 
     .home-hero {

@@ -827,16 +827,10 @@ option {
     transition: all 0.3s ease;
 }
 
-/* Anti-FOUC del dashboard: dashboard.css se inyecta de forma diferida
-   (js/core/estilos.js). Hasta que init() confirma que la hoja está aplicada,
-   el grid no se muestra: así no aparece como una lista vertical sin estilos. */
 #app-content > .dashboard:not(.dashboard-estilos-listos) {
     visibility: hidden;
 }
 
-/* Único sitio que declara el difuminado de fondo. Cualquier superficie que
-   quiera ese efecto lleva la clase .glass y, si necesita otro nivel, solo
-   redefine --blur-frosted en su propia regla. */
 .glass {
     --glow: 0 2px 16px rgba(0, 0, 0, 0.025), 0 4px 5px rgba(0, 0, 0, 0.025);
     --blur-frosted: 10px;
