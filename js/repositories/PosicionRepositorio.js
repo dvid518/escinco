@@ -6,8 +6,6 @@ import {
     addDoc,
     updateDoc,
     deleteDoc,
-    query,
-    where,
     serverTimestamp
 } from "../../firebase/firestore.js"
 import { db } from "../../firebase/firestore.js"

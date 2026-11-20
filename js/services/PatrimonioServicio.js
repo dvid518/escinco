@@ -22,7 +22,6 @@ import { obtenerCuentas } from "../../firebase/firestore.js"
 import { obtenerPosiciones } from "../repositories/PosicionRepositorio.js"
 import { esSaldoInmovil } from "../core/familiaCuentas.js"
 
-const TIPOS_CUENTA_BANCARIA = ["banco", "efectivo", "plazo", "debito"]
 const TIPOS_CUENTA_CUSTODIO = ["broker", "exchange"]
 
 /**
@@ -207,7 +206,6 @@ export async function calcularPatrimonio({incluirPosiciones = true} = {}) {
     let posicionesDivisas = {pen: 0, usd: 0, usdt: 0}
     let totalCuentas = 0
     let liquidezPEN = 0, liquidezUSD = 0, inmovilPEN = 0, inmovilUSD = 0
-    let inversionesPEN = 0, inversionesUSD = 0
     let deudasPEN = 0, deudasUSD = 0
 
     if (incluirPosiciones) {
@@ -255,7 +253,6 @@ export async function calcularPatrimonio({incluirPosiciones = true} = {}) {
         // Posiciones (solo las asignadas, legacy excluidas)
         inversionesPEN: positivo(posicionesDivisas.pen),
         inversionesUSD: positivo(posicionesDivisas.usd),
-        inversionesUSD: positivo(posicionesDivisas.usd), // alias por compatibilidad
 
         // Desglose por divisa (PEN, USD, USDT)
         porDivisa: {
@@ -277,7 +274,6 @@ export async function calcularPatrimonio({incluirPosiciones = true} = {}) {
         // Patrimonio neto = efectivo + posiciones - deudas
         patrimonioPEN: positivo(efectivoDivisas.pen + posicionesDivisas.pen - deudasPEN),
         patrimonioUSD: positivo(efectivoDivisas.usd + posicionesDivisas.usd - deudasUSD),
-        patrimonioUSD: positivo(efectivoDivisas.usd + posicionesDivisas.usd - deudasUSD), // alias
         patrimonioUSDT: positivo(efectivoDivisas.usdt + posicionesDivisas.usdt),
 
         // Flag de deuda
