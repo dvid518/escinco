@@ -402,7 +402,11 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         return String(val ?? 0)
     }
     ctx.stubFormatearProximaEjecucion = function () { return "Sin próxima ejecución" }
-    ctx.stubContenidoDesdeFilas = function (plantilla, items, _mapear) {
+    ctx.stubContenidoDesdeFilas = function (plantilla, items, mapear) {
+        // Se guarda la última llamada para poder verificar el contenido que
+        // realmente se mapea (nombre/divisa/importe), no solo la cantidad.
+        const valores = typeof mapear === "function" ? items.map(mapear) : []
+        ctx.__ultimoListado = { plantilla, items: items.length, valores }
         return { _items: items.length, replaceChildren: function () {} }
     }
     ctx.stubAplicoAnchoBarras = function () {}
@@ -457,7 +461,20 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var esMovimientoPositivo = ctx.stubEsMovimientoPositivo;
         var divisaDeMovimiento = ctx.stubDivisaDeMovimiento;
         var obtenerPatrimonioStats = ctx.stubObtenerPatrimonioStats;
+        var cuentas = ctx.cuentas || [];
     `, ctx)
+
+    // limiteItemsLista se extrae del código real: la card de Cuentas en 1x3
+    // depende de ese límite y un stub fijo ocultaría un cambio de criterio.
+    vm.runInContext(extraerFuncion(SRC, "limiteItemsLista") + ";", ctx)
+    // Estado y funciones de la máscara y del selector de divisa de Patrimonio.
+    vm.runInContext(`
+        var nodosEnmascarados = new Map();
+        var valoresOcultos = false;
+        var getDivisaPrincipal = function () { return "pen" };
+    `, ctx)
+    vm.runInContext(extraerFuncion(SRC, "alternarMascaraTexto") + ";", ctx)
+    vm.runInContext(extraerFuncion(SRC, "divisasDeCuentas") + ";", ctx)
 
     vm.runInContext(extraerFuncion(SRC, "actualizarFlujoCaja") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarDeudas") + ";", ctx)
@@ -623,14 +640,64 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctx.createdElements = {}
     await ctx.actualizarCuentas()
     const cuentasTotal = ctx.createdElements["total-cuentas"]
-    const cuentasDetalle = ctx.createdElements["patrimonio-detalle"]
     t.check(
         "B2.10 Cuentas muestra total cuando hay datos",
         cuentasTotal && cuentasTotal.replaceChildrenCalled === true
     )
     t.check(
-        "B2.10 Cuentas muestra detalle cuando hay datos",
-        cuentasDetalle && cuentasDetalle.replaceChildrenCalled === true
+        "B2.10 Cuentas rellena el desglose de activos y deuda cuando hay datos",
+        ctx.createdElements["patrimonio-activos"]?.replaceChildrenCalled === true &&
+        ctx.createdElements["patrimonio-deuda"]?.replaceChildrenCalled === true
+    )
+
+    // E8.6: el desglose 1x3 de Cuentas excluye los padres abstractos (no
+    // tienen saldo propio: pesan sus hijas) para que la lista cuadre con el
+    // contador del badge, y muestra la divisa en código para no duplicar el
+    // símbolo que ya lleva el importe.
+    vm.runInContext(`cuentas = [
+        { id: "padre", nombre: "PADRE", moneda: "pen", saldoInicial: 0, esAbstracta: true },
+        { id: "a", nombre: "AHORRO", moneda: "pen", saldoInicial: 100 },
+        { id: "b", nombre: "DOLARES", moneda: "usd", saldoInicial: 50 },
+        { id: "c", nombre: "TARJETA", moneda: "pen", tipo: "credito", deuda: 200 }
+    ];`, ctx)
+    ctx.createdElements = {}
+    ctx.__ultimoListado = null
+    await ctx.actualizarCuentas()
+    const listadoCuentas = ctx.__ultimoListado
+    t.check(
+        "E8.6 Cuentas 1x3 excluye padres abstractos del desglose",
+        listadoCuentas && listadoCuentas.items === 3 &&
+        !listadoCuentas.valores.some(v => v.valores["titulo"] === "PADRE"),
+        JSON.stringify(listadoCuentas && listadoCuentas.valores.map(v => v.valores["titulo"]))
+    )
+    t.check(
+        "E8.6 Cuentas 1x3 muestra divisa en código y deuda del crédito",
+        listadoCuentas &&
+        listadoCuentas.valores[0].valores["detalle"] === "PEN" &&
+        listadoCuentas.valores[1].valores["detalle"] === "USD" &&
+        listadoCuentas.valores[2].valores["valor@class"].includes("negative"),
+        JSON.stringify(listadoCuentas && listadoCuentas.valores.map(v => v.valores))
+    )
+
+    // E8.7: divisas del toggle de Patrimonio = solo las que usan las cuentas
+    // del usuario, sin duplicados y sin archivadas.
+    const divisasToggle = ctx.divisasDeCuentas()
+    t.check(
+        "E8.7 divisasDeCuentas devuelve las divisas reales sin duplicados",
+        JSON.stringify(divisasToggle) === JSON.stringify(["pen", "usd"]),
+        JSON.stringify(divisasToggle)
+    )
+
+    // E8.8: la máscara sustituye dígitos por "*" y restaura el original.
+    const nodoPrueba = { nodeValue: "S/ 12 599,00" }
+    ctx.valoresOcultos = true
+    ctx.alternarMascaraTexto(nodoPrueba, true)
+    const enmascarado = nodoPrueba.nodeValue
+    ctx.alternarMascaraTexto(nodoPrueba, false)
+    t.check(
+        "E8.8 la máscara cambia los dígitos por * y los restaura",
+        enmascarado === "S/ ** ***,**" && nodoPrueba.nodeValue === "S/ 12 599,00",
+        JSON.stringify({ enmascarado, restaurado: nodoPrueba.nodeValue })
     )
 
     // Test B2.11: Órdenes - actualizarOrdenes muestra vacío cuando no hay órdenes.
@@ -649,8 +716,8 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         ordCantidad && String(ordCantidad.textContent) === "0"
     )
     t.check(
-        "B2.11 Órdenes muestra detalle vacío cuando no hay órdenes",
-        ordDetalle && ordDetalle.textContent === "Sin órdenes registradas"
+        "B2.11 Órdenes no duplica mensaje: detalle vacío cuando no hay órdenes",
+        ordDetalle && ordDetalle.textContent === ""
     )
 
     // Test B2.12: Órdenes - actualizarOrdenes muestra error cuando falla.
@@ -1670,12 +1737,16 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
 
     // E2B.6: altoMax por tarjeta respeta la matriz aprobada.
-    // 13 tarjetas permiten alto 3: distribucion, distribucion-activos,
-    // patrimonio-divisa, movimientos, metas, pendientes, favoritos,
-    // presupuestos, vencimientos, ordenes, estrategias, programados, alertas.
+    // Decisión del PO (Subfase 2): 1x3 en las tarjetas de eje Y que tienen
+    // desglose real, salvo patrimonio (1x1/1x2). Son 16: distribucion,
+    // distribucion-activos, patrimonio-divisa, movimientos, metas, pendientes,
+    // favoritos, presupuestos, vencimientos, ordenes, estrategias, programados,
+    // alertas, cuentas, inversiones y deudas. Las métricas de período
+    // (ingresos, gastos, balance) y flujo-caja quedan en 1x2 porque no tienen
+    // desglose que mostrar.
     t.check(
         "E2B.6 distribucion y demas listas permiten altoMax 3",
-        (textoDim.match(/altoMax:\s*3/g) || []).length === 13
+        (textoDim.match(/altoMax:\s*3/g) || []).length === 16
     )
     t.check(
         "E2B.6 patrimonio altoMax 2",
@@ -1685,6 +1756,18 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         "E2B.6 grafico alto fijo 2",
         /grafico:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*2,\s*altoMin:\s*2,\s*altoMax:\s*2/.test(textoDim)
     )
+
+    // E2B.9: las tres tarjetas con desglose real admiten 1x3.
+    for (const id of ["cuentas", "inversiones", "deudas"]) {
+        const re = new RegExp(`"?${id}"?:\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*3`)
+        t.check(`E2B.9 ${id} admite 1x3`, re.test(textoDim))
+    }
+
+    // E2B.10: las métricas sin desglose real se quedan en 1x2.
+    for (const id of ["flujo-caja", "gastos-periodo", "ingresos-periodo", "balance-periodo"]) {
+        const re = new RegExp(`"${id}":\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*2`)
+        t.check(`E2B.10 ${id} limitada a 1x2`, re.test(textoDim))
+    }
 
     // E2B.7: Patrimonio s� permite 1x1 y 1x2 (altoMax 2).
     t.check(
@@ -1968,7 +2051,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var generarCardGrafico = function () { return ""; };
         var generarCardDistribucionDona = function () { return ""; };
         var generarCardMetrica = function (cardId, titulo, subtitulo, valorId, detalleId) {
-            var detalle = detalleId && dimensionesCard(cardId).filas > 1
+            var detalle = detalleId
                 ? '<div class="card-sub" id="' + detalleId + '"></div>'
                 : "";
             return '<div id="card-' + cardId + '"><div class="card-value" id="' + valorId + '"></div>' + detalle + '</div>';
@@ -1989,8 +2072,11 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctxV.cardsDimensionesDashboard = { patrimonio: { columnas: 1, filas: 2 } }
     const pat2 = ctxV.generarCardPatrimonio(null)
     t.check(
-        "E8.3 Patrimonio 1x1 resume el total sin desglose y conserva el selector",
-        !pat1.includes("patrimonio-detalle") && pat1.includes('id="divisa-select"'),
+        "E8.3 Patrimonio 1x1 resume el total sin desglose y lleva ojo + selector",
+        !pat1.includes("patrimonio-detalle") &&
+        !pat1.includes('id="divisa-select"') &&
+        pat1.includes('id="patrimonio-divisas"') &&
+        pat1.includes('id="patrimonio-ojo"'),
         pat1
     )
     t.check(
@@ -2006,13 +2092,27 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 3 } }
     const pv3 = ctxV.GENERADORES_CARD["patrimonio-divisa"]()
     t.check(
-        "E8.4 Patrimonio por divisa 1x1 y 1x2 no reservan dona",
-        !pv1.includes("divisa-dona") && !pv2.includes("divisa-dona") &&
-        pv1.includes('id="patrimonio-divisa-lista"') && pv2.includes('id="patrimonio-divisa-lista"')
+        "E8.4 Patrimonio por divisa reserva dona y lista en cualquier alto",
+        [pv1, pv2, pv3].every(pv =>
+            pv.includes("patrimonio-divisa-dona-placeholder") && pv.includes('id="patrimonio-divisa-lista"')
+        )
     )
+
+    // Rollback visual (Etapa 8): Cuentas vuelve al marcado de b00ba4, una
+    // métrica con contador en cualquier alto; la lista de cuentas reales se
+    // pinta en el desglose de Patrimonio.
+    ctxV.cardsDimensionesDashboard = { cuentas: { columnas: 1, filas: 1 } }
+    const cue1 = ctxV.GENERADORES_CARD.cuentas()
+    ctxV.cardsDimensionesDashboard = { cuentas: { columnas: 1, filas: 2 } }
+    const cue2 = ctxV.GENERADORES_CARD.cuentas()
+    ctxV.cardsDimensionesDashboard = { cuentas: { columnas: 1, filas: 3 } }
+    const cue3 = ctxV.GENERADORES_CARD.cuentas()
     t.check(
-        "E8.4 Patrimonio por divisa 1x3 reserva dona y lista",
-        pv3.includes("patrimonio-divisa-dona-placeholder") && pv3.includes('id="patrimonio-divisa-lista"')
+        "E8.5 Cuentas es métrica con contador en cualquier alto, sin lista",
+        [cue1, cue2, cue3].every(cue =>
+            cue.includes('id="total-cuentas"') && !cue.includes("cuentas-lista")
+        ),
+        JSON.stringify({ c1: cue1.includes("cuentas-lista"), c3: cue3.includes("cuentas-lista") })
     )
 
     ctxV.cardsDimensionesDashboard = { vencimientos: { columnas: 1, filas: 2 } }
@@ -2020,15 +2120,33 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     ctxV.cardsDimensionesDashboard = { vencimientos: { columnas: 1, filas: 3 } }
     const ven3 = ctxV.GENERADORES_CARD.vencimientos()
     t.check(
-        "E8.4 Próximos vencimientos 1x2 es una métrica con detalle",
-        ven2.includes('class="card-value"') && ven2.includes('id="vencimientos-detalle"') &&
-        !ven2.includes("vencimientos-lista"),
-        ven2
+        "E8.4 Próximos vencimientos es métrica con detalle en cualquier alto",
+        [ven2, ven3].every(ven =>
+            ven.includes('class="card-value"') && ven.includes('id="vencimientos-detalle"') &&
+            !ven.includes("vencimientos-lista")
+        ),
+        ven3
+    )
+
+    // --- Regresiones post-rollback: badges y botones ---
+    ctxV.cardsDimensionesDashboard = { metas: { columnas: 1, filas: 1 } }
+    const m1 = ctxV.GENERADORES_CARD.metas()
+    ctxV.cardsDimensionesDashboard = { metas: { columnas: 1, filas: 2 } }
+    const m2 = ctxV.GENERADORES_CARD.metas()
+    t.check(
+        "E8.x Metas quita el botón Nueva en cualquier alto",
+        !m1.includes("btn-nueva-meta") && !m1.includes(">Nueva<") && !m2.includes("btn-nueva-meta")
     )
     t.check(
-        "E8.4 Próximos vencimientos 1x3 muestra el listado",
-        ven3.includes('id="vencimientos-lista"') && !ven3.includes('class="card-value"'),
-        ven3
+        "E8.x Metas pone badge de contador a la derecha del título",
+        m1.includes('id="metas-cantidad"') && m2.includes('id="metas-cantidad"')
+    )
+
+    ctxV.cardsDimensionesDashboard = { presupuestos: { columnas: 1, filas: 1 } }
+    const p1 = ctxV.GENERADORES_CARD.presupuestos()
+    t.check(
+        "E8.x Presupuestos tiene badge dentro de la cabecera",
+        p1.includes('id="presupuestos-cantidad"') && p1.includes("card-header")
     )
 
     // --- Actualizadores: selección del elemento principal y límites ---

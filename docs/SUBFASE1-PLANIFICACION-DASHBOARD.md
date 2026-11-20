@@ -15,6 +15,8 @@
 | 3 | inversiones | Inversiones | Métrica | 1×1 | 1×1, 1×2 | `generarCardMetrica` | No |
 | 4 | vencimientos | Próximos vencimientos | Métrica / lista | 1×1 | 1×1, 1×2, 1×3 | `generarCardVencimientos` | No |
 | 5 | movimientos | Últimos movimientos | Lista con scroll | 1×2 | 1×1, 1×2, 1×3 | `generarCardMovimientos` | No |
+
+> **Decisión del PO (Subfase 2)** — Movimientos conserva **1×1, 1×2 y 1×3**; no se limita a 1×2. Las demás tarjetas con 1×3 en esta tabla (vencimientos, favoritos, metas, presupuestos, pendientes, ordenes, estrategias, distribucion, distribucion-activos, patrimonio-divisa, programados, alertas) **no quedan ratificadas por esta nota**: su 1×3 sigue siendo una contradicción entre §A y §B pendiente de resolución explícita del PO, y no se implementa sin esa decisión.
 | 6 | favoritos | Favoritos | Lista | 1×1 | 1×1, 1×2, 1×3 | `generarCardFavoritos` | No |
 | 7 | metas | Metas de ahorro | Métrica / lista | 1×1 | 1×1, 1×2, 1×3 | `generarCardMetas` | No |
 | 8 | presupuestos | Presupuestos | Métrica / lista | 1×1 | 1×1, 1×2, 1×3 | `generarCardPresupuestos` | No |
@@ -33,6 +35,8 @@
 | 21 | alertas | Alertas | Lista (píldoras) | 1×1 | 1×1, 1×2, 1×3 | `generarCardAlertas` | No |
 | 22 | grafico | Evolución patrimonial | Gráfico (canvas) | 2×2 | 2×2 (fijo) | `generarCardGrafico` | No |
 
+> **Decisión del PO (Subfase 2)** — El Gráfico permanece **fijo en 2×2**. No se habilita 1×2 ni ninguna otra variante. Coincide con §B (fila `grafico`) y no admite reinterpretación a partir de la matriz del inventario de Fase 2A.
+
 **Tarjetas dinámicas adicionales** (no en `DASHBOARD_CARDS`, montadas en `montarCardsInstanciadas()`):
 - `cuenta:<id>` — una por cuenta final (plantilla `tpl-dashboard-card-cuenta`)
 - `activo:<id>` — una por posición abierta (plantilla `tpl-dashboard-card-activo`)
@@ -40,6 +44,8 @@
 ---
 
 ## B. Matriz de estado por variante
+
+> **Resolución de la contradicción §A/§B (decisión del PO, Subfase 2).** La columna "Dimensiones permitidas" de §A y esta matriz discrepan en qué tarjetas admiten 1×3. Solo quedan ratificadas por el PO estas decisiones explícitas: **Movimientos 1×1/1×2/1×3**, **Gráfico 2×2 fijo**, **Patrimonio 1×1** (1×2 pendiente de diseño) y las variantes C1/C2/C3 de distribución, distribución-activos y patrimonio-divisa. Para el resto de tarjetas, el 1×3 de §A **no está aprobado** y su habilitación queda pendiente de decisión explícita del PO; no se implementa ni se modifica la matriz de código por inferencia.
 
 **Dos dimensiones independientes:**
 

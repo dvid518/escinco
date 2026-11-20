@@ -1,4 +1,4 @@
-﻿
+
 /* ============================================
    DASHBOARD - GRID
    ============================================ */
@@ -335,6 +335,7 @@ body.dashboard-card-dragging * {
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     position: relative;
     overflow: hidden;
+    background-color: var(--background);
 }
 
 /* El ::before lleva su propia transición: la del padre no se hereda a los
@@ -367,7 +368,7 @@ body.dashboard-card-dragging * {
 .dashboard .card:hover {
     transform: scale(1.01);
     border-color: var(--border);
-    --glow: inset 0 0 20px var(--shadow);
+    --glow: inset 0 0 10px var(--shadow);
 }
 
 .dashboard .card:hover::before {
@@ -443,6 +444,141 @@ body.dashboard-card-dragging * {
     text-overflow: ellipsis;
     font-size: clamp(24px, 2.4vw, 32px);
     letter-spacing: -0.05em;
+}
+
+/* ------------------------------------------------------------------
+   PATRIMONIO: ojo, selector de divisa y desglose
+   ------------------------------------------------------------------ */
+
+/* Mismo tratamiento que el ojo de "ver contraseña" (componentes.css
+   .pass-toggle): botón circular fantasma, icono en color secundario y hover
+   suave. No lleva fondo propio para no competir con la cifra. */
+/* El ojo debe quedar centrado con el título: el título trae margen inferior
+   propio y dentro de la cabecera descuadraría el botón. */
+.patrimonio-card .card-header {
+    align-items: center;
+}
+
+.patrimonio-card .card-header .card-title {
+    margin-bottom: 0;
+}
+
+.patrimonio-ojo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    margin-left: auto;
+    background: transparent;
+    border: none;
+    border-radius: 50%;
+    color: var(--textSecondary);
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+}
+
+.patrimonio-ojo:hover {
+    background: var(--lightHover);
+    color: var(--text);
+}
+
+.patrimonio-ojo:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+}
+
+/* El toggle ocupa todo el ancho disponible del card (respetando el padding) y
+   reparte sus opciones a partes iguales, como el de periodos del gráfico. */
+.patrimonio-divisas {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 12px;
+    flex-wrap: nowrap;
+    justify-content: stretch;
+}
+
+.patrimonio-divisas .toggle-option {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 8px;
+    text-align: center;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.patrimonio-divisas .toggle-option:hover,
+.patrimonio-divisas .toggle-option:hover:not(.active) {
+    padding: 4px 8px;
+}
+
+/* En 1x2 el contenido se reparte en todo el alto: título, cifra, selector y
+   desglose quedan separados por aire constante en vez de acumular un hueco
+   único bajo el selector. La cifra sube de escala porque es el dato principal
+   de la card. */
+.patrimonio-card-alto {
+    justify-content: space-between;
+}
+
+.patrimonio-card-alto .card-value {
+    font-size: clamp(32px, 3.2vw, 44px);
+}
+
+/* Desglose de 1x2: dos filas con etiqueta y su valor, separadas del selector
+   por una línea fina. */
+.patrimonio-desglose {
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.patrimonio-desglose-fila {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    min-width: 0;
+}
+
+.patrimonio-desglose-etiqueta {
+    font-size: 12px;
+    color: var(--textSecondary);
+    white-space: nowrap;
+}
+
+.patrimonio-desglose-valor {
+    font-family: var(--font-secondary);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.patrimonio-desglose-valor.negative {
+    color: var(--negative);
+}
+
+/* Con las cifras ocultas, el canvas del gráfico no puede enmascarar sus
+   números: se oculta y se avisa. */
+.dashboard.valores-ocultos .grafico-container-dashboard canvas {
+    visibility: hidden;
+}
+
+.dashboard.valores-ocultos .grafico-container-dashboard::after {
+    content: "Valores ocultos";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: var(--textSecondary);
 }
 
 .grafico-patrimonio-card .grafico-container-dashboard {
@@ -919,6 +1055,7 @@ body.dashboard-card-dragging * {
 .distribucion-card .card-header,
 .distribucion-activos-card .card-header,
 .patrimonio-divisa-card .card-header,
+.presupuestos-card .card-header,
 .programados-card .card-header,
 .alertas-card .card-header {
     display: flex;
@@ -961,51 +1098,57 @@ body.dashboard-card-dragging * {
 .programados-lista,
 .alertas-lista {
     display: flex;
-    height: auto;
-    flex: 0 0 auto;
     flex-direction: column;
     gap: 8px;
-    overflow: visible;
 }
 
 .dashboard .pendientes-lista {
-    height: auto;
-    flex: 0 0 auto;
     max-height: none;
-    overflow: visible;
 }
 
 .estrategias-lista {
     display: flex;
-    height: auto;
-    flex: 0 0 auto;
     flex-direction: column;
     gap: 8px;
-    overflow: visible;
 }
 
-.movimientos-lista.scroll-fade,
-.favoritos-lista.scroll-fade,
-.metas-lista.scroll-fade,
-.presupuestos-lista.scroll-fade,
-.pendientes-lista.scroll-fade,
-.ordenes-lista.scroll-fade,
-.estrategias-lista.scroll-fade,
-.distribucion-lista.scroll-fade,
-.distribucion-activos-lista.scroll-fade,
-.patrimonio-divisa-lista.scroll-fade,
-.programados-lista.scroll-fade,
-.alertas-lista.scroll-fade {
+/* Las listas de las cards son cajas flex hijas de una card de alto fijo. Si
+   conservan `flex: 0 0 auto` + `height: auto` (regla base de cada lista), su
+   alto es el del contenido y desbordan la card aunque tengan max-height: la
+   card recorta con su `overflow: hidden` y el último registro queda cortado.
+   `min-height: 0` es necesario porque, por defecto, un hijo flex no baja de
+   su alto de contenido. Así la lista ocupa solo el espacio libre y hace
+   scroll interno cuando el contenido excede el alto de la card.
+
+   El scroll NO depende de `.scroll-fade`: `js/ui/scrollEdges.js` quita esa
+   clase cuando el elemento no scrollea, así que ligar `overflow-y` a ella
+   creaba un ciclo (sin clase no hay overflow; sin overflow no hay scroll; sin
+   scroll se volvía a quitar la clase) y la lista crecía fuera de la card. */
+.movimientos-lista,
+.favoritos-lista,
+.metas-lista,
+.presupuestos-lista,
+.pendientes-lista,
+.ordenes-lista,
+.estrategias-lista,
+.distribucion-lista,
+.distribucion-activos-lista,
+.patrimonio-divisa-lista,
+.programados-lista,
+.alertas-lista,
+.cuentas-lista {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: auto;
+    max-height: none;
     overflow-y: auto;
-    max-height: 220px;
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
 }
 
-/* En una card de 3 filas la lista dispone del alto completo, así que se
-   muestran más registros sin scroll interno (el contenido se limita en JS). */
+/* En una card de 3 filas el JS limita los registros a los que caben; la lista
+   sigue con scroll como red de seguridad para no recortar contenido. */
 .card-alto-3 .scroll-fade {
-    overflow: visible;
     max-height: none;
 }
 
@@ -1058,11 +1201,8 @@ body.dashboard-card-dragging * {
 .distribucion-lista,
 .divisa-lista {
     display: flex;
-    height: auto;
-    flex: 0 0 auto;
     flex-direction: column;
     gap: 8px;
-    overflow: visible;
 }
 
 .distribucion-modal {
@@ -1433,11 +1573,8 @@ body.dashboard-card-dragging * {
 
 .movimientos-lista {
     display: flex;
-    height: auto;
-    flex: 0 0 auto;
     flex-direction: column;
     gap: 8px;
-    overflow: visible;
 }
 
 .movimientos-lista::-webkit-scrollbar,

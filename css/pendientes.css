@@ -36,7 +36,6 @@
     max-height: 400px;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 4px;
 }
 
 .pendientes-lista::-webkit-scrollbar {

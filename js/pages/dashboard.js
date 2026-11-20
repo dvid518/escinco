@@ -58,6 +58,13 @@ let cuentas = []
 let posicionesData = []
 let instanciasResueltas = false
 let divisaActual = getDivisaPrincipal()
+// Cifras ocultas tras el ojo de la card Patrimonio. El estado vive solo en la
+// sesión: no se persiste, para no alterar el esquema de preferencias.
+let valoresOcultos = false
+// Nodo de texto -> texto original, para poder restaurar sin recalcular.
+const nodosEnmascarados = new Map()
+// Repinta las opciones del toggle de divisa cuando cambian las cuentas.
+let repintarDivisasPatrimonio = null
 let datosGrafico = null
 let inversionesData = null
 let vencimientosData = null
@@ -142,8 +149,8 @@ function tituloDesdeIdCard(cardId) {
 // ancho/alto: mínimos y máximos que el usuario puede elegir en el editor.
 // default: valor usado cuando no hay preferencia guardada.
 const DASHBOARD_DIMENSIONES = {
-    // Eje Y. Solo "distribucion" permite 3 filas (requisito PO Etapa 8).
-    // Patrimonio: 1x1 y 1x2 (altoMax 2). El resto de tarjetas: alto 1-2.
+    // Eje Y (ancho fijo 1, alto 1-3). Patrimonio es la excepción: solo 1x1 y
+    // 1x2 (requisito PO Etapa 8: elegir dimensiones 1x1 y 1x2, eje Y).
     patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "distribucion-activos": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
@@ -153,20 +160,22 @@ const DASHBOARD_DIMENSIONES = {
     favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    // Eje Y máx 2 (alto 1-2, ancho siempre 1)
-    cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+    // Métricas de período: solo hay un importe y un contador de movimientos,
+    // sin desglose real que justifique 3 filas (decisión PO Subfase 2).
     "ingresos-periodo":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "gastos-periodo":  { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
     "balance-periodo": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+    deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     ordenes:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     estrategias:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
     "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    // Eje X variable; alto fijo en 2 filas para que el canvas (200px) quepa.
+    // Gráfico: alto fijo 2 (el canvas de 200 px necesita dos filas). El ancho
+    // sí es editable para permitir el toggle de resize 1x2 / 2x2 en el modal.
     grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 2, altoMax: 2, anchoDefault: 2, altoDefault: 2 },
 };
 
@@ -2141,9 +2150,9 @@ function obtenerPeriodoFlujo(id) {
 function generarCardMetrica(cardId, titulo, subtitulo, valorId, detalleId, claseAdicional = "", _config = {}) {
     const id = `card-${cardId}`;
     const clasesSpan = clasesCard(cardId)
-    const { filas } = dimensionesCard(cardId)
-    const esUnoXUno = filas === 1
-    const detalle = detalleId && !esUnoXUno
+    // El detalle se pinta en cualquier tamaño: es el contenido de b00ba4 y
+    // esconderlo dejaba la métrica con solo la cifra.
+    const detalle = detalleId
         ? `<div class="card-sub" id="${detalleId}">${skeletonText()}</div>`
         : "";
     return `
@@ -2213,19 +2222,27 @@ function generarCardPatrimonio(nivelResalte) {
     // 1x1: solo el total. 1x2: además el desglose de activos/deuda que ya
     // calcula calcularPatrimonio() (no se añade ninguna métrica nueva).
     const detalle = dimensionesCard("patrimonio").filas >= 2
-        ? `<div class="card-sub" id="patrimonio-detalle">${skeletonText()}</div>`
+        ? `<div class="patrimonio-desglose" id="patrimonio-detalle">                <div class="patrimonio-desglose-fila">
+                    <span class="patrimonio-desglose-etiqueta">Activos</span>
+                    <span class="patrimonio-desglose-valor" id="patrimonio-activos">${skeletonText()}</span>
+                </div>
+                <div class="patrimonio-desglose-fila">
+                    <span class="patrimonio-desglose-etiqueta">Deuda</span>
+                    <span class="patrimonio-desglose-valor negative" id="patrimonio-deuda">${skeletonText()}</span>
+                </div>
+            </div>`
         : ""
+    const claseAlto = dimensionesCard("patrimonio").filas >= 2 ? " patrimonio-card-alto" : ""
     return `
-        <div class="glass card primary patrimonio-card${resaltado}" data-dashboard-card="patrimonio" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Patrimonio total, valor actual">
+        <div class="glass card primary patrimonio-card${resaltado}${claseAlto}" data-dashboard-card="patrimonio" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Patrimonio total, valor actual">
             <div class="card-header">
                 <span class="card-title">Patrimonio Total</span>
-                <select class="divisa-select" id="divisa-select" aria-label="Divisa">
-                     <option value="pen">${getFormatoDivisa() === "codigo" ? "PEN" : presentarDivisa("pen")}</option>
-                     <option value="usd">${getFormatoDivisa() === "codigo" ? "USD" : presentarDivisa("usd")}</option>
-                     <option value="usdt">${getFormatoDivisa() === "codigo" ? "USDT" : presentarDivisa("usdt")}</option>
-                </select>
+                <button type="button" class="patrimonio-ojo" id="patrimonio-ojo" aria-label="Ocultar valores" aria-pressed="false">
+                    ${icono("eye", 18)}
+                </button>
             </div>
             <div class="card-value" id="patrimonio-valor" aria-live="polite">${skeletonText("skeleton-value-large")}</div>
+            <div class="toggle-group patrimonio-divisas" id="patrimonio-divisas" role="group" aria-label="Divisa del patrimonio"></div>
             ${detalle}
         </div>
     `;
@@ -2260,7 +2277,7 @@ function generarCardDistribucionDona(_config = {}) {
             <div class="card-header">
                 <span class="card-title">Distribución patrimonial</span>
             </div>
-            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
+            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     }
@@ -2282,48 +2299,20 @@ function generarCardDistribucionDona(_config = {}) {
 const GENERADORES_CARD = {
     "grafico": generarCardGrafico,
     "distribucion": generarCardDistribucionDona,
-    "metas": (_config = {}) => {
+    "metas": () => {
         const clasesSpan = clasesCard("metas")
-        const { filas } = dimensionesCard("metas")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
-                <div class="card-header">
-                    <span class="card-title">Metas de ahorro</span>
-                </div>
-                <div class="card-value" id="metas-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="metas-detalle">${skeletonText()}</div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card metas-card ${clasesSpan}" id="card-metas" data-dashboard-card="metas" role="region" tabindex="0" aria-label="Metas de ahorro">
             <div class="card-header">
                 <span class="card-title">Metas de ahorro</span>
-                <button type="button" class="glass-btn btn-meta-nueva" id="btn-nueva-meta">
-                    ${icono("plus-circle", 14)} Nueva
-                </button>
+                <span class="badge" id="metas-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
             <div class="metas-lista scroll-fade" id="metas-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
-    "presupuestos": (_config = {}) => {
+    "presupuestos": () => {
         const clasesSpan = clasesCard("presupuestos")
-        const { filas } = dimensionesCard("presupuestos")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
-                <div class="card-header">
-                    <span class="card-title">Presupuestos</span>
-                </div>
-                <div class="card-value" id="presupuestos-valor">${skeletonText("skeleton-value")}</div>
-                <div class="card-sub" id="presupuestos-detalle">${skeletonText()}</div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card presupuestos-card ${clasesSpan}" id="card-presupuestos" data-dashboard-card="presupuestos" role="region" tabindex="0" aria-label="Presupuestos">
             <div class="card-header">
@@ -2336,22 +2325,7 @@ const GENERADORES_CARD = {
     },
     "cuentas": () => generarCardMetrica("cuentas", "Cuentas", "Activas y tarjetas", "total-cuentas", null),
     "inversiones": () => generarCardMetrica("inversiones", "Inversiones", null, "inversiones-valor", "inversiones-detalle"),
-    "vencimientos": () => {
-        const { filas } = dimensionesCard("vencimientos")
-        // 1x1/1x2: contador + resumen. 1x3: listado de los más urgentes.
-        if (filas < 3) {
-            return generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle")
-        }
-        return `
-        <div class="glass card card-navegable metric-card ${clasesCard("vencimientos")}" id="card-vencimientos" data-dashboard-card="vencimientos" role="button" tabindex="0" title="Próximos vencimientos">
-            <div class="card-header">
-                <span class="card-title">Próximos vencimientos</span>
-                <span class="badge" id="vencimientos-cantidad">${skeletonText("skeleton-badge")}</span>
-            </div>
-            <div class="vencimientos-dashboard" id="vencimientos-lista">${skeletonMarkup({ rows: 4, className: "skeleton-dashboard-list" })}</div>
-        </div>
-    `;
-    },
+    "vencimientos": () => generarCardMetrica("vencimientos", "Próximos vencimientos", null, "vencimientos-cantidad", "vencimientos-detalle"),
     "movimientos": (_config = {}) => {
         const clasesSpan = clasesCard("movimientos")
         const { filas } = dimensionesCard("movimientos")
@@ -2383,46 +2357,20 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "favoritos": (_config = {}) => {
+    "favoritos": () => {
         const clasesSpan = clasesCard("favoritos")
-        const { filas } = dimensionesCard("favoritos")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
-                <div class="card-header">
-                    <span class="card-title">Favoritos</span>
-                    <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card card-navegable favoritos-card ${clasesSpan}" id="card-favoritos" data-dashboard-card="favoritos" role="button" tabindex="0" title="Favoritos">
             <div class="card-header">
                 <span class="card-title">Favoritos</span>
                 <span class="badge" id="favoritos-cantidad">${skeletonText("skeleton-badge")}</span>
             </div>
-            <div class="favoritos-lista scroll-fade" id="favoritos-lista">
-                ${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}
-            </div>
+            <div class="favoritos-lista scroll-fade" id="favoritos-lista">${skeletonMarkup({ rows: 2, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
-    "pendientes": (_config = {}) => {
+    "pendientes": () => {
         const clasesSpan = clasesCard("pendientes")
-        const { filas } = dimensionesCard("pendientes")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
-                <div class="card-header">
-                    <span class="card-title">Pendientes</span>
-                    <span class="badge" id="pendientes-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card card-navegable pendientes-card ${clasesSpan}" id="card-pendientes" data-dashboard-card="pendientes" role="button" tabindex="0" title="Pendientes">
             <div class="card-header">
@@ -2433,20 +2381,8 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "ordenes": (_config = {}) => {
+    "ordenes": () => {
         const clasesSpan = clasesCard("ordenes")
-        const { filas } = dimensionesCard("ordenes")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
-                <div class="card-header">
-                    <span class="card-title">Órdenes</span>
-                    <span class="badge" id="ordenes-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card card-navegable ordenes-card ${clasesSpan}" id="card-ordenes" data-dashboard-card="ordenes" role="button" tabindex="0" title="Órdenes">
             <div class="card-header">
@@ -2458,72 +2394,32 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "distribucion-activos": (_config = {}) => {
+    "distribucion-activos": () => {
         const clasesSpan = clasesCard("distribucion-activos")
-        const { filas } = dimensionesCard("distribucion-activos")
-        if (filas === 1) {
-            return `
-            <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
-                <div class="card-header">
-                    <span class="card-title">Distribución por tipo de activo</span>
-                </div>
-                <div class="distribucion-lista texto" id="distribucion-activos-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
-            </div>
-        `;
-        }
-        const dona = filas === 3
-            ? `<div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
-            : ""
         return `
         <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
             <div class="card-header">
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
-            ${dona}
+            <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="distribucion-lista scroll-fade" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
-    "patrimonio-divisa": (_config = {}) => {
+    "patrimonio-divisa": () => {
         const clasesSpan = clasesCard("patrimonio-divisa")
-        const { filas } = dimensionesCard("patrimonio-divisa")
-        if (filas === 1) {
-            return `
-            <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
-                <div class="card-header">
-                    <span class="card-title">Patrimonio por divisa</span>
-                </div>
-                <div class="divisa-lista texto" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 1, className: "skeleton-dashboard-list" })}</div>
-            </div>
-        `;
-        }
-        const dona = filas === 3
-            ? `<div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
-            : ""
         return `
         <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
             <div class="card-header">
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
-            ${dona}
+            <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
             <div class="divisa-lista scroll-fade" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
-    "estrategias": (_config = {}) => {
+    "estrategias": () => {
         const clasesSpan = clasesCard("estrategias")
-        const { filas } = dimensionesCard("estrategias")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
-                <div class="card-header">
-                    <span class="card-title">Estrategias</span>
-                    <span class="badge" id="estrategias-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card estrategias-card ${clasesSpan}" id="card-estrategias" data-dashboard-card="estrategias" role="region" tabindex="0" aria-label="Próximas estrategias">
             <div class="card-header">
@@ -2535,20 +2431,8 @@ const GENERADORES_CARD = {
     `;
     },
     "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
-    "gastos-periodo": (_config = {}) => {
+    "gastos-periodo": () => {
         const clasesSpan = clasesCard("gastos-periodo")
-        const { filas } = dimensionesCard("gastos-periodo")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
-                <div class="card-header">
-                    <span class="card-title">Gastado</span>
-                </div>
-                <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
@@ -2559,20 +2443,8 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "ingresos-periodo": (_config = {}) => {
+    "ingresos-periodo": () => {
         const clasesSpan = clasesCard("ingresos-periodo")
-        const { filas } = dimensionesCard("ingresos-periodo")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
-                <div class="card-header">
-                    <span class="card-title">Ingresado</span>
-                </div>
-                <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-ingresos-periodo" data-dashboard-card="ingresos-periodo" role="button" tabindex="0" title="Ingresado">
             <div class="card-header">
@@ -2585,20 +2457,8 @@ const GENERADORES_CARD = {
     },
     "balance-periodo": () => generarCardMetrica("balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
     "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
-    "programados": (_config = {}) => {
+    "programados": () => {
         const clasesSpan = clasesCard("programados")
-        const { filas } = dimensionesCard("programados")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
-                <div class="card-header">
-                    <span class="card-title">Programados</span>
-                    <span class="badge" id="programados-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card programados-card ${clasesSpan}" id="card-programados" data-dashboard-card="programados" role="button" tabindex="0" title="Movimientos programados">
             <div class="card-header">
@@ -2609,20 +2469,8 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "alertas": (_config = {}) => {
+    "alertas": () => {
         const clasesSpan = clasesCard("alertas")
-        const { filas } = dimensionesCard("alertas")
-        const esUnoXUno = filas === 1
-        if (esUnoXUno) {
-            return `
-            <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
-                <div class="card-header">
-                    <span class="card-title">Alertas</span>
-                    <span class="badge" id="alertas-cantidad">${skeletonText("skeleton-badge")}</span>
-                </div>
-            </div>
-        `;
-        }
         return `
         <div class="glass card alertas-card ${clasesSpan}" id="card-alertas" data-dashboard-card="alertas" role="button" tabindex="0" title="Alertas">
             <div class="card-header">
@@ -2711,6 +2559,7 @@ export function render() {
 // (esqueleto y error) tienen que usar exactamente la misma lista: si una se
 // olvidara, esa card se quedaría con los datos del ciclo anterior.
 const LISTAS_DASHBOARD = [
+    { id: "cuentas-lista", filas: 6 },
     { id: "movimientos-lista", filas: 2 },
     { id: "favoritos-lista", filas: 2 },
     { id: "metas-lista", filas: 2 },
@@ -2726,13 +2575,16 @@ const LISTAS_DASHBOARD = [
 ]
 
 const VALORES_DASHBOARD = [
-    "patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
+    "patrimonio-valor", "patrimonio-activos", "patrimonio-deuda",
+    "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
     "flujo-caja-valor", "deudas-valor",
     "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"
 ]
 
+// `patrimonio-detalle` no entra aquí: es el contenedor de las filas de 1x2, y
+// vaciarlo dejaba el desglose sin sus valores (se gestionan en VALORES).
 const DETALLES_DASHBOARD = [
-    "patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+    "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
     "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle",
     "balance-periodo-detalle", "ordenes-detalle"
 ]
@@ -2743,7 +2595,7 @@ const CONTADORES_DASHBOARD = [
 ]
 
 function limpiarEsqueletosDashboard() {
-    const listas = ["movimientos-lista", "favoritos-lista", "metas-lista", "presupuestos-lista",
+    const listas = ["cuentas-lista", "movimientos-lista", "favoritos-lista", "metas-lista", "presupuestos-lista",
         "pendientes-lista", "ordenes-lista", "estrategias-lista", "distribucion-lista",
         "distribucion-activos-lista", "patrimonio-divisa-lista", "programados-lista", "alertas-lista"]
     listas.forEach(id => {
@@ -2759,13 +2611,14 @@ function limpiarEsqueletosDashboard() {
     if (donaDivisa) donaDivisa.replaceChildren()
     const donaActivos = document.getElementById("distribucion-activos-dona-placeholder")
     if (donaActivos) donaActivos.replaceChildren()
-    const valores = ["patrimonio-valor", "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
+    const valores = ["patrimonio-valor", "patrimonio-activos", "patrimonio-deuda",
+        "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
         "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
     valores.forEach(id => {
         const valor = document.getElementById(id)
         if (valor) valor.replaceChildren()
     })
-    const detalles = ["patrimonio-detalle", "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+    const detalles = ["inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
         "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle", "balance-periodo-detalle",
         "ordenes-detalle"]
     detalles.forEach(id => {
@@ -3491,6 +3344,10 @@ async function actualizarUI() {
     actualizarProgramados()
     actualizarAlertas()
     reordenarDashboard()
+    // Con las cuentas ya cargadas, el toggle muestra las divisas reales.
+    repintarDivisasPatrimonio?.()
+    // Si el usuario ocultó las cifras, cada refresco las vuelve a enmascarar.
+    aplicarMascaraValores()
 }
 
 // calcularPatrimonio() ya devuelve los totales por divisa, y tres cards los
@@ -3513,14 +3370,53 @@ async function actualizarCuentas() {
     const totalEl = document.getElementById("total-cuentas")
     if (totalEl) totalEl.replaceChildren(document.createTextNode(stats.totalCuentas ?? 0))
 
+    // 1x3: desglose de las cuentas reales. `saldoInicial` es el saldo actual
+    // (aplicarSaldosBatch lo muta con cada movimiento); en las cuentas de
+    // crédito el importe vive en `deuda`, igual que en su card individual. El
+    // importe se muestra en la divisa propia de la cuenta: no se convierte,
+    // para no presentar un total que mezcle divisas.
+    const listaEl = document.getElementById("cuentas-lista")
+    if (listaEl) {
+        // Mismo criterio que el contador `totalCuentas` de SnapshotServicio: un
+        // padre abstracto no tiene saldo propio (pesan sus hijas), así que
+        // listarlo con 0,00 rompería la correspondencia badge/lista.
+        const cuentasListables = cuentas.filter(cuenta => cuenta.esAbstracta !== true)
+        if (cuentasListables.length === 0) {
+            listaEl.replaceChildren(tarjetaVacia("Sin cuentas registradas."))
+        } else {
+            const visibles = cuentasListables.slice(0, limiteItemsLista(3))
+            listaEl.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", visibles, cuenta => {
+                const moneda = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
+                const esCredito = cuenta.tipo === "credito"
+                const monto = esCredito
+                    ? Math.max(0, Number(cuenta.deuda) || 0)
+                    : Number(cuenta.saldoInicial) || 0
+                return {
+                    valores: {
+                        "titulo": cuenta.nombre || "Cuenta",
+                        // El importe ya lleva el símbolo de la divisa; repetir
+                        // `presentarDivisa()` mostraría "S/ S/ 1 250,50". El
+                        // código (PEN/USD/USDT) identifica la divisa sin
+                        // duplicar el símbolo y desambigua las que comparten
+                        // grafía.
+                        "detalle": String(moneda).toUpperCase(),
+                        "valor@class": `dashboard-list-value${esCredito && monto > 0 ? " negative" : ""}`,
+                        "valor-texto": formatearMontoDashboard(monto, moneda)
+                    }
+                }
+            }))
+        }
+        actualizarScrollFade(listaEl)
+    }
+
     const detalleEl = document.getElementById("patrimonio-detalle")
     if (detalleEl) {
         const activos = convertirMonto(stats.totalActivos, "pen", divisaActual)
-        let detalle = `Activos: ${formatearMontoDashboard(activos, divisaActual)}`
-        if (stats.tieneDeuda) {
-            detalle += ` | Deuda: -${formatearMontoDashboard(convertirMonto(stats.totalDeuda, "pen", divisaActual), divisaActual)}`
-        }
-        detalleEl.replaceChildren(document.createTextNode(detalle))
+        const deuda = convertirMonto(stats.totalDeuda, "pen", divisaActual)
+        const activosEl = document.getElementById("patrimonio-activos")
+        const deudaEl = document.getElementById("patrimonio-deuda")
+        if (activosEl) activosEl.replaceChildren(document.createTextNode(formatearMontoDashboard(activos, divisaActual)))
+        if (deudaEl) deudaEl.replaceChildren(document.createTextNode(formatearMontoDashboard(deuda, divisaActual)))
     }
 }
 
@@ -3668,20 +3564,6 @@ function mostrarErrorCarga() {
 }
 
 function actualizarPendientes(error) {
-    const { filas } = dimensionesCard("pendientes")
-    const esUnoXUno = filas === 1
-
-    if (esUnoXUno) {
-        const contadorEl = document.getElementById("pendientes-cantidad")
-        if (!contadorEl) return
-        if (error) {
-            contadorEl.textContent = "—"
-            return
-        }
-        contadorEl.textContent = pendientesData.length
-        return
-    }
-
     const lista = document.getElementById("pendientes-lista")
     const cantidadEl = document.getElementById("pendientes-cantidad")
     if (!lista) return
@@ -3701,7 +3583,7 @@ function actualizarPendientes(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData.slice(0, limiteItemsLista(filas)), pendiente => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData, pendiente => {
         const clase = pendiente.tipo ? "positive" : "negative"
         const signo = pendiente.tipo ? "+" : "−"
         const detalle = pendiente.fechaVencimiento
@@ -3752,24 +3634,10 @@ function distanciaAlDisparo(orden, precioActual) {
     return ((precioActual - orden.precioDisparo) / orden.precioDisparo) * 100
 }
 
+// Órdenes: la lista muestra como máximo tres pendientes y el resto se resume.
+const ORDENES_MAX_FILAS = 3
+
 function actualizarOrdenes(error) {
-    const { filas } = dimensionesCard("ordenes")
-    const esUnoXUno = filas === 1
-
-    if (esUnoXUno) {
-        const cantidadEl = document.getElementById("ordenes-cantidad")
-        if (!cantidadEl) return
-        if (error) {
-            cantidadEl.textContent = "—"
-            cantidadEl.hidden = false
-            return
-        }
-        const pendientes = ordenesData.filter(orden => orden.estaPendiente)
-        cantidadEl.textContent = pendientes.length
-        cantidadEl.hidden = pendientes.length === 0
-        return
-    }
-
     const lista = document.getElementById("ordenes-lista")
     const cantidadEl = document.getElementById("ordenes-cantidad")
     const detalleEl = document.getElementById("ordenes-detalle")
@@ -3799,8 +3667,7 @@ function actualizarOrdenes(error) {
         .filter(Boolean)
         .join(" · ")
     if (detalleEl) {
-        detalleEl.textContent = resumen
-            || (pendientes.length === 0 ? "Sin órdenes registradas" : "Todas las órdenes están pendientes")
+        detalleEl.textContent = resumen || (pendientes.length > 0 ? "Todas las órdenes están pendientes" : "")
     }
 
     if (pendientes.length === 0) {
@@ -3811,8 +3678,7 @@ function actualizarOrdenes(error) {
 
     const precios = preciosPorSimbolo()
 
-    const limite = limiteItemsLista(filas)
-    const fragmento = contenidoDesdeFilas("tpl-dashboard-list-item", pendientes.slice(0, limite), orden => {
+    const fragmento = contenidoDesdeFilas("tpl-dashboard-list-item", pendientes.slice(0, ORDENES_MAX_FILAS), orden => {
         const precioActual = precios.get(String(orden.activo || "").toUpperCase()) || 0
         const distancia = distanciaAlDisparo(orden, precioActual)
         // Por debajo del 2% la orden está a punto de saltar: se resalta.
@@ -3830,28 +3696,14 @@ function actualizarOrdenes(error) {
             }
         }
     })
-    if (pendientes.length > limite) {
-        fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - limite} más…`))
+    if (pendientes.length > ORDENES_MAX_FILAS) {
+        fragmento.appendChild(tarjetaVacia(`y ${pendientes.length - ORDENES_MAX_FILAS} más…`))
     }
     lista.replaceChildren(fragmento)
     actualizarScrollFade(lista)
 }
 
 function actualizarEstrategias(error) {
-    const { filas } = dimensionesCard("estrategias")
-    const esUnoXUno = filas === 1
-
-    if (esUnoXUno) {
-        const cantidadEl = document.getElementById("estrategias-cantidad")
-        if (!cantidadEl) return
-        if (error) {
-            cantidadEl.textContent = "—"
-            return
-        }
-        cantidadEl.textContent = estrategiasData.length
-        return
-    }
-
     const lista = document.getElementById("estrategias-lista")
     const cantidadEl = document.getElementById("estrategias-cantidad")
     if (!lista) return
@@ -3871,7 +3723,7 @@ function actualizarEstrategias(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", estrategiasData.slice(0, limiteItemsLista(filas)), estrategia => {
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", estrategiasData, estrategia => {
         const cuenta = cuentas.find(item => item.id === estrategia.cuentaId)
         const controlCuenta = cuenta
             ? contenidoDesdeTemplate("tpl-dashboard-estrategia-cuenta", {
@@ -4331,20 +4183,6 @@ function actualizarPatrimonioDivisa() {
 }
 
 function actualizarProgramados() {
-    const { filas } = dimensionesCard("programados")
-    const esUnoXUno = filas === 1
-
-    if (esUnoXUno) {
-        const cantidadEl = document.getElementById("programados-cantidad")
-        if (!cantidadEl) return
-        if (!analiticaData) {
-            cantidadEl.textContent = "0"
-            return
-        }
-        cantidadEl.textContent = analiticaData.programados.length
-        return
-    }
-
     const lista = document.getElementById("programados-lista")
     const cantidadEl = document.getElementById("programados-cantidad")
     if (!lista) return
@@ -4362,7 +4200,7 @@ function actualizarProgramados() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", analiticaData.programados.slice(0, limiteItemsLista(filas)), item => ({
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", analiticaData.programados, item => ({
         valores: {
             "titulo": item.titulo,
             "detalle": formatearProximaEjecucion(item.fecha),
@@ -4373,21 +4211,6 @@ function actualizarProgramados() {
 }
 
 function actualizarAlertas() {
-    const { filas } = dimensionesCard("alertas")
-    const esUnoXUno = filas === 1
-
-    if (esUnoXUno) {
-        const cantidadEl = document.getElementById("alertas-cantidad")
-        if (!cantidadEl) return
-        if (!analiticaData) {
-            cantidadEl.textContent = "0"
-            return
-        }
-        const alertas = analiticaData.alertas
-        cantidadEl.textContent = alertas.length
-        return
-    }
-
     const lista = document.getElementById("alertas-lista")
     const cantidadEl = document.getElementById("alertas-cantidad")
     const cardEl = document.getElementById("card-alertas")
@@ -4411,7 +4234,7 @@ function actualizarAlertas() {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-alerta-item", alertas.slice(0, limiteItemsLista(filas)), alerta => ({
+    lista.replaceChildren(contenidoDesdeFilas("tpl-alerta-item", alertas, alerta => ({
         valores: {
             "alerta@class": `alerta-item ${alerta.nivel}`,
             "titulo": alerta.titulo,
@@ -4445,7 +4268,7 @@ function actualizarMovimientos() {
         const detalleEl = document.getElementById("movimientos-detalle")
         if (!ingresosEl || !egresosEl) return
 
-        const { ingresos, egresos, noConvertibles } = calcularIngresosEgresos(movimientosCompletosData, divisaActual)
+        const { ingresos, egresos } = calcularIngresosEgresos(movimientosCompletosData, divisaActual)
         const ingresosStr = formatearMontoDashboard(ingresos.convertido, divisaActual)
         const egresosStr = formatearMontoDashboard(egresos.convertido, divisaActual)
         ingresosEl.textContent = `+ ${ingresosStr}`
@@ -4453,10 +4276,18 @@ function actualizarMovimientos() {
 
         if (detalleEl) {
             const total = movimientosCompletosData ? movimientosCompletosData.length : 0
-            const sinConvertir = noConvertibles.length
-            detalleEl.textContent = total === 0
-                ? "Sin movimientos"
-                : `${total} movimiento${total === 1 ? "" : "s"}${sinConvertir > 0 ? ` · ${sinConvertir} sin convertir` : ""}`
+            if (total === 0) {
+                detalleEl.textContent = "Sin movimientos"
+            } else {
+                // Mismo criterio de título que plantillaMovimiento(): el
+                // concepto del último movimiento, no un campo inexistente.
+                const reciente = movimientosCompletosData[0]
+                const signo = esMovimientoPositivo(reciente) ? "+" : "-"
+                const montoReciente = formatearMontoDashboard(montoDeMovimiento(reciente), reciente.divisa)
+                const nombre = reciente.concepto || reciente.activo
+                    || CONFIG_MOVIMIENTOS[reciente.tipo]?.nombre || "Movimiento"
+                detalleEl.textContent = `${nombre} · ${signo} ${montoReciente}`
+            }
         }
         ingresosEl.classList.remove("positive", "negative")
         egresosEl.classList.remove("positive", "negative")
@@ -4627,14 +4458,18 @@ function configurarCardsNavegacion() {
         abrirModalPatrimonioDashboard()
     }
     patrimonio?.addEventListener("click", evento => {
-        if (evento.target.closest("#divisa-select")) return
+        // Los controles del card no abren el modal: el toggle de divisa cambia
+        // la divisa y el ojo oculta las cifras.
+        if (evento.target.closest("#patrimonio-divisas")) return
+        if (evento.target.closest("#patrimonio-ojo")) return
         abrirPatrimonio()
     })
     patrimonio?.addEventListener("keydown", evento => {
-        if (evento.key === "Enter" || evento.key === " ") {
-            evento.preventDefault()
-            abrirPatrimonio()
-        }
+        if (evento.key !== "Enter" && evento.key !== " ") return
+        if (evento.target.closest("#patrimonio-divisas")) return
+        if (evento.target.closest("#patrimonio-ojo")) return
+        evento.preventDefault()
+        abrirPatrimonio()
     })
 
     const grafico = document.querySelector('[data-dashboard-card="grafico"] .grafico-container-dashboard')
@@ -5072,6 +4907,24 @@ function actualizarFavoritos() {
         const contadorEl = document.getElementById("favoritos-cantidad")
         if (!contadorEl) return
         contadorEl.textContent = favoritosData.length
+
+        const destaque = document.getElementById("favorito-destacado")
+        if (destaque) {
+            if (favoritosData.length === 0) {
+                destaque.replaceChildren(document.createTextNode("Sin favoritos"))
+            } else {
+                const primero = favoritosData[0]
+                const activo = primero.activo || {}
+                const precio = (activo.ultimoPrecio || 0)
+                destaque.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", [{
+                    valores: {
+                        "titulo": activo.nombre || primero.activoId,
+                        "detalle": activo.simbolo || "",
+                        "valor-texto": formatearMontoDashboard(precio, primero.divisa)
+                    }
+                }]))
+            }
+        }
         return
     }
 
@@ -5181,6 +5034,7 @@ async function actualizarPresupuestos() {
     if (esUnoXUno) {
         const valorEl = document.getElementById("presupuestos-valor")
         const detalleEl = document.getElementById("presupuestos-detalle")
+        const contador = document.getElementById("presupuestos-cantidad")
         if (!valorEl) return
 
         let presupuestos
@@ -5188,14 +5042,37 @@ async function actualizarPresupuestos() {
             presupuestos = await obtenerPresupuestosConProgreso(uid)
         } catch (error) {
             console.error("[ERROR] Error cargando presupuestos para dashboard:", error)
+            if (contador) contador.textContent = "0"
             valorEl.textContent = "—"
             if (detalleEl) detalleEl.textContent = "Error al cargar presupuestos."
             return
         }
 
-        const total = presupuestos.length
-        valorEl.textContent = total === 0 ? "0 presupuestos" : `Tienes ${total} presupuesto${total === 1 ? "" : "s"}`
-        if (detalleEl) detalleEl.textContent = total === 0 ? "Crea tu primer presupuesto." : ""
+        // 1×1: mostrar el presupuesto con mayor % de uso válido (monto asignado > 0).
+        // Si ninguno tiene monto válido, usar el primero de la lista.
+        const conAsignado = presupuestos.filter(p => Number(p.presupuesto.monto) > 0)
+        const conMayorUso = conAsignado.length > 0
+            ? conAsignado.reduce((a, b) => (a.porcentaje || 0) >= (b.porcentaje || 0) ? a : b)
+            : presupuestos[0]
+
+        if (contador) contador.textContent = String(presupuestos.length)
+
+        if (!conMayorUso) {
+            valorEl.textContent = "0 presupuestos"
+            if (detalleEl) detalleEl.textContent = "Crea tu primer presupuesto."
+            return
+        }
+
+        const pp = conMayorUso.presupuesto
+        const restante = Number(pp.monto) - Number(conMayorUso.gastoReal || 0)
+        const pct = Number(conMayorUso.porcentaje) || 0
+
+        valorEl.textContent = formatearMontoDashboard(restante, pp.divisa)
+        if (detalleEl) {
+            detalleEl.textContent = pct > 0
+                ? `${pp.nombre} · ${pct.toFixed(0)}% usado`
+                : pp.nombre
+        }
         return
     }
 
@@ -5299,7 +5176,12 @@ function actualizarMetas(error) {
     if (esUnoXUno) {
         const valorEl = document.getElementById("metas-valor")
         const detalleEl = document.getElementById("metas-detalle")
+        const cantidadEl = document.getElementById("metas-cantidad")
         if (!valorEl) return
+
+        // El badge con el total de metas siempre se pinta: evita que quede
+        // el esqueleto del badge en modo 1x1.
+        if (cantidadEl) cantidadEl.textContent = String(metasData.length)
 
         if (error) {
             valorEl.textContent = "—"
@@ -5307,21 +5189,38 @@ function actualizarMetas(error) {
             return
         }
 
-        const total = metasData.length
-        valorEl.textContent = total === 0 ? "0 metas" : `Tienes ${total} meta${total === 1 ? "" : "s"}`
-        if (detalleEl) detalleEl.textContent = total === 0 ? "Crea tu primera meta de ahorro." : ""
+        // 1×1: mostrar la primera meta activa con su monto y progreso, no solo un contador.
+        const metaActiva = metasData.find(m => m.activa !== false) || metasData[0]
+
+        if (!metaActiva) {
+            valorEl.textContent = "0 metas"
+            if (detalleEl) detalleEl.textContent = "Crea tu primera meta de ahorro."
+            return
+        }
+
+        const monto = Number(metaActiva.montoActual) || 0
+        const pct = Number(metaActiva.porcentaje) || 0
+
+        valorEl.textContent = formatearMontoDashboard(monto, metaActiva.divisa)
+        if (detalleEl) {
+            detalleEl.textContent = `${metaActiva.nombre} · ${pct.toFixed(0)}%`
+        }
         return
     }
 
     const lista = document.getElementById("metas-lista")
+    const cantidadEl = document.getElementById("metas-cantidad")
     if (!lista) return
 
     // Estado visual silencioso cuando la sección falló al cargar.
     if (error) {
+        if (cantidadEl) cantidadEl.textContent = "0"
         lista.replaceChildren(tarjetaVacia("Error al cargar esta sección"))
         actualizarScrollFade(lista)
         return
     }
+
+    if (cantidadEl) cantidadEl.textContent = String(metasData.length)
 
     if (metasData.length === 0) {
         lista.replaceChildren(tarjetaVacia("Crea tu primera meta de ahorro."))
@@ -5399,36 +5298,147 @@ function formatearFecha(fecha) {
 // SELECTOR DE DIVISA
 // ============================================
 
-function configurarDivisa() {
-    const select = document.getElementById("divisa-select")
-    if (!select) return
+// ============================================
+// OCULTAR CIFRAS (OJO DE PATRIMONIO)
+// ============================================
 
-    select.value = divisaActual
+// Sustituye los dígitos de un nodo de texto por "*" y guarda el original para
+// poder restaurarlo sin recalcular las cards.
+function alternarMascaraTexto(nodo, ocultar) {
+    if (ocultar) {
+        if (!nodosEnmascarados.has(nodo)) nodosEnmascarados.set(nodo, nodo.nodeValue)
+        nodo.nodeValue = nodo.nodeValue.replace(/\d/g, "*")
+    } else if (nodosEnmascarados.has(nodo)) {
+        nodo.nodeValue = nodosEnmascarados.get(nodo)
+        nodosEnmascarados.delete(nodo)
+    }
+}
 
-    select.addEventListener("change", async () => {
-        divisaActual = select.value
-
-        await actualizarPatrimonio()
-        actualizarPatrimonioDivisa()
-        actualizarInversiones()
-        actualizarDistribucionActivos()
-        montarCardsInstanciadas()
-        analiticaData = construirAnaliticaDashboard(movimientosCompletosData)
-        actualizarFlujoCaja()
-        actualizarFlujoPeriodo()
-        actualizarDeudas()
-        actualizarDistribucion()
-        actualizarProgramados()
-        actualizarAlertas()
-        reordenarDashboard()
-
-        // Redibujar el gráfico manteniendo el periodo actual
-        if (datosGrafico?.labels?.length) {
-            await crearGraficoPatrimonio("grafico-patrimonio", datosGrafico, {
-                divisa: divisaActual,
-                etiquetaDivisa: presentarDivisa(divisaActual)
-            })
+// Recorre las cards del dashboard y enmascara sus cifras. Se salta los
+// controles (toggle de divisa y ojo) para no ocultar sus etiquetas.
+function aplicarMascaraValores() {
+    if (!valoresOcultos) return
+    const dashboard = document.querySelector(".dashboard")
+    if (!dashboard) return
+    const paseo = document.createTreeWalker(dashboard, NodeFilter.SHOW_TEXT, {
+        acceptNode(nodo) {
+            const padre = nodo.parentElement
+            if (!padre) return NodeFilter.FILTER_REJECT
+            if (padre.closest(".toggle-group, .patrimonio-ojo")) return NodeFilter.FILTER_REJECT
+            return /\d/.test(nodo.nodeValue || "") ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
         }
+    })
+    const nodos = []
+    while (paseo.nextNode()) nodos.push(paseo.currentNode)
+    nodos.forEach(nodo => alternarMascaraTexto(nodo, true))
+}
+
+function desenmascararValores() {
+    nodosEnmascarados.forEach((texto, nodo) => { nodo.nodeValue = texto })
+    nodosEnmascarados.clear()
+}
+
+// Divisas que el usuario realmente usa, según sus cuentas (sin archivadas).
+// La divisa activa siempre está presente para que el toggle nunca quede sin
+// opción seleccionada.
+function divisasDeCuentas() {
+    const usadas = []
+    for (const cuenta of cuentas) {
+        if (cuenta.estado === "archivada") continue
+        const divisa = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
+        if (!usadas.includes(divisa)) usadas.push(divisa)
+    }
+    if (usadas.length === 0) usadas.push(getDivisaPrincipal())
+    if (!usadas.includes(divisaActual)) usadas.unshift(divisaActual)
+    return usadas
+}
+
+// Recalcula los valores de las cards con la divisa activa. No vuelve a montar
+// ni a reordenar cards: el toggle de divisa solo actualiza cifras en su sitio.
+async function refrescarValoresDashboard() {
+    await actualizarCuentas()
+    await actualizarPatrimonio()
+    actualizarPatrimonioDivisa()
+    actualizarInversiones()
+    actualizarDistribucionActivos()
+    analiticaData = construirAnaliticaDashboard(movimientosCompletosData)
+    actualizarFlujoCaja()
+    actualizarFlujoPeriodo()
+    actualizarDeudas()
+    actualizarDistribucion()
+    actualizarProgramados()
+    actualizarAlertas()
+    if (datosGrafico?.labels?.length) {
+        await crearGraficoPatrimonio("grafico-patrimonio", datosGrafico, {
+            divisa: divisaActual,
+            etiquetaDivisa: presentarDivisa(divisaActual)
+        })
+    }
+    aplicarMascaraValores()
+}
+
+function configurarDivisa() {
+    const grupo = document.getElementById("patrimonio-divisas")
+    const btnOjo = document.getElementById("patrimonio-ojo")
+    if (!grupo || !btnOjo) return
+
+    // Las divisas dependen de las cuentas, que aún no existen cuando se llama a
+    // esta función (init la ejecuta antes de cargarTodo). Se recalcula en cada
+    // repintado y actualizarUI vuelve a llamarla al terminar de cargar.
+    const pintarOpciones = () => {
+        const divisas = divisasDeCuentas()
+        if (!divisas.includes(divisaActual)) divisaActual = divisas[0]
+        grupo.replaceChildren(...divisas.map(divisa => {
+            const opcion = document.createElement("span")
+            const activa = divisa === divisaActual
+            opcion.className = "toggle-option" + (activa ? " active" : "")
+            opcion.dataset.divisa = divisa
+            opcion.setAttribute("role", "button")
+            opcion.setAttribute("tabindex", "0")
+            opcion.setAttribute("aria-pressed", String(activa))
+            opcion.textContent = presentarDivisa(divisa)
+            return opcion
+        }))
+    }
+    repintarDivisasPatrimonio = pintarOpciones
+    pintarOpciones()
+
+    const elegir = async (opcion) => {
+        const divisa = opcion?.dataset?.divisa
+        if (!divisa || divisa === divisaActual) return
+        divisaActual = divisa
+        pintarOpciones()
+        await refrescarValoresDashboard()
+    }
+
+    // El toggle no abre el modal ni recarga cards: solo cambia la divisa.
+    grupo.addEventListener("click", async evento => {
+        const opcion = evento.target.closest(".toggle-option")
+        if (!opcion) return
+        evento.preventDefault()
+        evento.stopPropagation()
+        await elegir(opcion)
+    })
+    grupo.addEventListener("keydown", async evento => {
+        if (evento.key !== "Enter" && evento.key !== " ") return
+        const opcion = evento.target.closest(".toggle-option")
+        if (!opcion) return
+        evento.preventDefault()
+        evento.stopPropagation()
+        await elegir(opcion)
+    })
+
+    // El ojo oculta las cifras de todas las cards del dashboard.
+    btnOjo.addEventListener("click", evento => {
+        evento.preventDefault()
+        evento.stopPropagation()
+        valoresOcultos = !valoresOcultos
+        btnOjo.setAttribute("aria-pressed", String(valoresOcultos))
+        btnOjo.setAttribute("aria-label", valoresOcultos ? "Mostrar valores" : "Ocultar valores")
+        btnOjo.replaceChildren(iconoNodo(valoresOcultos ? "eye-closed" : "eye", 18))
+        document.querySelector(".dashboard")?.classList.toggle("valores-ocultos", valoresOcultos)
+        if (valoresOcultos) aplicarMascaraValores()
+        else desenmascararValores()
     })
 }
 
