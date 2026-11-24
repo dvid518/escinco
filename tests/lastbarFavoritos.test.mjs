@@ -10,6 +10,7 @@ const srcLastbar = leer("js/core/lastbar.js")
 const srcMov = leer("js/pages/movimientos.js")
 const srcServicio = leer("js/services/FavoritoServicio.js")
 const srcModal = leer("js/ui/modal.js")
+const srcCore = leer("js/core/supresorClick.js")
 
 // ── Doble de la lastbar ────────────────────────────────────────────────────
 function crearLastbarFalsa(seleccionados = new Set(), favs = []) {
@@ -173,7 +174,13 @@ export default async function ejecutar(t) {
         }, [
             "var getFechaHoy = () => '2026-10-18'",
             `var TIPOS_FAVORITO = ${/const TIPOS_FAVORITO = (\[[^\]]*\])/.exec(srcServicio)[1]}`,
-            extraerFuncion(srcServicio, "esTipoFavoritable") + ";"
+            extraerFuncion(srcServicio, "esTipoFavoritable") + ";",
+            extraerFuncion(srcServicio, "__bloquearEjecucionFavorito") + ";",
+            extraerFuncion(srcServicio, "__liberarEjecucionFavorito") + ";",
+            extraerFuncion(srcServicio, "estaEjecutandoFavorito") + ";",
+            "var _bloquearEjecucionFavorito = __bloquearEjecucionFavorito;",
+            "var _liberarEjecucionFavorito = __liberarEjecucionFavorito;",
+            "var ejecucionesEnCurso = new Set();"
         ])
         ctx.registros = []
         await ctx.ejecutarFavorito("u1", FAVS[0])

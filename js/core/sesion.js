@@ -51,7 +51,6 @@ export const PREFERENCIAS_POR_DEFECTO = Object.freeze({
     resaltarPatrimonio: 0,
     formatoDivisa: "simbolo",
     fondo: "animado",
-    lastbar: "show",
     precios: Object.freeze({
         autoActualizar: false
     })
@@ -187,9 +186,6 @@ class Sesion {
         if (preferencias?.fondo !== undefined) {
             this.preferencias.fondo = preferencias.fondo
         }
-        if (preferencias?.lastbar !== undefined) {
-            this.preferencias.lastbar = preferencias.lastbar
-        }
         if (preferencias?.dashboard) {
             this.preferencias.dashboard = {
                 ...this.preferencias.dashboard,
@@ -301,8 +297,7 @@ class Sesion {
             movimientosRecientes: 5,
             periodoEvolucion: "30d",
             resaltarPatrimonio: 0,
-            formatoDivisa: "simbolo",
-            lastbar: "show"
+            formatoDivisa: "simbolo"
         }
         try {
             sessionStorage.removeItem('escinco_usuario')

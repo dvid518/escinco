@@ -157,7 +157,6 @@ export async function eliminarCuenta(uid) {
     try {
         localStorage.removeItem("escinco_tema")
         localStorage.removeItem("escinco_sidebar_collapsed")
-        localStorage.removeItem("escinco_lastbar_mode")
     } catch {
         // Ignorar errores de storage
     }

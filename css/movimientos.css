@@ -619,9 +619,26 @@
     width: 100%;
     box-sizing: border-box;
     scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
     scroll-snap-type: x mandatory;
     min-height: auto;
     align-items: flex-start;
+}
+
+/* Scroll horizontal: el alto del pulgar se fija con `height` (no `width`) y
+   el track se deja transparente. Sin estas reglas, Chromium pinta la barra
+   horizontal por defecto con fondo blanco. */
+#favoritos-movimientos::-webkit-scrollbar {
+    height: 6px;
+}
+
+#favoritos-movimientos::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#favoritos-movimientos::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
 }
 
 /* El `display: flex` de arriba gana al `display: none` que el navegador
@@ -767,5 +784,74 @@
    extra: el padding inferior del contenedor ya da aire antes de la lista. */
 #favoritos-movimientos:not([hidden]) {
     padding-bottom: 16px;
+}
+
+/* ============================================
+   ESTADOS VISUALES DE FAVORITOS
+   ============================================ */
+
+/* Pendiente: operación en curso (ejecución, edición, etc.) */
+.favorito-item.favorito-pendiente {
+    opacity: 0.6;
+    pointer-events: none;
+    position: relative;
+}
+
+.favorito-item.favorito-pendiente::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--surface);
+    opacity: 0.5;
+    border-radius: inherit;
+    z-index: 1;
+}
+
+.favorito-item.favorito-pendiente .favorito-ejecutar {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+/* Confirmado: operación completada con éxito (animación breve) */
+.favorito-item.favorito-confirmado {
+    animation: favorito-confirmado 0.4s ease;
+}
+
+@keyframes favorito-confirmado {
+    0% { box-shadow: 0 0 0 0 var(--positive); }
+    50% { box-shadow: 0 0 0 4px var(--positive); }
+    100% { box-shadow: 0 0 0 0 var(--positive); }
+}
+
+/* Error/revertido: operación fallida (animación breve) */
+.favorito-item.favorito-error {
+    animation: favorito-error 0.5s ease;
+}
+
+@keyframes favorito-error {
+    0%, 100% { transform: translateX(0); border-color: var(--border); }
+    25% { transform: translateX(-4px); border-color: var(--negative); }
+    75% { transform: translateX(4px); border-color: var(--negative); }
+}
+
+/* Movimiento creado optimistamente (en lista de movimientos) */
+.movimiento-item.movimiento-pendiente {
+    opacity: 0.7;
+    background: color-mix(in srgb, var(--positive) 8%, transparent);
+}
+
+.movimiento-item.movimiento-pendiente::after {
+    content: "⟳";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--positive);
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: translateY(-50%) rotate(360deg); }
 }
 

@@ -143,8 +143,8 @@ function aplicarAparienciaInicial() {
         }
     })
 
-    // El modo de la lastbar (siempre visible / auto-hide) se aplica en
-    // router.js tras renderizar cada lastbar, leyendo localStorage.
+    // La lastbar es siempre visible: se aplica en router.js tras renderizar
+    // cada lastbar (sin modo de ocultar).
 }
 
 // ============================================

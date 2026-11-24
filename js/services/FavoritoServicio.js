@@ -3,7 +3,7 @@ import { registrarMovimiento, notificarMovimientosActualizados } from "./Movimie
 // servicio de movimientos: MovimientoServicio.js la importa para uso interno y
 // no la re-exporta, así que pedirla ahí rompía el enlace del módulo entero
 // (SyntaxError) y con ella la página de movimientos.
-import { db, obtenerMovimientos, actualizarMovimientoDoc, doc, writeBatch, deleteField } from "../../firebase/firestore.js"
+import { db, obtenerMovimientos, actualizarMovimientoDoc, doc, writeBatch, serverTimestamp, runTransaction } from "../../firebase/firestore.js"
 import { cacheCapa } from "../core/cache.js"
 import { obtenerFavorito, crearFavorito, actualizarFavorito } from "../repositories/FavoritoRepositorio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
@@ -21,6 +21,40 @@ export const MAX_LARGO_NOMBRE_FAVORITO = 40
 
 export function esTipoFavoritable(tipo) {
     return TIPOS_FAVORITO.includes(tipo)
+}
+
+// ============================================
+// IDEMPOTENCIA: bloqueo por favoritoId para evitar ejecuciones duplicadas
+// ============================================
+// El bloqueo se adquiere y libera EXCLUSIVAMENTE en este servicio.
+// La página NO debe adquirir ni liberar este bloqueo.
+const ejecucionesEnCurso = new Set()
+
+export function estaEjecutandoFavorito(favoritoId) {
+    return ejecucionesEnCurso.has(favoritoId)
+}
+
+// Funciones internas para adquirir/liberar el bloqueo atómicamente (check + add en una operación)
+// Exportadas con prefijo __ para uso en tests
+export function __bloquearEjecucionFavorito(favoritoId) {
+    if (ejecucionesEnCurso.has(favoritoId)) {
+        return false
+    }
+    ejecucionesEnCurso.add(favoritoId)
+    return true
+}
+
+export function __liberarEjecucionFavorito(favoritoId) {
+    ejecucionesEnCurso.delete(favoritoId)
+}
+
+// Funciones internas (alias para uso interno) - también exportadas para tests
+export function _bloquearEjecucionFavorito(favoritoId) {
+    return __bloquearEjecucionFavorito(favoritoId)
+}
+
+export function _liberarEjecucionFavorito(favoritoId) {
+    __liberarEjecucionFavorito(favoritoId)
 }
 
 /**
@@ -54,23 +88,24 @@ export async function crearFavoritoDesdeMovimiento(uid, movimiento, deps = {}) {
 }
 
 /**
- * Quita el favoritoId de un movimiento (desvincula). El favorito sigue
+ * Desvincula un movimiento de su favorito. El favorito sigue
  * existiendo; solo deja de tener esa instancia.
+ * El movimiento conserva su favoritoId para permitir recuperación futura.
  *
  * Parámetros opcionales (para tests):
- *   deps.actualizarMovimientoDoc, deps.notificarMovimientosActualizados
+ *   deps.notificarMovimientosActualizados
  */
-export async function desvincularMovimiento(uid, movimientoId, deps = {}) {
-    const actualizarMovimientoDocFn = deps.actualizarMovimientoDoc || actualizarMovimientoDoc
-    const deleteFieldFn = deps.deleteField || deleteField
+export function desvincularMovimiento(uid, movimientoId, deps = {}) {
     const notificarFn = deps.notificarMovimientosActualizados || notificarMovimientosActualizados
-    await actualizarMovimientoDocFn(uid, movimientoId, { favoritoId: deleteFieldFn() })
+    // No se elimina el favoritoId del movimiento (se conserva para recuperación)
+    // Solo se notifica el cambio para que la UI se actualice
     notificarFn()
 }
 
 /**
  * Ejecuta un favorito tal cual: crea una nueva instancia de movimiento
  * vinculada al favorito, con fecha de hoy.
+ * El bloqueo se adquiere y libera en esta función (autoridad exclusiva).
  *
  * Parámetros opcionales (para tests):
  *   deps.registrarMovimiento, deps.getFechaHoy
@@ -79,30 +114,38 @@ export async function ejecutarFavorito(uid, favorito, deps = {}) {
     if (!esTipoFavoritable(favorito.tipo)) {
         throw new Error(`El tipo "${favorito.tipo}" no puede ejecutarse como favorito`)
     }
-    const registrarMovimientoFn = deps.registrarMovimiento || registrarMovimiento
-    const getFechaHoyFn = deps.getFechaHoy || getFechaHoy
-    const datos = {
-        tipo: favorito.tipo,
-        cuenta: favorito.cuenta,
-        monto: favorito.monto,
-        divisa: favorito.divisa,
-        concepto: favorito.concepto || '',
-        etiquetas: favorito.etiquetas || [],
-        fechaRealizacion: getFechaHoyFn(),
-        favoritoId: favorito.id
+    // Adquirir bloqueo atómicamente (check + add en una operación)
+    if (!_bloquearEjecucionFavorito(favorito.id)) {
+        throw new Error("Ejecución en curso para este favorito")
     }
-    const movimiento = await registrarMovimientoFn(uid, favorito.tipo, datos)
-
-    // Evento de analytics tras crear la instancia del movimiento vinculada al favorito.
-    // Se importa de forma dinámica para que el módulo cargue incluso si Analytics no está disponible.
     try {
-        const { rastrearEvento } = await import("./AnalyticsServicio.js")
-        rastrearEvento("favorito_ejecutado", { tipo: favorito.tipo })
-    } catch {
-        // Silencioso: Analytics no bloquea la lógica de negocio.
-    }
+        const registrarMovimientoFn = deps.registrarMovimiento || registrarMovimiento
+        const getFechaHoyFn = deps.getFechaHoy || getFechaHoy
+        const datos = {
+            tipo: favorito.tipo,
+            cuenta: favorito.cuenta,
+            monto: favorito.monto,
+            divisa: favorito.divisa,
+            concepto: favorito.concepto || '',
+            etiquetas: favorito.etiquetas || [],
+            fechaRealizacion: getFechaHoyFn(),
+            favoritoId: favorito.id
+        }
+        const movimiento = await registrarMovimientoFn(uid, favorito.tipo, datos)
 
-    return movimiento
+        // Evento de analytics tras crear la instancia del movimiento vinculada al favorito.
+        // Se importa de forma dinámica para que el módulo cargue incluso si Analytics no está disponible.
+        try {
+            const { rastrearEvento } = await import("./AnalyticsServicio.js")
+            rastrearEvento("favorito_ejecutado", { tipo: favorito.tipo })
+        } catch {
+            // Silencioso: Analytics no bloquea la lógica de negocio.
+        }
+
+        return movimiento
+    } finally {
+        _liberarEjecucionFavorito(favorito.id)
+    }
 }
 
 /**
@@ -165,26 +208,27 @@ export async function editarPlantillaFavorito(uid, favorito, datos, deps = {}) {
 }
 
 /**
- * Elimina una plantilla de favorito y desvincula todos los movimientos que la
- * usaban (les quita el favoritoId). Los movimientos siguen existiendo.
- * Devuelve la cantidad de movimientos desvinculados.
+ * Elimina una plantilla de favorito. Los movimientos vinculados conservan su favoritoId
+ * para permitir recuperación futura. Solo se elimina el documento de la plantilla.
+ * Devuelve la cantidad de movimientos que estaban vinculados.
  *
  * Parámetros opcionales (para tests):
  *   deps.obtenerFavorito, deps.obtenerMovimientos, deps.doc, deps.writeBatch,
- *   deps.deleteField, deps.cacheCapa, deps.notificarMovimientosActualizados
+ *   deps.cacheCapa, deps.notificarMovimientosActualizados
  */
 export async function eliminarFavoritoConDesvinculacion(uid, favoritoId, deps = {}) {
     const obtenerFavoritoFn = deps.obtenerFavorito || obtenerFavorito
     const obtenerMovimientosFn = deps.obtenerMovimientos || obtenerMovimientos
     const docFn = deps.doc || doc
     const writeBatchFn = deps.writeBatch || writeBatch
-    const deleteFieldFn = deps.deleteField || deleteField
     const cacheCapaFn = deps.cacheCapa || cacheCapa
     const notificarFn = deps.notificarMovimientosActualizados || notificarMovimientosActualizados
 
     const favorito = await obtenerFavoritoFn(uid, favoritoId)
     if (!favorito) {
-        throw new Error("El favorito ya no existe")
+        // Documento ya no existe: el desmarcado ya está satisfecho,
+        // no se recrea el documento (idempotente).
+        return 0
     }
 
     let movimientos
@@ -199,19 +243,56 @@ export async function eliminarFavoritoConDesvinculacion(uid, favoritoId, deps = 
 
     const lote = writeBatchFn(db)
     lote.delete(docFn(db, "usuarios", uid, "favoritos", favoritoId))
-    for (const m of vinculados) {
-        lote.update(docFn(db, "usuarios", uid, "movimientos", m.id), { favoritoId: deleteFieldFn() })
-    }
+    // NO se modifica favoritoId en los movimientos (se conserva para recuperación)
     await lote.commit()
 
     cacheCapaFn.parchear(uid, "favoritos", lista => lista.filter(f => f.id !== favoritoId))
-    cacheCapaFn.parchear(uid, "movimientos", lista =>
-        lista.map(m => {
-            if (m.favoritoId !== favoritoId) return m
-            const { favoritoId: _id, ...resto } = m
-            return resto
-        })
-    )
+    // NO se modifica favoritoId en movimientos (se conserva para recuperación)
     notificarFn()
     return vinculados.length
+}
+
+/**
+ * Recupera un favorito eliminado usando su ID histórico.
+ * Usa una transacción para garantizar atomicidad: si el documento ya existe,
+ * no se sobrescribe y se devuelve el existente.
+ *
+ * @param {string} uid - ID del usuario
+ * @param {string} favoritoId - ID histórico del favorito a recuperar
+ * @param {Object} datosMovimiento - Datos del movimiento para reconstruir la plantilla
+ * @returns {Promise<Object>} El favorito recuperado (existente o nuevo)
+ */
+export async function recuperarFavoritoConId(uid, favoritoId, datosMovimiento) {
+    // Las dependencias (db, doc, runTransaction, serverTimestamp, cacheCapa, notificarMovimientosActualizados)
+    // se resuelven vía imports del módulo o se sobreescriben en tests vía closure de cargarFuncion
+    const refPath = doc(db, "usuarios", uid, "favoritos", favoritoId)
+
+    // Usar transacción para atomicidad: check-and-create
+    const favorito = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(refPath)
+        if (snap.exists()) {
+            // Ya existe: devolver existente (idempotente)
+            return { id: favoritoId, ...snap.data() }
+        }
+
+        // No existe: construir plantilla desde movimiento (misma semántica que crearFavoritoDesdeMovimiento)
+        const nombre = datosMovimiento.concepto || `${datosMovimiento.tipo} en ${datosMovimiento.cuenta}`
+        const favoritoData = {
+            nombre,
+            tipo: datosMovimiento.tipo,
+            cuenta: datosMovimiento.cuenta || '',
+            monto: datosMovimiento.monto || 0,
+            divisa: datosMovimiento.divisa || 'pen',
+            concepto: datosMovimiento.concepto || '',
+            etiquetas: datosMovimiento.etiquetas || [],
+            fechaCreacion: serverTimestamp()  // Fecha de recuperación
+        }
+
+        tx.set(refPath, favoritoData)
+        return { id: favoritoId, ...favoritoData }
+    })
+
+    cacheCapa.invalidarPrefijo(uid, "favoritos")
+    notificarMovimientosActualizados()
+    return favorito
 }

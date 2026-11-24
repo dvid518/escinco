@@ -19,8 +19,6 @@ export default [
       // Código de experimentos y de la demo: no forma parte de la app desplegada.
       "experimentos/",
       "prototipos/**",
-      "prototipo-dashboard-h2.js",
-      "prototipo-dashboard-h2.test.mjs",
       "firebase/demo/"
     ]
   },

@@ -188,7 +188,8 @@
     /* Hueco de destino: la card queda invisible en el grid y las demás se
        reacomodan a su alrededor. La que sigue al puntero es el clon del
        fallback, así que aquí no hace falta borde ni fondo. */
-    opacity: 0;
+    opacity: 0 !important;
+    visibility: hidden !important;
     /* Deja pasar el puntero: la celda bajo el cursor se mide con pointermove
        y el hueco no debe interceptarlo. */
     pointer-events: none;
@@ -335,11 +336,8 @@ body.dashboard-card-dragging * {
     transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     position: relative;
     overflow: hidden;
-    background-color: var(--background);
 }
 
-/* El ::before lleva su propia transición: la del padre no se hereda a los
-   pseudo-elementos. */
 .dashboard .card::before {
     transition: opacity 0.3s ease;
 }
@@ -1579,18 +1577,21 @@ body.dashboard-card-dragging * {
 
 .movimientos-lista::-webkit-scrollbar,
 .favoritos-lista::-webkit-scrollbar,
+.favoritos-movimientos::-webkit-scrollbar,
 .metas-lista::-webkit-scrollbar {
     width: 6px;
 }
 
 .movimientos-lista::-webkit-scrollbar-track,
 .favoritos-lista::-webkit-scrollbar-track,
+.favoritos-movimientos::-webkit-scrollbar-track,
 .metas-lista::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .movimientos-lista::-webkit-scrollbar-thumb,
 .favoritos-lista::-webkit-scrollbar-thumb,
+.favoritos-movimientos::-webkit-scrollbar-thumb,
 .metas-lista::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 10px;

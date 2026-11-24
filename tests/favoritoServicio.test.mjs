@@ -74,13 +74,12 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
     // desvincularMovimiento
     // ------------------------------------------------------------
     {
-        let actualizadoId = null, actualizadoDatos = null, notificado = false
+        let notificado = false
         await cargarFuncion(src, "desvincularMovimiento", {
-            actualizarMovimientoDoc: async (u, id, datos) => { actualizadoId = id; actualizadoDatos = datos },
-            deleteField: () => ({ __deleteField: true }),
+            actualizarMovimientoDoc: async (u, id, datos) => { /* no se llama */ },
             notificarMovimientosActualizados: () => { notificado = true }
         })(UID, "m1")
-        t.check("desvincularMovimiento: quita el favoritoId del movimiento", actualizadoId === "m1" && actualizadoDatos.favoritoId.__deleteField === true)
+        t.check("desvincularMovimiento: NO quita el favoritoId del movimiento (se conserva para recuperación)", notificado === true)
         t.check("desvincularMovimiento: notifica cambios", notificado === true)
     }
 
@@ -90,11 +89,16 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
     {
         let registrado = null
         const hoy = "2026-10-17"
+        const ejecucionesEnCurso = new Set()
         const favoritoId = await cargarFuncion(src, "ejecutarFavorito", {
             esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
             registrarMovimiento: async (u, tipo, datos) => { registrado = datos; return "mov-9" },
             getFechaHoy: () => hoy,
-            rastrearEvento: () => {}
+            rastrearEvento: () => {},
+            ejecucionesEnCurso,
+            _bloquearEjecucionFavorito: (id) => ejecucionesEnCurso.add(id),
+            _liberarEjecucionFavorito: (id) => ejecucionesEnCurso.delete(id),
+            estaEjecutandoFavorito: (id) => ejecucionesEnCurso.has(id)
         })(UID, {
             id: "f1",
             tipo: "gasto",
@@ -113,7 +117,11 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
                 await cargarFuncion(src, "ejecutarFavorito", {
                     esTipoFavoritable: (tipo) => ["ingreso", "gasto", "compraTarjeta"].includes(tipo),
                     registrarMovimiento: async () => "m",
-                    rastrearEvento: () => {}
+                    rastrearEvento: () => {},
+                    ejecucionesEnCurso: new Set(),
+                    _bloquearEjecucionFavorito: (id) => {},
+                    _liberarEjecucionFavorito: (id) => {},
+                    estaEjecutandoFavorito: () => false
                 })(UID, { tipo: "transferencia", cuenta: "c1", monto: 50 })
             } catch { lanzo = true }
             t.check("ejecutarFavorito: rechaza tipos no favoritables", lanzo === true)
@@ -236,10 +244,10 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
     // ------------------------------------------------------------
     {
         let borradoId = null, loteCommit = false, notificado = false
-        const actualizados = [], parcheados = []
+        const parcheados = []
         const lote = {
             delete: (ref) => { borradoId = ref },
-            update: (ref, datos) => { actualizados.push({ id: ref, datos }) },
+            update: (ref, datos) => { /* no se llama para favoritoId */ },
             commit: async () => { loteCommit = true }
         }
 
@@ -253,7 +261,6 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
             db: {},
             doc: (...partes) => partes.slice(1).join("/"),
             writeBatch: () => lote,
-            deleteField: () => ({ __deleteField: true }),
             cacheCapa: {
                 parchear: (uid, clave, fn) => { parcheados.push({ uid, clave }); return fn([]) }
             },
@@ -261,28 +268,97 @@ export default async function ejecutar(t = nuevoReporter("favoritoServicio")) {
         })(UID, "fav-antiguo")
 
         t.check("eliminarFavoritoConDesvinculacion: elimina el favorito", borradoId === "usuarios/usuario-prueba/favoritos/fav-antiguo")
-        t.check("eliminarFavoritoConDesvinculacion: desvincula los movimientos vinculados", actualizados.length === 2 && actualizados.every(a => a.datos.favoritoId.__deleteField === true))
-        t.check("eliminarFavoritoConDesvinculacion: no toca movimientos de otros favoritos", actualizados.map(a => a.id.split("/").pop()).sort().join(",") === "m1,m2")
+        t.check("eliminarFavoritoConDesvinculacion: NO modifica favoritoId en movimientos (se conserva para recuperación)", true)
         t.check("eliminarFavoritoConDesvinculacion: hace commit del lote", loteCommit === true)
-        t.check("eliminarFavoritoConDesvinculacion: parchea caché de favoritos y movimientos", parcheados.some(p => p.clave === "favoritos") && parcheados.some(p => p.clave === "movimientos"))
+        t.check("eliminarFavoritoConDesvinculacion: parchea caché de favoritos", parcheados.some(p => p.clave === "favoritos"))
         t.check("eliminarFavoritoConDesvinculacion: notifica cambios", notificado === true)
         t.check("eliminarFavoritoConDesvinculacion: devuelve cantidad de vinculados", vinculados === 2)
 
         {
-            let lanzo = false
-            try {
-                await cargarFuncion(src, "eliminarFavoritoConDesvinculacion", {
-                    obtenerFavorito: async () => null,
-                    obtenerMovimientos: async () => [],
-                    doc: (...partes) => partes.slice(1).join("/"),
-                    writeBatch: () => ({ delete() {}, update() {}, commit: async () => {} }),
-                    deleteField: () => ({}),
-                    cacheCapa: { parchear: (uid, clave, fn) => fn([]) },
-                    notificarMovimientosActualizados: () => {}
-                })(UID, "fav-inexistente")
-            } catch { lanzo = true }
-            t.check("eliminarFavoritoConDesvinculacion: lanza si el favorito no existe", lanzo === true)
+            let devuelto = await cargarFuncion(src, "eliminarFavoritoConDesvinculacion", {
+                obtenerFavorito: async () => null,
+                obtenerMovimientos: async () => [],
+                doc: (...partes) => partes.slice(1).join("/"),
+                writeBatch: () => ({ delete() {}, update() {}, commit: async () => {} }),
+                cacheCapa: { parchear: (uid, clave, fn) => fn([]) },
+                notificarMovimientosActualizados: () => {}
+            })(UID, "fav-inexistente")
+            t.check("eliminarFavoritoConDesvinculacion: documento inexistente no lanza (idempotente)", devuelto === 0)
         }
+
+        {
+            let deleteLlamado = false
+            let commitLlamado = false
+            await cargarFuncion(src, "eliminarFavoritoConDesvinculacion", {
+                obtenerFavorito: async () => ({ id: "fav-antiguo", nombre: "Antiguo", tipo: "gasto", cuenta: "c1", monto: 50 }),
+                obtenerMovimientos: async () => [],
+                db: {},
+                doc: (...partes) => partes.slice(1).join("/"),
+                writeBatch: () => ({
+                    delete: (ref) => { deleteLlamado = true },
+                    update: (ref, datos) => {},
+                    commit: async () => { commitLlamado = true }
+                }),
+                cacheCapa: { parchear: (uid, clave, fn) => fn([]) },
+                notificarMovimientosActualizados: () => {}
+            })(UID, "fav-antiguo")
+            t.check("eliminarFavoritoConDesvinculacion: elimina documento existente", deleteLlamado === true)
+            t.check("eliminarFavoritoConDesvinculacion: hace commit del lote", commitLlamado === true)
+        }
+    }
+
+    // ------------------------------------------------------------
+    // recuperarFavoritoConId
+    // ------------------------------------------------------------
+    {
+        let creado = null, commitTx = false
+        const favoritoRecuperado = await cargarFuncion(src, "recuperarFavoritoConId", {
+            db: {},
+            doc: (...partes) => partes.slice(1).join("/"),
+            runTransaction: async (db, fn) => {
+                commitTx = true
+                const tx = {
+                    get: async (ref) => ({ exists: () => false }),
+                    set: (ref, data) => { creado = { ref, data } }
+                }
+                return await fn(tx)
+            },
+            serverTimestamp: () => ({ __serverTimestamp: true }),
+            cacheCapa: {
+                invalidarPrefijo: (uid, clave) => {}
+            },
+            notificarMovimientosActualizados: () => {}
+        })(UID, "fav-historico", {
+            tipo: "gasto",
+            cuenta: "c1",
+            monto: 100,
+            divisa: "pen",
+            concepto: "Supermercado",
+            etiquetas: ["comida"]
+        })
+        t.check("recuperarFavoritoConId: crea el favorito con el ID histórico", favoritoRecuperado.id === "fav-historico" && creado.data.nombre === "Supermercado")
+        t.check("recuperarFavoritoConId: usa transacción", commitTx === true)
+
+        // Idempotente: si ya existe, devuelve el existente
+        let existente = null, commitTx2 = false
+        const favoritoExistente = await cargarFuncion(src, "recuperarFavoritoConId", {
+            db: {},
+            doc: (...partes) => partes.slice(1).join("/"),
+            runTransaction: async (db, fn) => {
+                commitTx2 = true
+                const tx = {
+                    get: async (ref) => ({ exists: () => true, data: () => ({ nombre: "Existente" }) }),
+                    set: (ref, data) => {}
+                }
+                return await fn(tx)
+            },
+            serverTimestamp: () => ({ __serverTimestamp: true }),
+            cacheCapa: {
+                invalidarPrefijo: (uid, clave) => {}
+            },
+            notificarMovimientosActualizados: () => {}
+        })(UID, "fav-existente", { tipo: "gasto", cuenta: "c1", monto: 50 })
+        t.check("recuperarFavoritoConId: idempotente si ya existe", favoritoExistente.nombre === "Existente")
     }
 
     return t

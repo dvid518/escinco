@@ -14,7 +14,8 @@ import {
     query,
     where,
     orderBy,
-    limit
+    limit,
+    runTransaction
 } from "./firebaseClient.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
@@ -50,7 +51,8 @@ export {
     query,
     where,
     orderBy,
-    limit
+    limit,
+    runTransaction
 }
 
 // ============================================

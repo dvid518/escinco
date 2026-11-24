@@ -809,13 +809,14 @@ async function mostrarDetalleCuenta() {
         }))
     })
 
-    // Cambiar de pill = mirar otra cuenta de la familia. Se repinta el panel
-    // entero con el render estandar de esa cuenta.
+    // Cambiar de pill = mirar otra cuenta de la familia. Seleccionarla de
+    // verdad para que Eliminar / Archivar / Editar actúen sobre esa subcuenta
+    // (y no sobre el padre), que es el que tiene las pills. Antes se quedaba
+    // cuentaSeleccionada en el padre, así nunca se podía borrar ni archivar
+    // una subcuenta: siempre decía "elimina primero las subcuentas".
     panel.querySelectorAll(".subcuentas-pills .badge").forEach(pill => {
-        pill.addEventListener("click", () => {
-            if (miembroFamiliaVisto === pill.dataset.cuentaId) return
-            miembroFamiliaVisto = pill.dataset.cuentaId
-            mostrarDetalleCuenta()
+        pill.addEventListener("click", async () => {
+            await seleccionarCuenta(pill.dataset.cuentaId)
         })
     })
 }
@@ -1799,28 +1800,99 @@ async function cambiarEstadoCuenta(id, estado) {
     }
 }
 
+// Elimina solo el documento de la cuenta (saldo, movimientos, posiciones, etc.
+// quedan intactos: `eliminarCuenta` de Firestore no toca nada más).
+async function ejecutarEliminacion(cuenta) {
+    const snapshot = { ...cuenta }
+    await eliminarCuenta(uid, cuenta.id)
+    await cargarCuentas()
+    ofrecerDeshacer({
+        mensaje: `Cuenta "${cuenta.nombre}" eliminada. ¿Deshacer?`,
+        restaurar: () => restaurarDocumento(uid, "cuentas", snapshot.id, snapshot),
+        alRestaurar: () => cargarCuentas()
+    })
+    return true
+}
+
+// Borra la cuenta indicada y, si tiene hijas, también las hijas. No borra
+// movimientos: `eliminarCuenta` de Firestore solo borra el documento de la
+// cuenta.
+async function ejecutarEliminacionForzada(cuenta) {
+    const snapshots = []
+    const familia = familiaDe(cuenta, cuentas)
+    for (const miembro of familia) {
+        snapshots.push({ ...miembro })
+        await eliminarCuenta(uid, miembro.id)
+    }
+    await cargarCuentas()
+    ofrecerDeshacer({
+        mensaje: `Cuenta "${cuenta.nombre}" eliminada a la fuerza. ¿Deshacer?`,
+        restaurar: async () => {
+            for (const s of snapshots) {
+                await restaurarDocumento(uid, "cuentas", s.id, s)
+            }
+        },
+        alRestaurar: () => cargarCuentas()
+    })
+    return true
+}
+
 export function eliminarCuentaSeleccionada() {
     if (!cuentaSeleccionada) {
         mostrarNotificacion("info", "Selecciona una cuenta primero")
         return
     }
     const cuenta = cuentaSeleccionada
-    // Eliminar se bloquea si tiene hijas: primero las subcuentas.
-    if (familiaDe(cuenta, cuentas).some(c => c.id !== cuenta.id)) {
-        mostrarNotificacion("warning", "Elimina primero las subcuentas de esta cuenta")
-        return
-    }
     const saldo = saldoParaRegla(cuenta)
-    if (saldo !== 0) {
-        mostrarNotificacion(
-            "warning",
-            cuenta.tipo === "credito"
-                ? `Solo se puede eliminar una tarjeta con la deuda en 0 (deuda actual: ${saldo})`
-                : `Solo se puede eliminar una cuenta con saldo 0 (saldo actual: ${saldo})`
-        )
+    const hijas = familiaDe(cuenta, cuentas).filter(c => c.id !== cuenta.id)
+    const esCredito = cuenta.tipo === "credito"
+
+    // La cuenta tiene saldo o subcuentas: no se puede eliminar con el flujo
+    // normal, pero sí forzar. Forzar solo borra la información de la cuenta
+    // (y sus subcuentas, si las tiene), nunca sus movimientos.
+    if (saldo !== 0 || hijas.length > 0) {
+        let motivo = ""
+        if (saldo !== 0 && hijas.length > 0) {
+            motivo = esCredito
+                ? `Tiene deuda de ${saldo} y ${hijas.length} subcuenta${hijas.length === 1 ? "" : "s"}`
+                : `Tiene saldo de ${saldo} y ${hijas.length} subcuenta${hijas.length === 1 ? "" : "s"}`
+        } else if (saldo !== 0) {
+            motivo = esCredito
+                ? `Tiene deuda de ${saldo}`
+                : `Tiene saldo de ${saldo}`
+        } else {
+            motivo = `Tiene ${hijas.length} subcuenta${hijas.length === 1 ? "" : "s"}`
+        }
+        abrirModal({
+            titulo: "Eliminar cuenta",
+            contenido: contenidoDesdeTemplate("tpl-confirmar-cuenta", {
+                valores: {
+                    pregunta: `¿Eliminar definitivamente "${cuenta.nombre}"? ${motivo}`,
+                    nombre: cuenta.nombre
+                }
+            }),
+            variante: "confirm",
+            confirmText: "Forzar eliminación",
+            cancelText: "Cancelar",
+            onConfirm: async () => {
+                try {
+                    await ejecutarEliminacionForzada(cuenta)
+                    mostrarNotificacion(
+                        "warning",
+                        "Cuenta eliminada a la fuerza: revisa movimientos, posiciones, trades y órdenes relacionados"
+                    )
+                    return true
+                } catch (error) {
+                    console.error("Error eliminando cuenta:", error)
+                    mostrarNotificacion("error", `No se pudo eliminar la cuenta: ${error.message}`)
+                    return false
+                }
+            }
+        })
         return
     }
 
+    // Sin saldo ni subcuentas: flujo normal.
     abrirModal({
         titulo: "Eliminar cuenta",
         contenido: contenidoDesdeTemplate("tpl-confirmar-cuenta", {
@@ -1834,14 +1906,7 @@ export function eliminarCuentaSeleccionada() {
         },
         onConfirm: async () => {
             try {
-                const snapshot = { ...cuenta }
-                await eliminarCuenta(uid, cuenta.id)
-                await cargarCuentas()
-                ofrecerDeshacer({
-                    mensaje: `Cuenta "${cuenta.nombre}" eliminada. ¿Deshacer?`,
-                    restaurar: () => restaurarDocumento(uid, "cuentas", snapshot.id, snapshot),
-                    alRestaurar: () => cargarCuentas()
-                })
+                await ejecutarEliminacion(cuenta)
                 return true
             } catch (error) {
                 console.error("Error eliminando cuenta:", error)

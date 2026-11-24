@@ -18,7 +18,6 @@ import { envolverSidebar } from "./colapsoSidebar.js"
 let uid = null
 let hayCambios = false
 let temaActual = "dark"
-let lastbarModo = "show"
 let nombrePendiente = null
 let avisoDescartado = false
 // El tema y el modo de la lastbar ya NO usan banderas "pendiente": el estado
@@ -254,7 +253,6 @@ async function iniciarConfiguracion() {
     configurarCuenta()
     configurarBotones()
     configurarModoConfiguracion()
-    configurarLastbar()
     configurarDetectorCambios()
     configurarFormatoDivisa()
     configurarLateralidadCuenta()
@@ -699,13 +697,6 @@ function hayCambioDeNombre() {
 function hayCambiosEnVivo() {
     if (hayCambioDeNombre()) return true
 
-    // El modo de la lastbar vive en las preferencias, no en localStorage, así
-    // que no entra en la comparación profunda. Se compara con lo guardado en
-    // vez de fiarse del flag: si el usuario lo cambia y vuelve al valor que
-    // tenía, no hay nada que guardar.
-    const lastbarGuardado = sesion.getPreferencias().lastbar || "show"
-    if (lastbarModo !== lastbarGuardado) return true
-
     if (!lineaBase) return false
 
     const enPantalla = construirPreferencias()
@@ -990,7 +981,6 @@ function construirPreferencias() {
     return {
         tema: temaActual,
         fondo,
-        lastbar: lastbarModo,
         periodoEvolucion: getPeriodoEvolucionUI(),
         resaltarPatrimonio: getNivelResalteUI(),
         movimientosRecientes: leerCantidadMovimientos() ?? (sesion.getPreferencias().movimientosRecientes ?? CANTIDAD_MOVIMIENTOS_DEFAULT),
@@ -1164,42 +1154,6 @@ function actualizarNavegacion(paginas) {
             link.classList.remove("nav-oculto")
         }
     })
-}
-
-// ============================================
-// LASTRAR · AUTO-HIDE
-// ============================================
-
-function configurarLastbar() {
-    lastbarModo = sesion.getPreferencias().lastbar || "show"
-    const opciones = document.querySelectorAll("#toggle-lastbar .toggle-option")
-
-    opciones.forEach(opt => {
-        opt.classList.toggle("active", opt.dataset.lastbar === lastbarModo)
-    })
-
-    aplicarModoLastbar(lastbarModo)
-
-    opciones.forEach(opt => {
-        opt.addEventListener("click", () => {
-            opciones.forEach(o => o.classList.remove("active"))
-            opt.classList.add("active")
-
-            // Aplicar visualmente sin persistir (se guarda con el botón Guardar)
-            lastbarModo = opt.dataset.lastbar
-            marcarCambioNuevo()
-            aplicarModoLastbar(lastbarModo)
-
-            actualizarEstadoGuardar()
-        })
-    })
-}
-
-function aplicarModoLastbar(modo) {
-    const lastbar = document.querySelector(".lastbar")
-    if (!lastbar) return
-
-    lastbar.classList.toggle("lastbar-always-visible", modo === "show")
 }
 
 // ============================================

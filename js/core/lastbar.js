@@ -119,14 +119,14 @@ const ITEM_CERRAR_SESION = `
     </div>
 `
 
-const PENDIENTES_BLOCK = `<div class="pendientes">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_PRESUPUESTOS}${ITEM_BUSCAR}${ITEM_ASISTENTE}${ITEM_NOTIFICACIONES}</div>`
+const PENDIENTES_BLOCK = `<div class="persistente">${ITEM_PENDIENTES}${ITEM_METAS}${ITEM_PRESUPUESTOS}${ITEM_BUSCAR}${ITEM_ASISTENTE}${ITEM_NOTIFICACIONES}</div>`
 
 // Mapa de lastbars por página.
 // El botón de tema SOLO aparece en el dashboard.
 const LASTBARS = {
     dashboard: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass" data-accion="mov">
                     <span class="glass">Movimiento</span>
                     <svg id="icon-mov" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -159,7 +159,7 @@ const LASTBARS = {
     `,
     cuentas: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass" data-accion="cuenta">
                     <span class="glass">Cuenta</span>
                     <svg id="icon-mov" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -189,7 +189,7 @@ const LASTBARS = {
     `,
     movimientos: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass" data-accion="mov">
                     <span class="glass">Movimiento</span>
                     <svg id="icon-mov" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -236,7 +236,7 @@ const LASTBARS = {
     `,
     inversiones: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass" data-accion="comprar">
                     <span class="glass">Comprar</span>
                     <svg id="icon-up" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -280,7 +280,7 @@ const LASTBARS = {
     `,
     trading: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass" data-accion="largo">
                     <span class="glass">Largo</span>
                     <svg id="icon-trend-up" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -327,7 +327,7 @@ const LASTBARS = {
     // En modo panel el Guardar es el botón de confirmar del modal.
     configuracion: `
         <div class="lastbar">
-            <div class="bar">
+            <div class="variable">
                 <div class="item glass desact" data-accion="guardar">
                     <span class="glass">Guardar</span>
                     <svg id="icon-save" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -353,13 +353,16 @@ export function activarTooltipsLastbar() {
     const lastbar = document.querySelector(".lastbar")
     if (!lastbar) return
 
-    let tooltip = document.getElementById("lastbar-tooltip")
-    if (!tooltip) {
+    let tooltip = null
+
+    function ensureTooltip() {
+        if (tooltip) return tooltip
         tooltip = document.createElement("div")
         tooltip.id = "lastbar-tooltip"
         tooltip.className = "lastbar-tooltip glass"
         tooltip.setAttribute("role", "tooltip")
         document.body.appendChild(tooltip)
+        return tooltip
     }
 
     lastbar.querySelectorAll(".item > span.glass").forEach(span => {
@@ -369,14 +372,17 @@ export function activarTooltipsLastbar() {
     })
 
     const mostrar = item => {
+        const t = ensureTooltip()
         const rect = item.getBoundingClientRect()
-        tooltip.textContent = item.dataset.tooltip || ""
-        tooltip.style.setProperty("--tooltip-left", `${rect.left + rect.width / 2}px`)
-        tooltip.style.setProperty("--tooltip-top", `${rect.top - 10}px`)
-        tooltip.classList.add("visible")
+        t.textContent = item.dataset.tooltip || ""
+        t.style.setProperty("--tooltip-left", `${rect.left + rect.width / 2}px`)
+        t.style.setProperty("--tooltip-top", `${rect.top - 10}px`)
+        t.classList.add("visible")
     }
 
-    const ocultar = () => tooltip.classList.remove("visible")
+    const ocultar = () => {
+        if (tooltip) tooltip.classList.remove("visible")
+    }
 
     lastbar.querySelectorAll(".item").forEach(item => {
         item.addEventListener("mouseenter", () => mostrar(item))

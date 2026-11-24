@@ -370,20 +370,6 @@ function mostrarErrorPagina(page, error) {
     })
 }
 
-// ============================================
-// LASTRAR · MODO PERSISTIDO (bug de recarga)
-// ============================================
-// Se aplica en cada render para que sobreviva a la recarga:
-// Preferencias "lastbar" (siempre visible / auto-hide) → clase .lastbar-always-visible.
-
-function aplicarModoLastbarPersistido() {
-    const modo = sesion.getPreferencias().lastbar || "show"
-    const lastbar = document.querySelector(".lastbar")
-    if (lastbar) {
-        lastbar.classList.toggle("lastbar-always-visible", modo === "show")
-    }
-}
-
 async function renderPage(page) {
     const module = pageModules[page]
     if (!module) {
@@ -445,7 +431,6 @@ async function renderPage(page) {
                 console.error(`[ERROR] Error renderizando lastbar de "${page}":`, error)
             }
             activarTooltipsLastbar()
-            aplicarModoLastbarPersistido()
         }
 
         currentPage = page

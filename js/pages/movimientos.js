@@ -14,7 +14,7 @@ import {
     vincularSimboloDivisa
 } from "../ui/formularioMovimiento.js"
 import { registrarMovimiento, actualizarMovimiento, eliminarMovimiento, restaurarMovimiento, aplicarEtiquetasEnLote } from "../services/MovimientoServicio.js"
-import { crearFavoritoDesdeMovimiento, desvincularMovimiento, esTipoFavoritable, ejecutarFavorito, editarPlantillaFavorito, eliminarFavoritoConDesvinculacion } from "../services/FavoritoServicio.js"
+import { crearFavoritoDesdeMovimiento, ejecutarFavorito, guardarInstanciaVinculada, editarPlantillaFavorito, eliminarFavoritoConDesvinculacion, recuperarFavoritoConId, estaEjecutandoFavorito } from "../services/FavoritoServicio.js"
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
@@ -27,7 +27,7 @@ import { descargarArchivoSeguro } from "../core/descarga.js"
 import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import { normalizarEtiquetas } from "../core/etiquetas.js"
 import { obtenerEtiquetas } from "../repositories/EtiquetaRepositorio.js"
-import { obtenerFavoritos, crearFavorito } from "../repositories/FavoritoRepositorio.js"
+import { obtenerFavoritos } from "../repositories/FavoritoRepositorio.js"
 import { montarSelectorEtiquetas } from "../ui/etiquetas.js"
 
 asegurarEstilos("movimientos")
@@ -38,13 +38,17 @@ let uid = null
 let filtroActual = "todos"
 const seleccionados = new Set()
 const seleccionadosFavoritos = new Set()
-// Caché de favoritos para resolver un id sin volver a Firestore, y los dos
-// temporizadores de los gestos (click sostenido y doble click) sobre el
-// contenedor de favoritos. Sin declarar, asignarles en un módulo (modo
-// estricto siempre) lanzaba ReferenceError y `renderFavoritos()` moría.
+// Caché de favoritos para resolver un id sin volver a Firestore y el estado
+// del gesto de clic sostenido (seleccionar para la lastbar). Sin declarar,
+// asignarles en un módulo (modo estricto siempre) lanzaba ReferenceError y
+// `renderFavoritos()` moría.
 let favoritosCache = []
 let favoritoPressTimer = null
-let favoritoClickTimer = null
+let favoritoLongPress = false
+// Claves (favoritoId o `nuevo:<movId>`) con una alternancia en curso. Evita que
+// dos clics rápidos sobre el MISMO favorito intercalen mutaciones optimistas y
+// rollback. Se libera en el `finally` de alternarFavoritoMovimiento.
+const alternanciasEnCurso = new Set()
 const ordenSeleccion = []
 const sel = { ids: seleccionados, orden: ordenSeleccion }
 let clickTimer = null
@@ -182,42 +186,26 @@ function toggleSeleccionFavorito(id) {
     } else {
         seleccionadosFavoritos.add(id)
     }
-    renderFavoritos(uid)
+    renderFavoritos(uid, { desdeCache: true })
 }
 
 function limpiarSeleccionFavoritos() {
     seleccionadosFavoritos.clear()
-    renderFavoritos(uid)
-}
-
-async function abrirFormularioConFavorito(favoritoId) {
-    const favorito = favoritosCache.find(f => f.id === favoritoId)
-    if (!favorito) return
-    limpiarSeleccionFavoritos()
-    await abrirFormularioMovimiento(favorito.tipo, null, {
-        // Ojo con el nombre de la clave: `abrirFormularioMovimiento` lee
-        // `opciones.valores`. Con `valoresIniciales` el formulario salía vacío
-        // y el "toque" sobre el favorito perdía cuenta, importe y etiquetas.
-        valores: {
-            cuenta: favorito.cuenta,
-            monto: favorito.monto,
-            divisa: favorito.divisa,
-            concepto: favorito.concepto || "",
-            etiquetas: favorito.etiquetas || []
-        },
-        favoritoId: favorito.id
-    })
+    renderFavoritos(uid, { desdeCache: true })
 }
 
 /**
- * "Editar" con un favorito marcado: abre su plantilla y, al confirmar, guarda
- * los cambios EN la plantilla. No registra ningún movimiento —para eso está el
- * toque simple, que crea una instancia con esos datos.
+ * Modal único de un favorito. "Guardar" actualiza solo la plantilla, "Cancelar"
+ * descarta y "Ejecutar" registra un movimiento con los valores que hay ahora
+ * mismo en el formulario, sin modificar la plantilla.
  */
-async function editarPlantillaFavoritoDesdeItem(favoritoId) {
+async function abrirModalFavorito(favoritoId) {
     const favorito = favoritosCache.find(f => f.id === favoritoId)
     if (!favorito) return
     limpiarSeleccionFavoritos()
+
+    // Guardar estado anterior para rollback
+    const favoritoAnterior = { ...favorito }
 
     const contenido = contenidoDesdeTemplate("tpl-modal-editar-favorito")
 
@@ -252,86 +240,229 @@ async function editarPlantillaFavoritoDesdeItem(favoritoId) {
     inputConcepto.value = favorito.concepto || ""
     inputEtiquetas.value = (favorito.etiquetas || []).join(", ")
 
+    const leerDatos = () => {
+        const nombre = inputNombre.value.trim()
+        const cuenta = selectCuenta.value
+        const monto = Number(inputMonto.value)
+        const divisa = selectDivisa.value
+        const concepto = inputConcepto.value.trim()
+        const etiquetasRaw = inputEtiquetas.value.trim()
+        const etiquetas = etiquetasRaw
+            ? etiquetasRaw.split(",").map(e => e.trim()).filter(Boolean)
+            : []
+
+        if (!nombre) {
+            mostrarNotificacion("error", "El nombre es obligatorio")
+            return null
+        }
+        if (!Number.isFinite(monto) || monto <= 0) {
+            mostrarNotificacion("error", "El monto debe ser mayor que cero")
+            return null
+        }
+        if (!cuenta) {
+            mostrarNotificacion("error", "Selecciona una cuenta")
+            return null
+        }
+        return { nombre, cuenta, monto, divisa, concepto, etiquetas }
+    }
+
+    const botonEjecutar = document.createElement("button")
+    botonEjecutar.type = "button"
+    botonEjecutar.className = "modal-btn modal-btn-secondary"
+    botonEjecutar.textContent = "Ejecutar"
+
     abrirModal({
-        titulo: `Editar favorito: ${favorito.nombre}`,
+        titulo: `Favorito: ${favorito.nombre}`,
         contenido,
         variante: "form",
-        confirmText: "Guardar cambios",
+        confirmText: "Guardar",
         cancelText: "Cancelar",
+        footerExtra: botonEjecutar,
+        // El modal solo pinta "Cancelar" si existe onCancel; aquí no hay nada
+        // que deshacer fuera del formulario.
+        onCancel: () => {},
         onConfirm: async () => {
-            const nombre = inputNombre.value.trim()
-            const cuenta = selectCuenta.value
-            const monto = Number(inputMonto.value)
-            const divisa = selectDivisa.value
-            const concepto = inputConcepto.value.trim()
-            const etiquetasRaw = inputEtiquetas.value.trim()
-            const etiquetas = etiquetasRaw
-                ? etiquetasRaw.split(",").map(e => e.trim()).filter(Boolean)
-                : []
+            const cambios = leerDatos()
+            if (!cambios) return false
 
-            if (!nombre) {
-                mostrarNotificacion("error", "El nombre es obligatorio")
-                return false
-            }
-            if (!Number.isFinite(monto) || monto <= 0) {
-                mostrarNotificacion("error", "El monto debe ser mayor que cero")
-                return false
-            }
-            if (!cuenta) {
-                mostrarNotificacion("error", "Selecciona una cuenta")
-                return false
-            }
+            // Actualización optimista: pintar desde la caché, sin releer.
+            Object.assign(favorito, cambios)
+            await renderFavoritos(uid, { desdeCache: true })
 
             try {
-                await editarPlantillaFavorito(uid, favorito, {
-                    nombre,
-                    cuenta,
-                    monto,
-                    divisa,
-                    concepto,
-                    etiquetas
-                })
-                await renderFavoritos(uid)
-                await cargarMovimientos()
+                await editarPlantillaFavorito(uid, favorito, cambios)
+                cacheCapa.invalidarPrefijo(uid, "favoritos")
+                await renderFavoritos(uid, { desdeCache: true })
                 mostrarNotificacion("exito", "Favorito actualizado")
                 return true
             } catch (error) {
+                // ROLLBACK: restaurar estado anterior
                 console.error("Error editando favorito:", error)
+                Object.assign(favorito, favoritoAnterior)
+                await renderFavoritos(uid, { desdeCache: true })
                 mostrarNotificacion("error", `No se pudo actualizar: ${error.message || "error desconocido"}`)
                 return false
             }
         }
     })
+
+    botonEjecutar.addEventListener("click", async () => {
+        const datos = leerDatos()
+        if (!datos) return
+        botonEjecutar.disabled = true
+        try {
+            await guardarInstanciaVinculada(uid, favorito.id, {
+                tipo: favorito.tipo,
+                cuenta: datos.cuenta,
+                monto: datos.monto,
+                divisa: datos.divisa,
+                // El servicio exige un concepto no vacío; si la plantilla no
+                // lo tiene, se usa su nombre como concepto del movimiento.
+                concepto: datos.concepto || datos.nombre,
+                etiquetas: datos.etiquetas,
+                fechaRealizacion: getFechaHoy()
+            })
+            await cargarMovimientos()
+            mostrarNotificacion("exito", "Movimiento creado desde favorito")
+            cerrarModal()
+        } catch (error) {
+            console.error("Error ejecutando favorito:", error)
+            mostrarNotificacion("error", `No se pudo ejecutar el favorito: ${error.message || "error desconocido"}`)
+            botonEjecutar.disabled = false
+        }
+    })
+}
+
+// Inserta un movimiento provisional en la lista y retorna su ID temporal
+function _insertarMovimientoProvisional(favorito) {
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`
+    const movTemp = {
+        id: tempId,
+        tipo: favorito.tipo,
+        cuenta: favorito.cuenta,
+        monto: favorito.monto,
+        divisa: favorito.divisa,
+        concepto: favorito.concepto || '',
+        etiquetas: favorito.etiquetas || [],
+        fechaRealizacion: getFechaHoy(),
+        favoritoId: favorito.id,
+        _provisional: true
+    }
+    movimientos.unshift(movTemp)
+    return { tempId, movTemp }
+}
+
+// Reemplaza un movimiento provisional por el definitivo en la lista y en el DOM
+function _reemplazarMovimientoProvisional(tempId, movimientoReal) {
+    const idx = movimientos.findIndex(m => m.id === tempId)
+    if (idx >= 0) {
+        movimientos[idx] = { ...movimientoReal, _provisional: false }
+    }
+    // Reemplazar en el DOM
+    const nodoAntiguo = document.querySelector(`.movimiento-item[data-movimiento-id="${tempId}"]`)
+    if (nodoAntiguo) {
+        const contenedor = document.getElementById("lista-movimientos")
+        if (contenedor) {
+            const fila = contenidoDesdeFilas("tpl-movimiento-item", [movimientoReal], m => filaMovimiento(m))[0]
+            contenedor.replaceChild(fila, nodoAntiguo)
+        }
+    }
+}
+
+// Retira un movimiento provisional de la lista y del DOM
+function _retirarMovimientoProvisional(tempId) {
+    const idx = movimientos.findIndex(m => m.id === tempId)
+    if (idx >= 0) {
+        movimientos.splice(idx, 1)
+    }
+    const nodo = document.querySelector(`.movimiento-item[data-movimiento-id="${tempId}"]`)
+    if (nodo) {
+        nodo.remove()
+    }
 }
 
 async function ejecutarFavoritoDesdeItem(favoritoId) {
     const favorito = favoritosCache.find(f => f.id === favoritoId)
     if (!favorito) return
+    if (estaEjecutandoFavorito(favoritoId)) return // Idempotencia: ya hay ejecución en curso
     limpiarSeleccionFavoritos()
-    await ejecutarFavorito(uid, favorito)
+
+    // Estado visual: pendiente en la tarjeta del favorito
+    const itemFav = document.querySelector(`.favorito-item[data-favorito-id="${favoritoId}"]`)
+    if (itemFav) itemFav.classList.add("favorito-pendiente")
+
+    // 1. Insertar movimiento provisional inmediatamente
+    const { tempId, movTemp } = _insertarMovimientoProvisional(favorito)
+    // Render selectivo: prepend en la lista
+    const contenedorLista = document.getElementById("lista-movimientos")
+    if (contenedorLista) {
+        const fila = contenidoDesdeFilas("tpl-movimiento-item", [movTemp], m => filaMovimiento(m))[0]
+        fila.classList.add("movimiento-pendiente")
+        contenedorLista.prepend(fila)
+    }
+
+    try {
+        const movimiento = await ejecutarFavorito(uid, favorito)
+        // Éxito: reconciliar provisional -> real
+        _reemplazarMovimientoProvisional(tempId, movimiento)
+        // Invalidar caché (el servicio ya invalida "movimientos" y "cuentas")
+        // Estado visual: confirmado en la tarjeta del favorito
+        if (itemFav) {
+            itemFav.classList.remove("favorito-pendiente")
+            itemFav.classList.add("favorito-confirmado")
+            setTimeout(() => itemFav.classList.remove("favorito-confirmado"), 500)
+        }
+        mostrarNotificacion("exito", "Movimiento creado desde favorito")
+        return movimiento
+    } catch (error) {
+        // ROLLBACK: retirar provisional y restaurar estado
+        _retirarMovimientoProvisional(tempId)
+        if (itemFav) {
+            itemFav.classList.remove("favorito-pendiente")
+            if (error.message === "Ejecución en curso para este favorito") {
+                mostrarNotificacion("info", "Ya se está ejecutando este favorito")
+            } else {
+                console.error("Error ejecutando favorito:", error)
+                itemFav.classList.add("favorito-error")
+                setTimeout(() => itemFav.classList.remove("favorito-error"), 600)
+                mostrarNotificacion("error", `No se pudo ejecutar el favorito: ${error.message}`)
+            }
+        }
+        throw error
+    }
 }
 
-async function renderFavoritos(uidUsuario) {
+async function renderFavoritos(uidUsuario, { desdeCache = false } = {}) {
     const contenedor = document.getElementById("favoritos-movimientos")
     if (!contenedor) return
 
-    const favoritos = await obtenerFavoritos(uidUsuario)
-    favoritosCache = favoritos
+    // Las operaciones optimistas pintan desde la caché en memoria: esperar una
+    // lectura de Firestore hacía que la tarjeta apareciera con retraso y, peor,
+    // que la lectura pisara el estado optimista antes de persistirlo.
+    if (!desdeCache) favoritosCache = await obtenerFavoritos(uidUsuario)
+    // La estrella depende de la plantilla, no del favoritoId histórico.
+    sincronizarEstrellasFavoritos()
+
+    // Filtrar favoritos según el tipo activo en el sidebar (mismo criterio que movimientos)
+    const filtro = FILTROS_DISPONIBLES.find(f => f.filtro === filtroActual)
+    let favoritosFiltrados = favoritosCache
+    if (filtro?.tipos) {
+        favoritosFiltrados = favoritosCache.filter(fav => filtro.tipos.includes(fav.tipo))
+    }
 
     // Si ya no queda ningún favorito, la selección tampoco puede seguir viva:
     // ids que apuntan a favoritos borrados dejarían la lastbar Showing un
     // contexto que no existe.
-    if (favoritos.length === 0) seleccionadosFavoritos.clear()
+    if (favoritosFiltrados.length === 0) seleccionadosFavoritos.clear()
 
-    if (favoritos.length === 0) {
+    if (favoritosFiltrados.length === 0) {
         contenedor.hidden = true
         actualizarEstadoLastbar()
         return
     }
 
-    contenedor.hidden = false
     contenedor.replaceChildren(
-        contenidoDesdeFilas("tpl-favorito-item", favoritos, f => ({
+        contenidoDesdeFilas("tpl-favorito-item", favoritosFiltrados, f => ({
             valores: {
                 "item@data-favorito-id": f.id,
                 "item@class": `favorito-item${seleccionadosFavoritos.has(f.id) ? " seleccionado" : ""}`,
@@ -347,30 +478,35 @@ async function renderFavoritos(uidUsuario) {
             }
         }))
     )
+    contenedor.hidden = false
 
     if (contenedor.dataset.favoritosListo !== "1") {
         contenedor.dataset.favoritosListo = "1"
 
         contenedor.addEventListener("pointerdown", (evento) => {
             const item = evento.target.closest(".favorito-item")
-            if (!item) return
+            if (!item || evento.target.closest(".favorito-ejecutar")) return
+            favoritoLongPress = false
             favoritoPressTimer = setTimeout(() => {
                 favoritoPressTimer = null
+                favoritoLongPress = true
                 const id = item.dataset.favoritoId
                 if (id) toggleSeleccionFavorito(id)
             }, 500)
         })
 
-        contenedor.addEventListener("pointerup", () => {
-            if (favoritoPressTimer) {
-                clearTimeout(favoritoPressTimer)
-                favoritoPressTimer = null
-            }
-        })
+        const cancelarPulsacion = () => {
+            if (!favoritoPressTimer) return
+            clearTimeout(favoritoPressTimer)
+            favoritoPressTimer = null
+        }
+        contenedor.addEventListener("pointerup", cancelarPulsacion)
+        contenedor.addEventListener("pointercancel", cancelarPulsacion)
+        contenedor.addEventListener("pointerleave", cancelarPulsacion)
 
         contenedor.addEventListener("click", async (evento) => {
             // Si se hizo click en el botón ejecutar del favorito, ejecutarlo
-            // sin tocar la selección ni abrir el formulario.
+            // sin tocar la selección ni abrir el modal.
             const btnEjecutar = evento.target.closest(".favorito-ejecutar")
             if (btnEjecutar) {
                 evento.stopPropagation()
@@ -383,27 +519,17 @@ async function renderFavoritos(uidUsuario) {
                 return
             }
 
+            // El click que sigue a un clic sostenido solo sirvió para
+            // seleccionar: no debe abrir además el modal.
+            if (favoritoLongPress) {
+                favoritoLongPress = false
+                return
+            }
+
             const item = evento.target.closest(".favorito-item")
             if (!item) return
             const id = item.dataset.favoritoId
-            if (!id) return
-
-            if (favoritoClickTimer) {
-                // Doble clic: ejecutar (crear instancia) o abrir formulario
-                clearTimeout(favoritoClickTimer)
-                favoritoClickTimer = null
-                if (seleccionadosFavoritos.has(id)) {
-                    await ejecutarFavoritoDesdeItem(id)
-                } else {
-                    await abrirFormularioConFavorito(id)
-                }
-            } else {
-                // Clic simple: seleccionar / deseleccionar (obvio para eliminar)
-                favoritoClickTimer = setTimeout(() => {
-                    favoritoClickTimer = null
-                    toggleSeleccionFavorito(id)
-                }, 250)
-            }
+            if (id) await abrirModalFavorito(id)
         })
     }
 
@@ -569,6 +695,13 @@ function mostrarError() {
 // RENDERIZADO
 // ============================================
 
+// El favoritoId de un movimiento es histórico: se conserva aunque la plantilla
+// se elimine para poder recuperarla. La estrella solo debe estar encendida
+// cuando la plantilla existe de verdad en la caché de favoritos.
+function esFavoritoActivo(favoritoId) {
+    return Boolean(favoritoId) && favoritosCache.some(f => f.id === favoritoId)
+}
+
 // `cuentaId` es el ámbito desde el que se mira el movimiento: sin él, una
 // transferencia o un cambio de divisa se etiquetan siempre como salida, que es
 // el lado contrario del correcto en la cuenta de destino (BUG-025).
@@ -582,16 +715,17 @@ function filaMovimiento(m, cuentaId = null) {
     const fecha = formatearFecha(m.fechaRealizacion)
     const cuenta = nombreCuentaDeMovimiento(m)
     const etiquetas = (m.etiquetas || []).filter(Boolean)
+    const favoritoActivo = esFavoritoActivo(m.favoritoId)
 
     return {
         valores: {
             "item@class": `movimiento-item${seleccionados.has(m.id) ? " seleccionado" : ""}`,
             "item@data-movimiento-id": m.id,
             "item@data-favorito-id": m.favoritoId || "",
-            "favorito@class": `movimiento-favorito${m.favoritoId ? " es-favorito" : ""}`,
+            "favorito@class": `movimiento-favorito${favoritoActivo ? " es-favorito" : ""}`,
             "favorito@data-favorito-id": m.favoritoId || "",
-            "favorito@aria-label": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
-            "favorito@title": m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito",
+            "favorito@aria-label": favoritoActivo ? "Quitar de favoritos" : "Marcar como favorito",
+            "favorito@title": favoritoActivo ? "Quitar de favoritos" : "Marcar como favorito",
             concepto: m.concepto || m.activo || tipoNombre || "Sin concepto",
             detalle: [fecha, cuenta].filter(Boolean).join(" · "),
             "valor": `${signo} ${formatearMontoConDivisa(Number.isFinite(monto) ? Math.abs(monto) : 0, m.divisa || "pen")}`,
@@ -606,6 +740,20 @@ function filaMovimiento(m, cuentaId = null) {
             "icono-eliminar": icono("trash", 15)
         }
     }
+}
+
+// Refleja en las filas ya pintadas el estado real de la caché de favoritos.
+// Necesario al cargar la página (las filas se pintan antes de leer favoritos)
+// y cuando la caché cambia sin volver a renderizar la lista completa.
+function sincronizarEstrellasFavoritos() {
+    document.querySelectorAll(".movimiento-item").forEach(card => {
+        const activo = esFavoritoActivo(card.dataset.favoritoId)
+        const estrella = card.querySelector(".movimiento-favorito")
+        if (!estrella) return
+        estrella.classList.toggle("es-favorito", activo)
+        estrella.setAttribute("aria-label", activo ? "Quitar de favoritos" : "Marcar como favorito")
+        estrella.setAttribute("title", activo ? "Quitar de favoritos" : "Marcar como favorito")
+    })
 }
 
 function formatearFecha(valor) {
@@ -635,6 +783,7 @@ function configurarEventos() {
 
             filtroActual = btn.dataset.filtro
             aplicarFiltro()
+            renderFavoritos(uid)
         })
     })
 
@@ -710,31 +859,140 @@ function consumirSupresorClick() {
 }
 
 async function alternarFavoritoMovimiento(m) {
-    if (m.favoritoId) {
-        await desvincularMovimiento(uid, m.id)
-        m.favoritoId = null
-    } else {
-        if (!esTipoFavoritable(m.tipo)) {
-            mostrarNotificacion("info", "Este tipo de movimiento no se puede guardar como favorito")
-            return
-        }
-        const favoritoId = await crearFavoritoDesdeMovimiento(uid, m)
-        m.favoritoId = favoritoId
+    // Un movimiento puede conservar un favoritoId histórico aunque su documento
+    // ya no exista (se conserva para recuperación). Distinguimos tres casos:
+    //   - favoritoActivo: el documento existe en favoritosCache -> desmarcar
+    //   - recuperacion:  tiene favoritoId pero el documento no existe -> recuperar
+    //   - nuevo:         no tiene favoritoId -> crear con id temporal y reconciliar
+    const favoritoIdOriginal = m.favoritoId
+    const favoritoActivo = Boolean(favoritoIdOriginal) && favoritosCache.some(f => f.id === favoritoIdOriginal)
+    const esRecuperacion = Boolean(favoritoIdOriginal) && !favoritoActivo
+
+    // Protección de concurrencia: una segunda alternancia sobre el MISMO favorito
+    // se ignora mientras la primera esté en curso. Se libera en finally.
+    // Un id temporal sigue siendo la misma operación "nuevo" del movimiento:
+    // sin esto, el segundo clic lo vería como un favorito activo y lo desmarcaría.
+    const esIdTemporal = typeof favoritoIdOriginal === "string" && favoritoIdOriginal.startsWith("temp_")
+    const claveEnCurso = favoritoIdOriginal && !esIdTemporal ? favoritoIdOriginal : `nuevo:${m.id}`
+    if (alternanciasEnCurso.has(claveEnCurso)) return
+    alternanciasEnCurso.add(claveEnCurso)
+
+    // Estrellas afectadas: al desmarcar, todas las instancias que comparten el
+    // favoritoId; en los demás casos, solo la instancia actual.
+    const instanciasAfectadas = favoritoActivo
+        ? movimientos.filter(mov => mov.favoritoId === favoritoIdOriginal)
+        : [m]
+    const estrellasAnteriores = new Map()
+    for (const mov of instanciasAfectadas) {
+        const card = document.querySelector(`.movimiento-item[data-movimiento-id="${mov.id}"]`)
+        const estrella = card?.querySelector(".movimiento-favorito")
+        if (estrella) estrellasAnteriores.set(mov.id, estrella.classList.contains("es-favorito"))
     }
-    // No recargar movimientos completo (evita esqueletos y lecturas de red
-    // innecesarias). Solo invalidar las capas de caché para que la próxima
-    // navegación traiga los datos frescos, y actualizar el estado local de
-    // la estrella en la tarjeta actual sin repintar toda la lista.
-    cacheCapa.invalidarPrefijo(uid, "favoritos")
-    cacheCapa.invalidarPrefijo(uid, "movimientos")
-    const card = document.querySelector(`.movimiento-item[data-movimiento-id="${m.id}"]`)
-    if (card) {
+
+    // Estado del favorito afectado para el rollback selectivo (sin tocar el resto
+    // de la caché, para no pisar cambios optimistas de otros favoritos).
+    const favoritoAfectado = favoritoActivo
+        ? favoritosCache.find(f => f.id === favoritoIdOriginal)
+        : null
+    let tempFavId = null
+    let favoritoProvisional = null
+
+    function pintarEstrella(mov, activo) {
+        const card = document.querySelector(`.movimiento-item[data-movimiento-id="${mov.id}"]`)
+        if (!card) return
+        // El dataset debe seguir al favoritoId vigente: es lo que consulta
+        // sincronizarEstrellasFavoritos() tras cada cambio de caché.
+        card.dataset.favoritoId = mov.favoritoId || ""
         const estrella = card.querySelector(".movimiento-favorito")
-        if (estrella) {
-            estrella.classList.toggle("es-favorito", Boolean(m.favoritoId))
-            estrella.setAttribute("aria-label", m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito")
-            estrella.setAttribute("title", m.favoritoId ? "Quitar de favoritos" : "Marcar como favorito")
+        if (!estrella) return
+        estrella.dataset.favoritoId = mov.favoritoId || ""
+        estrella.classList.toggle("es-favorito", activo)
+        estrella.setAttribute("aria-label", activo ? "Quitar de favoritos" : "Marcar como favorito")
+        estrella.setAttribute("title", activo ? "Quitar de favoritos" : "Marcar como favorito")
+    }
+
+    try {
+        // ----- Actualización optimista -----
+        if (favoritoActivo) {
+            // Desmarcar: apagar todas las estrellas vinculadas y retirar de la caché
+            for (const mov of instanciasAfectadas) pintarEstrella(mov, false)
+            favoritosCache = favoritosCache.filter(f => f.id !== favoritoIdOriginal)
+        } else {
+            // Marcar / recuperar: encender la estrella y añadir el favorito a la caché.
+            // La operación optimista usa el id histórico (recuperación) o uno temporal
+            // (nuevo), nunca sustituye un id histórico por uno temporal.
+            tempFavId = favoritoIdOriginal || `temp_${Date.now()}_${Math.random().toString(36).slice(2)}`
+            if (!favoritoIdOriginal) m.favoritoId = tempFavId
+            pintarEstrella(m, true)
+            favoritoProvisional = {
+                id: tempFavId,
+                nombre: m.concepto || `${m.tipo} en ${m.cuenta}`,
+                tipo: m.tipo,
+                cuenta: m.cuenta || '',
+                monto: m.monto || 0,
+                divisa: m.divisa || 'pen',
+                concepto: m.concepto || '',
+                etiquetas: m.etiquetas || []
+            }
+            favoritosCache = [...favoritosCache, favoritoProvisional]
         }
+        // Render inmediato de la barra desde la caché (sin esperar a Firestore)
+        await renderFavoritos(uid, { desdeCache: true })
+
+        // ----- Persistencia -----
+        if (favoritoActivo) {
+            // Desmarcar: eliminar el documento; m.favoritoId se conserva (histórico).
+            await eliminarFavoritoConDesvinculacion(uid, favoritoIdOriginal)
+        } else if (esRecuperacion) {
+            // Recuperar con el MISMO id histórico; la plantilla se reconstruye desde
+            // el movimiento. m.favoritoId conserva el id histórico (no se toca).
+            await recuperarFavoritoConId(uid, favoritoIdOriginal, m)
+        } else {
+            // Nuevo: reconciliar el id temporal con el definitivo en movimiento y caché.
+            const favoritoIdReal = await crearFavoritoDesdeMovimiento(uid, m)
+            m.favoritoId = favoritoIdReal
+            pintarEstrella(m, true)
+            let reconciliado = false
+            favoritosCache = favoritosCache.map(f => {
+                if (f.id !== tempFavId) return f
+                reconciliado = true
+                return { ...f, id: favoritoIdReal }
+            })
+            // Otra lectura pudo refrescar la caché durante la escritura: si el
+            // provisional ya no está, se reincorpora con su id real.
+            if (!reconciliado) {
+                favoritosCache = [...favoritosCache, { ...favoritoProvisional, id: favoritoIdReal }]
+            }
+        }
+        // Invalidar caché para próximas navegaciones
+        cacheCapa.invalidarPrefijo(uid, "favoritos")
+        cacheCapa.invalidarPrefijo(uid, "movimientos")
+        await renderFavoritos(uid, { desdeCache: true })
+        mostrarNotificacion("exito", favoritoActivo ? "Quitado de favoritos" : "Añadido a favoritos")
+    } catch (error) {
+        // ----- Rollback selectivo: solo el favorito afectado -----
+        console.error("Error alternando favorito:", error)
+        if (favoritoActivo) {
+            // Desmarcar falló: reponer el favorito en la caché si no está (sin pisar otros)
+            if (!favoritosCache.some(f => f.id === favoritoIdOriginal)) {
+                favoritosCache = [...favoritosCache, favoritoAfectado]
+            }
+        } else {
+            // Marcar/recuperar falló: retirar SOLO el favorito provisional añadido
+            // (id histórico en recuperación, temporal en creación).
+            favoritosCache = favoritosCache.filter(f => f.id !== tempFavId)
+            // Restaurar el favoritoId original del movimiento (histórico o ausente)
+            m.favoritoId = favoritoIdOriginal
+        }
+        // Restaurar las estrellas afectadas a su estado previo
+        for (const mov of instanciasAfectadas) {
+            const eraFavorito = estrellasAnteriores.get(mov.id)
+            if (eraFavorito !== undefined) pintarEstrella(mov, eraFavorito)
+        }
+        await renderFavoritos(uid, { desdeCache: true })
+        mostrarNotificacion("error", `No se pudo ${favoritoActivo ? "quitar de favoritos" : "añadir a favoritos"}: ${error.message}`)
+    } finally {
+        alternanciasEnCurso.delete(claveEnCurso)
     }
 }
 
@@ -1818,7 +2076,7 @@ export async function editarSeleccionados() {
     // aquí solo llega el caso de uno.
     if (seleccionadosFavoritos.size === 1) {
         const favoritoId = [...seleccionadosFavoritos][0]
-        await editarPlantillaFavoritoDesdeItem(favoritoId)
+        await abrirModalFavorito(favoritoId)
         return
     }
 
@@ -2047,7 +2305,9 @@ function abrirModalEliminarVariosFavoritos(lista) {
                 let eliminados = 0
                 for (const f of lista) {
                     try {
-                        await eliminarFavoritoConDesvinculacion(uid, f.id)
+                        // Usar eliminarFavorito del repositorio (solo borra el documento, no toca favoritoId en movimientos)
+                        const { eliminarFavorito } = await import("../repositories/FavoritoRepositorio.js")
+                        await eliminarFavorito(uid, f.id)
                         eliminados++
                     } catch (error) {
                         console.error(`Error eliminando favorito ${f.id}:`, error)
@@ -2060,17 +2320,20 @@ function abrirModalEliminarVariosFavoritos(lista) {
                         mensaje: `${eliminados} favorito(s) eliminado(s). ¿Deshacer?`,
                         restaurar: async () => {
                             for (const s of snapshots) {
-                                const id = await crearFavorito(uid, {
+                                // Recrear el favorito con el MISMO ID usando setDoc
+                                const { db, doc, setDoc, serverTimestamp } = await import("../../firebase/firestore.js")
+                                await setDoc(doc(db, "usuarios", uid, "favoritos", s.id), {
                                     nombre: s.favorito.nombre,
                                     tipo: s.favorito.tipo,
                                     cuenta: s.favorito.cuenta,
                                     monto: s.favorito.monto,
                                     divisa: s.favorito.divisa,
                                     concepto: s.favorito.concepto || '',
-                                    etiquetas: s.favorito.etiquetas || []
+                                    etiquetas: s.favorito.etiquetas || [],
+                                    fechaCreacion: serverTimestamp()
                                 })
                                 for (const movimientoId of s.movimientosVinculados) {
-                                    await actualizarMovimientoDoc(uid, movimientoId, { favoritoId: id })
+                                    await actualizarMovimientoDoc(uid, movimientoId, { favoritoId: s.id })
                                 }
                             }
                             await cargarMovimientos()
