@@ -940,13 +940,21 @@ async function alternarFavoritoMovimiento(m) {
         await renderFavoritos(uid, { desdeCache: true })
 
         // ----- Persistencia -----
+        let necesitaRenderFinal = false
         if (favoritoActivo) {
             // Desmarcar: eliminar el documento; m.favoritoId se conserva (histórico).
             await eliminarFavoritoConDesvinculacion(uid, favoritoIdOriginal)
+            // La actualización optimista ya quitó el favorito: no hace falta segundo render.
         } else if (esRecuperacion) {
             // Recuperar con el MISMO id histórico; la plantilla se reconstruye desde
             // el movimiento. m.favoritoId conserva el id histórico (no se toca).
-            await recuperarFavoritoConId(uid, favoritoIdOriginal, m)
+            // Usar el valor devuelto (puede ser el documento existente en Firestore)
+            // para sincronizar la caché y evitar datos stale.
+            const favoritoRecuperado = await recuperarFavoritoConId(uid, favoritoIdOriginal, m)
+            favoritosCache = favoritosCache.map(f =>
+                f.id === favoritoIdOriginal ? { ...f, ...favoritoRecuperado } : f
+            )
+            // La actualización optimista ya añadió el favorito: no hace falta segundo render.
         } else {
             // Nuevo: reconciliar el id temporal con el definitivo en movimiento y caché.
             const favoritoIdReal = await crearFavoritoDesdeMovimiento(uid, m)
@@ -963,11 +971,14 @@ async function alternarFavoritoMovimiento(m) {
             if (!reconciliado) {
                 favoritosCache = [...favoritosCache, { ...favoritoProvisional, id: favoritoIdReal }]
             }
+            necesitaRenderFinal = true
         }
         // Invalidar caché para próximas navegaciones
         cacheCapa.invalidarPrefijo(uid, "favoritos")
         cacheCapa.invalidarPrefijo(uid, "movimientos")
-        await renderFavoritos(uid, { desdeCache: true })
+        if (necesitaRenderFinal) {
+            await renderFavoritos(uid, { desdeCache: true })
+        }
         mostrarNotificacion("exito", favoritoActivo ? "Quitado de favoritos" : "Añadido a favoritos")
     } catch (error) {
         // ----- Rollback selectivo: solo el favorito afectado -----

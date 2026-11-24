@@ -1577,21 +1577,18 @@ body.dashboard-card-dragging * {
 
 .movimientos-lista::-webkit-scrollbar,
 .favoritos-lista::-webkit-scrollbar,
-.favoritos-movimientos::-webkit-scrollbar,
 .metas-lista::-webkit-scrollbar {
     width: 6px;
 }
 
 .movimientos-lista::-webkit-scrollbar-track,
 .favoritos-lista::-webkit-scrollbar-track,
-.favoritos-movimientos::-webkit-scrollbar-track,
 .metas-lista::-webkit-scrollbar-track {
     background: transparent;
 }
 
 .movimientos-lista::-webkit-scrollbar-thumb,
 .favoritos-lista::-webkit-scrollbar-thumb,
-.favoritos-movimientos::-webkit-scrollbar-thumb,
 .metas-lista::-webkit-scrollbar-thumb {
     background: var(--border);
     border-radius: 10px;

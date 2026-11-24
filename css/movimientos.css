@@ -621,7 +621,10 @@
     scrollbar-width: thin;
     scrollbar-color: var(--border) transparent;
     scroll-snap-type: x mandatory;
-    min-height: auto;
+    /* Al ser un contenedor con scroll, su altura mínima automática es 0: sin
+       `flex: none` el panel lo encogía hasta el padding, recortaba las cards y
+       la lista de movimientos empezaba justo encima de ellas. */
+    flex: none;
     align-items: flex-start;
 }
 
