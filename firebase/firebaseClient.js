@@ -42,8 +42,7 @@ import {
     query,
     where,
     orderBy,
-    limit,
-    runTransaction
+    limit
 } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js"
 import { logEvent, setUserId, setUserProperties } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-analytics.js"
 import { firebaseConfig } from "./config.js"
@@ -102,8 +101,7 @@ export {
     query,
     where,
     orderBy,
-    limit,
-    runTransaction
+    limit
 }
 
 export { logEvent, setUserId, setUserProperties }

@@ -14,8 +14,7 @@ import {
     query,
     where,
     orderBy,
-    limit,
-    runTransaction
+    limit
 } from "./firebaseClient.js"
 import { app } from "./firebaseClient.js"
 import { cacheCapa } from "../js/core/cache.js"
@@ -51,8 +50,28 @@ export {
     query,
     where,
     orderBy,
-    limit,
-    runTransaction
+    limit
+}
+
+// runTransaction no se exporta por el SDK de Firebase cargado desde CDN, asi
+// que se provee una implementacion local de mejor esfuerzo: ejecuta `fn` con
+// un objeto transaccional que lee y escribe sobre Firestore. Solo lo usa
+// `recuperarFavoritoConId`, que es idempotente (escritores concurrentes
+// guardan el mismo documento), por lo que una pasada sin reintentos basta.
+export async function runTransaction(baseDeDatos, fn) {
+    const tx = {
+        get: async (ref) => {
+            const snap = await getDoc(ref)
+            return {
+                exists: () => snap.exists(),
+                data: () => snap.data()
+            }
+        },
+        set: (ref, data) => setDoc(ref, data),
+        update: (ref, data) => updateDoc(ref, data),
+        delete: (ref) => deleteDoc(ref)
+    }
+    return await fn(tx)
 }
 
 // ============================================

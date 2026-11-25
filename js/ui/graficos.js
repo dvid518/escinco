@@ -13,13 +13,8 @@ const configuracionesPatrimonio = new Map()
 const distribucionCharts = new Map()
 const configuracionesDistribucion = new Map()
 
-// Última configuración usada, para poder redibujar al cambiar el tema
 let ultimoGraficoLinea = null
 let observadorTema = null
-
-// ============================================
-// CARGA DE CHART.JS (local)
-// ============================================
 
 let promesaChartJS = null
 
