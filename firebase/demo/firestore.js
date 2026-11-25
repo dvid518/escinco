@@ -190,6 +190,15 @@ export function writeBatch() {
     }
 }
 
+export async function runTransaction(db, fn) {
+    return fn({
+        get: async (ref) => ({ data: () => store.leer(ref.ruta), exists: () => store.existe(ref.ruta) }),
+        set: (ref, data) => store.escribir(ref.ruta, data),
+        update: (ref, data) => store.escribir(ref.ruta, { ...store.leer(ref.ruta), ...data }),
+        delete: (ref) => store.borrar(ref.ruta)
+    });
+}
+
 function aplicarCambios(base, cambios) {
     const salida = { ...(base || {}) }
     for (const [clave, valor] of Object.entries(cambios || {})) {
