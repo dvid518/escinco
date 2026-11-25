@@ -571,6 +571,11 @@ No inventar cantidades de suites, tests, archivos o errores.
 
 Los agentes tienen libertad para elegir herramientas de investigación, análisis, edición y verificación, siempre que respeten este documento y el alcance autorizado.
 
+- NUNCA des la tarea por terminada sin haber modificado los archivos en el disco.
+- Si `apply_patch` falla o no está disponible, edita los archivos directamente ejecutando un script corto de Python (`python -c "..."`) o PowerShell en la terminal.
+- Tras editar, lee el archivo modificado para verificar que el cambio quedó guardado.
+
+
 ### 13.1. Delegación
 
 Se permite delegar tareas a otros agentes.
