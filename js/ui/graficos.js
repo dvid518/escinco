@@ -1,13 +1,3 @@
-// ============================================
-// GRÁFICOS CON CHART.JS
-// ============================================
-
-// DivisaServicio se importa en caliente, no estático: arrastra el módulo de
-// Firestore y con él el SDK de Firebase, y la landing pública dibuja sus
-// gráficos de ejemplo sin necesitar nada de eso. Se pide solo cuando el gráfico
-// se pinta sin `opciones.formatear`, que es el caso de la app. Quien pase ese
-// formateador (la maqueta del panel) no carga Firebase en absoluto.
-
 let divisorServicio = null
 
 function cargarDivisaServicio() {

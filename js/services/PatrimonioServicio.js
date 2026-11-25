@@ -1,22 +1,3 @@
-// ============================================
-// PATRIMONIO SERVICIO — Fuente única de verdad
-// ============================================
-// Un único punto de cálculo del patrimonio que separa efectivo y posiciones
-// con filtros explícitos, evitando la duplicación contable detectada en
-// SnapshotServicio.js anterior. Este módulo es la referencia canonical
-// para dashboard, contexto del asistente y transacciones atómicas.
-//
-// Novedades F7.3:
-// - Filtro Efectivo: cuentas con esPatrimonio !== false && esAbstracta !== true
-//   (incluye subcuentas y broker; excluye padres abstractos y exchange directo).
-// - Filtro Posiciones: posiciones con custodioId !== null (asignadas).
-//   Legacy (null) NO contabilizan hasta M5.
-// - Conversión de divisa reutiliza DivisaServicio.convertirMonto.
-// - Deuda de tarjetas restada explícitamente.
-// - Desglose devuelto: efectivo, posiciones, deudas, total, porDivisa.
-// - Sin dependencias de SnapshotRepositorio (solo cálculo en memoria).
-// ============================================
-
 import { convertirMonto } from "./DivisaServicio.js"
 import { obtenerCuentas } from "../../firebase/firestore.js"
 import { obtenerPosiciones } from "../repositories/PosicionRepositorio.js"
