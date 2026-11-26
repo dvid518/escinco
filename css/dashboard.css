@@ -1240,20 +1240,13 @@ body.dashboard-card-dragging * {
     gap: 8px;
 }
 
-/* Fase 5 — Layout bottom-anchored de las 3 tarjetas de distribución (contrato PO 2025-11-25).
-   La card es columna; la dona sube al tope (margin-bottom: auto) y la lista se ancla abajo
-   (margin-top: auto), así en 1x3 la dona ocupa el espacio libre entre título y lista. */
 .distribucion-card,
 .distribucion-activos-card,
 .patrimonio-divisa-card {
     display: flex;
     flex-direction: column;
 }
-.distribucion-dona-top,
-.distribucion-activos-dona-top,
-.divisa-dona-top {
-    margin-bottom: auto;
-}
+
 .distribucion-lista-bottom,
 .distribucion-activos-lista-bottom,
 .divisa-lista-bottom {

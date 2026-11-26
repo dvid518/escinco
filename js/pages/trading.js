@@ -15,7 +15,17 @@ import { restaurarDocumento } from "../../firebase/firestore.js"
 import { icono } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { expandirSeleccion } from "../ui/seleccion.js"
+import {
+    activarSeleccion,
+    obtenerSeleccionados,
+    seleccionar,
+    deseleccionar,
+    toggle,
+    limpiar,
+    estaSeleccionado,
+    expandirSeleccion,
+    obtenerOrdenSeleccion
+} from "../ui/seleccionVisual.js"
 import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 import { crearSupresorDobleClick } from "../core/supresorClick.js"
 
@@ -34,8 +44,6 @@ let ordenesCargadas = false
 // toque y al repetir deselecciona, Shift añade/quita, Escape limpia y
 // Delete/Backspace quita la última. Solo interacción: sin contador ni
 // eliminación en lote.
-let seleccionadas = new Set()
-let ordenSeleccion = []
 const supresorClick = crearSupresorDobleClick()
 let clickTimer = null
 let cardConAcciones = null
@@ -203,8 +211,9 @@ function renderizarTrades() {
 
     // Podar ids de selección que ya no existen en la lista actual.
     const vivas = new Set(lista.map(t => t.id))
-    seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
-    ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
+    for (const id of obtenerSeleccionados()) {
+        if (!vivas.has(id)) deseleccionar(id)
+    }
 
     if (lista.length === 0) {
         container.replaceChildren(contenidoDesdeTemplate("tpl-trading-vacio-trades"))
@@ -230,7 +239,7 @@ function filaTrade(t) {
 
     return {
         valores: {
-            "item@class": `posicion-item trade-item${seleccionadas.has(t.id) ? " seleccionado" : ""}`,
+            "item@class": `posicion-item trade-item${estaSeleccionado(t.id) ? " seleccionado" : ""}`,
             "item@data-trade-id": t.id,
             activo: t.activo,
             "badge@class": `badge ${t.tipo === "long" ? "badge--positive" : "badge--negative"}`,
@@ -275,8 +284,9 @@ function renderizarOrdenes() {
 
     // Podar ids de selección que ya no existen en la lista actual.
     const vivas = new Set(lista.map(o => o.id))
-    seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
-    ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
+    for (const id of obtenerSeleccionados()) {
+        if (!vivas.has(id)) deseleccionar(id)
+    }
 
     if (lista.length === 0) {
         container.replaceChildren(contenidoDesdeTemplate("tpl-trading-vacio-ordenes"))
@@ -295,7 +305,7 @@ function filaOrden(o) {
 
     return {
         valores: {
-            "item@class": `posicion-item trade-item orden-item${seleccionadas.has(o.id) ? " seleccionado" : ""}`,
+            "item@class": `posicion-item trade-item orden-item${estaSeleccionado(o.id) ? " seleccionado" : ""}`,
             "item@data-orden-id": o.id,
             activo: o.activo,
             direccion: o.direccion === "long" ? "Largo" : "Corto",
@@ -403,6 +413,16 @@ function configurarEventos() {
     configurarEventosSeleccionGlobal()
     enlazarSeleccionTarjetas()
 
+    const lista = document.getElementById("lista-trades")
+    if (lista) {
+        activarSeleccion(lista, {
+            selectorItem: ".trade-item",
+            obtenerId: (el) => el.dataset.tradeId || el.dataset.ordenId,
+            onCambio: aplicarSeleccionDOM,
+            deselectOnBlur: false,
+        })
+    }
+
     document.querySelectorAll('#sidebar button').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('#sidebar button').forEach(b => b.classList.remove('act'))
@@ -441,58 +461,23 @@ function consumirSupresorClick() {
     return supresorClick.consumir()
 }
 
-function toggleSeleccion(id) {
-    if (seleccionadas.has(id)) {
-        seleccionadas.delete(id)
-        const indice = ordenSeleccion.indexOf(id)
-        if (indice !== -1) ordenSeleccion.splice(indice, 1)
-    } else {
-        seleccionadas.add(id)
-        if (!ordenSeleccion.includes(id)) ordenSeleccion.push(id)
-    }
-    aplicarSeleccionDOM()
-}
-
-// Modo "un click": un click (sin modificador) selecciona y deselecciona las
-// demás; repetir el click sobre el único seleccionado lo deselecciona.
-// Shift + click añade o quita.
-function seleccionarPorUnClick(id, conShift) {
-    if (conShift) {
-        toggleSeleccion(id)
-        return
-    }
-    if (seleccionadas.size === 1 && seleccionadas.has(id)) {
-        seleccionadas.clear()
-        ordenSeleccion.length = 0
-        aplicarSeleccionDOM()
-        return
-    }
-    seleccionadas.clear()
-    ordenSeleccion.length = 0
-    seleccionadas.add(id)
-    ordenSeleccion.push(id)
-    aplicarSeleccionDOM()
-}
-
 function deseleccionarUltima() {
-    const id = ordenSeleccion.pop()
+    const orden = obtenerOrdenSeleccion()
+    const id = orden[orden.length - 1]
     if (!id) return
-    seleccionadas.delete(id)
-    aplicarSeleccionDOM()
+    deseleccionar(id)
 }
 
 function limpiarSeleccion() {
-    if (seleccionadas.size === 0) return
-    seleccionadas.clear()
-    ordenSeleccion.length = 0
+    if (obtenerSeleccionados().size === 0) return
+    limpiar()
     ocultarAccionesCards()
-    aplicarSeleccionDOM()
 }
 
 function aplicarSeleccionDOM() {
     document.querySelectorAll("#lista-trades .trade-item").forEach(card => {
         const id = card.dataset.tradeId || card.dataset.ordenId
-        card.classList.toggle("seleccionado", seleccionadas.has(id))
+        card.classList.toggle("seleccionado", estaSeleccionado(id))
     })
 }
 
@@ -517,7 +502,7 @@ function manejarTecladoSeleccionTarjetas(evento) {
     if (estaAbierto()) return
 
     if (evento.key === "Escape") {
-        if (seleccionadas.size > 0) {
+        if (obtenerSeleccionados().size > 0) {
             ocultarAccionesCards()
             limpiarSeleccion()
         }
@@ -526,7 +511,7 @@ function manejarTecladoSeleccionTarjetas(evento) {
 
     if (evento.key !== "Delete" && evento.key !== "Backspace") return
     if (evento.target.matches("input, textarea, select")) return
-    if (seleccionadas.size === 0) return
+    if (obtenerSeleccionados().size === 0) return
     evento.preventDefault()
     deseleccionarUltima()
 }
@@ -578,21 +563,24 @@ function manejarClickTarjeta(evento) {
 
     if (evento.shiftKey && expandirSeleccion(
         [...document.querySelectorAll("#lista-trades .trade-item")].map(item => item.dataset.tradeId || item.dataset.ordenId).filter(Boolean),
-        id,
-        seleccionadas,
-        ordenSeleccion
+        id
     )) {
-        aplicarSeleccionDOM()
         return
     }
 
     if (modoUnClickSeleccion()) {
-        seleccionarPorUnClick(id, evento.shiftKey)
+        const sel = obtenerSeleccionados()
+        if (sel.size === 1 && sel.has(id)) {
+            limpiar()
+            return
+        }
+        limpiar()
+        seleccionar(id)
         return
     }
 
-    if (seleccionadas.size > 0) {
-        toggleSeleccion(id)
+    if (obtenerSeleccionados().size > 0) {
+        toggle(id)
         return
     }
 
@@ -604,7 +592,7 @@ function manejarClickTarjeta(evento) {
         }
         clickTimer = setTimeout(() => {
             clickTimer = null
-            if (seleccionadas.size === 0) abrirModalEditarTrade(card.dataset.tradeId)
+            if (obtenerSeleccionados().size === 0) abrirModalEditarTrade(card.dataset.tradeId)
         }, 280)
     }
 }
@@ -634,7 +622,7 @@ function manejarDobleClickTarjeta(evento) {
     }
 
     const id = card.dataset.tradeId || card.dataset.ordenId
-    if (id) toggleSeleccion(id)
+    if (id) toggle(id)
 }
 
 function ejecutarAccionTarjeta(accion, card) {
@@ -701,7 +689,7 @@ function vincularGestosTarjetas(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccion(card.dataset.tradeId || card.dataset.ordenId)
+            toggle(card.dataset.tradeId || card.dataset.ordenId)
             marcarSupresorClick()
             cancelar()
         }, duracion)

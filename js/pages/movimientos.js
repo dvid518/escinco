@@ -18,7 +18,14 @@ import { crearFavoritoDesdeMovimiento, ejecutarFavorito, guardarInstanciaVincula
 import { ofrecerDeshacer } from "../services/DeshacerServicio.js"
 import { mostrarNotificacion } from "../ui/notificaciones.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { alternarSeleccion, seleccionarRango, seleccionarTodos, limpiarSeleccion as limpiarSeleccionHelper } from "../ui/seleccion.js"
+import {
+    activarSeleccion,
+    obtenerSeleccionados,
+    toggle,
+    limpiar as limpiarSeleccion,
+    expandirSeleccion,
+    seleccionarTodos
+} from "../ui/seleccionVisual.js"
 import { formatearMontoConDivisa, presentarDivisa } from "../services/DivisaServicio.js"
 import { compararDivisas } from "../../constants/divisas.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
@@ -36,8 +43,8 @@ let movimientos = []
 let cuentas = []
 let uid = null
 let filtroActual = "todos"
-const seleccionados = new Set()
 const seleccionadosFavoritos = new Set()
+let seleccionados = new Set()
 // Caché de favoritos para resolver un id sin volver a Firestore y el estado
 // del gesto de clic sostenido (seleccionar para la lastbar). Sin declarar,
 // asignarles en un módulo (modo estricto siempre) lanzaba ReferenceError y
@@ -49,8 +56,6 @@ let favoritoLongPress = false
 // dos clics rápidos sobre el MISMO favorito intercalen mutaciones optimistas y
 // rollback. Se libera en el `finally` de alternarFavoritoMovimiento.
 const alternanciasEnCurso = new Set()
-const ordenSeleccion = []
-const sel = { ids: seleccionados, orden: ordenSeleccion }
 let clickTimer = null
 const supresorClick = crearSupresorDobleClick()
 let cardConAcciones = null
@@ -645,7 +650,7 @@ async function cargarMovimientos() {
         container?.removeAttribute("aria-busy")
         totales?.removeAttribute("aria-busy")
         movimientos.sort(compararMovimientosPorFecha)
-        limpiarSeleccionHelper(sel)
+        limpiarSeleccion()
         actualizarSeleccionEnDOM()
         actualizarEstadoLastbar()
         actualizarOpcionesEtiquetas()
@@ -669,7 +674,7 @@ async function cargarMovimientos() {
     try {
         movimientos = await obtenerMovimientos(uid)
         movimientos.sort(compararMovimientosPorFecha)
-        limpiarSeleccionHelper(sel)
+        limpiarSeleccion()
         actualizarSeleccionEnDOM()
         actualizarEstadoLastbar()
         actualizarOpcionesEtiquetas()
@@ -837,6 +842,18 @@ function configurarEventos() {
     container?.addEventListener("dblclick", manejarDobleClickCard)
     vincularGestosCard(container)
     configurarEventosGlobales()
+    if (container) {
+        activarSeleccion(container, {
+            selectorItem: ".movimiento-item",
+            obtenerId: (el) => el.dataset.movimientoId,
+            onCambio: (ids) => {
+                seleccionados = new Set(ids)
+                actualizarSeleccionEnDOM()
+                actualizarEstadoLastbar()
+            },
+            deselectOnBlur: false,
+        })
+    }
     aplicarAccionesSiempreVisibles()
 }
 
@@ -1062,14 +1079,14 @@ async function manejarClickCard(evento) {
     const id = card.dataset.movimientoId
 
     // Shift + click: seleccionar rango (reemplaza la selección actual).
-    if (evento.shiftKey && seleccionarRango(sel, movimientos.map(m => m.id), id)) {
+    if (evento.shiftKey && expandirSeleccion(movimientos.map(m => m.id), id)) {
         actualizarSeleccionEnDOM()
         actualizarEstadoLastbar()
         return
     }
 
     // Click simple o Ctrl/Cmd + click: alternar la card clickeada.
-    alternarSeleccion(sel, id)
+    toggle(id)
     actualizarSeleccionEnDOM()
     actualizarEstadoLastbar()
 }
@@ -1092,7 +1109,7 @@ function manejarClickFueraCards(evento) {
     if (evento.target.closest("#app-footer")) return
     if (evento.target.closest(".modal-overlay")) return
     ocultarAccionesCards()
-    limpiarSeleccionHelper(sel)
+    limpiarSeleccion()
     actualizarSeleccionEnDOM()
     actualizarEstadoLastbar()
 }
@@ -1102,9 +1119,9 @@ function manejarTecladoSeleccion(evento) {
     if (estaAbierto()) return
 
     if (evento.key === "Escape") {
-        if (seleccionados.size > 0) {
+        if (obtenerSeleccionados().size > 0) {
             ocultarAccionesCards()
-            limpiarSeleccionHelper(sel)
+            limpiarSeleccion()
             actualizarSeleccionEnDOM()
             actualizarEstadoLastbar()
         }
@@ -1114,7 +1131,7 @@ function manejarTecladoSeleccion(evento) {
     // Ctrl + A: seleccionar todos los visibles
     if (evento.key === "a" && (evento.ctrlKey || evento.metaKey)) {
         evento.preventDefault()
-        seleccionarTodos(sel, movimientos.map(m => m.id))
+        seleccionarTodos(movimientos.map(m => m.id))
         actualizarSeleccionEnDOM()
         actualizarEstadoLastbar()
         return
@@ -1122,7 +1139,7 @@ function manejarTecladoSeleccion(evento) {
 
     if (evento.key !== "Delete" && evento.key !== "Backspace") return
     if (evento.target.matches("input, textarea, select")) return
-    if (seleccionados.size === 0) return
+    if (obtenerSeleccionados().size === 0) return
     evento.preventDefault()
     eliminarSeleccionados()
 }
@@ -1162,7 +1179,7 @@ function vincularGestosCard(container) {
         gesto.timer = setTimeout(() => {
             if (!gesto) return
             if (!seleccionados.has(card.dataset.movimientoId)) {
-                alternarSeleccion(sel, card.dataset.movimientoId)
+                toggle(card.dataset.movimientoId)
                 actualizarSeleccionEnDOM()
                 actualizarEstadoLastbar()
                 marcarSupresorClick()
@@ -2058,6 +2075,10 @@ function actualizarSeleccionEnDOM() {
     })
 }
 
+function limpiarSeleccionHelper() {
+    limpiarSeleccion()
+}
+
 function actualizarEstadoLastbar() {
     const hayMovimientos = seleccionados.size > 0
     const hayFavoritos = seleccionadosFavoritos.size > 0
@@ -2101,7 +2122,7 @@ export async function editarSeleccionados() {
     const movimiento = movimientos.find(m => m.id === id)
     if (!movimiento) return
 
-    limpiarSeleccionHelper(sel)
+    limpiarSeleccionHelper()
     actualizarSeleccionEnDOM()
     actualizarEstadoLastbar()
     abrirFormularioMovimiento(movimiento.tipo, movimiento)
@@ -2122,7 +2143,7 @@ export async function eliminarSeleccionados() {
         .map(id => movimientos.find(m => m.id === id))
         .filter(Boolean)
 
-    limpiarSeleccionHelper(sel)
+    limpiarSeleccionHelper()
     actualizarSeleccionEnDOM()
     actualizarEstadoLastbar()
     abrirModalEliminarVarios(lista)
@@ -2210,7 +2231,7 @@ async function abrirModalEtiquetarMasivo(lista) {
                 }))
                 await aplicarEtiquetasEnLote(uidSesion, cambios)
                 await cargarMovimientos()
-                limpiarSeleccionHelper(sel)
+                limpiarSeleccion()
                 actualizarSeleccionEnDOM()
                 actualizarEstadoLastbar()
                 ofrecerDeshacer({

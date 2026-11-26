@@ -101,7 +101,9 @@ const SHELL_ASSETS = [
     "/js/core/gtm.js",
 
     // JS lib (third-party, self-hosted)
+    "/js/lib/anime.esm.min.js",
     "/js/lib/sortable.min.js",
+    "/js/lib/viselect.esm.js",
 
     // JS pages
     "/js/pages/index.js",
@@ -131,7 +133,9 @@ const SHELL_ASSETS = [
     "/js/ui/colapsoSidebar.js",
     "/js/ui/skeletons.js",
     "/js/ui/scrollEdges.js",
+    "/js/ui/animaciones.js",
     "/js/ui/seleccion.js",
+    "/js/ui/seleccionVisual.js",
     "/js/ui/etiquetas.js",
     "/js/ui/accionesLista.js",
     "/js/ui/doodles.js",

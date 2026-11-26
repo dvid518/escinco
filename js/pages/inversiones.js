@@ -21,6 +21,17 @@ import {
 import { DIAS_SEMANA } from "../models/Estrategia.js"
 import { crearSupresorDobleClick } from "../core/supresorClick.js"
 import {
+    activarSeleccion,
+    obtenerSeleccionados,
+    seleccionar,
+    deseleccionar,
+    toggle,
+    limpiar,
+    estaSeleccionado,
+    expandirSeleccion,
+    obtenerOrdenSeleccion
+} from "../ui/seleccionVisual.js"
+import {
     actualizarPrecioManual,
     actualizarPrecioAutomatico,
     historialParaGrafico
@@ -34,7 +45,6 @@ import { icono } from "../core/iconos.js"
 import { skeletonMarkup, skeletonText, esqueletoContenedor, esqueletoTexto } from "../ui/skeletons.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
 import { DIVISAS_SYMBOLS } from "../../constants/divisas.js"
-import { expandirSeleccion } from "../ui/seleccion.js"
 import { formatearMontoConDivisa, formatearMontoMinimo, recortarDecimales, presentarDivisa } from "../services/DivisaServicio.js"
 
 asegurarEstilos("inversiones")
@@ -53,8 +63,6 @@ let clickTimer = null
 // toque y al repetir deselecciona, Shift añade/quita, Escape limpia y
 // Delete/Backspace quita la última. Solo interacción: sin contador ni
 // eliminación en lote.
-let seleccionadas = new Set()
-let ordenSeleccion = []
 const supresorClick = crearSupresorDobleClick()
 let eventosSeleccionListos = false
 let cardConAcciones = null
@@ -210,8 +218,9 @@ function renderizarPosiciones() {
 
     // Podar ids de selección que ya no existen en la lista actual.
     const vivas = new Set(posiciones.map(p => p.id))
-    seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
-    ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
+    for (const id of obtenerSeleccionados()) {
+        if (!vivas.has(id)) deseleccionar(id)
+    }
 
     if (posiciones.length === 0) {
         container.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio-hint", {
@@ -241,7 +250,7 @@ function plantillaPosicion(p) {
 
     return {
         valores: {
-            "item@class": `posicion-item${seleccionadas.has(p.id) ? " seleccionado" : ""}`,
+            "item@class": `posicion-item${estaSeleccionado(p.id) ? " seleccionado" : ""}`,
             "item@data-posicion-id": p.id,
             "item@data-activo-id": p.activoId,
             "favorito@class": `posicion-favorito${esFavorito ? " es-favorito" : ""}`,
@@ -333,18 +342,25 @@ function enlazarListaPosiciones(container) {
         const tarjeta = resolverTarjetaInversiones(card)
         if (!tarjeta) return
 
-        if (evento.shiftKey && expandirSeleccion((vistaActual === "estrategias" ? estrategiasData : posicionesData?.posiciones || []).map(item => item.id), tarjeta.id, seleccionadas, ordenSeleccion)) {
-            aplicarSeleccionDOM()
+        const ids = (vistaActual === "estrategias" ? estrategiasData : posicionesData?.posiciones || []).map(item => item.id)
+
+        if (evento.shiftKey && expandirSeleccion(ids, tarjeta.id)) {
             return
         }
 
         if (modoUnClickSeleccion()) {
-            seleccionarPorUnClick(tarjeta.id, evento.shiftKey)
+            const sel = obtenerSeleccionados()
+            if (sel.size === 1 && sel.has(tarjeta.id)) {
+                limpiar()
+                return
+            }
+            limpiar()
+            seleccionar(tarjeta.id)
             return
         }
 
-        if (seleccionadas.size > 0) {
-            toggleSeleccion(tarjeta.id)
+        if (obtenerSeleccionados().size > 0) {
+            toggle(tarjeta.id)
             return
         }
 
@@ -356,7 +372,7 @@ function enlazarListaPosiciones(container) {
 
         clickTimer = setTimeout(() => {
             clickTimer = null
-            if (seleccionadas.size === 0) tarjeta.abrirDetalle()
+            if (obtenerSeleccionados().size === 0) tarjeta.abrirDetalle()
         }, 280)
     })
 
@@ -380,7 +396,7 @@ function enlazarListaPosiciones(container) {
             return
         }
 
-        toggleSeleccion(tarjeta.id)
+        toggle(tarjeta.id)
     })
 
     vincularGestosPosiciones(container)
@@ -414,57 +430,22 @@ function consumirSupresorClick() {
     return supresorClick.consumir()
 }
 
-function toggleSeleccion(id) {
-    if (seleccionadas.has(id)) {
-        seleccionadas.delete(id)
-        const indice = ordenSeleccion.indexOf(id)
-        if (indice !== -1) ordenSeleccion.splice(indice, 1)
-    } else {
-        seleccionadas.add(id)
-        if (!ordenSeleccion.includes(id)) ordenSeleccion.push(id)
-    }
-    aplicarSeleccionDOM()
-}
-
-// Modo "un click": un click (sin modificador) selecciona y deselecciona las
-// demás; repetir el click sobre el único seleccionado lo deselecciona.
-// Shift + click añade o quita.
-function seleccionarPorUnClick(id, conShift) {
-    if (conShift) {
-        toggleSeleccion(id)
-        return
-    }
-    if (seleccionadas.size === 1 && seleccionadas.has(id)) {
-        seleccionadas.clear()
-        ordenSeleccion.length = 0
-        aplicarSeleccionDOM()
-        return
-    }
-    seleccionadas.clear()
-    ordenSeleccion.length = 0
-    seleccionadas.add(id)
-    ordenSeleccion.push(id)
-    aplicarSeleccionDOM()
-}
-
 function deseleccionarUltima() {
-    const id = ordenSeleccion.pop()
+    const orden = obtenerOrdenSeleccion()
+    const id = orden[orden.length - 1]
     if (!id) return
-    seleccionadas.delete(id)
-    aplicarSeleccionDOM()
+    deseleccionar(id)
 }
 
 function limpiarSeleccion() {
-    if (seleccionadas.size === 0) return
-    seleccionadas.clear()
-    ordenSeleccion.length = 0
-    aplicarSeleccionDOM()
+    if (obtenerSeleccionados().size === 0) return
+    limpiar()
 }
 
 function aplicarSeleccionDOM() {
     document.querySelectorAll("#lista-posiciones .posicion-item, #lista-posiciones .estrategia-item").forEach(card => {
         const id = card.dataset.posicionId || card.dataset.id
-        card.classList.toggle("seleccionado", seleccionadas.has(id))
+        card.classList.toggle("seleccionado", estaSeleccionado(id))
     })
 }
 
@@ -491,13 +472,13 @@ function manejarTecladoSeleccionCards(evento) {
     if (estaAbierto()) return
 
     if (evento.key === "Escape") {
-        if (seleccionadas.size > 0) limpiarSeleccion()
+        limpiarSeleccion()
         return
     }
 
     if (evento.key !== "Delete" && evento.key !== "Backspace") return
     if (evento.target.matches("input, textarea, select")) return
-    if (seleccionadas.size === 0) return
+    if (obtenerSeleccionados().size === 0) return
     evento.preventDefault()
     deseleccionarUltima()
 }
@@ -534,7 +515,7 @@ function vincularGestosPosiciones(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccion(card.dataset.posicionId || card.dataset.id)
+            toggle(card.dataset.posicionId || card.dataset.id)
             marcarSupresorClick()
             cancelar()
         }, duracion)
@@ -706,8 +687,9 @@ function renderizarEstrategias() {
 
     // Podar ids de selección que ya no existen en la lista actual.
     const vivas = new Set(estrategiasData.map(e => e.id))
-    seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
-    ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
+    for (const id of obtenerSeleccionados()) {
+        if (!vivas.has(id)) deseleccionar(id)
+    }
 
     if (estrategiasData.length === 0) {
         container.replaceChildren(contenidoDesdeTemplate("tpl-lista-vacio-hint", {
@@ -727,7 +709,7 @@ function plantillaEstrategia(estrategia) {
 
     return {
         valores: {
-            "item@class": `estrategia-item${estrategia.activa ? "" : " pausada"}${seleccionadas.has(estrategia.id) ? " seleccionado" : ""}`,
+            "item@class": `estrategia-item${estrategia.activa ? "" : " pausada"}${estaSeleccionado(estrategia.id) ? " seleccionado" : ""}`,
             "item@data-id": estrategia.id,
             "nombre": estrategia.nombre,
             "simbolo": estrategia.activoSimbolo,
@@ -1212,6 +1194,16 @@ function actualizarResumen() {
 function configurarEventos() {
     configurarEventosSeleccionGlobal()
 
+    const lista = document.getElementById("lista-posiciones")
+    if (lista) {
+        activarSeleccion(lista, {
+            selectorItem: ".posicion-item, .estrategia-item",
+            obtenerId: (el) => el.dataset.posicionId || el.dataset.id,
+            onCambio: aplicarSeleccionDOM,
+            deselectOnBlur: false,
+        })
+    }
+
     document.querySelectorAll("#sidebar button").forEach(btn => {
         btn.addEventListener("click", () => {
             document.querySelectorAll("#sidebar button").forEach(b => b.classList.remove("act"))
@@ -1240,8 +1232,9 @@ function configurarEventos() {
 
             // Podar ids de selección que quedaron fuera del filtro.
             const vivas = new Set(filtradas.map(p => p.id))
-            seleccionadas = new Set([...seleccionadas].filter(id => vivas.has(id)))
-            ordenSeleccion = ordenSeleccion.filter(id => vivas.has(id))
+            for (const id of obtenerSeleccionados()) {
+                if (!vivas.has(id)) deseleccionar(id)
+            }
 
             container.replaceChildren(contenidoDesdeFilas("tpl-posicion-item", filtradas, plantillaPosicion))
             enlazarListaPosiciones(container)

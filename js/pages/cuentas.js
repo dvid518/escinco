@@ -33,7 +33,17 @@ import { eliminarMovimiento, restaurarMovimiento } from "../services/MovimientoS
 import { abrirModalEducativoCredito, estadoCicloDe, nivelUsoDe, notificarCruces, proximaAnualidad } from "../services/CreditoServicio.js"
 import { esMovimientoPositivo, montoDeMovimiento, compararMovimientosPorFecha } from "../core/movimientos.js"
 import { envolverSidebar } from "../ui/colapsoSidebar.js"
-import { expandirSeleccion } from "../ui/seleccion.js"
+import {
+    activarSeleccion,
+    obtenerSeleccionados,
+    seleccionar,
+    deseleccionar,
+    toggle,
+    limpiar,
+    estaSeleccionado,
+    expandirSeleccion,
+    obtenerOrdenSeleccion
+} from "../ui/seleccionVisual.js"
 import { crearSupresorDobleClick } from "../core/supresorClick.js"
 
 asegurarEstilos("cuentas")
@@ -78,8 +88,6 @@ function lateralidadInfo() {
 
 // Interacción con las cards de movimientos de la cuenta seleccionada.
 let movimientosCuentaActivos = []
-const seleccionadosCuenta = new Set()
-const ordenSeleccionCuenta = []
 let cardConAccionesCuenta = null
 let clickTimerCuenta = null
 const supresorClickCuenta = crearSupresorDobleClick()
@@ -1137,8 +1145,7 @@ async function cargarMovimientosDeCuenta(cuenta, movimientosCargados = null) {
     contenedor.setAttribute("aria-busy", "true")
     contenedor.replaceChildren(esqueletoContenedor("list", 3))
 
-    seleccionadosCuenta.clear()
-    ordenSeleccionCuenta.length = 0
+    limpiar()
     cardConAccionesCuenta = null
     movimientosCuentaActivos = []
 
@@ -1295,7 +1302,7 @@ function filaMovimiento(m, cuentaId = null) {
 
     return {
         valores: {
-            "item@class": `movimiento-item${seleccionadosCuenta.has(m.id) ? " seleccionado" : ""}`,
+            "item@class": `movimiento-item${estaSeleccionado(m.id) ? " seleccionado" : ""}`,
             "item@data-movimiento-id": m.id,
             "item@data-favorito-id": m.favoritoId || "",
             "favorito@class": `movimiento-favorito${m.favoritoId ? " es-favorito" : ""}`,
@@ -1333,6 +1340,14 @@ function vincularInteraccionCardsCuenta() {
     container?.addEventListener("dblclick", manejarDobleClickCardCuenta)
     vincularGestosCardCuenta(container)
     configurarEventosCardsCuentaGlobales()
+    if (container) {
+        activarSeleccion(container, {
+            selectorItem: ".movimiento-item",
+            obtenerId: (el) => el.dataset.movimientoId,
+            onCambio: actualizarSeleccionCuentaEnDOM,
+            deselectOnBlur: false,
+        })
+    }
     aplicarAccionesSiempreVisiblesCuenta()
 }
 
@@ -1390,18 +1405,23 @@ function manejarClickCardCuenta(evento) {
 
     const id = card.dataset.movimientoId
 
-    if (evento.shiftKey && expandirSeleccion(movimientosCuentaActivos.map(m => m.id), id, seleccionadosCuenta, ordenSeleccionCuenta)) {
-        actualizarSeleccionCuentaEnDOM()
+    if (evento.shiftKey && expandirSeleccion(movimientosCuentaActivos.map(m => m.id), id)) {
         return
     }
 
     if (modoUnClickSeleccion()) {
-        seleccionarPorUnClickCuenta(id, evento.shiftKey)
+        const sel = obtenerSeleccionados()
+        if (sel.size === 1 && sel.has(id)) {
+            limpiar()
+            return
+        }
+        limpiar()
+        seleccionar(id)
         return
     }
 
-    if (seleccionadosCuenta.size > 0) {
-        toggleSeleccionCuenta(id)
+    if (obtenerSeleccionados().size > 0) {
+        toggle(id)
         return
     }
 
@@ -1412,7 +1432,7 @@ function manejarClickCardCuenta(evento) {
 
     clickTimerCuenta = setTimeout(() => {
         clickTimerCuenta = null
-        if (seleccionadosCuenta.size === 0) {
+        if (obtenerSeleccionados().size === 0) {
             const m = movimientosCuentaActivos.find(x => x.id === id)
             if (m) abrirEditarMovimientoCuenta(m)
         }
@@ -1428,12 +1448,12 @@ function manejarDobleClickCardCuenta(evento) {
         clickTimerCuenta = null
     }
     if (modoUnClickSeleccion()) {
-        limpiarSeleccionCuenta()
+        limpiar()
         const m = movimientosCuentaActivos.find(x => x.id === card.dataset.movimientoId)
         if (m) abrirEditarMovimientoCuenta(m)
         return
     }
-    toggleSeleccionCuenta(card.dataset.movimientoId)
+    toggle(card.dataset.movimientoId)
 }
 
 function manejarClickFueraCardsCuenta(evento) {
@@ -1442,7 +1462,7 @@ function manejarClickFueraCardsCuenta(evento) {
     if (evento.target.closest("#app-footer")) return
     if (evento.target.closest(".modal-overlay")) return
     ocultarAccionesCardsCuenta()
-    limpiarSeleccionCuenta()
+    limpiar()
 }
 
 function manejarTecladoSeleccionCuenta(evento) {
@@ -1450,62 +1470,32 @@ function manejarTecladoSeleccionCuenta(evento) {
     if (estaAbierto()) return
 
     if (evento.key === "Escape") {
-        if (seleccionadosCuenta.size > 0) {
+        if (obtenerSeleccionados().size > 0) {
             ocultarAccionesCardsCuenta()
-            limpiarSeleccionCuenta()
+            limpiar()
         }
         return
     }
 
     if (evento.key !== "Delete" && evento.key !== "Backspace") return
     if (evento.target.matches("input, textarea, select")) return
-    if (seleccionadosCuenta.size === 0) return
+    if (obtenerSeleccionados().size === 0) return
     evento.preventDefault()
     deseleccionarUltimoCuenta()
 }
 
-function seleccionarPorUnClickCuenta(id, conShift) {
-    if (conShift) {
-        toggleSeleccionCuenta(id)
-        return
-    }
-    if (seleccionadosCuenta.size === 1 && seleccionadosCuenta.has(id)) return
-    seleccionadosCuenta.clear()
-    ordenSeleccionCuenta.length = 0
-    seleccionadosCuenta.add(id)
-    ordenSeleccionCuenta.push(id)
-    actualizarSeleccionCuentaEnDOM()
-}
-
-function toggleSeleccionCuenta(id) {
-    if (seleccionadosCuenta.has(id)) {
-        seleccionadosCuenta.delete(id)
-        const idx = ordenSeleccionCuenta.indexOf(id)
-        if (idx !== -1) ordenSeleccionCuenta.splice(idx, 1)
-    } else {
-        seleccionadosCuenta.add(id)
-        ordenSeleccionCuenta.push(id)
-    }
-    actualizarSeleccionCuentaEnDOM()
-}
-
-function limpiarSeleccionCuenta() {
-    if (seleccionadosCuenta.size === 0) return
-    seleccionadosCuenta.clear()
-    ordenSeleccionCuenta.length = 0
-    actualizarSeleccionCuentaEnDOM()
-}
-
 function deseleccionarUltimoCuenta() {
-    if (ordenSeleccionCuenta.length === 0) return
-    toggleSeleccionCuenta(ordenSeleccionCuenta[ordenSeleccionCuenta.length - 1])
+    const orden = obtenerOrdenSeleccion()
+    const id = orden[orden.length - 1]
+    if (!id) return
+    deseleccionar(id)
 }
 
 function actualizarSeleccionCuentaEnDOM() {
     const container = document.getElementById("lista-movimientos-cuenta")
     if (!container) return
     container.querySelectorAll(".movimiento-item").forEach(card => {
-        card.classList.toggle("seleccionado", seleccionadosCuenta.has(card.dataset.movimientoId))
+        card.classList.toggle("seleccionado", estaSeleccionado(card.dataset.movimientoId))
     })
 }
 
@@ -1543,7 +1533,7 @@ function vincularGestosCardCuenta(container) {
         const duracion = evento.pointerType === "touch" ? 500 : 700
         gesto.timer = setTimeout(() => {
             if (!gesto) return
-            toggleSeleccionCuenta(card.dataset.movimientoId)
+            toggle(card.dataset.movimientoId)
             marcarSupresorClickCuenta()
             cancelar()
         }, duracion)
@@ -1622,7 +1612,7 @@ function abrirModalEliminarMovimientoCuenta(m) {
         onConfirm: async () => {
             try {
                 const snapshot = { ...m }
-                limpiarSeleccionCuenta()
+                limpiar()
                 await eliminarMovimiento(uid, m)
                 await cargarCuentas()
                 ofrecerDeshacer({

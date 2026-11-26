@@ -15,7 +15,7 @@
  */
 
 import Viselect from "../lib/viselect.esm.js"
-import { animate } from "../lib/anime.esm.min.js"
+import { animarToggle, cancelarPorContexto } from "./animaciones.js"
 
 // ---------------------------------------------------------------------------
 // Estado interno (una sola selección activa a la vez en la app)
@@ -28,33 +28,6 @@ let onCambioActivo = null     // callback(idsSeleccionados, orden)
 
 const seleccionados = new Set()   // ids seleccionados
 const ordenSeleccion = []         // orden en que se seleccionaron
-const animaciones = new Map()     // elemento → instancia anime (para cancelar)
-
-// ---------------------------------------------------------------------------
-// Animaciones (entrada / salida de .seleccionado)
-// ---------------------------------------------------------------------------
-
-function cancelarAnimacion(elemento) {
-    const previa = animaciones.get(elemento)
-    if (previa) {
-        previa.pause()
-        animaciones.delete(elemento)
-    }
-}
-
-function animarSeleccion(elemento, seleccionado) {
-    cancelarAnimacion(elemento)
-
-    const a = animate(elemento, {
-        scale: seleccionado ? [0.95, 1] : [1, 0.95],
-        opacity: seleccionado ? [0, 1] : [1, 0],
-        duration: 150,
-        easing: "easeOutQuad",
-    })
-
-    animaciones.set(elemento, a)
-    a.finished.then(() => animaciones.delete(elemento))
-}
 
 // ---------------------------------------------------------------------------
 // Sincronización con viselect (selección por arrastre / marquee)
@@ -70,13 +43,13 @@ function sincronizarConViselect() {
     for (const id of nuevosIds) {
         if (!previos.has(id)) {
             const el = elementoPorId(id)
-            if (el) animarSeleccion(el, true)
+            if (el) animarToggle(el, true, { duracion: 150, contexto: "seleccion" })
         }
     }
     for (const id of previos) {
         if (!nuevosIds.has(id)) {
             const el = elementoPorId(id)
-            if (el) animarSeleccion(el, false)
+            if (el) animarToggle(el, false, { duracion: 150, contexto: "seleccion" })
         }
     }
 
@@ -118,7 +91,7 @@ export function activarSeleccion(contenedor, {
     viselect = new Viselect({
         selectables: selectorItem,
         document: document,
-        features: { deselectOnBlur },
+        features: { deselectOnBlur, singleTap: { allow: false } },
         behaviour: { intersect: "partial", overlap: "invert" },
         selectionAreaClass: "selection-area",
     })
@@ -138,8 +111,7 @@ export function desactivarSeleccion() {
     contenedorActivo = null
     obtenerIdActivo = null
     onCambioActivo = null
-    animaciones.forEach(a => a.pause())
-    animaciones.clear()
+    cancelarPorContexto("seleccion")
 }
 
 /**
@@ -171,7 +143,7 @@ export function seleccionar(id) {
     seleccionados.add(id)
     if (!ordenSeleccion.includes(id)) ordenSeleccion.push(id)
     const el = elementoPorId(id)
-    if (el) animarSeleccion(el, true)
+    if (el) animarToggle(el, true, { duracion: 150, contexto: "seleccion" })
     if (onCambioActivo) onCambioActivo(new Set(seleccionados), [...ordenSeleccion])
 }
 
@@ -184,7 +156,7 @@ export function deseleccionar(id) {
     const idx = ordenSeleccion.indexOf(id)
     if (idx !== -1) ordenSeleccion.splice(idx, 1)
     const el = elementoPorId(id)
-    if (el) animarSeleccion(el, false)
+    if (el) animarToggle(el, false, { duracion: 150, contexto: "seleccion" })
     if (onCambioActivo) onCambioActivo(new Set(seleccionados), [...ordenSeleccion])
 }
 
@@ -205,7 +177,7 @@ export function seleccionarTodos(listaIds) {
             seleccionados.add(id)
             if (!ordenSeleccion.includes(id)) ordenSeleccion.push(id)
             const el = elementoPorId(id)
-            if (el) animarSeleccion(el, true)
+            if (el) animarToggle(el, true, { duracion: 150, contexto: "seleccion" })
         }
     }
     if (onCambioActivo) onCambioActivo(new Set(seleccionados), [...ordenSeleccion])
@@ -218,7 +190,7 @@ export function limpiar() {
     if (seleccionados.size === 0) return
     for (const id of seleccionados) {
         const el = elementoPorId(id)
-        if (el) animarSeleccion(el, false)
+        if (el) animarToggle(el, false, { duracion: 150, contexto: "seleccion" })
     }
     seleccionados.clear()
     ordenSeleccion.length = 0
