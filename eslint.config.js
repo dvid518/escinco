@@ -8,15 +8,11 @@ export default [
       "coverage/",
       "tests/fixtures/",
       "*.md",
-      // Directorios de herramientas y habilidades de OpenCode (no son código
-      // fuente del proyecto escinco ni se despliegan a producción).
       ".opencode/**",
       ".codex/**",
       ".cursor/**",
       ".agents/**",
-      // Librerías vendorizadas y minificadas: no las mantenemos nosotros.
       "js/lib/",
-      // Código de experimentos y de la demo: no forma parte de la app desplegada.
       "experimentos/",
       "prototipos/**",
       "firebase/demo/"
@@ -30,12 +26,10 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
-        // SortableJS se carga como UMD desde js/lib/sortable.min.js.
         Sortable: "readonly"
       }
     },
     rules: {
-      // Solo reglas de corrección (no estilo de formateo)
       "no-console": ["error", { allow: ["info", "warn", "error"] }],
       "no-eval": "error",
       "no-implied-eval": "error",

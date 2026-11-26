@@ -1,6 +1,9 @@
-import { actualizarPreferencias } from "../../firebase/firestore.js"
+import { actualizarPreferencias, obtenerCuentas, obtenerMovimientos, obtenerPreferencias } from "../../firebase/firestore.js"
+import { obtenerSnapshots } from "../repositories/SnapshotRepositorio.js"
+import { obtenerPosiciones } from "../repositories/PosicionRepositorio.js"
 import { DIVISAS, DIVISAS_LABELS, DIVISAS_SYMBOLS, DIVISAS_PALABRAS, TIPO_CAMBIO_DEFAULT } from "../../constants/divisas.js"
 import { sesion } from "../core/sesion.js"
+import { cacheCapa } from "../core/cache.js"
 
 // ============================================
 // DIVISA SERVICIO
@@ -254,5 +257,94 @@ export async function actualizarTipoCambioAuto(uid) {
         throw error
     } finally {
         clearTimeout(temporizador)
+    }
+}
+
+// ============================================
+// HISTORIAL DE DIVISAS (para toggle Patrimonio y card patrimonio-divisa)
+// ============================================
+
+/**
+ * Consulta las divisas que el usuario ha utilizado ALGUNA VEZ en su historial.
+ * Fuentes: movimientos, cuentas (activas + archivadas), snapshots, posiciones.
+ * Solo devuelve PEN, USD, EUR (excluye USDT y otras).
+ * Orden fijo: PEN → USD → EUR.
+ * Cache 5 min (cacheCapa).
+ */
+export async function obtenerDivisasConHistorial(uid) {
+    if (!uid) return ["pen"]
+
+    const cacheKey = `divisas:historial:${uid}`
+    const cached = cacheCapa.obtenerCache ? cacheCapa.obtenerCache(uid, cacheKey) : null
+    if (cached) return cached
+
+    try {
+        const [movimientos, cuentas, snapshots, posiciones] = await Promise.allSettled([
+            obtenerMovimientos(uid),
+            obtenerCuentas(uid),
+            obtenerSnapshots(uid, 365), // último año
+            obtenerPosiciones(uid)
+        ])
+
+        const divisasUsadas = new Set()
+
+        // 1. Movimientos: campo `divisa`
+        if (movimientos.status === "fulfilled") {
+            for (const m of movimientos.value) {
+                const d = String(m.divisa || m.moneda || "").toLowerCase()
+                if (["pen", "usd", "eur"].includes(d)) divisasUsadas.add(d)
+            }
+        }
+
+        // 2. Cuentas (activas + archivadas): campo `moneda`
+        if (cuentas.status === "fulfilled") {
+            for (const c of cuentas.value) {
+                const d = String(c.moneda || "").toLowerCase()
+                if (["pen", "usd", "eur"].includes(d)) divisasUsadas.add(d)
+            }
+        }
+
+        // 3. Snapshots: campos *PEN, *USD, *EUR con valor > 0
+        if (snapshots.status === "fulfilled") {
+            for (const s of snapshots.value) {
+                if (Number(s.patrimonioPEN) > 0 || Number(s.liquidezPEN) > 0 || Number(s.inversionesPEN) > 0 || Number(s.inmovilPEN) > 0 || Number(s.deudasPEN) > 0) divisasUsadas.add("pen")
+                if (Number(s.patrimonioUSD) > 0 || Number(s.liquidezUSD) > 0 || Number(s.inversionesUSD) > 0 || Number(s.inmovilUSD) > 0 || Number(s.deudasUSD) > 0) divisasUsadas.add("usd")
+                if (Number(s.patrimonioEUR) > 0 || Number(s.liquidezEUR) > 0 || Number(s.inversionesEUR) > 0 || Number(s.inmovilEUR) > 0 || Number(s.deudasEUR) > 0) divisasUsadas.add("eur")
+            }
+        }
+
+        // 4. Posiciones: campo `divisa`
+        if (posiciones.status === "fulfilled") {
+            for (const p of posiciones.value) {
+                const d = String(p.divisa || "").toLowerCase()
+                if (["pen", "usd", "eur"].includes(d)) divisasUsadas.add(d)
+            }
+        }
+
+        // Orden fijo PEN → USD → EUR
+        const resultado = ["pen", "usd", "eur"].filter(d => divisasUsadas.has(d))
+        if (resultado.length === 0) resultado.push("pen") // fallback
+
+        // Cache 5 min
+        if (cacheCapa.guardarCache) cacheCapa.guardarCache(uid, cacheKey, resultado, 5 * 60 * 1000)
+
+        return resultado
+    } catch (error) {
+        console.error("[ERROR] obtenerDivisasConHistorial:", error)
+        return ["pen"] // fallback seguro
+    }
+}
+
+// Funciones auxiliares para cacheCapa (cache simple en memoria)
+if (!cacheCapa.obtenerCache) {
+    const _memCache = new Map()
+    cacheCapa.obtenerCache = (uid, key) => {
+        const entry = _memCache.get(`${uid}:${key}`)
+        if (entry && Date.now() < entry.expires) return entry.value
+        _memCache.delete(`${uid}:${key}`)
+        return null
+    }
+    cacheCapa.guardarCache = (uid, key, value, ttl) => {
+        _memCache.set(`${uid}:${key}`, { value, expires: Date.now() + ttl })
     }
 }

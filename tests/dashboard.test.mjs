@@ -1677,8 +1677,8 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         textoCards.includes('"distribucion-activos"') && textoCards.includes("Distribución por tipo de activo")
     )
     t.check(
-        "E2B.1 distribucion-activos spanColumnas 1, spanFilas 1",
-        textoCards.includes("spanColumnas: 1") && textoCards.includes("spanFilas: 1")
+        "E2B.1 distribucion-activos spanColumnas 1, spanFilas 2 (default 1x2)",
+        textoCards.includes("spanColumnas: 1") && textoCards.includes("spanFilas: 2")
     )
 
     // E2B.2: distribucion-activos en DASHBOARD_DIMENSIONES con altoMax 3.
@@ -1688,7 +1688,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
     t.check(
         "E2B.2 distribucion-activos altoMax 3",
-        /"distribucion-activos":\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*1,\s*altoMax:\s*3/.test(textoDim)
+        /"distribucion-activos":\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*2,\s*altoMax:\s*3/.test(textoDim)
     )
 
     // E2B.3: calcularIngresosEgresos existe en el codigo fuente.
@@ -1718,12 +1718,12 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
     )
     const textoGen = SRC.slice(iGen, SRC.indexOf("\n}", iGen) + 2)
     t.check(
-        "E2B.4 distribucion 1x1 no tiene dona",
-        textoGen.includes("filas === 1") && !textoGen.includes("distribucion-dona").length > 0 || true
+        "E2B.4 distribucion 1x2 no tiene dona",
+        textoGen.includes("filas === 3") && !textoGen.includes("filas === 1")
     )
     t.check(
-        "E2B.4 generador tiene condicional por filas",
-        textoGen.includes("filas === 1") || textoGen.includes("filas === 3")
+        "E2B.4 generador tiene condicional por filas (1x2 vs 1x3)",
+        textoGen.includes("filas === 3")
     )
 
     // E2B.5: metas y presupuestos tienen entradas en DASHBOARD_DIMENSIONES.
@@ -1736,17 +1736,23 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         SRC.includes('"presupuestos":')
     )
 
-    // E2B.6: altoMax por tarjeta respeta la matriz aprobada.
-    // Decisión del PO (Subfase 2): 1x3 en las tarjetas de eje Y que tienen
-    // desglose real, salvo patrimonio (1x1/1x2). Son 16: distribucion,
-    // distribucion-activos, patrimonio-divisa, movimientos, metas, pendientes,
-    // favoritos, presupuestos, vencimientos, ordenes, estrategias, programados,
-    // alertas, cuentas, inversiones y deudas. Las métricas de período
-    // (ingresos, gastos, balance) y flujo-caja quedan en 1x2 porque no tienen
-    // desglose que mostrar.
+    // E2B.6: altoMax por tarjeta respeta la matriz aprobada (PO 2025-11-25).
+    // Solo 3 tarjetas con altoMax 3: distribucion, distribucion-activos, patrimonio-divisa.
     t.check(
-        "E2B.6 distribucion y demas listas permiten altoMax 3",
-        (textoDim.match(/altoMax:\s*3/g) || []).length === 16
+        "E2B.6 solo 3 tarjetas con altoMax 3",
+        (textoDim.match(/altoMax:\s*3/g) || []).length === 3
+    )
+    t.check(
+        "E2B.6 distribucion altoMax 3",
+        /distribucion:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*2,\s*altoMax:\s*3/.test(textoDim)
+    )
+    t.check(
+        "E2B.6 distribucion-activos altoMax 3",
+        /"distribucion-activos":\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*2,\s*altoMax:\s*3/.test(textoDim)
+    )
+    t.check(
+        "E2B.6 patrimonio-divisa altoMax 3",
+        /"patrimonio-divisa":\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*2,\s*altoMax:\s*3/.test(textoDim)
     )
     t.check(
         "E2B.6 patrimonio altoMax 2",
@@ -1757,17 +1763,27 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         /grafico:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*2,\s*altoMin:\s*2,\s*altoMax:\s*2/.test(textoDim)
     )
 
-    // E2B.9: las tres tarjetas con desglose real admiten 1x3.
-    for (const id of ["cuentas", "inversiones", "deudas"]) {
-        const re = new RegExp(`"?${id}"?:\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*3`)
-        t.check(`E2B.9 ${id} admite 1x3`, re.test(textoDim))
+    // E2B.9: cuentas e inversiones máx 1x2 (altoMax 2), deudas solo 1x1 (altoMax 1).
+    for (const id of ["cuentas", "inversiones"]) {
+        const re = new RegExp(`"?${id}"?:\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*2`)
+        t.check(`E2B.9 ${id} admite 1x2`, re.test(textoDim))
     }
+    // deudas solo 1x1
+    t.check(
+        "E2B.9 deudas solo 1x1",
+        /deudas:\s*\{\s*anchoMin:\s*1,\s*anchoMax:\s*1,\s*altoMin:\s*1,\s*altoMax:\s*1/.test(textoDim)
+    )
 
-    // E2B.10: las métricas sin desglose real se quedan en 1x2.
-    for (const id of ["flujo-caja", "gastos-periodo", "ingresos-periodo", "balance-periodo"]) {
-        const re = new RegExp(`"${id}":\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*2`)
-        t.check(`E2B.10 ${id} limitada a 1x2`, re.test(textoDim))
+    // E2B.10: flujo-caja eliminada; métricas de período solo 1x1 (altoMax 1).
+    for (const id of ["gastos-periodo", "ingresos-periodo", "balance-periodo"]) {
+        const re = new RegExp(`"${id}":\\s*\\{\\s*anchoMin:\\s*1,\\s*anchoMax:\\s*1,\\s*altoMin:\\s*1,\\s*altoMax:\\s*1`)
+        t.check(`E2B.10 ${id} limitada a 1x1`, re.test(textoDim))
     }
+    // flujo-caja ya no existe en el catálogo
+    t.check(
+        "E2B.10 flujo-caja eliminada",
+        !textoDim.includes('"flujo-caja"')
+    )
 
     // E2B.7: Patrimonio s� permite 1x1 y 1x2 (altoMax 2).
     t.check(
@@ -2160,7 +2176,8 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
                         hijos: [],
                         replaceChildren: function () { this.hijos = [].slice.call(arguments); },
                         classList: { add: function () {}, remove: function () {}, toggle: function () {}, contains: function () { return false; } },
-                        querySelectorAll: function () { return []; }
+                        querySelectorAll: function () { return []; },
+                        style: {}
                     };
                 }
                 return __els[id];
@@ -2178,12 +2195,15 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var convertirMonto = function (monto) { return monto; };
         var etiquetaDivisa = function (divisa) { return String(divisa).toUpperCase(); };
         var ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur", "usdt"];
+        var uid = "test-uid";
+        var obtenerDivisasConHistorial = async () => ["pen", "usd", "eur"];
         var analiticaData = null;
         var patrimonioStats = null;
         var posicionesData = [];
         var favoritosData = [];
-        var ETIQUETAS_TIPO_ACTIVO = { crypto: "Cripto", accion: "Acciones", etf: "ETF" };
-        var CLASES_TIPO_ACTIVO = { crypto: "cripto", accion: "accion", etf: "etf" };
+        var ORDEN_TIPOS_ACTIVO = ["accion", "etf", "crypto", "bono", "otros"];
+        var ETIQUETAS_TIPO_ACTIVO = { crypto: "Cripto", accion: "Acciones", etf: "ETF", bono: "Bono", otros: "Otros" };
+        var CLASES_TIPO_ACTIVO = { crypto: "cripto", accion: "accion", etf: "etf", bono: "bono", otros: "otros" };
         var sesion = { getPreferencias: function () { return { movimientosRecientes: 2 }; } };
         var movimientosCompletosData = [];
         var enlazarMovimientos = function () {};
@@ -2197,7 +2217,9 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         "actualizarDistribucionActivos",
         "actualizarPatrimonioDivisa",
         "actualizarMovimientos",
-        "actualizarFavoritos"
+        "actualizarFavoritos",
+        "actualizarDeudas",
+        "generarCardMetrica"
     ].forEach(nombre => vm.runInContext(extraerFuncion(SRC, nombre) + ";", ctxV))
 
     const itemsRenderizados = (id) => ctxV.__els[id]?.hijos?.[0]?.items ?? []
@@ -2206,7 +2228,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         return contenedor ? contenedor.items.map(contenedor.mapear) : []
     }
 
-    ctxV.cardsDimensionesDashboard = { distribucion: { columnas: 1, filas: 1 } }
+    ctxV.cardsDimensionesDashboard = { distribucion: { columnas: 1, filas: 2 } }
     ctxV.__els = {}
     ctxV.analiticaData = {
         distribucion: [
@@ -2217,15 +2239,28 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         ]
     }
     ctxV.actualizarDistribucion()
-    const dist1 = valoresRenderizados("distribucion-lista")
+    const dist2 = valoresRenderizados("distribucion-lista")
     t.check(
-        "E8.5 Distribución 1x1 muestra la categoría de mayor participación",
-        dist1.length === 1 && dist1[0].valores.etiqueta === "Inversiones" &&
-        dist1[0].valores.porcentaje === "70%",
-        JSON.stringify(dist1)
+        "E8.5 Distribución 1x2 muestra las 4 categorías ordenadas por valor",
+        dist2.length === 4 && dist2[0].valores.etiqueta === "Inversiones" &&
+        dist2[0].valores.porcentaje === "70%",
+        JSON.stringify(dist2)
     )
 
-    ctxV.cardsDimensionesDashboard = { "distribucion-activos": { columnas: 1, filas: 1 } }
+    ctxV.cardsDimensionesDashboard = { distribucion: { columnas: 1, filas: 3 } }
+    ctxV.__els = {}
+    ctxV.__donaLlamada = false
+    ctxV.actualizarDistribucion()
+    t.check(
+        "E8.5 Distribución 1x3 dibuja dona y lista completa",
+        valoresRenderizados("distribucion-lista").length === 4 && ctxV.__donaLlamada === true,
+        JSON.stringify({
+            items: valoresRenderizados("distribucion-lista").length,
+            dona: ctxV.__donaLlamada
+        })
+    )
+
+    ctxV.cardsDimensionesDashboard = { "distribucion-activos": { columnas: 1, filas: 2 } }
     ctxV.__els = {}
     ctxV.posicionesData = [
         { cantidad: 1, divisa: "usd", activo: { tipo: "crypto", ultimoPrecio: 700 } },
@@ -2233,12 +2268,25 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         { cantidad: 1, divisa: "usd", activo: { tipo: "etf", ultimoPrecio: 100 } }
     ]
     ctxV.actualizarDistribucionActivos()
-    const act1 = valoresRenderizados("distribucion-activos-lista")
+    const act2 = valoresRenderizados("distribucion-activos-lista")
     t.check(
-        "E8.5 Distribución por activo 1x1 muestra el tipo con más valor y su porcentaje real",
-        act1.length === 1 && act1[0].valores.etiqueta === "Cripto" &&
-        act1[0].valores.porcentaje === "70%",
-        JSON.stringify(act1)
+        "E8.5 Distribución por activo 1x2 muestra 5 tipos en orden fijo",
+        act2.length === 5 && act2[0].valores.etiqueta === "Cripto" &&
+        act2[0].valores.porcentaje === "70%",
+        JSON.stringify(act2)
+    )
+
+    ctxV.cardsDimensionesDashboard = { "distribucion-activos": { columnas: 1, filas: 3 } }
+    ctxV.__els = {}
+    ctxV.__donaLlamada = false
+    ctxV.actualizarDistribucionActivos()
+    t.check(
+        "E8.5 Distribución por activo 1x3 dibuja dona y lista completa (5 tipos)",
+        valoresRenderizados("distribucion-activos-lista").length === 5 && ctxV.__donaLlamada === true,
+        JSON.stringify({
+            items: valoresRenderizados("distribucion-activos-lista").length,
+            dona: ctxV.__donaLlamada
+        })
     )
 
     ctxV.cardsDimensionesDashboard = { "patrimonio-divisa": { columnas: 1, filas: 1 } }
@@ -2307,6 +2355,70 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         fav2 === 3 && fav3 === 6,
         JSON.stringify({ fav2, fav3 })
     )
+
+    // ================================================================
+    // Etapa 8 Fase 3: Tarjeta Deudas 1x1 (métrica simple)
+    // ================================================================
+    // Fuente única: analiticaData.deudas (suma cuenta.deuda de tarjetas
+    // crédito activas). Detalle: "Próximo pago: DD/MM" si hay programa de
+    // tarjeta, si no "X tarjetas con deuda". Sin variantes por alto.
+    {
+        // Generador: métrica simple con título, valor y detalle.
+        const html = ctxV.generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle")
+        t.check(
+            "E8.x Deudas genera tarjeta métrica simple con título, valor y detalle",
+            html.includes('id="card-deudas"') &&
+            html.includes('id="deudas-valor"') &&
+            html.includes('id="deudas-detalle"') &&
+            html.includes('<div class="card-title">Deudas</div>'),
+            html
+        )
+
+        // Actualizador: valor desde analiticaData.deudas (fuente única).
+        const proximoPago = new Date(2025, 10, 25) // 25/11/2025
+        ctxV.analiticaData = { deudas: 1500, tarjetasConDeuda: 2, programados: [{ tipo: "tarjeta", fecha: proximoPago }] }
+        ctxV.divisaActual = "pen"
+        ctxV.__els = {}
+        ctxV.actualizarDeudas()
+        t.check(
+            "E8.x Deudas pinta el total de analiticaData.deudas",
+            ctxV.__els["deudas-valor"]?.textContent === "1500"
+        )
+        t.check(
+            "E8.x Deudas detalle muestra próximo pago en DD/MM",
+            ctxV.__els["deudas-detalle"]?.textContent === "Próximo pago: 25/11"
+        )
+
+        // Sin próximo pago de tarjeta: contador de tarjetas con deuda.
+        ctxV.analiticaData = { deudas: 0, tarjetasConDeuda: 0, programados: [] }
+        ctxV.__els = {}
+        ctxV.actualizarDeudas()
+        t.check(
+            "E8.x Deudas sin próximo pago dice '0 tarjetas con deuda'",
+            ctxV.__els["deudas-detalle"]?.textContent === "0 tarjetas con deuda"
+        )
+
+        ctxV.analiticaData = { deudas: 300, tarjetasConDeuda: 1, programados: [{ tipo: "programado", fecha: proximoPago }] }
+        ctxV.__els = {}
+        ctxV.actualizarDeudas()
+        t.check(
+            "E8.x Deudas detalle singular '1 tarjeta con deuda'",
+            ctxV.__els["deudas-detalle"]?.textContent === "1 tarjeta con deuda"
+        )
+
+        // Sin datos: limpia valor y detalle (no deja esqueleto).
+        ctxV.analiticaData = null
+        ctxV.__els = {}
+        ctxV.actualizarDeudas()
+        t.check(
+            "E8.x Deudas limpia valor cuando analiticaData es null",
+            ctxV.__els["deudas-valor"]?.textContent === ""
+        )
+        t.check(
+            "E8.x Deudas limpia detalle cuando analiticaData es null",
+            ctxV.__els["deudas-detalle"]?.textContent === ""
+        )
+    }
 
     return t
 }

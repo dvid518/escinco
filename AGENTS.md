@@ -718,6 +718,17 @@ No presentar como finalizado un trabajo que todavía tenga fases pendientes.
 
 ---
 
+## 19. Archivos temporales y experimentos
+
+Todos los archivos y scripts temporales deben existir dentro de la carpeta `temp/`, nunca en la raíz del repositorio.
+
+- `temp/scripts/` — scripts temporales (por ejemplo, scripts de migración o actualización de un solo uso como `update_modal.py`).
+- `temp/exp/` — experimentos HTML y pruebas preliminares antes de integrarlas al proyecto.
+
+Estos archivos son de trabajo auxiliar, no forman parte del entregable y no deben mezclarse con el código fuente en `js/`, `css/`, `tests/` ni `firebase/`.
+
+---
+
 ## 18. Regla final
 
 El agente no debe optimizar únicamente para terminar rápido o producir una solución que parezca funcionar.

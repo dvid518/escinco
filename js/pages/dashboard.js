@@ -22,7 +22,8 @@ import {
     convertirMontoConResultado,
     formatearMonto,
     presentarDivisa,
-    etiquetaDivisa
+    etiquetaDivisa,
+    obtenerDivisasConHistorial
 } from "../services/DivisaServicio.js"
 import { obtenerPosicionesConValor } from "../services/PosicionServicio.js"
 import { estadoCicloDe, nivelUsoDe, proximaAnualidad } from "../services/CreditoServicio.js"
@@ -114,20 +115,19 @@ const DASHBOARD_CARDS = [
     { id: "inversiones", label: "Inversiones", spanColumnas: 1, spanFilas: 1 },
     { id: "vencimientos", label: "Próximos vencimientos", spanColumnas: 1, spanFilas: 1 },
     { id: "movimientos", label: "Últimos movimientos", spanColumnas: 1, spanFilas: 2, scroll: true },
-    { id: "favoritos", label: "Favoritos", spanColumnas: 1, spanFilas: 1 },
+    { id: "favoritos", label: "Favoritos", spanColumnas: 1, spanFilas: 2 },
     { id: "metas", label: "Metas de ahorro", spanColumnas: 1, spanFilas: 1 },
     { id: "presupuestos", label: "Presupuestos", spanColumnas: 1, spanFilas: 1 },
     { id: "pendientes", label: "Pendientes", spanColumnas: 1, spanFilas: 1 },
     { id: "ordenes", label: "Órdenes", spanColumnas: 1, spanFilas: 1 },
     { id: "estrategias", label: "Estrategias", spanColumnas: 1, spanFilas: 1 },
-    { id: "flujo-caja", label: "Flujo de caja", spanColumnas: 1, spanFilas: 1 },
     { id: "gastos-periodo", label: "Gastado", spanColumnas: 1, spanFilas: 1 },
     { id: "ingresos-periodo", label: "Ingresado", spanColumnas: 1, spanFilas: 1 },
     { id: "balance-periodo", label: "Balance", spanColumnas: 1, spanFilas: 1 },
     { id: "deudas", label: "Deudas", spanColumnas: 1, spanFilas: 1 },
     { id: "distribucion", label: "Distribución patrimonial", spanColumnas: 1, spanFilas: 2 },
-    { id: "distribucion-activos", label: "Distribución por tipo de activo", spanColumnas: 1, spanFilas: 1 },
-    { id: "patrimonio-divisa", label: "Patrimonio por divisa", spanColumnas: 1, spanFilas: 1 },
+    { id: "distribucion-activos", label: "Distribución por tipo de activo", spanColumnas: 1, spanFilas: 2 },
+    { id: "patrimonio-divisa", label: "Patrimonio por divisa", spanColumnas: 1, spanFilas: 2 },
     { id: "programados", label: "Movimientos programados", spanColumnas: 1, spanFilas: 1 },
     { id: "alertas", label: "Alertas", spanColumnas: 1, spanFilas: 1 },
     { id: "grafico", label: "Evolución patrimonial", spanColumnas: 2, spanFilas: 2 }
@@ -145,37 +145,67 @@ function tituloDesdeIdCard(cardId) {
     return texto.charAt(0).toUpperCase() + texto.slice(1)
 }
 
-// Dimensiones permitidas por card (matriz H2).
+// Dimensiones permitidas por card (matriz H2 — aprobada PO 2025-11-25).
 // ancho/alto: mínimos y máximos que el usuario puede elegir en el editor.
 // default: valor usado cuando no hay preferencia guardada.
 const DASHBOARD_DIMENSIONES = {
-    // Eje Y (ancho fijo 1, alto 1-3). Patrimonio es la excepción: solo 1x1 y
-    // 1x2 (requisito PO Etapa 8: elegir dimensiones 1x1 y 1x2, eje Y).
+    // Patrimonio: solo 1x1 y 1x2 (eje Y). Toggle divisa PEN/USD/EUR (sin USDT, solo historial).
     patrimonio:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    "distribucion-activos": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Distribución patrimonial: 1x2 y 1x3 (NO 1x1). Única con 3 filas original.
+    distribucion:      { anchoMin: 1, anchoMax: 1, altoMin: 2, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+
+    // Distribución por tipo de activo: 1x2 y 1x3 (NO 1x1). Dona solo en 1x3.
+    "distribucion-activos": { anchoMin: 1, anchoMax: 1, altoMin: 2, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+
+    // Movimientos: 1x1, 1x2, 1x3 (con scroll).
     movimientos:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+
+    // Metas: 1x1, 1x2, 1x3. Skeleton persistente = defecto.
     metas:             { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Pendientes: 1x1, 1x2, 1x3. Orden: vencidos → próximos → sin fecha.
     pendientes:        { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Favoritos: SOLO 1x2 y 1x3 (sin 1x1).
+    favoritos:         { anchoMin: 1, anchoMax: 1, altoMin: 2, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+
+    // Presupuestos: 1x1, 1x2, 1x3. Skeleton persistente = defecto.
     presupuestos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    "patrimonio-divisa":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    // Métricas de período: solo hay un importe y un contador de movimientos,
-    // sin desglose real que justifique 3 filas (decisión PO Subfase 2).
-    "ingresos-periodo":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    "gastos-periodo":  { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    "balance-periodo": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Patrimonio por divisa: 1x2 y 1x3 (NO 1x1). Dona solo en 1x3. Divisas: PEN/USD/EUR solo historial.
+    "patrimonio-divisa": { anchoMin: 1, anchoMax: 1, altoMin: 2, altoMax: 3, anchoDefault: 1, altoDefault: 2 },
+
+    // Cuentas: máximo 1x2.
+    cuentas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+
+    // Inversiones: máximo 1x2.
+    inversiones:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+
+    // Vencimientos: máximo 1x2.
+    vencimientos:      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
+
+    // Métricas de período: SOLO 1x1.
+    "gastos-periodo":  { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 1, anchoDefault: 1, altoDefault: 1 },
+    "ingresos-periodo":{ anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 1, anchoDefault: 1, altoDefault: 1 },
+    "balance-periodo": { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 1, anchoDefault: 1, altoDefault: 1 },
+
+    // Deudas: SOLO 1x1. Total obligaciones (saldo deuda tarjetas crédito).
+    deudas:            { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 1, anchoDefault: 1, altoDefault: 1 },
+
+    // Órdenes: 1x1, 1x2, 1x3. Orden: activas → ejecutadas → canceladas.
     ordenes:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Estrategias: 1x1, 1x2, 1x3. Orden: próximas → sin fecha → pasadas.
     estrategias:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
+
+    // Programados: 1x1, 1x2, 1x3. Orden: próximos → pasados.
     programados:       { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 3, anchoDefault: 1, altoDefault: 1 },
-    "flujo-caja":      { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 2, anchoDefault: 1, altoDefault: 1 },
-    // Gráfico: alto fijo 2 (el canvas de 200 px necesita dos filas). El ancho
-    // sí es editable para permitir el toggle de resize 1x2 / 2x2 en el modal.
+
+    // Alertas: SOLO 1x1.
+    alertas:           { anchoMin: 1, anchoMax: 1, altoMin: 1, altoMax: 1, anchoDefault: 1, altoDefault: 1 },
+
+    // Gráfico: eje X, ancho 1-2, alto fijo 2.
     grafico:           { anchoMin: 1, anchoMax: 2, altoMin: 2, altoMax: 2, anchoDefault: 2, altoDefault: 2 },
 };
 
@@ -2271,18 +2301,9 @@ function generarCardGrafico(_config = {}) {
 function generarCardDistribucionDona(_config = {}) {
     const clasesSpan = clasesCard("distribucion")
     const { filas } = dimensionesCard("distribucion")
-    if (filas === 1) {
-        return `
-        <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
-            <div class="card-header">
-                <span class="card-title">Distribución patrimonial</span>
-            </div>
-            <div class="distribucion-lista texto" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
-        </div>
-    `;
-    }
+    // 1x1 ya no permitido (altoMin: 2). 1x2: solo lista+barras. 1x3: dona + lista+barras.
     const dona = filas === 3
-        ? `<div class="distribucion-dona" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+        ? `<div class="distribucion-dona distribucion-dona-top" id="distribucion-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
         : ""
     return `
         <div class="glass card card-navegable distribucion-card ${clasesSpan}" id="card-distribucion" data-dashboard-card="distribucion" role="button" tabindex="0" title="Distribución patrimonial">
@@ -2290,7 +2311,7 @@ function generarCardDistribucionDona(_config = {}) {
                 <span class="card-title">Distribución patrimonial</span>
             </div>
             ${dona}
-            <div class="distribucion-lista scroll-fade" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            <div class="distribucion-lista distribucion-lista-bottom" id="distribucion-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
 }
@@ -2396,25 +2417,34 @@ const GENERADORES_CARD = {
     },
     "distribucion-activos": () => {
         const clasesSpan = clasesCard("distribucion-activos")
+        const { filas } = dimensionesCard("distribucion-activos")
+        // 1x1 ya no permitido (altoMin: 2). 1x2: solo lista+barras. 1x3: dona + lista+barras.
+        const dona = filas === 3
+            ? `<div class="distribucion-dona distribucion-activos-dona-top" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+            : ""
         return `
         <div class="glass card card-navegable distribucion-activos-card ${clasesSpan}" id="card-distribucion-activos" data-dashboard-card="distribucion-activos" role="button" tabindex="0" title="Distribución por tipo de activo">
             <div class="card-header">
                 <span class="card-title">Distribución por tipo de activo</span>
             </div>
-            <div class="distribucion-dona" id="distribucion-activos-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-            <div class="distribucion-lista scroll-fade" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            ${dona}
+            <div class="distribucion-lista distribucion-activos-lista-bottom" id="distribucion-activos-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
     "patrimonio-divisa": () => {
         const clasesSpan = clasesCard("patrimonio-divisa")
+        const { filas } = dimensionesCard("patrimonio-divisa")
+        const dona = filas === 3
+            ? `<div class="divisa-dona divisa-dona-top" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>`
+            : ""
         return `
         <div class="glass card card-navegable patrimonio-divisa-card ${clasesSpan}" id="card-patrimonio-divisa" data-dashboard-card="patrimonio-divisa" role="button" tabindex="0" title="Patrimonio por divisa">
             <div class="card-header">
                 <span class="card-title">Patrimonio por divisa</span>
             </div>
-            <div class="divisa-dona" id="patrimonio-divisa-dona-placeholder"><div class="dona-esqueleto" aria-hidden="true"></div></div>
-            <div class="divisa-lista scroll-fade" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
+            ${dona}
+            <div class="divisa-lista divisa-lista-bottom" id="patrimonio-divisa-lista">${skeletonMarkup({ rows: 3, className: "skeleton-dashboard-list" })}</div>
         </div>
     `;
     },
@@ -3821,7 +3851,7 @@ function actualizarDeudas() {
     if (detalleEl) {
         const proximo = analiticaData.programados.find(item => item.tipo === "tarjeta")
         detalleEl.textContent = proximo
-            ? `Próximo pago ${formatearProximaEjecucion(proximo.fecha)}`
+            ? `Próximo pago: ${proximo.fecha.toLocaleDateString("es-PE", { day: "2-digit", month: "2-digit" })}`
             : `${analiticaData.tarjetasConDeuda} tarjeta${analiticaData.tarjetasConDeuda === 1 ? "" : "s"} con deuda`
     }
     cardEl?.classList.toggle("negative", analiticaData.deudas > 0)
@@ -3942,44 +3972,45 @@ function actualizarDistribucion() {
     const lista = document.getElementById("distribucion-lista")
     const totalEl = document.getElementById("distribucion-total")
     const donaPlaceholder = document.getElementById("distribucion-dona-placeholder")
+    const cardEl = document.getElementById("card-distribucion")
     if (!lista) return
-    if (!analiticaData) {
-        lista.replaceChildren(tarjetaVacia("Sin datos de distribución."))
-        actualizarScrollFade(lista)
-        if (totalEl) totalEl.textContent = ""
-        return
-    }
 
-    // Recalcular porcentajes basándose en los valores reales para que la
-    // lista y la dona siempre usen los mismos datos y los porcentajes
-    // siempre sumen 100%. Sin esto, a veces la dona y las barras muestran
-    // datos inconsistentes (porcentajes que no coinciden con los valores
-    // o que no suman 100%).
-    const items = analiticaData.distribucion.map(item => ({
-        ...item,
-        valor: Math.max(0, item.valor)
-    }))
-    const total = items.reduce((sum, item) => sum + item.valor, 0)
-    // Se ordena por valor: en 1x1 la cabecera debe ser la categoría con más
-    // peso (no la primera del array) y en 1x3 el listado va por relevancia.
-    const itemsConPorcentaje = items
-        .map(item => ({
-            ...item,
-            porcentaje: total > 0 ? (item.valor / total) * 100 : 0
-        }))
-        .sort((a, b) => b.valor - a.valor)
+    try {
 
-    if (totalEl) totalEl.textContent = formatearMontoDashboard(total, divisaActual)
-
-    if (filas === 1) {
-        // 1x1: mostrar solo la categoría con mayor participación
-        const itemMayor = itemsConPorcentaje[0]
-        if (!itemMayor) {
-            lista.replaceChildren(tarjetaVacia("Sin datos de distribución."))
+        if (!analiticaData) {
+            lista.replaceChildren(tarjetaVacia("Sin patrimonio para distribuir"))
             actualizarScrollFade(lista)
+            if (totalEl) totalEl.textContent = ""
+            if (cardEl) cardEl.classList.remove("card-error")
             return
         }
-        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", [itemMayor], item => ({
+
+        // Recalcular porcentajes basándose en los valores reales para que la
+        // lista y la dona siempre usen los mismos datos y los porcentajes
+        // siempre sumen 100%.
+        const items = analiticaData.distribucion.map(item => ({
+            ...item,
+            valor: Math.max(0, item.valor)
+        }))
+        const total = items.reduce((sum, item) => sum + item.valor, 0)
+        // Orden por valor descendente (mayor participación primero)
+        const itemsConPorcentaje = items
+            .map(item => ({
+                ...item,
+                porcentaje: total > 0 ? (item.valor / total) * 100 : 0
+            }))
+            .sort((a, b) => b.valor - a.valor)
+
+        if (totalEl) totalEl.textContent = formatearMontoDashboard(total, divisaActual)
+
+        if (total <= 0 || itemsConPorcentaje.length === 0) {
+            lista.replaceChildren(tarjetaVacia("Sin patrimonio para distribuir"))
+            actualizarScrollFade(lista)
+            if (cardEl) cardEl.classList.remove("card-error")
+            return
+        }
+
+        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", itemsConPorcentaje, item => ({
             valores: {
                 "etiqueta": item.label,
                 "porcentaje": `${item.porcentaje.toFixed(0)}%`,
@@ -3987,32 +4018,26 @@ function actualizarDistribucion() {
                 "valor": formatearMontoDashboard(item.valor, divisaActual)
             }
         })))
-        aplicoAnchoBarras(lista, [itemMayor])
-        actualizarScrollFade(lista)
-        return
-    }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", itemsConPorcentaje, item => ({
-        valores: {
-            "etiqueta": item.label,
-            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra-clase@data-clase": item.clase,
-            "valor": formatearMontoDashboard(item.valor, divisaActual)
+        if (filas >= 2) {
+            aplicoAnchoBarras(lista, itemsConPorcentaje)
         }
-    })))
+        actualizarScrollFade(lista)
 
-    if (filas >= 2) {
-        aplicoAnchoBarras(lista, itemsConPorcentaje)
-    }
-    actualizarScrollFade(lista)
+        if (filas === 3 && donaPlaceholder) {
+            dibujarDonaDistribucion(
+                itemsConPorcentaje,
+                "distribucion-dona-placeholder",
+                "distribucion-dona",
+                "distribucion-dashboard"
+            ).catch(() => {})
+        }
 
-    if (filas === 3 && donaPlaceholder) {
-        dibujarDonaDistribucion(
-            itemsConPorcentaje,
-            "distribucion-dona-placeholder",
-            "distribucion-dona",
-            "distribucion-dashboard"
-        ).catch(() => {})
+        if (cardEl) cardEl.classList.remove("card-error")
+    } catch (error) {
+        console.error("Error actualizando distribución:", error)
+        if (lista) lista.replaceChildren(tarjetaVacia("Error al cargar distribución patrimonial"))
+        if (cardEl) cardEl.classList.add("card-error")
     }
 }
 
@@ -4032,71 +4057,86 @@ const CLASES_TIPO_ACTIVO = {
     otros: "otros"
 }
 
+// Orden fijo de los 5 tipos de activo para Distribución por tipo de activo.
+// PO: mostrar siempre los 5 tipos en este orden, aunque tengan 0%.
+const ORDEN_TIPOS_ACTIVO = ["accion", "etf", "crypto", "bono", "otros"]
+
 function actualizarDistribucionActivos() {
     const { filas } = dimensionesCard("distribucion-activos")
     const lista = document.getElementById("distribucion-activos-lista")
-    const dona = document.getElementById("distribucion-activos-dona-placeholder")
+    const donaPlaceholder = document.getElementById("distribucion-activos-dona-placeholder")
+    const cardEl = document.getElementById("card-distribucion-activos")
     if (!lista) return
 
-    if (!posicionesData || posicionesData.length === 0) {
-        if (dona) dona.replaceChildren()
-        lista.replaceChildren(tarjetaVacia("No tienes posiciones abiertas."))
-        actualizarScrollFade(lista)
-        return
-    }
+    try {
 
-    const porTipo = new Map()
-    for (const posicion of posicionesData) {
-        const activo = posicion.activo || {}
-        const tipo = String(activo.tipo || "accion").toLowerCase()
-        const cantidad = Number(posicion.cantidad) || 0
-        const ultimoPrecio = Number(activo.ultimoPrecio) || 0
-        if (cantidad <= 0 || ultimoPrecio <= 0) continue
-        const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
-        porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
-    }
-
-    const items = [...porTipo.entries()]
-        .filter(([, valor]) => valor > 0)
-        .sort((a, b) => b[1] - a[1])
-        .map(([tipo, valor]) => ({
-            label: ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros",
-            valor,
-            clase: CLASES_TIPO_ACTIVO[tipo] || "otros",
-            porcentaje: 0
-        }))
-
-    const total = items.reduce((suma, item) => suma + item.valor, 0)
-    if (items.length === 0 || total <= 0) {
-        if (dona) dona.replaceChildren()
-        lista.replaceChildren(tarjetaVacia("No hay nada valorable que repartir."))
-        actualizarScrollFade(lista)
-        return
-    }
-    for (const item of items) item.porcentaje = (item.valor / total) * 100
-
-    // En 1x1 solo se muestra el tipo con más peso; en 1x2/1x3, la lista
-    // completa ordenada de mayor a menor.
-    const visibles = filas === 1 ? items.slice(0, 1) : items
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", visibles, item => ({
-        valores: {
-            "etiqueta": item.label,
-            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra-clase@data-clase": item.clase,
-            "valor": formatearMontoDashboard(item.valor, divisaActual)
+        if (!posicionesData || posicionesData.length === 0) {
+            if (donaPlaceholder) donaPlaceholder.replaceChildren()
+            lista.replaceChildren(tarjetaVacia("Sin posiciones abiertas"))
+            actualizarScrollFade(lista)
+            if (cardEl) cardEl.classList.remove("card-error")
+            return
         }
-    })))
-    aplicoAnchoBarras(lista, visibles)
-    actualizarScrollFade(lista)
 
-    if (filas === 3 && dona) {
-        // Dona solo en 1x3 para distribucion-activos (altoMax 3 permite 3 filas)
-        dibujarDonaDistribucion(
-            items,
-            "distribucion-activos-dona-placeholder",
-            "distribucion-activos-dona",
-            "distribucion-activos-dashboard"
-        ).catch(() => {})
+        const porTipo = new Map()
+        for (const posicion of posicionesData) {
+            const activo = posicion.activo || {}
+            const tipo = String(activo.tipo || "accion").toLowerCase()
+            const cantidad = Number(posicion.cantidad) || 0
+            const ultimoPrecio = Number(activo.ultimoPrecio) || 0
+            if (cantidad <= 0 || ultimoPrecio <= 0) continue
+            const valor = convertirMonto(cantidad * ultimoPrecio, posicion.divisa || "usd", divisaActual)
+            porTipo.set(tipo, (porTipo.get(tipo) || 0) + valor)
+        }
+
+        // Siempre los 5 tipos en orden fijo, aunque tengan 0
+        const items = ORDEN_TIPOS_ACTIVO.map(tipo => {
+            const valor = porTipo.get(tipo) || 0
+            return {
+                label: ETIQUETAS_TIPO_ACTIVO[tipo] || "Otros",
+                valor,
+                clase: CLASES_TIPO_ACTIVO[tipo] || "otros",
+                porcentaje: 0
+            }
+        })
+
+        const total = items.reduce((suma, item) => suma + item.valor, 0)
+        if (total <= 0) {
+            if (donaPlaceholder) donaPlaceholder.replaceChildren()
+            lista.replaceChildren(tarjetaVacia("Sin posiciones valorables"))
+            actualizarScrollFade(lista)
+            if (cardEl) cardEl.classList.remove("card-error")
+            return
+        }
+        for (const item of items) item.porcentaje = (item.valor / total) * 100
+
+        // Lista completa en orden fijo (no solo los que tienen valor)
+        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", items, item => ({
+            valores: {
+                "etiqueta": item.label,
+                "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+                "barra-clase@data-clase": item.clase,
+                "valor": formatearMontoDashboard(item.valor, divisaActual)
+            }
+        })))
+        aplicoAnchoBarras(lista, items)
+        actualizarScrollFade(lista)
+
+        if (filas === 3 && donaPlaceholder) {
+            // Dona solo en 1x3
+            dibujarDonaDistribucion(
+                items,
+                "distribucion-activos-dona-placeholder",
+                "distribucion-activos-dona",
+                "distribucion-activos-dashboard"
+            ).catch(() => {})
+        }
+
+        if (cardEl) cardEl.classList.remove("card-error")
+    } catch (error) {
+        console.error("Error actualizando distribución por tipo de activo:", error)
+        if (lista) lista.replaceChildren(tarjetaVacia("Error al cargar distribución por tipo de activo"))
+        if (cardEl) cardEl.classList.add("card-error")
     }
 }
 
@@ -4113,73 +4153,79 @@ function actualizarDistribucionActivos() {
 // variable (patrimonioPEN/USD/USDT): el campo NO es la clave de divisa en
 // minúscula que usaba antes, y leer patrimonioStats["pen"] daba siempre 0
 // (BUG-029). El campo y la clave van por separado a propósito.
-const ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur", "usdt"]
+const ORDEN_DIVISAS_PATRIMONIO = ["pen", "usd", "eur"]
 
-function actualizarPatrimonioDivisa() {
+async function actualizarPatrimonioDivisa() {
     const { filas } = dimensionesCard("patrimonio-divisa")
     const lista = document.getElementById("patrimonio-divisa-lista")
+    const donaPlaceholder = document.getElementById("patrimonio-divisa-dona-placeholder")
+    const cardEl = document.getElementById("card-patrimonio-divisa")
     if (!lista) return
 
-    if (!patrimonioStats) {
-        lista.replaceChildren(tarjetaVacia("No se pudo calcular el patrimonio."))
-        actualizarScrollFade(lista)
-        return
-    }
+    try {
 
-    // Desglose real por divisa en su propia moneda. Los tres totales
-    // convertidos son el mismo patrimonio en tres monedas y siempre darían
-    // partes iguales: no sirven para esta card.
-    const desglose = patrimonioStats.porDivisa || {}
-    const claves = Object.keys(desglose)
-        .filter(clave => Math.abs(Number(desglose[clave]) || 0) > 0)
-        .sort((a, b) => {
-            const ia = ORDEN_DIVISAS_PATRIMONIO.indexOf(a)
-            const ib = ORDEN_DIVISAS_PATRIMONIO.indexOf(b)
-            return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib) || (a < b ? -1 : 1)
-        })
-    const items = claves.map(clave => ({
-        etiqueta: etiquetaDivisa(clave),
-        clave,
-        valor: Number(desglose[clave]) || 0
-    }))
+        // Divisas con historial (PEN/USD/EUR, orden fijo, sin USDT)
+        const divisasHistorial = await obtenerDivisasConHistorial(uid)
 
-    // El peso de cada divisa se mide sobre el total convertido a una moneda
-    // común; si no, no serían comparables.
-    const total = convertirMonto(
-        items.reduce((suma, item) => suma + convertirMonto(item.valor, item.clave, "pen"), 0),
-        "pen",
-        divisaActual
-    )
-
-    if (total <= 0) {
-        lista.replaceChildren(tarjetaVacia("Sin patrimonio registrado."))
-        actualizarScrollFade(lista)
-        return
-    }
-
-    const itemsConPorcentaje = items
-        .map(item => ({
-            ...item,
-            porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
-        }))
-        // La divisa con más peso va primero: en 1x1 es la única que se pinta y
-        // en 1x2/1x3 el listado también se lee por relevancia.
-        .sort((a, b) => b.porcentaje - a.porcentaje)
-    const visibles = filas === 1 ? itemsConPorcentaje.slice(0, 1) : itemsConPorcentaje
-
-    lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", visibles, item => ({
-        valores: {
-            "etiqueta": item.etiqueta,
-            "porcentaje": `${item.porcentaje.toFixed(0)}%`,
-            "barra-clase@data-clase": item.clave,
-            "valor": formatearMontoDashboard(item.valor, item.clave)
+        if (!patrimonioStats) {
+            lista.replaceChildren(tarjetaVacia("No se pudo calcular el patrimonio."))
+            actualizarScrollFade(lista)
+            if (cardEl) cardEl.classList.remove("card-error")
+            return
         }
-    })))
-    aplicoAnchoBarras(lista, visibles)
-    actualizarScrollFade(lista)
 
-    // La dona solo cabe y solo aporta en 1x3; en 1x1/1x2 las barras bastan.
-    if (filas === 3) dibujarDonaDivisa(itemsConPorcentaje).catch(() => {})
+        // Desglose actual por divisa (puede estar vacío para divisas históricas)
+        const desglose = patrimonioStats.porDivisa || {}
+
+        // Construir items para todas las divisas con historial (orden fijo PEN→USD→EUR)
+        const items = divisasHistorial.map(clave => ({
+            etiqueta: etiquetaDivisa(clave),
+            clave,
+            valor: Number(desglose[clave]) || 0
+        }))
+
+        // Porcentajes sobre total convertido a moneda común
+        const total = items.reduce((suma, item) => suma + convertirMonto(item.valor, item.clave, "pen"), 0)
+
+        if (total <= 0) {
+            lista.replaceChildren(tarjetaVacia("Sin patrimonio en divisas registradas"))
+            actualizarScrollFade(lista)
+            if (cardEl) cardEl.classList.remove("card-error")
+            return
+        }
+
+        const itemsConPorcentaje = items
+            .map(item => ({
+                ...item,
+                porcentaje: Math.max(0, Math.min(100, (convertirMonto(item.valor, item.clave, divisaActual) / total) * 100))
+            }))
+            // Orden fijo PEN→USD→EUR (no por porcentaje)
+            .sort((a, b) => ORDEN_DIVISAS_PATRIMONIO.indexOf(a.clave) - ORDEN_DIVISAS_PATRIMONIO.indexOf(b.clave))
+
+        // En 1x2/1x3 se muestran todas las divisas con historial; 1x1 ya no existe
+        const visibles = itemsConPorcentaje
+
+        lista.replaceChildren(contenidoDesdeFilas("tpl-distribucion-item", visibles, item => ({
+            valores: {
+                "etiqueta": item.etiqueta,
+                "porcentaje": `${item.porcentaje.toFixed(0)}%`,
+                "barra-clase@data-clase": item.clave,
+                "valor": formatearMontoDashboard(item.valor, item.clave) // moneda original
+            }
+        })))
+        aplicoAnchoBarras(lista, visibles)
+        actualizarScrollFade(lista)
+
+        if (filas === 3 && donaPlaceholder) {
+            dibujarDonaDivisa(itemsConPorcentaje).catch(() => {})
+        }
+
+        if (cardEl) cardEl.classList.remove("card-error")
+    } catch (error) {
+        console.error("Error actualizando patrimonio por divisa:", error)
+        if (lista) lista.replaceChildren(tarjetaVacia("Error al cargar patrimonio por divisa"))
+        if (cardEl) cardEl.classList.add("card-error")
+    }
 }
 
 function actualizarProgramados() {
@@ -4542,13 +4588,24 @@ function abrirModalDistribucionPatrimonial() {
 
     const wrapper = contenidoDesdeTemplate("tpl-distribucion-patrimonial")
 
-    const categorias = [
-        { etiqueta: "Liquidez", valor: analiticaData.liquidez },
-        { etiqueta: "Inversiones", valor: analiticaData.inversiones },
-        { etiqueta: "Inmovilizado", valor: analiticaData.inmovil },
-        { etiqueta: "Deudas", valor: analiticaData.deudas }
-    ]
-        .filter(item => Math.abs(Number(item.valor) || 0) > 0)
+    // --- Datos para la dona (categorías) ---
+    const itemsDona = [
+        { etiqueta: "Liquidez", valor: analiticaData.liquidez, clase: "liquidez" },
+        { etiqueta: "Inversiones", valor: analiticaData.inversiones, clase: "inversiones" },
+        { etiqueta: "Inmovilizado", valor: analiticaData.inmovil, clase: "inmovil" },
+        { etiqueta: "Deudas", valor: analiticaData.deudas, clase: "deudas" }
+    ].filter(item => Math.abs(Number(item.valor) || 0) > 0)
+
+    const totalDona = itemsDona.reduce((sum, item) => sum + item.valor, 0)
+    const itemsDonaConPct = itemsDona.map(item => {
+        return {
+            ...item,
+            porcentaje: totalDona > 0 ? (item.valor / totalDona) * 100 : 0
+        };
+    });
+
+    // --- Categorias (lista) ---
+    const categorias = itemsDonaConPct
         .map(item => contenidoDesdeTemplate("tpl-distribucion-modal-item", {
             valores: {
                 etiqueta: item.etiqueta,
@@ -4556,6 +4613,7 @@ function abrirModalDistribucionPatrimonial() {
             }
         }))
 
+    // --- Por tipo de activo ---
     const porTipo = new Map()
     for (const posicion of posicionesData || []) {
         const activo = posicion.activo || {}
@@ -4576,6 +4634,7 @@ function abrirModalDistribucionPatrimonial() {
             }
         }))
 
+    // --- Por divisa ---
     const desgloseDivisa = patrimonioStats?.porDivisa || {}
     const divisas = Object.keys(desgloseDivisa)
         .filter(clave => Math.abs(Number(desgloseDivisa[clave]) || 0) > 0)
@@ -4591,6 +4650,7 @@ function abrirModalDistribucionPatrimonial() {
             }
         }))
 
+    // --- Cuentas involucradas ---
     const cuentasInvolucradas = (cuentas || [])
         .filter(cuenta => {
             if (cuenta.estado === "archivada") return false
@@ -4628,12 +4688,38 @@ function abrirModalDistribucionPatrimonial() {
     if (contenedorDivisas) contenedorDivisas.replaceChildren(...divisas)
     if (contenedorCuentas) contenedorCuentas.replaceChildren(...cuentasInvolucradas)
 
+    // Abrir modal y luego dibujar dona
     abrirModal({
         titulo: "Distribución patrimonial",
         contenido: wrapper,
         variante: "wide",
         confirmText: "Cerrar",
-        onConfirm: () => true
+        onConfirm: () => true,
+        onOpen: () => {
+            // Dibujar dona en el modal
+            const canvas = wrapper.querySelector("#distribucion-modal-dona")
+            const totalEl = wrapper.querySelector("#distribucion-modal-dona-total")
+            if (canvas && itemsDonaConPct.length > 0) {
+                // Total en el centro
+                if (totalEl) {
+                    const totalHtml = '<span class="distribucion-modal-dona-total-label">Total</span>' +
+                        '<span class="distribucion-modal-dona-total-valor">' +
+                        formatearMontoDashboard(totalDona, divisaActual) + '</span>'
+                    totalEl.innerHTML = totalHtml
+                }
+                // Dibujar dona
+                import("../ui/graficos.js").then(({ crearGraficoDistribucion }) => {
+                    crearGraficoDistribucion("distribucion-modal-dona", {
+                        labels: itemsDonaConPct.map(item => item.etiqueta),
+                        data: itemsDonaConPct.map(item => item.valor),
+                        colores: itemsDonaConPct.map(item => COLORES_DISTRIBUCION[item.clase])
+                    }, {
+                        chartKey: "distribucion-modal",
+                        formatear: monto => formatearMontoDashboard(monto, divisaActual)
+                    })
+                })
+            }
+        }
     })
 }
 
@@ -5340,7 +5426,7 @@ function desenmascararValores() {
 
 // Divisas que el usuario realmente usa, según sus cuentas (sin archivadas).
 // La divisa activa siempre está presente para que el toggle nunca quede sin
-// opción seleccionada.
+// opción seleccionada. Mantenida por compatibilidad (legacy).
 function divisasDeCuentas() {
     const usadas = []
     for (const cuenta of cuentas) {
@@ -5377,16 +5463,16 @@ async function refrescarValoresDashboard() {
     aplicarMascaraValores()
 }
 
-function configurarDivisa() {
+async function configurarDivisa() {
     const grupo = document.getElementById("patrimonio-divisas")
     const btnOjo = document.getElementById("patrimonio-ojo")
     if (!grupo || !btnOjo) return
 
-    // Las divisas dependen de las cuentas, que aún no existen cuando se llama a
-    // esta función (init la ejecuta antes de cargarTodo). Se recalcula en cada
-    // repintado y actualizarUI vuelve a llamarla al terminar de cargar.
-    const pintarOpciones = () => {
-        const divisas = divisasDeCuentas()
+    // Las divisas dependen del historial completo (movimientos, cuentas archivadas,
+    // snapshots, posiciones). Se recalcula en cada repintado y actualizarUI
+    // vuelve a llamarla al terminar de cargar.
+    const pintarOpciones = async () => {
+        const divisas = await obtenerDivisasConHistorial(uid)
         if (!divisas.includes(divisaActual)) divisaActual = divisas[0]
         grupo.replaceChildren(...divisas.map(divisa => {
             const opcion = document.createElement("span")
@@ -5401,13 +5487,13 @@ function configurarDivisa() {
         }))
     }
     repintarDivisasPatrimonio = pintarOpciones
-    pintarOpciones()
+    await pintarOpciones()
 
     const elegir = async (opcion) => {
         const divisa = opcion?.dataset?.divisa
         if (!divisa || divisa === divisaActual) return
         divisaActual = divisa
-        pintarOpciones()
+        await pintarOpciones()
         await refrescarValoresDashboard()
     }
 

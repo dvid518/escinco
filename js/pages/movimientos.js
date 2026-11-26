@@ -388,7 +388,7 @@ async function ejecutarFavoritoDesdeItem(favoritoId) {
     limpiarSeleccionFavoritos()
 
     // Estado visual: pendiente en la tarjeta del favorito
-    const itemFav = document.querySelector(`.favorito-item[data-favorito-id="${favoritoId}"]`)
+    let itemFav = document.querySelector(`.favorito-item[data-favorito-id="${favoritoId}"]`)
     if (itemFav) itemFav.classList.add("favorito-pendiente")
 
     // 1. Insertar movimiento provisional inmediatamente
@@ -406,7 +406,9 @@ async function ejecutarFavoritoDesdeItem(favoritoId) {
         // Éxito: reconciliar provisional -> real
         _reemplazarMovimientoProvisional(tempId, movimiento)
         // Invalidar caché (el servicio ya invalida "movimientos" y "cuentas")
-        // Estado visual: confirmado en la tarjeta del favorito
+        // El evento movimientos-actualizados disparará renderFavoritos y reemplazará el DOM:
+        // volver a consultar el elemento para manipular el nodo vivo.
+        itemFav = document.querySelector(`.favorito-item[data-favorito-id="${favoritoId}"]`)
         if (itemFav) {
             itemFav.classList.remove("favorito-pendiente")
             itemFav.classList.add("favorito-confirmado")
@@ -417,6 +419,8 @@ async function ejecutarFavoritoDesdeItem(favoritoId) {
     } catch (error) {
         // ROLLBACK: retirar provisional y restaurar estado
         _retirarMovimientoProvisional(tempId)
+        // El DOM pudo haber sido reemplazado por renderFavoritos (evento movimientos-actualizados).
+        itemFav = document.querySelector(`.favorito-item[data-favorito-id="${favoritoId}"]`)
         if (itemFav) {
             itemFav.classList.remove("favorito-pendiente")
             if (error.message === "Ejecución en curso para este favorito") {

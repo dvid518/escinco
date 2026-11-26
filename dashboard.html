@@ -634,21 +634,33 @@ height="0" width="0" class="iframe-ga-noscript"></iframe></noscript>
 
     <template id="tpl-distribucion-patrimonial">
         <div class="distribucion-modal">
-            <div class="distribucion-modal-seccion">
-                <h3 class="distribucion-modal-titulo">Categorías</h3>
-                <div class="distribucion-modal-lista" data-tpl="categorias"></div>
-            </div>
-            <div class="distribucion-modal-seccion">
-                <h3 class="distribucion-modal-titulo">Por tipo de activo</h3>
-                <div class="distribucion-modal-lista" data-tpl="tipos-activo"></div>
-            </div>
-            <div class="distribucion-modal-seccion">
-                <h3 class="distribucion-modal-titulo">Por divisa</h3>
-                <div class="distribucion-modal-lista" data-tpl="divisas"></div>
-            </div>
-            <div class="distribucion-modal-seccion">
-                <h3 class="distribucion-modal-titulo">Cuentas involucradas</h3>
-                <div class="distribucion-modal-lista" data-tpl="cuentas"></div>
+            <div class="distribucion-modal-grid">
+                <!-- Columna izquierda: Dona -->
+                <div class="distribucion-modal-dona-col">
+                    <div class="distribucion-modal-dona-wrap">
+                        <canvas id="distribucion-modal-dona"></canvas>
+                        <div class="distribucion-modal-dona-total" id="distribucion-modal-dona-total"></div>
+                    </div>
+                </div>
+                <!-- Columna derecha: Lista detallada -->
+                <div class="distribucion-modal-lista-col">
+                    <div class="distribucion-modal-seccion">
+                        <h3 class="distribucion-modal-titulo">Categorías</h3>
+                        <div class="distribucion-modal-lista" data-tpl="categorias"></div>
+                    </div>
+                    <div class="distribucion-modal-seccion">
+                        <h3 class="distribucion-modal-titulo">Por tipo de activo</h3>
+                        <div class="distribucion-modal-lista" data-tpl="tipos-activo"></div>
+                    </div>
+                    <div class="distribucion-modal-seccion">
+                        <h3 class="distribucion-modal-titulo">Por divisa</h3>
+                        <div class="distribucion-modal-lista" data-tpl="divisas"></div>
+                    </div>
+                    <div class="distribucion-modal-seccion">
+                        <h3 class="distribucion-modal-titulo">Cuentas involucradas</h3>
+                        <div class="distribucion-modal-lista" data-tpl="cuentas"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </template>

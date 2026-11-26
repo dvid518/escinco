@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@firecms/neat": "^1.1.1",
+    "@viselect/vanilla": "^3.10.1",
+    "animejs": "^4.5.0",
     "canvas": "^3.2.3"
   }
 }
