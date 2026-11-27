@@ -14,4 +14,4 @@ Disallow: /login
 Disallow: /register
 Disallow: /reset-password
 
-Sitemap: https://escinco.web.app/sitemap.xml
+Sitemap: https://www.escinco.com/sitemap.xml

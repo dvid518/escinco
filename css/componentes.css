@@ -81,6 +81,8 @@
 
 .notificacion:hover {
     border: 1px solid var(--border);
+    box-shadow: inset 0 0 10px var(--shadow);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .notificacion.notificacion-activa {
@@ -97,6 +99,14 @@
 .notificacion.notificacion-error { --acento: var(--negative); }
 .notificacion.notificacion-info { --acento: var(--textSecondary); }
 .notificacion.notificacion-warning { --acento: var(--ambarAlt); }
+
+@media (prefers-reduced-motion: reduce) {
+    .notificacion,
+    .notificacion.notificacion-activa,
+    .notificacion.notificacion-saliendo {
+        transition: none;
+    }
+}
 
 .notificacion-icono {
     flex-shrink: 0;

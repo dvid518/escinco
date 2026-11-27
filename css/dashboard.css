@@ -1168,9 +1168,11 @@ body.dashboard-card-dragging * {
 }
 
 /* Cards con dona (1x3): título arriba, dona en medio, lista/barras abajo.
-   La dona lleva .distribucion-dona-top (margin-bottom: auto) y la lista
-   .distribucion-lista-bottom (margin-top: auto); sin justify-content para
-   que margin: auto ancle sin redistribuir espacio extra. */
+   .distribucion-dona-top no tiene margen vertical y la lista
+   .distribucion-lista-bottom lleva margin-top: auto; junto con
+   margin-bottom: auto del encabezado (Fase 5, solo card-alto-3) reparten el
+   espacio sobrante por partes iguales, dejando la dona centrada. Sin
+   justify-content para que margin: auto ancle sin redistribuir espacio extra. */
 .distribucion-card:has(.distribucion-dona),
 .distribucion-activos-card:has(.distribucion-dona),
 .patrimonio-divisa-card:has(.divisa-dona) {
@@ -1247,9 +1249,25 @@ body.dashboard-card-dragging * {
     flex-direction: column;
 }
 
-.distribucion-lista-bottom,
-.distribucion-activos-lista-bottom,
-.divisa-lista-bottom {
+/* Fase 5 — Layout bottom-anchored de las 3 tarjetas de distribución (contrato PO 2025-11-25).
+   Solo 1×3 (card-alto-3): título arriba, espacio libre, dona centrada,
+   espacio libre, lista abajo. Los márgenes automáticos del título y de la lista
+   se reparten el espacio sobrante por partes iguales, dejando la dona en el
+   centro. En 1x2 se conserva el comportamiento anterior: lista justo debajo
+   del título y espacio libre debajo de la lista. */
+.distribucion-card.card-alto-3 .card-header,
+.distribucion-activos-card.card-alto-3 .card-header,
+.patrimonio-divisa-card.card-alto-3 .card-header {
+    margin-bottom: auto;
+}
+.distribucion-card.card-alto-3 .distribucion-dona-top,
+.distribucion-activos-card.card-alto-3 .distribucion-activos-dona-top,
+.patrimonio-divisa-card.card-alto-3 .divisa-dona-top {
+    margin-bottom: 0;
+}
+.distribucion-card.card-alto-3 .distribucion-lista-bottom,
+.distribucion-activos-card.card-alto-3 .distribucion-activos-lista-bottom,
+.patrimonio-divisa-card.card-alto-3 .divisa-lista-bottom {
     margin-top: auto;
     display: flex;
     flex-direction: column;

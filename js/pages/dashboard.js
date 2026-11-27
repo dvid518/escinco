@@ -2460,13 +2460,17 @@ const GENERADORES_CARD = {
         </div>
     `;
     },
-    "flujo-caja": () => generarCardMetrica("flujo-caja", "Flujo de caja", null, "flujo-caja-valor", "flujo-caja-detalle"),
     "gastos-periodo": () => {
         const clasesSpan = clasesCard("gastos-periodo")
         return `
         <div class="glass card card-navegable metric-card gastos-periodo-card ${clasesSpan}" id="card-gastos-periodo" data-dashboard-card="gastos-periodo" role="button" tabindex="0" title="Gastado">
             <div class="card-header">
                 <span class="card-title">Gastado</span>
+            </div>
+            <div class="toggle-group periodo-flujo" id="periodo-flujo-gastos" role="group" aria-label="Período de gastos">
+                ${PERIODOS_FLUJO.map(p => `
+                    <span class="toggle-option${p.id === periodoFlujo ? " active" : ""}" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                `).join('')}
             </div>
             <div class="card-value negative" id="gastos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="gastos-periodo-detalle">${skeletonText()}</div>
@@ -2480,12 +2484,33 @@ const GENERADORES_CARD = {
             <div class="card-header">
                 <span class="card-title">Ingresado</span>
             </div>
+            <div class="toggle-group periodo-flujo" id="periodo-flujo-ingresos" role="group" aria-label="Período de ingresos">
+                ${PERIODOS_FLUJO.map(p => `
+                    <span class="toggle-option${p.id === periodoFlujo ? " active" : ""}" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                `).join('')}
+            </div>
             <div class="card-value positive" id="ingresos-periodo-valor">${skeletonText("skeleton-value")}</div>
             <div class="card-sub" id="ingresos-periodo-detalle">${skeletonText()}</div>
         </div>
     `;
     },
-    "balance-periodo": () => generarCardMetrica("balance-periodo", "Balance", null, "balance-periodo-valor", "balance-periodo-detalle"),
+    "balance-periodo": () => {
+        const clasesSpan = clasesCard("balance-periodo")
+        return `
+        <div class="glass card card-navegable metric-card ${clasesSpan}" id="card-balance-periodo" data-dashboard-card="balance-periodo" role="button" tabindex="0" title="Balance">
+            <div class="card-header">
+                <span class="card-title">Balance</span>
+            </div>
+            <div class="toggle-group periodo-flujo" id="periodo-flujo-balance" role="group" aria-label="Período de balance">
+                ${PERIODOS_FLUJO.map(p => `
+                    <span class="toggle-option${p.id === periodoFlujo ? " active" : ""}" data-periodo-flujo="${p.id}">${p.etiqueta}</span>
+                `).join('')}
+            </div>
+            <div class="card-value" id="balance-periodo-valor">${skeletonText("skeleton-value")}</div>
+            <div class="card-sub" id="balance-periodo-detalle">${skeletonText()}</div>
+        </div>
+    `;
+    },
     "deudas": () => generarCardMetrica("deudas", "Deudas", null, "deudas-valor", "deudas-detalle"),
     "programados": () => {
         const clasesSpan = clasesCard("programados")
@@ -2607,14 +2632,14 @@ const LISTAS_DASHBOARD = [
 const VALORES_DASHBOARD = [
     "patrimonio-valor", "patrimonio-activos", "patrimonio-deuda",
     "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
-    "flujo-caja-valor", "deudas-valor",
+    "deudas-valor",
     "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"
 ]
 
 // `patrimonio-detalle` no entra aquí: es el contenedor de las filas de 1x2, y
 // vaciarlo dejaba el desglose sin sus valores (se gestionan en VALORES).
 const DETALLES_DASHBOARD = [
-    "inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+    "inversiones-detalle", "vencimientos-detalle",
     "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle",
     "balance-periodo-detalle", "ordenes-detalle"
 ]
@@ -2643,12 +2668,12 @@ function limpiarEsqueletosDashboard() {
     if (donaActivos) donaActivos.replaceChildren()
     const valores = ["patrimonio-valor", "patrimonio-activos", "patrimonio-deuda",
         "total-cuentas", "inversiones-valor", "vencimientos-cantidad",
-        "flujo-caja-valor", "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
+        "deudas-valor", "gastos-periodo-valor", "ingresos-periodo-valor", "balance-periodo-valor"]
     valores.forEach(id => {
         const valor = document.getElementById(id)
         if (valor) valor.replaceChildren()
     })
-    const detalles = ["inversiones-detalle", "vencimientos-detalle", "flujo-caja-detalle",
+    const detalles = ["inversiones-detalle", "vencimientos-detalle",
         "deudas-detalle", "gastos-periodo-detalle", "ingresos-periodo-detalle", "balance-periodo-detalle",
         "ordenes-detalle"]
     detalles.forEach(id => {
@@ -3366,7 +3391,6 @@ async function actualizarUI() {
     actualizarPendientes(erroresCargaOpcionales.pendientes)
     actualizarOrdenes(erroresCargaOpcionales.ordenes)
     actualizarEstrategias(erroresCargaOpcionales.estrategias)
-    actualizarFlujoCaja()
     actualizarFlujoPeriodo()
     actualizarDeudas()
     actualizarPresupuestos()
@@ -3593,6 +3617,44 @@ function mostrarErrorCarga() {
     })
 }
 
+// Ordena pendientes: vencidos (más antiguos primero) → próximos (más cercanos primero) → sin fecha
+function ordenarPendientesPorVencimiento(pendientes) {
+    const hoy = new Date()
+    hoy.setHours(0, 0, 0, 0)
+
+    const conFecha = []
+    const sinFecha = []
+
+    for (const p of pendientes) {
+        if (p.fechaVencimiento) {
+            const venc = new Date(p.fechaVencimiento)
+            // Fecha inválida (NaN) se trata como sin fecha
+            if (Number.isNaN(venc.getTime())) {
+                sinFecha.push(p)
+                continue
+            }
+            venc.setHours(0, 0, 0, 0)
+            p._vencimientoNormalizado = venc
+            conFecha.push(p)
+        } else {
+            sinFecha.push(p)
+        }
+    }
+
+    // Vencidos: vencimiento < hoy, ordenados por más antiguo primero (más urgente)
+    const vencidos = conFecha.filter(p => p._vencimientoNormalizado < hoy)
+        .sort((a, b) => a._vencimientoNormalizado - b._vencimientoNormalizado)
+
+    // Próximos: vencimiento >= hoy, ordenados por más cercano primero
+    const proximos = conFecha.filter(p => p._vencimientoNormalizado >= hoy)
+        .sort((a, b) => a._vencimientoNormalizado - b._vencimientoNormalizado)
+
+    // Limpiar propiedad temporal
+    for (const p of conFecha) delete p._vencimientoNormalizado
+
+    return [...vencidos, ...proximos, ...sinFecha]
+}
+
 function actualizarPendientes(error) {
     const lista = document.getElementById("pendientes-lista")
     const cantidadEl = document.getElementById("pendientes-cantidad")
@@ -3613,7 +3675,10 @@ function actualizarPendientes(error) {
         return
     }
 
-    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesData, pendiente => {
+    // Ordenar sin mutar el array original
+    const pendientesOrdenados = ordenarPendientesPorVencimiento([...pendientesData])
+
+    lista.replaceChildren(contenidoDesdeFilas("tpl-dashboard-list-item", pendientesOrdenados, pendiente => {
         const clase = pendiente.tipo ? "positive" : "negative"
         const signo = pendiente.tipo ? "+" : "−"
         const detalle = pendiente.fechaVencimiento
@@ -3817,24 +3882,6 @@ function actualizarFlujoPeriodo() {
 
     document.getElementById("card-balance-periodo")?.classList.toggle("positive", datos.balance > 0)
     document.getElementById("card-balance-periodo")?.classList.toggle("negative", datos.balance < 0)
-}
-
-function actualizarFlujoCaja() {
-    const valorEl = document.getElementById("flujo-caja-valor")
-    const detalleEl = document.getElementById("flujo-caja-detalle")
-    const cardEl = document.getElementById("card-flujo-caja")
-    if (!valorEl || !analiticaData) {
-        if (valorEl) valorEl.textContent = ""
-        if (detalleEl) detalleEl.textContent = ""
-        return
-    }
-
-    valorEl.textContent = formatearMontoDashboard(analiticaData.balance, divisaActual)
-    if (detalleEl) {
-        detalleEl.textContent = `+${formatearMontoDashboard(analiticaData.ingresos, divisaActual)} · −${formatearMontoDashboard(analiticaData.gastos, divisaActual)}`
-    }
-    cardEl?.classList.toggle("positive", analiticaData.balance > 0)
-    cardEl?.classList.toggle("negative", analiticaData.balance < 0)
 }
 
 function actualizarDeudas() {
@@ -4447,7 +4494,6 @@ function configurarCardsNavegacion() {
     bindNavegacion("card-ordenes", "/trading")
     bindNavegacion("card-estrategias", "/inversiones")
     bindNavegacion("card-movimientos", "/movimientos")
-    bindNavegacion("card-flujo-caja", "/movimientos")
     bindNavegacion("card-gastos-periodo", "/movimientos")
     bindNavegacion("card-ingresos-periodo", "/movimientos")
     bindNavegacion("card-balance-periodo", "/movimientos")
@@ -5068,12 +5114,6 @@ function plantillaFavorito(posicion) {
 // ============================================
 
 function configurarMetas() {
-    document.getElementById("btn-nueva-meta")
-        ?.addEventListener("click", () => {
-            if (modoEdicionDashboard) return
-            abrirModalMeta()
-        })
-
     instalarSincronizacionMetas()
 }
 
@@ -5424,21 +5464,6 @@ function desenmascararValores() {
     nodosEnmascarados.clear()
 }
 
-// Divisas que el usuario realmente usa, según sus cuentas (sin archivadas).
-// La divisa activa siempre está presente para que el toggle nunca quede sin
-// opción seleccionada. Mantenida por compatibilidad (legacy).
-function divisasDeCuentas() {
-    const usadas = []
-    for (const cuenta of cuentas) {
-        if (cuenta.estado === "archivada") continue
-        const divisa = String(cuenta.moneda || cuenta.divisa || "pen").toLowerCase()
-        if (!usadas.includes(divisa)) usadas.push(divisa)
-    }
-    if (usadas.length === 0) usadas.push(getDivisaPrincipal())
-    if (!usadas.includes(divisaActual)) usadas.unshift(divisaActual)
-    return usadas
-}
-
 // Recalcula los valores de las cards con la divisa activa. No vuelve a montar
 // ni a reordenar cards: el toggle de divisa solo actualiza cifras en su sitio.
 async function refrescarValoresDashboard() {
@@ -5448,7 +5473,6 @@ async function refrescarValoresDashboard() {
     actualizarInversiones()
     actualizarDistribucionActivos()
     analiticaData = construirAnaliticaDashboard(movimientosCompletosData)
-    actualizarFlujoCaja()
     actualizarFlujoPeriodo()
     actualizarDeudas()
     actualizarDistribucion()
@@ -5559,13 +5583,13 @@ function configurarPeriodos(contenedor = document.getElementById("grafico-period
     marcarActivo()
 }
 
-// Toggle compartido por las cards Gastado / Ingresado / Balance, y ahora
-// también el de Ingresado: cada card con métricas lleva su propio grupo con
-// `data-periodo-flujo`, porque todas comparten el MISMO `periodoFlujo`.
-// Solo redibuja texto: los totales de cada ventana ya vienen calculados en
-// `analiticaData.flujoPorPeriodo`, así que no hace falta releer Firestore.
+// Toggle compartido por las cards Gastado / Ingresado / Balance: cada card
+// con métricas lleva su propio grupo con `data-periodo-flujo`, porque todas
+// comparten el MISMO `periodoFlujo`. Solo redibuja texto: los totales de
+// cada ventana ya vienen calculados en `analiticaData.flujoPorPeriodo`, así
+// que no hace falta releer Firestore.
 function configurarPeriodoFlujoDashboard() {
-    const contenedores = document.querySelectorAll("#periodo-flujo-gastos, #periodo-flujo-ingresos")
+    const contenedores = document.querySelectorAll("#periodo-flujo-gastos, #periodo-flujo-ingresos, #periodo-flujo-balance")
 
     contenedores.forEach(contenedor => {
         if (!contenedor || contenedor.dataset.eventosListos === "1") return

@@ -1,7 +1,7 @@
 # Etapa 8 — Contrato Actualizado: Restricciones de Dimensiones y Composiciones del Dashboard
 
 **Fecha:** 2025-11-25  
-**Estado:** Especificación aprobada por PO — Lista para implementación  
+**Estado:** Implementación completada — Decisiones PO implementadas y verificadas  
 **Fuente:** Decisiones PO Etapa 8 + Nuevas decisiones PO (2025-11-25) + Resoluciones pendientes (2025-11-25)
 
 ---
@@ -18,15 +18,15 @@ Fuente: constante `DASHBOARD_DIMENSIONES` en `js/pages/dashboard.js`.
 | **vencimientos** | Y | 1 (fijo) | 1–2 | 1×1 | Máximo 1×2. |
 | **movimientos** | Y | 1 (fijo) | 1–3 | 1×2 | Con scroll interno. |
 | **favoritos** | Y | 1 (fijo) | 1–2 | 1×2 | **Solo 1×2 y 1×3** (sin 1×1). |
-| **metas** | Y | 1 (fijo) | 1–3 | 1×1 | Botón "Nueva". Skeleton persistente = defecto funcional. |
+| **metas** | Y | 1 (fijo) | 1–3 | 1×1 | Badge con cantidad de metas (arriba a la derecha). Sin botón "Nueva". Skeleton persistente = defecto funcional. |
 | **presupuestos** | Y | 1 (fijo) | 1–3 | 1×1 | Skeleton persistente = defecto funcional. |
 | **pendientes** | Y | 1 (fijo) | 1–3 | 1×1 | Orden: vencidos → próximos → sin fecha. |
 | **ordenes** | Y | 1 (fijo) | 1–3 | 1×1 | Orden: activas → ejecutadas → canceladas. |
 | **estrategias** | Y | 1 (fijo) | 1–3 | 1×1 | Orden: próximas → sin fecha → pasadas. |
 | **programados** | Y | 1 (fijo) | 1–3 | 1×1 | Orden: próximos → pasados. |
-| **gastos-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Valor negativo. |
-| **ingresos-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Valor positivo. |
-| **balance-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. |
+| **gastos-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Valor negativo. Toggle-group de período compartido. |
+| **ingresos-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Valor positivo. Toggle-group de período compartido. |
+| **balance-periodo** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Toggle-group de período compartido. |
 | **deudas** | Y | 1 (fijo) | 1 (fijo) | 1×1 | **Solo 1×1**. Total obligaciones (saldo deuda tarjetas crédito). |
 | **distribucion** | Y | 1 (fijo) | 1–3 | 1×2 | **Única tarjeta con 3 filas original**. Distribución patrimonial. |
 | **distribucion-activos** | Y | 1 (fijo) | 1–3 | 1×2 | Distribución por tipo de activo. 1×2: barras; 1×3: barras + dona. |
@@ -165,9 +165,9 @@ Fuente: constante `DASHBOARD_DIMENSIONES` en `js/pages/dashboard.js`.
 | `ordenes` | 1×1, 1×2, 1×3 | Orden: activas → ejecutadas → canceladas |
 | `estrategias` | 1×1, 1×2, 1×3 | Orden: próximas → sin fecha → pasadas |
 | `programados` | 1×1, 1×2, 1×3 | Orden: próximos → pasados |
-| `gastos-periodo` | 1×1 | Solo 1×1, valor negativo |
-| `ingresos-periodo` | 1×1 | Solo 1×1, valor positivo |
-| `balance-periodo` | 1×1 | Solo 1×1 |
+| `gastos-periodo` | 1×1 | Solo 1×1, valor negativo, toggle-group período compartido |
+| `ingresos-periodo` | 1×1 | Solo 1×1, valor positivo, toggle-group período compartido |
+| `balance-periodo` | 1×1 | Solo 1×1, toggle-group período compartido |
 | `alertas` | 1×1 | Solo 1×1 |
 | `grafico` | 1×2, 2×2 | Alto fijo 2, eje X |
 
@@ -426,6 +426,7 @@ const DASHBOARD_CARDS = [
 | `gastos/ingresos/balance-periodo` alto | 1–2 | **1** (fijo 1×1) |
 | `cuentas/inversiones/vencimientos` alto | 1–3 | **1–2** (máx 1×2) |
 | `flujo-caja` | Existe | **Eliminada** |
+| Metas botón "Nueva" | Existe | **Eliminado → badge con cantidad** |
 | Divisas toggle Patrimonio | PEN/USD/USDT/EUR (cuentas activas) | **PEN/USD/EUR (historial completo, sin USDT, orden fijo)** |
 | `distribucion-activos` tipos | Solo los que tiene usuario | **Todos los 5 tipos siempre (0% si no hay), orden fijo** |
 | `patrimonio-divisa` valores | Convertidos | **Moneda original** |
@@ -438,4 +439,14 @@ const DASHBOARD_CARDS = [
 
 **Fin del documento.**  
 Este contrato sustituye a `etapa8-contrato-dimensiones.md` y `etapa8-inventario-tarjetas.md` para la fase de implementación.  
-**Todas las decisiones PO están cerradas. El plan de implementación (Sección 6) está listo para revisión y autorización.**
+**Todas las decisiones PO están cerradas e implementadas. La implementación ha sido verificada con tests automatizados (`npm test`) y lint.**
+
+### Decisiones implementadas en esta versión (2025-11-26):
+
+1. ✅ **Metas**: Badge con cantidad de metas en la cabecera (arriba a la derecha), sin botón "Nueva".
+2. ✅ **Pendientes**: Ordenados por vencimiento — vencidos (más antiguos primero) → próximos (más cercanos primero) → sin fecha.
+3. ✅ **Gastos/Ingresos/Balance**: Toggle-group de período compartido (7D/30D/90D/Todo) en cada tarjeta, reutilizando estilos existentes.
+4. ✅ **flujo-caja**: Eliminada completamente (generador, referencias en LISTAS/VALORES/DETALLES_DASHBOARD, actualizador, navegación).
+5. ✅ **Distribución / Distribución-activos / Patrimonio-divisa**: Confirmadas solo 1×2 y 1×3 (sin 1×1).
+6. ✅ **Deudas**: Confirmada solo 1×1, implementación terminada.
+7. ✅ **Skeletons Metas/Presupuestos**: No se corrige en esta fase (defecto funcional conocido).

@@ -2,6 +2,7 @@ import { icono } from "../core/iconos.js"
 import { sesion } from "../core/sesion.js"
 import { haySeleccionActiva } from "../pages/movimientos.js"
 import { contenidoDesdeTemplate } from "./modal.js"
+import { animarDesplazamiento, obtenerTransformSinTranslateY } from "./animaciones.js"
 
 // ============================================
 // NOTIFICACIONES
@@ -23,6 +24,9 @@ const CLAVE_HISTORIAL_LOCAL = () => `escinco:notificaciones:${sesion.uid || "ano
 
 let contenedorInyectado = false
 const activas = new Map()
+
+// Control de reorganización FLIP pendiente para evitar conflictos en cierres consecutivos
+let reorganizacionPendiente = null
 
 // ============================================
 // HISTORIAL · CENTRO DE NOTIFICACIONES
@@ -263,17 +267,64 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
     // Forzar reflow para disparar la animación de entrada
     requestAnimationFrame(() => notificacion.classList.add("notificacion-activa"))
 
+    const reducirMovimiento = matchMedia("(prefers-reduced-motion: reduce)").matches
+
     let cerrada = false
+    let timer = null
     const cerrar = () => {
         if (cerrada || !notificacion.isConnected) return
         cerrada = true
+        if (timer) clearTimeout(timer)
         activas.delete(id)
         notificacion.classList.remove("notificacion-activa")
         notificacion.classList.add("notificacion-saliendo")
-        setTimeout(() => {
+
+        // Cancelar cualquier reorganización FLIP pendiente de un cierre anterior.
+        // Esto evita que cierres consecutivos usen firstRects obsoletos.
+        if (reorganizacionPendiente) {
+            clearTimeout(reorganizacionPendiente.timeoutId)
+            reorganizacionPendiente = null
+        }
+
+        // FLIP: capturar posiciones de las restantes ANTES de eliminar del DOM
+        const contenedorPadre = notificacion.parentElement
+        const restantes = contenedorPadre
+            ? Array.from(contenedorPadre.children).filter(el => el !== notificacion)
+            : []
+        const firstRects = restantes.map(el => el.getBoundingClientRect())
+
+        const timeoutId = setTimeout(() => {
             notificacion.remove()
+
+            // Invert + Play: las restantes ya se reposicionaron por flexbox.
+            // Animar su regreso suave a la posición natural.
+            if (!reducirMovimiento && restantes.length > 0) {
+                // Recapturar lastRect AHORA (tras el remove) para cada elemento restante.
+                // Esto maneja correctamente cierres consecutivos: los elementos ya están
+                // en su posición final tras el remove anterior.
+                restantes.forEach((el, i) => {
+                    // Verificar que el elemento sigue en el DOM y es hermano
+                    if (!el.isConnected || el.parentElement !== contenedorPadre) return
+                    const lastRect = el.getBoundingClientRect()
+                    const deltaY = firstRects[i].top - lastRect.top
+                    if (Math.abs(deltaY) > 0.5) {
+                        // Preservar transform base (p. ej. translateX del swipe) y añadir translateY invertido
+                        const baseTransform = obtenerTransformSinTranslateY(el)
+                        el.style.transform = baseTransform
+                            ? `${baseTransform} translateY(${deltaY}px)`
+                            : `translateY(${deltaY}px)`
+                        animarDesplazamiento(el, { deltaY, duracion: 300, contexto: "notificaciones" })
+                    }
+                })
+            }
+
+            // No retirar el contenedor mientras existan notificaciones restantes.
             limpiarContenedorVacio()
-        }, 250)
+            reorganizacionPendiente = null
+        }, reducirMovimiento ? 0 : 300)
+
+        reorganizacionPendiente = { timeoutId, contenedorPadre, firstRects, restantes }
+
         if (alCerrar) alCerrar()
     }
 
@@ -291,7 +342,6 @@ export function mostrarNotificacion(tipo = "info", mensaje, duracion = 3000, acc
         })
     })
 
-    let timer = null
     if (duracion > 0) {
         timer = setTimeout(() => {
             activas.delete(id)

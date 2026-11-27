@@ -183,11 +183,14 @@ export function animarColeccion(elementos, {
 /**
  * Cancela la animación activa de un elemento individual.
  * @param {HTMLElement} elemento
+ * @param {Function} [onCancel] callback ejecutado antes de desregistrar, útil para
+ *        restaurar estilos inline (p. ej. limpiar transform) al cancelar.
  */
-export function cancelarAnimacion(elemento) {
+export function cancelarAnimacion(elemento, onCancel) {
     const entrada = porElemento.get(elemento)
     if (!entrada) return
     pausarElemento(elemento)
+    if (onCancel) onCancel(elemento)
     desregistrar(elemento)
 }
 
@@ -224,4 +227,73 @@ export function cancelarTodasLasAnimaciones() {
  */
 export function estaAnimando(elemento) {
     return porElemento.has(elemento)
+}
+
+/**
+ * Anima el desplazamiento vertical de un elemento (patrón FLIP: Invert + Play).
+ * Anima `translateY` de `deltaY` a `0`, dejando el elemento en su posición natural
+ * al terminar. Limpia solo la parte `translateY` que inyecta la animación, sin
+ * sobrescribir estilos ajenos (p. ej. `--desplazamiento` del swipe).
+ * @param {HTMLElement} elemento
+ * @param {Object} [opciones]
+ * @param {number} [opciones.deltaY=0] - desplazamiento inicial en px (positivo = abajo)
+ * @param {number} [opciones.duracion=300]
+ * @param {string|undefined} [opciones.contexto]
+ * @returns {Promise} que se resuelve cuando la animación termina
+ */
+export function animarDesplazamiento(elemento, { deltaY = 0, duracion = 300, contexto } = {}) {
+    if (reducirMovimientoHabilitado()) {
+        limpiarSoloTranslateY(elemento)
+        return Promise.resolve()
+    }
+
+    // Guardar transform previo (excluyendo translateY que vamos a animar)
+    const transformPrevio = obtenerTransformSinTranslateY(elemento)
+
+    cancelarAnimacion(elemento, (el) => {
+        // Al cancelar: restaurar solo el transform previo, no borrar todo
+        el.style.transform = transformPrevio
+    })
+
+    const instancia = animate(elemento, {
+        translateY: [deltaY, 0],
+        duration: duracion,
+        easing: "easeOutQuad",
+    })
+
+    instancia.finished.then(() => {
+        // Al terminar: restaurar transform previo (sin el translateY animado)
+        elemento.style.transform = transformPrevio
+    }, () => {
+        // Al fallar/cancelar: idem
+        elemento.style.transform = transformPrevio
+    })
+
+    registrar(elemento, instancia, contexto)
+    return instancia.finished
+}
+
+/**
+ * Extrae el valor de `transform` quitando cualquier `translateY(...)` o `translate3d(..., ..., ...)`
+ * que pueda haber sido inyectado por FLIP. Conserva el resto (p. ej. `translateX(var(--desplazamiento))`).
+ * @param {HTMLElement} elemento
+ * @returns {string} transform sin componentes de translateY
+ */
+export function obtenerTransformSinTranslateY(elemento) {
+    const transform = elemento.style.transform || ""
+    if (!transform) return ""
+    // Quitar translateY(...) y translate3d(..., Y, ...) pero conservar translateX y otros
+    return transform
+        .replace(/translateY\([^)]+\)/g, "")
+        .replace(/translate3d\(([^,]+),\s*[^,]+,\s*([^)]+)\)/g, "translate3d($1, 0, $2)")
+        .replace(/\s+/g, " ")
+        .trim()
+}
+
+/**
+ * Limpia solo la componente `translateY` del estilo inline `transform`.
+ * @param {HTMLElement} elemento
+ */
+function limpiarSoloTranslateY(elemento) {
+    elemento.style.transform = obtenerTransformSinTranslateY(elemento)
 }

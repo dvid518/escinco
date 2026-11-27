@@ -29,7 +29,6 @@ const ctx = {
         { id: "pendientes", label: "Pendientes", spanColumnas: 1, spanFilas: 1 },
         { id: "ordenes", label: "Órdenes", spanColumnas: 1, spanFilas: 1 },
         { id: "estrategias", label: "Estrategias", spanColumnas: 1, spanFilas: 1 },
-        { id: "flujo-caja", label: "Flujo de caja", spanColumnas: 1, spanFilas: 1 },
         { id: "gastos-periodo", label: "Gastado", spanColumnas: 1, spanFilas: 1 },
         { id: "ingresos-periodo", label: "Ingresado", spanColumnas: 1, spanFilas: 1 },
         { id: "balance-periodo", label: "Balance", spanColumnas: 1, spanFilas: 1 },
@@ -474,9 +473,7 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         var getDivisaPrincipal = function () { return "pen" };
     `, ctx)
     vm.runInContext(extraerFuncion(SRC, "alternarMascaraTexto") + ";", ctx)
-    vm.runInContext(extraerFuncion(SRC, "divisasDeCuentas") + ";", ctx)
 
-    vm.runInContext(extraerFuncion(SRC, "actualizarFlujoCaja") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarDeudas") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarDistribucion") + ";", ctx)
     vm.runInContext(extraerFuncion(SRC, "actualizarProgramados") + ";", ctx)
@@ -503,34 +500,18 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         return el && el.replaceChildrenCalled === true
     }
 
-    // Test B2.1: actualizarFlujoCaja limpia skeleton cuando analiticaData es null.
-    ctx.analiticaData = null
-    ctx.divisaActual = "pen"
-    ctx.createdElements = {}
-    ctx.actualizarFlujoCaja()
-    const cajaValor = ctx.createdElements["flujo-caja-valor"]
-    const cajaDetalle = ctx.createdElements["flujo-caja-detalle"]
-    t.check(
-        "B2.1 actualizarFlujoCaja limpia valor cuando analiticaData es null",
-        cajaValor && cajaValor.textContent === ""
-    )
-    t.check(
-        "B2.1 actualizarFlujoCaja limpia detalle cuando analiticaData es null",
-        cajaDetalle && cajaDetalle.textContent === ""
-    )
-
-    // Test B2.2: actualizarDeudas limpia skeleton cuando analiticaData es null.
+    // Test B2.1: actualizarDeudas limpia skeleton cuando analiticaData es null.
     ctx.analiticaData = null
     ctx.createdElements = {}
     ctx.actualizarDeudas()
     const deudasValor = ctx.createdElements["deudas-valor"]
     const deudasDetalle = ctx.createdElements["deudas-detalle"]
     t.check(
-        "B2.2 actualizarDeudas limpia valor cuando analiticaData es null",
+        "B2.1 actualizarDeudas limpia valor cuando analiticaData es null",
         deudasValor && deudasValor.textContent === ""
     )
     t.check(
-        "B2.2 actualizarDeudas limpia detalle cuando analiticaData es null",
+        "B2.1 actualizarDeudas limpia detalle cuando analiticaData es null",
         deudasDetalle && deudasDetalle.textContent === ""
     )
 
@@ -579,23 +560,13 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         alertaCantidad && alertaCantidad.textContent === "0"
     )
 
-    // Test B2.6: actualizarFlujoCaja muestra datos cuando analiticaData tiene datos.
-    ctx.analiticaData = { balance: 100, ingresos: 200, gastos: 100 }
-    ctx.createdElements = {}
-    ctx.actualizarFlujoCaja()
-    const cajaValor2 = ctx.createdElements["flujo-caja-valor"]
-    t.check(
-        "B2.6 actualizarFlujoCaja muestra balance cuando hay datos",
-        cajaValor2 && cajaValor2.textContent === "100"
-    )
-
-    // Test B2.7: actualizarDistribucion muestra datos cuando analiticaData tiene datos.
+    // Test B2.6: actualizarDistribucion muestra datos cuando analiticaData tiene datos.
     ctx.analiticaData = { distribucion: [] }
     ctx.createdElements = {}
     ctx.actualizarDistribucion()
     const _distLista2 = ctx.createdElements["distribucion-lista"]
     t.check(
-        "B2.7 actualizarDistribucion reemplaza lista cuando hay datos",
+        "B2.6 actualizarDistribucion reemplaza lista cuando hay datos",
         replaceChildrenFueLlamado("distribucion-lista")
     )
 
@@ -677,15 +648,6 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         listadoCuentas.valores[1].valores["detalle"] === "USD" &&
         listadoCuentas.valores[2].valores["valor@class"].includes("negative"),
         JSON.stringify(listadoCuentas && listadoCuentas.valores.map(v => v.valores))
-    )
-
-    // E8.7: divisas del toggle de Patrimonio = solo las que usan las cuentas
-    // del usuario, sin duplicados y sin archivadas.
-    const divisasToggle = ctx.divisasDeCuentas()
-    t.check(
-        "E8.7 divisasDeCuentas devuelve las divisas reales sin duplicados",
-        JSON.stringify(divisasToggle) === JSON.stringify(["pen", "usd"]),
-        JSON.stringify(divisasToggle)
     )
 
     // E8.8: la máscara sustituye dígitos por "*" y restaura el original.
@@ -2417,6 +2379,160 @@ export default async function ejecutar(t = nuevoReporter("card-001")) {
         t.check(
             "E8.x Deudas limpia detalle cuando analiticaData es null",
             ctxV.__els["deudas-detalle"]?.textContent === ""
+        )
+    }
+
+    // ================================================================
+    // Etapa 8 ajustes aprobados: Metas badge, Pendientes orden, Periodo toggle
+    // ================================================================
+
+    // E8.A: Metas muestra badge con cantidad, sin botón "Nueva"
+    {
+        const htmlMetas = ctxV.generarCardMetrica("metas", "Metas de ahorro", null, "metas-valor", "metas-detalle")
+        // El generador real de metas está en GENERADORES_CARD.metas, no en generarCardMetrica
+        // Verificar que no hay botón "Nueva" en el generador real
+        const iMetasGen = SRC.indexOf('"metas": () =>')
+        const finMetasGen = SRC.indexOf("};", iMetasGen) + 2
+        const genMetas = SRC.slice(iMetasGen, finMetasGen)
+        t.check(
+            "E8.A Metas generador no incluye botón 'Nueva'",
+            !genMetas.includes("btn-nueva-meta") && !genMetas.includes("Nueva")
+        )
+        t.check(
+            "E8.A Metas generador incluye badge metas-cantidad",
+            genMetas.includes('id="metas-cantidad"')
+        )
+    }
+
+    // E8.B: Pendientes ordenados por vencimiento (vencidos → próximos → sin fecha)
+    {
+        const hoy = new Date()
+        hoy.setHours(0, 0, 0, 0)
+        const ayer = new Date(hoy)
+        ayer.setDate(ayer.getDate() - 1)
+        const anteayer = new Date(hoy)
+        anteayer.setDate(anteayer.getDate() - 2)
+        const manana = new Date(hoy)
+        manana.setDate(manana.getDate() + 1)
+        const pasadoManana = new Date(hoy)
+        pasadoManana.setDate(pasadoManana.getDate() + 2)
+
+        const pendientesPrueba = [
+            { concepto: "Próximo 1", fechaVencimiento: manana, tipo: true, monto: 100, divisa: "pen" },
+            { concepto: "Vencido 1 (ayer)", fechaVencimiento: ayer, tipo: false, monto: 200, divisa: "pen" },
+            { concepto: "Sin fecha", fechaVencimiento: null, tipo: true, monto: 50, divisa: "pen" },
+            { concepto: "Vencido 2 (anteayer)", fechaVencimiento: anteayer, tipo: false, monto: 300, divisa: "pen" },
+            { concepto: "Próximo 2 (pasado mañana)", fechaVencimiento: pasadoManana, tipo: true, monto: 150, divisa: "pen" },
+        ]
+
+        ctxV.pendientesData = pendientesPrueba
+        vm.runInContext(extraerFuncion(SRC, "ordenarPendientesPorVencimiento") + ";", ctxV)
+        const ordenados = ctxV.ordenarPendientesPorVencimiento([...pendientesPrueba])
+
+        t.check(
+            "E8.B Pendientes: primero vencidos (anteayer antes que ayer - más urgente primero)",
+            ordenados[0].concepto === "Vencido 2 (anteayer)" &&
+            ordenados[1].concepto === "Vencido 1 (ayer)"
+        )
+        t.check(
+            "E8.B Pendientes: luego próximos (mañana antes que pasado mañana)",
+            ordenados[2].concepto === "Próximo 1" &&
+            ordenados[3].concepto === "Próximo 2 (pasado mañana)"
+        )
+        t.check(
+            "E8.B Pendientes: al final sin fecha",
+            ordenados[4].concepto === "Sin fecha"
+        )
+        t.check(
+            "E8.B Pendientes: no muta el array original",
+            pendientesPrueba[0].concepto === "Próximo 1"
+        )
+
+        // Fechas inválidas no rompen el orden
+        const conFechaInvalida = [
+            { concepto: "Válida", fechaVencimiento: manana, tipo: true, monto: 100, divisa: "pen" },
+            { concepto: "Inválida", fechaVencimiento: "no-es-fecha", tipo: true, monto: 100, divisa: "pen" },
+        ]
+        const ordenadosInvalidos = ctxV.ordenarPendientesPorVencimiento([...conFechaInvalida])
+        t.check(
+            "E8.B Pendientes: fecha inválida no rompe (va al grupo sin fecha)",
+            ordenadosInvalidos[0].concepto === "Válida" &&
+            ordenadosInvalidos[1].concepto === "Inválida"
+        )
+    }
+
+    // E8.C: Gastos/Ingresos/Balance tienen toggle-group de período compartido
+    {
+        // Verificar que los 3 generadores incluyen toggle-group con id correcto
+        for (const id of ["gastos-periodo", "ingresos-periodo", "balance-periodo"]) {
+            const iGen = SRC.indexOf(`"${id}": () =>`)
+            const finGen = SRC.indexOf("};", iGen) + 2
+            const gen = SRC.slice(iGen, finGen)
+            const toggleId = `periodo-flujo-${id}`
+            t.check(
+                `E8.C ${id} incluye toggle-group #${toggleId}`,
+                gen.includes(`id="${toggleId}"`) && gen.includes("toggle-group") && gen.includes("data-periodo-flujo")
+            )
+        }
+
+        // Verificar que configurarPeriodoFlujoDashboard busca los 3 contenedores
+        const iConfig = SRC.indexOf("function configurarPeriodoFlujoDashboard")
+        const finConfig = SRC.indexOf("}", iConfig)
+        // Buscar el cierre de la función (el último } antes de la siguiente function)
+        let nivel = 0
+        let finReal = iConfig
+        for (let k = iConfig; k < SRC.length; k++) {
+            if (SRC[k] === "{") nivel++
+            else if (SRC[k] === "}") {
+                nivel--
+                if (nivel === 0) { finReal = k + 1; break }
+            }
+        }
+        const configFn = SRC.slice(iConfig, finReal)
+        t.check(
+            "E8.C configurarPeriodoFlujoDashboard selecciona los 3 contenedores",
+            configFn.includes("#periodo-flujo-gastos") &&
+            configFn.includes("#periodo-flujo-ingresos") &&
+            configFn.includes("#periodo-flujo-balance")
+        )
+
+        // Verificar que comparten periodoFlujo (variable global)
+        const iPeriodoFlujo = SRC.indexOf("let periodoFlujo = PERIODO_FLUJO_POR_DEFECTO")
+        t.check(
+            "E8.C periodoFlujo es variable compartida (let)",
+            iPeriodoFlujo >= 0
+        )
+    }
+
+    // E8.D: flujo-caja eliminada completamente
+    {
+        t.check(
+            "E8.D GENERADORES_CARD no tiene flujo-caja",
+            !SRC.includes('"flujo-caja":')
+        )
+        t.check(
+            "E8.D VALORES_DASHBOARD no tiene flujo-caja-valor",
+            !SRC.includes('"flujo-caja-valor"')
+        )
+        t.check(
+            "E8.D DETALLES_DASHBOARD no tiene flujo-caja-detalle",
+            !SRC.includes('"flujo-caja-detalle"')
+        )
+        t.check(
+            "E8.D actualizarUI no llama actualizarFlujoCaja",
+            !SRC.includes("actualizarFlujoCaja()")
+        )
+        t.check(
+            "E8.D refrescarValoresDashboard no llama actualizarFlujoCaja",
+            !SRC.includes("actualizarFlujoCaja()") // ya verificado arriba
+        )
+        t.check(
+            "E8.D configurarCardsNavegacion no navega card-flujo-caja",
+            !SRC.includes('bindNavegacion("card-flujo-caja"')
+        )
+        t.check(
+            "E8.D función actualizarFlujoCaja eliminada",
+            !SRC.includes("function actualizarFlujoCaja")
         )
     }
 
